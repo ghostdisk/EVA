@@ -92,3 +92,34 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
 {
 	Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
 }
+
+Mesh* CreateMesh(
+	const char* name,
+	size_t num_vertices, const MeshVertex* vertices,
+	size_t num_indices, const U32* indices)
+{
+	Mesh* mesh = new Mesh();
+	strcpy(mesh->name, name);
+	mesh->index_count = num_indices;
+
+	glGenVertexArrays(1, &mesh->vao);
+	glBindVertexArray(mesh->vao);
+
+	glGenBuffers(1, &mesh->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * num_vertices, vertices, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &mesh->ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * num_indices, indices, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(MeshVertex), (void*)0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
+	glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texcoord));
+
+	return mesh;
+}

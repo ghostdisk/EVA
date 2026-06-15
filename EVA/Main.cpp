@@ -21,22 +21,17 @@ int main()
 
 	GLuint triangle_program = GLCompileShaderProgram("Triangle");
 
-	float triangle[] = {
-		-0.5, -0.5, 0,
-		0.5, -0.5, 0,
-		0, 0.5, 0,
+	MeshVertex quad_vertices[] = {
+		MeshVertex { .position = float3(0, 0, 0) },
+		MeshVertex { .position = float3(1, 0, 0) },
+		MeshVertex { .position = float3(1, 1, 0) },
+		MeshVertex { .position = float3(0, 1, 0) },
 	};
+	U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
 
-	GLuint vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(triangle), &triangle, GL_STATIC_DRAW);
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, 12, (void*)0);
+	Mesh* mesh_quad = CreateMesh("mesh_quad",
+		EVA_ARRAYSIZE(quad_vertices), quad_vertices,
+		EVA_ARRAYSIZE(quad_indices), quad_indices);
 
 	while (!DoQuit)
 	{
@@ -57,8 +52,8 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glUseProgram(triangle_program);
-		glBindVertexArray(vao);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindVertexArray(mesh_quad->vao);
+		glDrawElements(GL_TRIANGLES, mesh_quad->index_count, GL_UNSIGNED_INT, (void*)0);
 		GL_ERROR_CHECK();
 
 		SDL_GL_SwapWindow(GameWindow);

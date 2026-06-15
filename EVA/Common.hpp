@@ -6,6 +6,8 @@
 
 #define EVA_BASE_DIR "D:/EVA"
 
+#define EVA_ARRAYSIZE(arr) (sizeof(arr)/sizeof((arr)[0]))
+
 struct SDL_Window;
 
 ////////////////////////////////////////////////////////////////////////////////
