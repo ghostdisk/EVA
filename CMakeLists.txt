@@ -6,6 +6,8 @@ add_executable (EVA
 	"EVA/Utils.cpp"
 	"EVA/GL.cpp"
 	"EVA/GLTF.cpp"
+	"EVA/IO.cpp"
+	"EVA/Camera.cpp"
 )
 
 

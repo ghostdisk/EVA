@@ -1,8 +1,8 @@
 #include <EVA/GL.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/IO.hpp>
+#include <EVA/Camera.hpp>
 #include <SDL3/SDL.h>
-#include <cglm/clipspace/persp_lh_no.h>
-#include <cglm/clipspace/view_lh_zo.h>
 #include <cglm/mat4.h>
 
 SDL_Window* GameWindow = nullptr;
@@ -11,14 +11,14 @@ bool DoQuit = false;
 GLTF* gltf_monke = nullptr;
 Mesh* mesh_quad = nullptr;
 
-float  FOV            = 60 * GLM_PI / 180.0f;
-float3 CameraPosition = {0, 0, 10};
-float3 CameraForward  = {0, 0, -1};
-float3 CameraUp       = {0, 1, 0};
-
 int WindowWidth = 1600;
 int WindowHeight = 900;
 
+Camera camera;
+
+// time:
+static U64 FrameStartTimeNS;
+double DeltaTime = 0.01;
 
 int main()
 {
@@ -33,7 +33,8 @@ int main()
 		Fatal("SDL_CreateWindow: %s", SDL_GetError());
 	}
 
-	GLInit();
+	GLInitialize();
+	IOInitialize();
 
 	GLuint main_program = GLCompileShaderProgram("Main");
 
@@ -54,11 +55,22 @@ int main()
 		gltf_monke = GLTFLoad("monke");
 	}
 
+	CameraInit(camera);
+	camera.position.y = -10;
+
 	while (!DoQuit)
 	{
+		U64 new_time = SDL_GetTicksNS();
+		U64 dt_ns = new_time - FrameStartTimeNS;
+		DeltaTime = double(dt_ns) / 1'000'000'000;
+		FrameStartTimeNS = new_time;
+
+		IOBeginFrame();
+
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
+			IOHandleSDLEvent(&event);
 			switch (event.type)
 			{
 				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
@@ -69,33 +81,34 @@ int main()
 			}
 		}
 
-		SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
+		{ // Process input:
+		}
 
-		glViewport(0, 0, WindowWidth, WindowHeight);
-		glClearColor(0, 0, 0, 1);
-		glEnable(GL_DEPTH_TEST);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glDepthFunc(GL_LESS);
+		{ // Simulate game:
+			CameraFly(camera);
+			CameraUpdateMatrices(camera);
+		}
 
-		Mesh* mesh = gltf_monke->meshes[0];
+		{ // Render frame:
+			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
-		vec4 c;
-		float4x4 view;
-		glm_look_lh_zo(CameraPosition, CameraForward, CameraUp, view);
+			glViewport(0, 0, WindowWidth, WindowHeight);
+			glClearColor(0, 0, 0, 1);
+			glEnable(GL_DEPTH_TEST);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glDepthFunc(GL_LESS);
 
-		float4x4 projection;
-		glm_perspective_lh_no(FOV, (float)WindowWidth / (float)WindowHeight, 0.1f, 500.0f, projection);
+			Mesh* mesh = gltf_monke->meshes[0];
 
-		float4x4 view_projection;
-		glm_mat4_mul(projection, view, view_projection);
+			glUseProgram(main_program);
+			glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
+			glBindVertexArray(mesh->vao);
+			glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+			GL_ERROR_CHECK();
 
-		glUseProgram(main_program);
-		glUniformMatrix4fv(0, 1, false, (float*)&view_projection);
-		glBindVertexArray(mesh->vao);
-		glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
-		GL_ERROR_CHECK();
+			SDL_GL_SwapWindow(GameWindow);
+		}
 
-		SDL_GL_SwapWindow(GameWindow);
 	}
 
 	return 0;

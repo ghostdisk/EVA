@@ -6,7 +6,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
 
-void GLInit();
+void GLInitialize();
 GLuint GLCompileShaderProgram(const char* name);
 
 struct MeshVertex

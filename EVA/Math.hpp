@@ -1,5 +1,8 @@
 #pragma once
+#include <EVA/Common.hpp>
 #include <string.h>
+#include <cglm/types.h>
+#include <math.h>
 
 struct float2
 {
@@ -9,7 +12,20 @@ struct float2
 	float2() {}
 	float2(float _x, float _y) : x(_x), y(_y) {}
 	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
+
+	inline float SquaredLength() { return x*x + y*y; }
+	inline float Length() { return sqrtf(x*x + y*y); }
 };
+
+inline float2 operator+(const float2& a, const float2& b) { return float2(a.x+b.x, a.y+b.y); }
+inline float2 operator-(const float2& a, const float2& b) { return float2(a.x-b.x, a.y-b.y); }
+inline float2 operator*(const float2& vec, float s) { return float2(vec.x*s, vec.y*s); }
+inline float2 operator/(const float2& vec, float s) { return float2(vec.x/s, vec.y/s); }
+
+inline void operator+=(float2& a, const float2& b) { a.x += b.x; a.y += b.y;  }
+inline void operator-=(float2& a, const float2& b) { a.x -= b.x; a.y -= b.y;  }
+inline void operator*=(float2& vec, float s) { vec.x *= s; vec.y *= s;  }
+inline void operator/=(float2& vec, float s) { vec.x /= s; vec.y /= s;  }
 
 struct float3
 {
@@ -20,7 +36,30 @@ struct float3
 	float3() {}
 	float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
+
+	inline float SquaredLength() { return x*x + y*y + z*z; }
+	inline float Length() { return sqrtf(x*x + y*y + z*z); }
+
+	inline float3 Normalized();
 };
+
+inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
+inline float3 operator-(const float3& a, const float3& b) { return float3(a.x-b.x, a.y-b.y, a.z-b.z); }
+inline float3 operator*(const float3& vec, float s) { return float3(vec.x*s, vec.y*s, vec.z*s); }
+inline float3 operator/(const float3& vec, float s) { return float3(vec.x/s, vec.y/s, vec.z/s); }
+
+inline void operator+=(float3& a, const float3& b) { a.x += b.x; a.y += b.y; a.z += b.z; }
+inline void operator-=(float3& a, const float3& b) { a.x -= b.x; a.y -= b.y; a.z -= b.z; }
+inline void operator*=(float3& vec, float s) { vec.x *= s; vec.y *= s; vec.z *= s; }
+inline void operator/=(float3& vec, float s) { vec.x /= s; vec.y /= s; vec.z /= s; }
+
+inline float3 float3::Normalized()
+{
+	float len = Length();
+	assert(len > 0.0001f);
+	return (*this) * (1.0f / Length());
+}
+
 
 struct float4
 {
@@ -35,12 +74,10 @@ struct float4
 };
 
 
-typedef float __declspec(align(16)) float4_arr[4];
-
 struct __declspec(align(16)) float4x4
 {
 	float data[4][4]; // column major, indexed as [col][row]
-	inline operator float4_arr*() { return &data[0]; } // needed so we can pss it to cglm conveniently
+	inline operator vec4*() { return &data[0]; } // needed so we can pss it to cglm conveniently
 };
 
 inline void zero(float4x4& mat)
