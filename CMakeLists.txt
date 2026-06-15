@@ -5,6 +5,7 @@ add_executable (EVA
 	"EVA/Main.cpp"
 	"EVA/Utils.cpp"
 	"EVA/GL.cpp"
+	"EVA/GLTF.cpp"
 )
 
 

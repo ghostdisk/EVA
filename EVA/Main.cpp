@@ -1,8 +1,13 @@
 #include <EVA/GL.hpp>
+#include <EVA/GLTF.hpp>
 #include <SDL3/SDL.h>
 
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
+
+GLTF* gltf_monke = nullptr;
+Mesh* mesh_quad = nullptr;
+
 
 int main()
 {
@@ -21,17 +26,22 @@ int main()
 
 	GLuint triangle_program = GLCompileShaderProgram("Triangle");
 
-	MeshVertex quad_vertices[] = {
-		MeshVertex { .position = float3(0, 0, 0) },
-		MeshVertex { .position = float3(1, 0, 0) },
-		MeshVertex { .position = float3(1, 1, 0) },
-		MeshVertex { .position = float3(0, 1, 0) },
-	};
-	U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
+	{ // quad mesh:
+		MeshVertex quad_vertices[] = {
+			MeshVertex { .position = float3(0, 0, 0) },
+			MeshVertex { .position = float3(1, 0, 0) },
+			MeshVertex { .position = float3(1, 1, 0) },
+			MeshVertex { .position = float3(0, 1, 0) },
+		};
+		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
+		mesh_quad = CreateMesh("mesh_quad",
+			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
+			EVA_ARRAYSIZE(quad_indices), quad_indices);
+	}
 
-	Mesh* mesh_quad = CreateMesh("mesh_quad",
-		EVA_ARRAYSIZE(quad_vertices), quad_vertices,
-		EVA_ARRAYSIZE(quad_indices), quad_indices);
+	{ // monke gltf:
+		gltf_monke = GLTFLoad("monke");
+	}
 
 	while (!DoQuit)
 	{
@@ -51,9 +61,11 @@ int main()
 		glClearColor(1, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 
+		Mesh* mesh = gltf_monke->meshes[0];
+
 		glUseProgram(triangle_program);
-		glBindVertexArray(mesh_quad->vao);
-		glDrawElements(GL_TRIANGLES, mesh_quad->index_count, GL_UNSIGNED_INT, (void*)0);
+		glBindVertexArray(mesh->vao);
+		glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
 		GL_ERROR_CHECK();
 
 		SDL_GL_SwapWindow(GameWindow);
