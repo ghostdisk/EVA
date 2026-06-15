@@ -31,3 +31,10 @@ target_link_libraries(EVA SDL3-static)
 
 target_sources(EVA PRIVATE "Vendor/glad/src/glad.c")
 target_include_directories(EVA PRIVATE "Vendor/glad/include")
+
+
+#
+# cglm
+#
+
+target_include_directories(EVA PRIVATE "Vendor/cglm-0.9.6/include")
