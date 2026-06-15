@@ -8,7 +8,7 @@ GLTF* GLTFLoad(const char* name)
 	GLTF* gltf = new GLTF();
 
 	char path[256];
-	snprintf(path, sizeof(path), "%s/Assets/%s.glb", EVA_BASE_DIR, name);
+	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
 
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
@@ -75,7 +75,7 @@ GLTF* GLTFLoad(const char* name)
 		char mesh_name[64];
 		snprintf(mesh_name, 64, "%s/meshes/%d", name, mesh_idx);
 
-		gltf->meshes.push_back(CreateMesh(mesh_name,
+		gltf->meshes.push_back(MeshCreate(mesh_name,
 			vertices.size(), vertices.data(),
 			indices.size(), indices.data()));
 	}

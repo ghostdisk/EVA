@@ -3,6 +3,9 @@
 
 SDL_GLContext GL = nullptr;
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <Vendor/stb_image.h>
+
 void GLInitialize()
 {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -93,7 +96,7 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
 	Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
 }
 
-Mesh* CreateMesh(
+Mesh* MeshCreate(
 	const char* name,
 	size_t num_vertices, const MeshVertex* vertices,
 	size_t num_indices, const U32* indices)
@@ -122,4 +125,34 @@ Mesh* CreateMesh(
 	glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texcoord));
 
 	return mesh;
+}
+
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels)
+{
+	Texture* texture = new Texture();
+	glGenTextures(1, &texture->handle);
+	glBindTexture(GL_TEXTURE_2D, texture->handle);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	GL_ERROR_CHECK();
+	return texture;
+}
+
+Texture* TextureLoad(const char* name)
+{
+	char path[256];
+	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
+
+	int width, height, channels_in_file;
+	U8* pixels = stbi_load(path, &width, &height, &channels_in_file, 4);
+	if (!pixels)
+	{
+		Fatal("Failed to load %s", path);
+	}
+	DEFER(free(pixels));
+
+	return TextureCreate(name, width, height, pixels);
 }

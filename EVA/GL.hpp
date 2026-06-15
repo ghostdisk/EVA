@@ -25,6 +25,13 @@ struct Mesh
 	U32    index_count = 0;
 };
 
+struct Texture
+{
+	GLuint handle = 0;
+	size_t width  = 0;
+	size_t height = 0;
+};
+
 #define GL_ERROR_CHECK() \
 	do \
 	{ \
@@ -38,7 +45,11 @@ struct Mesh
 
 void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error);
 
-Mesh* CreateMesh(
+Mesh* MeshCreate(
 	const char* name,
 	size_t num_vertices, const MeshVertex* vertices,
 	size_t num_indices, const U32* indices);
+
+
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels);
+Texture* TextureLoad(const char* name);

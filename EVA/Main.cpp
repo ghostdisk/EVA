@@ -10,6 +10,7 @@ bool DoQuit = false;
 
 GLTF* gltf_monke = nullptr;
 Mesh* mesh_quad = nullptr;
+Texture* tex_test = nullptr;
 
 int WindowWidth = 1600;
 int WindowHeight = 900;
@@ -46,13 +47,14 @@ int main()
 			MeshVertex { .position = float3(0, 1, 0) },
 		};
 		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
-		mesh_quad = CreateMesh("mesh_quad",
+		mesh_quad = MeshCreate("mesh_quad",
 			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
 			EVA_ARRAYSIZE(quad_indices), quad_indices);
 	}
 
-	{ // monke gltf:
-		gltf_monke = GLTFLoad("monke");
+	{ // load assets:
+		gltf_monke = GLTFLoad("monke.glb");
+		tex_test = TextureLoad("test.jpg");
 	}
 
 	CameraInit(camera);
@@ -98,9 +100,20 @@ int main()
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glDepthFunc(GL_LESS);
 
+			glEnable(GL_CULL_FACE);
+			glCullFace(GL_BACK);
+
 			Mesh* mesh = gltf_monke->meshes[0];
 
+			glBindTexture(GL_TEXTURE_2D, tex_test->handle);
+			glActiveTexture(GL_TEXTURE0);
+			GL_ERROR_CHECK();
+
 			glUseProgram(main_program);
+			int loc = glGetUniformLocation(main_program, "u_Texture");
+			glUniform1i(loc, 0);
+			GL_ERROR_CHECK();
+
 			glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
 			glBindVertexArray(mesh->vao);
 			glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
