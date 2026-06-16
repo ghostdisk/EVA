@@ -1,6 +1,7 @@
 #include <EVA/GL.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/IO.hpp>
+#include <EVA/UI.hpp>
 #include <EVA/Camera.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
@@ -9,13 +10,13 @@ SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
 
 GLTF* gltf_monke = nullptr;
-Mesh* mesh_quad = nullptr;
 Texture* tex_test = nullptr;
 
 int WindowWidth = 1600;
 int WindowHeight = 900;
 
 Camera camera;
+UIContext UI;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -36,21 +37,11 @@ int main()
 
 	GLInitialize();
 	IOInitialize();
+	UIInitialize();
+	UIContextInit(UI);
 
 	GLuint main_program = GLCompileShaderProgram("Main");
 
-	{ // quad mesh:
-		MeshVertex quad_vertices[] = {
-			MeshVertex { .position = float3(0, 0, 0) },
-			MeshVertex { .position = float3(1, 0, 0) },
-			MeshVertex { .position = float3(1, 1, 0) },
-			MeshVertex { .position = float3(0, 1, 0) },
-		};
-		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
-		mesh_quad = MeshCreate("mesh_quad",
-			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
-			EVA_ARRAYSIZE(quad_indices), quad_indices);
-	}
 
 	{ // load assets:
 		gltf_monke = GLTFLoad("monke.glb");
@@ -83,6 +74,8 @@ int main()
 			}
 		}
 
+		UIBeginFrame(UI);
+
 		{ // Process input:
 		}
 
@@ -90,6 +83,8 @@ int main()
 			CameraFly(camera);
 			CameraUpdateMatrices(camera);
 		}
+
+		UIEndFrame(UI);
 
 		{ // Render frame:
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
@@ -103,20 +98,26 @@ int main()
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
 
-			Mesh* mesh = gltf_monke->meshes[0];
+			{ // render a mesh:
+				Mesh* mesh = gltf_monke->meshes[0];
 
-			glBindTexture(GL_TEXTURE_2D, tex_test->handle);
-			glActiveTexture(GL_TEXTURE0);
-			GL_ERROR_CHECK();
+				glBindTexture(GL_TEXTURE_2D, tex_test->handle);
+				glActiveTexture(GL_TEXTURE0);
+				GL_ERROR_CHECK();
 
-			glUseProgram(main_program);
-			int loc = glGetUniformLocation(main_program, "u_Texture");
-			glUniform1i(loc, 0);
-			GL_ERROR_CHECK();
+				glUseProgram(main_program);
+				glUniform1i(1, 0);
+				GL_ERROR_CHECK();
 
-			glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
-			glBindVertexArray(mesh->vao);
-			glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+				glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
+				glBindVertexArray(mesh->vao);
+				glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+			}
+
+			{ // render ui:
+				UIRender(UI);
+			}
+
 			GL_ERROR_CHECK();
 
 			SDL_GL_SwapWindow(GameWindow);
