@@ -5,6 +5,7 @@
 #include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
 #include <EVA/Arena.hpp>
+#include <EVA/Renderer.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
 
@@ -45,6 +46,7 @@ int main()
 
 	ArenaInitialize();
 	GLInitialize();
+	RendererInitialize();
 	IOInitialize();
 	DrawInitialize();
 	UIInitialize();
@@ -55,7 +57,6 @@ int main()
 	UIContextInit(UI, fnt_arial);
 
 	GLuint main_program = GLCompileShaderProgram("Main");
-
 
 	{ // load assets:
 		gltf_monke = GLTFLoad("monke.glb");
@@ -130,6 +131,11 @@ int main()
 			}
 		}
 
+		DrawGrid(50);
+		DrawLine({0,0,0}, {1,0,0}, {1,0,0,1});
+		DrawLine({0,0,0}, {0,1,0}, {0,1,0,1});
+		DrawLine({0,0,0}, {0,0,1}, {0,0,1,1});
+
 		UIEndFrame(UI);
 		UIDraw(UI, DC);
 
@@ -161,6 +167,10 @@ int main()
 				glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
 				glBindVertexArray(mesh->vao);
 				glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+			}
+
+			{ 
+				RenderPendingLines();
 			}
 
 			{ // render ui:
