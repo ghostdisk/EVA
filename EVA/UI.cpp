@@ -140,16 +140,77 @@ void UIFlexLayoutPass2(UIBox* box)
 	int main_axis = box->flex_axis;
 	int cross_axis = 1 - main_axis;
 
-	float pos_main = MAIN_AXIS(box->position) + main_axis == 0 ? box->padding_left : box->padding_top;
+	float pos_main = MAIN_AXIS(box->position);
 	float pos_cross = CROSS_AXIS(box->position) + (main_axis == 0 ? box->padding_top : box->padding_left);
+
+	float available_space = MAIN_AXIS(box->size);
+	float available_cross_space = CROSS_AXIS(box->size);
+	float total_flex_grow = 0;
+	float total_children_size = 0;
+	
+	if (main_axis == 0)
+	{
+		pos_main += box->padding_left;
+		available_space -= box->padding_left + box->padding_right;
+		available_cross_space -= box->padding_top + box->padding_bottom;
+	}
+	else
+	{
+		pos_main += box->padding_top;
+		available_space -= box->padding_top + box->padding_bottom;
+		available_cross_space -= box->padding_left + box->padding_right;
+	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
 	{
-		MAIN_AXIS(child->position) = pos_main;
-		CROSS_AXIS(child->position) = pos_cross;
+		total_children_size += MAIN_AXIS(child->size);
+		total_flex_grow += child->flex_grow;
+		total_children_size += box->flex_gap;
+	}
+	total_children_size -= box->flex_gap; // no gap after last child
 
-		child->layout->Pass2(child);
+	float slack = available_space - total_children_size;
+
+	if (box->main_axis_alignment == UIAlignment_Center) pos_main += slack / 2;
+	if (box->main_axis_alignment == UIAlignment_End)    pos_main += slack;
+
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		if (box->main_axis_alignment == UIAlignment_Stretch && child->flex_grow > 0)
+		{
+			float ratio = child->flex_grow / total_flex_grow;
+			MAIN_AXIS(child->size) += slack * ratio;
+		}
+
+		MAIN_AXIS(child->position) = pos_main;
 		pos_main += MAIN_AXIS(child->size) + box->flex_gap;
+
+		switch (box->cross_axis_alignment)
+		{
+			case UIAlignment_Start:
+			{
+				CROSS_AXIS(child->position) = pos_cross;
+				break;
+			}
+			case UIAlignment_Center:
+			{
+				CROSS_AXIS(child->position) = pos_cross + (available_cross_space - CROSS_AXIS(child->size)) / 2;
+				break;
+			}
+			case UIAlignment_End:
+			{
+				CROSS_AXIS(child->position) = pos_cross + (available_cross_space - CROSS_AXIS(child->size));
+				break;
+			}
+			case UIAlignment_Stretch:
+			{
+				CROSS_AXIS(child->position) = pos_cross;
+				CROSS_AXIS(child->size) = available_cross_space;
+				break;
+			}
+		}
+
+
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
@@ -211,18 +272,18 @@ UILayoutMode UILayoutMode_Text = {
 	.Pass2 = UITextLayoutPass2,
 };
 
-
 void UISetPadding(UIBox* box, int padding)
 {
+	assert(box->layout == &UILayoutMode_Flex);
 	box->padding_top    = padding;
 	box->padding_right  = padding;
 	box->padding_bottom = padding;
 	box->padding_left   = padding;
-
 }
 
 void UISetPadding(UIBox* box, int vpadding, int hpadding)
 {
+	assert(box->layout == &UILayoutMode_Flex);
 	box->padding_top    = vpadding;
 	box->padding_right  = hpadding;
 	box->padding_bottom = vpadding;
@@ -231,6 +292,7 @@ void UISetPadding(UIBox* box, int vpadding, int hpadding)
 
 void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
 {
+	assert(box->layout == &UILayoutMode_Flex);
 	box->padding_top    = top;
 	box->padding_right  = right;
 	box->padding_bottom = bottom;
@@ -239,5 +301,6 @@ void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
 
 void UISetGap(UIBox* box, int gap)
 {
+	assert(box->layout == &UILayoutMode_Flex);
 	box->flex_gap = gap;
 }

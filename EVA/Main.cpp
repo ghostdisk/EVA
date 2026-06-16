@@ -43,7 +43,7 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
-	fnt_arial = FontLoad("Arial.ttf", 24, 256);
+	fnt_arial = FontLoad("Arial.ttf", 48, 512);
 
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
@@ -84,6 +84,8 @@ int main()
 
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;
+		UI.root.main_axis_alignment = UIAlignment_Center;
+		UI.root.cross_axis_alignment = UIAlignment_Center;
 
 		{ // Process input:
 		}
@@ -96,15 +98,18 @@ int main()
 			UISetPadding(&UI.root, 20);
 			UISetGap(&UI.root, 20);
 			{
-				UIBox* blue_box = UIBeginBox(UI, 1);
-				blue_box->color = {0,0,0.4,1};
-				blue_box->min_size = { 100, 100 };
+				UIBox* box = UIBeginBox(UI, 1);
+				box->color = {0.5,0,0,1};
+				UISetPadding(box, 20, 40);
+				box->flex_grow = 1;
+				UILabel(UI, "This is a centered <div>.");
 				UIEndBox(UI);
 
-				UIBox* red_box = UIBeginBox(UI, 1);
-				red_box->color = {0.4,0,0,1};
-				UISetPadding(red_box, 20, 40);
-				UILabel(UI, "The quick brown dog jumps over the lazy fox!");
+				box = UIBeginBox(UI, 1);
+				box->color = {0.0,0,0.5,1};
+				UISetPadding(box, 20, 40);
+				box->flex_grow = 1;
+				UILabel(UI, "are you jealous, web dev?");
 				UIEndBox(UI);
 			}
 		}
