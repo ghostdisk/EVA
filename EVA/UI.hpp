@@ -5,17 +5,11 @@
 
 struct UIContext;
 struct UIBox;
-
-
-struct UIQuad
-{
-	float4 position_rect;
-};
+struct DrawContext;
 
 struct UIContext
 {
 	std::vector<UIBox*> all_boxes;
-	std::vector<UIQuad> quads;
 };
 
 struct UIBox
@@ -33,7 +27,7 @@ void UIPushId(UIContext& ui, const char* str);
 void UIPopId(UIContext& ui);
 void UIBeginFrame(UIContext& ui);
 void UIEndFrame(UIContext& ui);
-void UIRender(UIContext& ui);
+void UIDraw(UIContext& ui, DrawContext& dc);
 
 
 // Widgets:

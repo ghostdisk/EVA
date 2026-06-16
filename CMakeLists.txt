@@ -9,6 +9,7 @@ add_executable (EVA
 	"EVA/IO.cpp"
 	"EVA/Camera.cpp"
 	"EVA/UI.cpp"
+	"EVA/Draw.cpp"
 )
 
 
@@ -41,3 +42,10 @@ target_include_directories(EVA PRIVATE "Vendor/glad/include")
 #
 
 target_include_directories(EVA PRIVATE "Vendor/cglm-0.9.6/include")
+
+#
+# FreeType
+#
+
+add_subdirectory("Vendor/freetype-2.14.3")
+target_link_libraries(EVA freetype)

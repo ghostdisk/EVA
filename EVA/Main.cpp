@@ -2,6 +2,7 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/IO.hpp>
 #include <EVA/UI.hpp>
+#include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
@@ -17,6 +18,7 @@ int WindowHeight = 900;
 
 Camera camera;
 UIContext UI;
+DrawContext DC;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -37,7 +39,10 @@ int main()
 
 	GLInitialize();
 	IOInitialize();
+	DrawInitialize();
 	UIInitialize();
+
+	DrawContextInit(DC);
 	UIContextInit(UI);
 
 	GLuint main_program = GLCompileShaderProgram("Main");
@@ -85,6 +90,7 @@ int main()
 		}
 
 		UIEndFrame(UI);
+		UIDraw(UI, DC);
 
 		{ // Render frame:
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
@@ -115,7 +121,7 @@ int main()
 			}
 
 			{ // render ui:
-				UIRender(UI);
+				DrawRender(DC);
 			}
 
 			GL_ERROR_CHECK();
