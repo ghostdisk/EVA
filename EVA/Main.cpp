@@ -22,6 +22,9 @@ UIContext UI;
 DrawContext DC;
 Font* fnt_arial = 0;
 
+float FPSHistory[20] = {};
+float FPS = 0;
+
 // time:
 static U64 FrameStartTimeNS;
 double DeltaTime = 0.01;
@@ -68,7 +71,8 @@ int main()
 		DeltaTime = double(dt_ns) / 1'000'000'000;
 		FrameStartTimeNS = new_time;
 
-		ArenaReset(FrameArena);
+
+		RotateFrameArenas();
 		IOBeginFrame();
 
 		SDL_Event event;
@@ -87,16 +91,37 @@ int main()
 
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;
+		UISetPadding(&UI.root, 8);
 
 		{ // Process input:
+		}
+
+		{ // Update tracked FPS
+			static int k = 0;
+			FPSHistory[k] = 1.0 / DeltaTime;
+			k++;
+			if (k >= EVA_ARRAYSIZE(FPSHistory)) k = 0;
+
+			FPS = 0;
+			for (int i = 0; i < EVA_ARRAYSIZE(FPSHistory); i++)
+			{
+				FPS += FPSHistory[i];
+			}
+			FPS /= (float)EVA_ARRAYSIZE(FPSHistory);
 		}
 
 		{ // Simulate game:
 			CameraFly(camera);
 			CameraUpdateMatrices(camera);
 
+			// FPS counter
+			{
+				char fps_value[64];
+				snprintf(fps_value, 64, "FPS: %f", FPS);
+				UILabel(UI, fps_value);
+			}
+
 			// Dummy UI:
-			UISetPadding(&UI.root, 8);
 			UISetGap(&UI.root, 8);
 			{
 				for (int i = 0; i < 15; i++)

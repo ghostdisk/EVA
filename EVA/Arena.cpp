@@ -2,12 +2,26 @@
 #include <string.h>
 
 #define ARENA_SIZE (1 << 20u) // 1MB
+
+Arena* FrameArenas[NUM_FRAME_ARENAS] = {};
 Arena* FrameArena = nullptr;
 
 void ArenaInitialize()
 {
-	FrameArena = ArenaCreate();
+	for (int i = 0; i < NUM_FRAME_ARENAS; i++)
+	{
+		FrameArenas[i] = ArenaCreate();
+	}
+}
 
+void RotateFrameArenas()
+{
+	static int k = 0;
+	k++;
+	if (k >= NUM_FRAME_ARENAS) k = 0;
+
+	FrameArena = FrameArenas[k];
+	ArenaReset(FrameArena);
 }
 
 Arena* ArenaCreate()
@@ -33,7 +47,7 @@ void* ArenaAllocate(Arena* arena, size_t size)
 	{
 		Fatal("ArenaAllocate: out of memory");
 	}
-	return arena->head;
+	return ptr;
 
 }
 
