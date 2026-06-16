@@ -9,6 +9,7 @@
 #include <EVA/Renderer.hpp>
 #include <EVA/ClientGame.hpp>
 #include <EVA/ServerGame.hpp>
+#include <EVA/Physics.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
@@ -61,6 +62,7 @@ int main()
 	ArenaInitialize();
 	GLInitialize();
 	RendererInitialize();
+	PhysicsInitialize();
 	IOInitialize();
 	DrawInitialize();
 	UIInitialize();
