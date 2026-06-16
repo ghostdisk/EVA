@@ -49,13 +49,7 @@ void UIEndFrame(UIContext& ui)
 
 void UIDraw(UIContext& ui, DrawContext& dc)
 {
-	DrawText(dc, ui.default_font, "The quick brown fox jumps over the lazy dog.", 100, 100);
-	// dc.quads.push_back(DrawQuadRecord{
-	// 	.texture = ui.default_font->atlas,
-	// 	.position_rect = { 0, 0, 200, 200 },
-	// });
-	// dc.quads.push_back(DrawQuadRecord{
-	// 	.texture = ui.default_font->atlas,
-	// 	.position_rect = { 200, 200, 400, 200 },
-	// });
+	DrawRectangle(dc, 100, 100, 300, 300, {0,0,0.2,1});
+	DrawRectangle(dc, 400, 100, 300, 300, {0.2,0,0,1});
+	DrawText(dc, ui.default_font, "The quick brown fox jumps over the lazy dog.", 100, 100, { 1, 1, 1, 1});
 }

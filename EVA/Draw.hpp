@@ -22,19 +22,35 @@ struct Font
 {
 	FT_Face face = {};
 	Texture* atlas = 0;
+	int yoffset = 0;
 
 	FontGlyph glyphs[256];
 };
+
+enum DrawQuadMode
+{
+	DrawQuadMode_SolidColor,
+	DrawQuadMode_Text,
+};
+
 struct DrawQuad
 {
+	int mode;
+	int pad0;
+	int pad1;
+	int pad2;
 	float4 position_rect;
 	float4 uv_rect;
+	float4 tint;
 };
+
 struct DrawQuadRecord
 {
-	Texture* texture;
-	float4 position_rect;
-	float4 uv_rect;
+	DrawQuadMode mode          = DrawQuadMode_SolidColor;
+	Texture*     texture       = nullptr;
+	float4       position_rect = {};
+	float4       uv_rect       = {};
+	float4       tint          = { 1,1,1,1 };
 };
 
 struct DrawContext
@@ -46,6 +62,7 @@ void DrawInitialize();
 void DrawContextInit(DrawContext& dc);
 void DrawRender(DrawContext& dc);
 
-void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y);
+void DrawRectangle(DrawContext& dc, int x, int y, int w, int h, float4 color);
+void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color);
 
 Font* FontLoad(const char* name, int size, int atlas_size);

@@ -43,7 +43,7 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
-	fnt_arial = FontLoad("Arial.ttf", 48, 512);
+	fnt_arial = FontLoad("Arial.ttf", 24, 256);
 
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
@@ -99,10 +99,12 @@ int main()
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
 			glViewport(0, 0, WindowWidth, WindowHeight);
-			glClearColor(0, 0, 0, 1);
+			glClearColor(0.2, 0.2, 0.2, 1);
+
 			glEnable(GL_DEPTH_TEST);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glDepthFunc(GL_LESS);
+			glDisable(GL_BLEND);
 
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
@@ -131,7 +133,6 @@ int main()
 
 			SDL_GL_SwapWindow(GameWindow);
 		}
-
 	}
 
 	return 0;

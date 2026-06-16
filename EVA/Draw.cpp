@@ -3,6 +3,7 @@
 #include <EVA/Platform.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include <vector>
 
 static Mesh* DrawQuadMesh = nullptr;
 static GLuint DrawBoxShader;
@@ -42,14 +43,14 @@ void DrawContextInit(DrawContext& dc)
 
 void DrawRender(DrawContext& dc)
 {
-
-
 	glDisable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_FRONT);
 	glUseProgram(DrawBoxShader);
 	glBindVertexArray(DrawQuadMesh->vao);
 	glUniform2f(0, WindowWidth, WindowHeight);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	GL_ERROR_CHECK();
 
 	int start = 0;
@@ -69,9 +70,12 @@ void DrawRender(DrawContext& dc)
 		std::vector<DrawQuad> quads(end - start);
 		for (int i = start; i < end; i++)
 		{
-			quads[i] = DrawQuad{
-				.position_rect = dc.quads[i].position_rect,
-				.uv_rect = dc.quads[i].uv_rect,
+			DrawQuadRecord& record = dc.quads[i];
+			quads[i - start] = DrawQuad{
+				.mode          = record.mode,
+				.position_rect = record.position_rect,
+				.uv_rect       = record.uv_rect,
+				.tint          = record.tint,
 			};
 		}
 
@@ -82,19 +86,22 @@ void DrawRender(DrawContext& dc)
 		glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, quad_buffer);
 		GL_ERROR_CHECK();
 
-		glBindTexture(GL_TEXTURE_2D, texture->handle);
-		glActiveTexture(GL_TEXTURE0);
-		glUniform1i(1, 0);
-		GL_ERROR_CHECK();
+		if (texture)
+		{
+			glBindTexture(GL_TEXTURE_2D, texture->handle);
+			glActiveTexture(GL_TEXTURE0);
+			glUniform1i(1, 0);
+			GL_ERROR_CHECK();
+		}
 
 		glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, quads.size());
 		GL_ERROR_CHECK();
 
-		dc.quads.clear();
 		glDeleteBuffers(1, &quad_buffer);
 
 		start = end;
 	}
+	dc.quads.clear();
 }
 
 static void Blit(
@@ -171,11 +178,22 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 	char texture_name[256];
 	snprintf(texture_name, 256, "%s_atlas", name);
 	font->atlas = TextureCreate(texture_name, atlas_size, atlas_size, atlas_buffer, GL_R8);
+	font->yoffset = font->glyphs['O'].height;
 
 	return font;
 }
 
-void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y)
+void DrawRectangle(DrawContext& dc, int x, int y, int w, int h, float4 color)
+{
+	dc.quads.push_back(DrawQuadRecord{
+		.mode = DrawQuadMode_SolidColor,
+		.position_rect = float4(x, y, w, h),
+		.uv_rect = {0,0,0,0},
+		.tint = color,
+	});
+}
+
+void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color)
 {
 	for (const char* ptr = text; *ptr; ptr++)
 	{
@@ -184,17 +202,18 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y)
 		FontGlyph& glyph = font->glyphs[c];
 
 		int xx = x + glyph.xoffs;
-		int yy = y - glyph.yoffs;
+		int yy = y - glyph.yoffs + font->yoffset;
 
 		dc.quads.push_back(DrawQuadRecord{
+			.mode = DrawQuadMode_Text,
 			.texture = font->atlas,
 			.position_rect = float4(xx, yy, glyph.width, glyph.height),
-			 .uv_rect = float4(
-			 	(float)glyph.x / (float)font->atlas->width,
-			 	(float)glyph.y / (float)font->atlas->height,
-			 	(float)glyph.width / (float)font->atlas->width,
-			 	(float)glyph.height / (float)font->atlas->height),
-			//.uv_rect = float4( 0,0,1,1),
+			.uv_rect = float4(
+				(float)glyph.x / (float)font->atlas->width,
+				(float)glyph.y / (float)font->atlas->height,
+				(float)glyph.width / (float)font->atlas->width,
+				(float)glyph.height / (float)font->atlas->height),
+			.tint = color,
 		});
 
 		x += glyph.advance;
