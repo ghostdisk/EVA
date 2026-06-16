@@ -93,6 +93,8 @@ int main()
 			CameraUpdateMatrices(camera);
 
 			// Dummy UI:
+			UISetPadding(&UI.root, 20);
+			UISetGap(&UI.root, 20);
 			{
 				UIBox* blue_box = UIBeginBox(UI, 1);
 				blue_box->color = {0,0,0.4,1};

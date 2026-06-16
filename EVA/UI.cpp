@@ -149,7 +149,7 @@ void UIFlexLayoutPass2(UIBox* box)
 		CROSS_AXIS(child->position) = pos_cross;
 
 		child->layout->Pass2(child);
-		pos_main += MAIN_AXIS(child->size);
+		pos_main += MAIN_AXIS(child->size) + box->flex_gap;
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
@@ -235,4 +235,9 @@ void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
 	box->padding_right  = right;
 	box->padding_bottom = bottom;
 	box->padding_left   = left;
+}
+
+void UISetGap(UIBox* box, int gap)
+{
+	box->flex_gap = gap;
 }
