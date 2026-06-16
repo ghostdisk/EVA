@@ -1,7 +1,11 @@
 ﻿cmake_minimum_required(VERSION 3.30)
+cmake_policy(SET CMP0091 NEW) # allow MSVC CRT selection via flag
 
 project(EVA)
-add_executable (EVA
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+add_executable(EVA
 	"EVA/Main.cpp"
 	"EVA/Utils.cpp"
 	"EVA/GL.cpp"
@@ -16,6 +20,7 @@ add_executable (EVA
 	"EVA/Game.cpp"
 	"EVA/ClientGame.cpp"
 	"EVA/ServerGame.cpp"
+	"EVA/Physics.cpp"
 )
 
 
