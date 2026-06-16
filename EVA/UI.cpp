@@ -30,6 +30,7 @@ UIBox* UIBeginBox(UIContext& ui, U32 id)
 		}
 	}
 	if (!box) box = new UIBox();
+	ui.all_boxes.push_back(box);
 
 	box->id              = id;
 	box->used_this_frame = true;
@@ -89,6 +90,21 @@ void UIBeginFrame(UIContext& ui)
 	ui.root.size        = float2(WindowWidth, WindowHeight);
 	ui.root.min_size    = float2(WindowWidth, WindowHeight);
 	ui.root.layout      = &UILayoutMode_Flex;
+
+	for (int i = 0; i < ui.all_boxes.size(); i++)
+	{
+		UIBox* box = ui.all_boxes[i];
+		if (!box->id || box->used_this_frame)
+		{
+			delete box;
+			ui.all_boxes[i] = ui.all_boxes.back();
+			ui.all_boxes.pop_back();
+			i--;
+		}
+		box->used_this_frame = false;
+	}
+
+
 }
 
 
