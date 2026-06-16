@@ -20,6 +20,7 @@ SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
 
 GLTF* gltf_monke = nullptr;
+GLTF* gltf_cube = nullptr;
 Texture* tex_test = nullptr;
 
 int WindowWidth = 1600;
@@ -74,11 +75,11 @@ int main()
 
 	{ // load assets:
 		gltf_monke = GLTFLoad("monke.glb");
+		gltf_cube = GLTFLoad("cube.glb");
 		tex_test = TextureLoad("test.jpg");
 	}
 
 	GLuint main_program = GLCompileShaderProgram("Main");
-
 
 	server = new ServerGame();
 	ServerGameInit(server, "SERVER");

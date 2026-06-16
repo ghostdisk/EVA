@@ -146,6 +146,14 @@ public:
 	/// INTERNAL HELPER FUNCTION USED BY SERIALIZATION
 	void **					InternalGetPointer()							{ return reinterpret_cast<void **>(&mPtr); }
 
+	// @PATCH
+	T* Disown()
+	{
+		T* ptr = mPtr;
+		mPtr = nullptr;
+		return ptr;
+	}
+
 private:
 	template <class T2> friend class RefConst;
 
@@ -203,6 +211,14 @@ public:
 	uint64					GetHash() const
 	{
 		return Hash<const T *> { } (mPtr);
+	}
+
+	// @PATCH
+	const T* Disown()
+	{
+		const T* ptr = mPtr;
+		mPtr = nullptr;
+		return ptr;
 	}
 
 	/// INTERNAL HELPER FUNCTION USED BY SERIALIZATION

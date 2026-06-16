@@ -11,11 +11,18 @@ enum EntityType : U8
 	EntityType_StaticMesh = 1,
 };
 
-struct BaseEntity
+namespace JPH
 {
-	EID         eid       = 0;
-	EntityType  type      = EntityType_None;	
-	bool        alive     = false;
+	class Body;
+}
+using PhysicsBody = JPH::Body;
+
+// @CONSTRUCTOR_NOT_CALLED
+struct Entity
+{
+	EID         eid;
+	EntityType  type;
+	bool        alive;
 	// 2 bytes of waste here
 
 	union
@@ -26,13 +33,16 @@ struct BaseEntity
 			float4 rotation;
 			float3 scale;
 		};
-		BaseEntity* next_free = nullptr;
+		Entity* next_free;
 	};
+
+	PhysicsBody* body;
 };
 
-struct EStaticMesh : BaseEntity
+// @CONSTRUCTOR_NOT_CALLED
+struct EStaticMesh : Entity
 {
-	Mesh* mesh = nullptr;
+	Mesh* mesh;
 };
 
 template <typename TEntity>
@@ -45,7 +55,7 @@ struct EntityPool
 
 	void Init(int capacity)
 	{
-		begin     = (TEntity*)malloc(capacity);
+		begin     = (TEntity*)malloc(capacity * sizeof(TEntity));
 		end       = begin + capacity;
 		head      = begin;
 		free_list = nullptr;
@@ -65,9 +75,11 @@ struct EntityPool
 			entity = head;
 			head++;
 		}
+
+		// TODO: We should probably call the entity's constructor!
+		memset(entity, 0, sizeof(TEntity));
 		entity->eid      = eid;
 		entity->alive    = true;
-		entity->position = {};
 		entity->rotation = {0,0,0,1};
 		entity->scale    = {1,1,1};
 		return entity;

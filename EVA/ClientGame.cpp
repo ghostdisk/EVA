@@ -1,19 +1,34 @@
 #include <EVA/ClientGame.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/Physics.hpp>
 #include <enet/enet.h>
 
 extern GLTF* gltf_monke;
+extern GLTF* gltf_cube;
 
 void ClientGameInit(ClientGame* game, const char* name)
 {
 	GameInit(game, name);
 
-	EStaticMesh* monkey1 = game->entity_manager.StaticMesh.CreateEntity(1);
-	monkey1->mesh = gltf_monke->meshes[0];
-	monkey1->position.x = 4;
+	PhysicsShape* shape_cube1x1 = PhysicsCreateBoxShape(float3(1,1,1));
+	PhysicsShape* shape_floor = PhysicsCreateBoxShape(float3(20,1,20));
 
-	EStaticMesh* monkey2 = game->entity_manager.StaticMesh.CreateEntity(1);
-	monkey2->mesh = gltf_monke->meshes[0];
+	for (int i = 0; i < 30; i++)
+	{
+		EStaticMesh* cube = game->entity_manager.StaticMesh.CreateEntity(i);
+		printf("%p\n", cube);
+		cube->mesh = gltf_cube->meshes[0];
+		cube->position.z = 2 + i * 2.2;
+		cube->position.x = (rand() % 100) / 100.0f;
+		cube->position.y = (rand() % 100) / 100.0f;
+		PhysicsAttachBodyToEntity(game->physics, cube, shape_cube1x1, PhysicsLayer_Moving);
+	}
+
+	EStaticMesh* floor = game->entity_manager.StaticMesh.CreateEntity(100);
+	floor->mesh = gltf_cube->meshes[0];
+	floor->scale.x = 20;
+	floor->scale.y = 20;
+	PhysicsAttachBodyToEntity(game->physics, floor, shape_floor, PhysicsLayer_NonMoving);
 }
 
 void ClientGameTick(ClientGame* game, double dt)
