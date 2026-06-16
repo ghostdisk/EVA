@@ -7,10 +7,13 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Entities.hpp>
 #include <EVA/Renderer.hpp>
+#include <EVA/ClientGame.hpp>
+#include <EVA/ServerGame.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
+#include <enet/enet.h>
 
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
@@ -21,12 +24,12 @@ Texture* tex_test = nullptr;
 int WindowWidth = 1600;
 int WindowHeight = 900;
 
-Camera camera;
 UIContext UI;
 DrawContext DC;
 Font* fnt_arial = 0;
 
-float FrameTimeHistory[50] = {};
+#define FRAME_TIME_HISTORY_SIZE 50
+float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
 bool VSync = false;
 
@@ -34,7 +37,8 @@ bool VSync = false;
 static U64 FrameStartTimeNS;
 double DeltaTime = 0.01;
 
-EntityManager entity_manager;
+ServerGame* server = nullptr;
+ClientGame* client = nullptr;
 
 int main()
 {
@@ -49,6 +53,11 @@ int main()
 		Fatal("SDL_CreateWindow: %s", SDL_GetError());
 	}
 
+	if (enet_initialize() != 0)
+	{
+		Fatal("enet_initialize failed");
+	}
+
 	ArenaInitialize();
 	GLInitialize();
 	RendererInitialize();
@@ -56,7 +65,7 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
-	fnt_arial = FontLoad("Arial.ttf", 16, 512);
+	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
@@ -66,21 +75,18 @@ int main()
 		tex_test = TextureLoad("test.jpg");
 	}
 
-	{ // Create dumm yentitiy world:
-
-		EntityManagerInit(entity_manager);
-		EStaticMesh* monkey1 = entity_manager.StaticMesh.CreateEntity(1);
-		EStaticMesh* monkey2 = entity_manager.StaticMesh.CreateEntity(1);
-		monkey1->mesh = gltf_monke->meshes[0];
-		monkey2->mesh = gltf_monke->meshes[0];
-
-		monkey1->position.x = 4;
-	}
-
 	GLuint main_program = GLCompileShaderProgram("Main");
 
-	CameraInit(camera);
-	camera.position.y = -10;
+
+	server = new ServerGame();
+	ServerGameInit(server, "SERVER");
+	ServerListen(server, 27015);
+
+
+	client = new ClientGame();
+	ClientGameInit(client, "CLIENT0");
+	ClientConnect(client, {127,0,0,1}, 27015);
+	ActiveGame = client;
 
 	while (!DoQuit)
 	{
@@ -88,7 +94,6 @@ int main()
 		U64 dt_ns = new_time - FrameStartTimeNS;
 		DeltaTime = double(dt_ns) / 1'000'000'000;
 		FrameStartTimeNS = new_time;
-
 
 		RotateFrameArenas();
 		IOBeginFrame();
@@ -107,6 +112,9 @@ int main()
 			}
 		}
 
+		if (IOGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
+		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
+
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;
 		UISetPadding(&UI.root, 8);
@@ -116,26 +124,26 @@ int main()
 			static int k = 0;
 			FrameTimeHistory[k] = DeltaTime;
 			k++;
-			if (k >= EVA_ARRAYSIZE(FrameTimeHistory)) k = 0;
+			if (k >= FRAME_TIME_HISTORY_SIZE) k = 0;
 
 			float avg = 0;
 			for (int i = 0; i < EVA_ARRAYSIZE(FrameTimeHistory); i++)
 			{
 				avg += FrameTimeHistory[i];
 			}
-			avg = avg / (float)EVA_ARRAYSIZE(FrameTimeHistory);
+			avg = avg / (float)(FRAME_TIME_HISTORY_SIZE);
 			FPS = 1.0f / avg;
 		}
 
 		{ // Simulate game:
-			CameraFly(camera);
-			CameraUpdateMatrices(camera);
+			ClientGameTick(client, DeltaTime);
+			if (server) ServerGameTick(server, DeltaTime);
 
-			// FPS counter
+			// Status label
 			{
-				char fps_value[64];
-				snprintf(fps_value, 64, "FPS: %f", FPS);
-				UILabel(UI, fps_value);
+				char status[256];
+				snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
+				UILabel(UI, status);
 			}
 
 			char buf[64];
@@ -169,11 +177,12 @@ int main()
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
 
-			{ // render mesh entities
+			if (ActiveGame)
+			{ 
 				glUseProgram(main_program);
-				glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
+				glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 
-				entity_manager.StaticMesh.Iterate(
+				ActiveGame->entity_manager.StaticMesh.Iterate(
 					[](EStaticMesh* entity)
 					{
 						glBindTexture(GL_TEXTURE_2D, tex_test->handle);
@@ -194,13 +203,8 @@ int main()
 
 			}
 
-			{ 
-				RenderPendingLines();
-			}
-
-			{ // render ui:
-				DrawRender(DC);
-			}
+			RenderPendingLines();
+			DrawRender(DC);
 
 			GL_ERROR_CHECK();
 

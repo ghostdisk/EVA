@@ -13,6 +13,9 @@ add_executable (EVA
 	"EVA/Hashing.cpp"
 	"EVA/Arena.cpp"
 	"EVA/Renderer.cpp"
+	"EVA/Game.cpp"
+	"EVA/ClientGame.cpp"
+	"EVA/ServerGame.cpp"
 )
 
 
@@ -52,3 +55,12 @@ target_include_directories(EVA PRIVATE "Vendor/cglm-0.9.6/include")
 
 add_subdirectory("Vendor/freetype-2.14.3")
 target_link_libraries(EVA freetype)
+
+
+#
+# ENet
+#
+
+add_subdirectory("Vendor/enet-1.3.18")
+target_include_directories(EVA PRIVATE "Vendor/enet-1.3.18/include")
+target_link_libraries(EVA enet "Ws2_32.lib")

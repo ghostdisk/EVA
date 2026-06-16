@@ -1,9 +1,8 @@
 #include <EVA/Renderer.hpp>
-#include <EVA/Camera.hpp>
+#include <EVA/Game.hpp>
 #include <vector>
 
 GLuint LineShader;
-extern Camera camera;
 
 struct LineVertex
 {
@@ -42,7 +41,7 @@ void RenderPendingLines()
 	glUseProgram(LineShader);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
+	glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 	glDrawArrays(GL_LINES, 0, pending_lines.size());
 	GL_ERROR_CHECK();
 
