@@ -5,9 +5,12 @@
 #include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
 #include <EVA/Arena.hpp>
+#include <EVA/Entities.hpp>
 #include <EVA/Renderer.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
+#include <cglm/affine.h>
+#include <cglm/quat.h>
 
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
@@ -30,6 +33,8 @@ bool VSync = false;
 // time:
 static U64 FrameStartTimeNS;
 double DeltaTime = 0.01;
+
+EntityManager entity_manager;
 
 int main()
 {
@@ -56,12 +61,23 @@ int main()
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
 
-	GLuint main_program = GLCompileShaderProgram("Main");
-
 	{ // load assets:
 		gltf_monke = GLTFLoad("monke.glb");
 		tex_test = TextureLoad("test.jpg");
 	}
+
+	{ // Create dumm yentitiy world:
+
+		EntityManagerInit(entity_manager);
+		EStaticMesh* monkey1 = entity_manager.StaticMesh.CreateEntity(1);
+		EStaticMesh* monkey2 = entity_manager.StaticMesh.CreateEntity(1);
+		monkey1->mesh = gltf_monke->meshes[0];
+		monkey2->mesh = gltf_monke->meshes[0];
+
+		monkey1->position.x = 4;
+	}
+
+	GLuint main_program = GLCompileShaderProgram("Main");
 
 	CameraInit(camera);
 	camera.position.y = -10;
@@ -153,20 +169,29 @@ int main()
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
 
-			{ // render a mesh:
-				Mesh* mesh = gltf_monke->meshes[0];
-
-				glBindTexture(GL_TEXTURE_2D, tex_test->handle);
-				glActiveTexture(GL_TEXTURE0);
-				GL_ERROR_CHECK();
-
+			{ // render mesh entities
 				glUseProgram(main_program);
-				glUniform1i(1, 0);
-				GL_ERROR_CHECK();
-
 				glUniformMatrix4fv(0, 1, false, (float*)&camera.view_projection_matrix);
-				glBindVertexArray(mesh->vao);
-				glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+
+				entity_manager.StaticMesh.Iterate(
+					[](EStaticMesh* entity)
+					{
+						glBindTexture(GL_TEXTURE_2D, tex_test->handle);
+						glActiveTexture(GL_TEXTURE0);
+						GL_ERROR_CHECK();
+						glUniform1i(1, 0);
+						GL_ERROR_CHECK();
+
+						float4x4 model_matrix;
+						glm_translate_make(model_matrix, &entity->position.x);
+						glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
+						glm_scale(model_matrix, &entity->scale.x);
+						glUniformMatrix4fv(2, 1, false, (float*)&model_matrix);
+
+						glBindVertexArray(entity->mesh->vao);
+						glDrawElements(GL_TRIANGLES, entity->mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+					});
+
 			}
 
 			{ 

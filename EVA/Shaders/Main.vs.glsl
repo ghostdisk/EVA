@@ -8,10 +8,11 @@ layout (location = 0) out vec3 v_Normal;
 layout (location = 1) out vec2 v_Texcoord;
 
 layout (location = 0) uniform mat4 u_ViewProjection;
+layout (location = 2) uniform mat4 u_Model;
 
 void main()
 {
-	gl_Position = u_ViewProjection * vec4(a_Position, 1);
+	gl_Position = u_ViewProjection * u_Model * vec4(a_Position, 1);
 	v_Normal = a_Normal;
 	v_Texcoord = a_Texcoord;
 }
