@@ -3,6 +3,7 @@
 #include <EVA/Draw.hpp>
 #include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
+#include <EVA/IO.hpp>
 
 void UIInitialize()
 {
@@ -35,10 +36,10 @@ UIBox* UIBeginBox(UIContext& ui, U32 id)
 		ui.all_boxes.push_back(box);
 	}
 
-	assert(!box->used_this_frame && "UIBox id Conflict");
+	assert(!(box->flags & UIBoxFlags_UsedThisFrame) && "UIBox id Conflict");
 
 	box->id              = id;
-	box->used_this_frame = true;
+	box->flags          |= UIBoxFlags_UsedThisFrame;
 	box->next_sibling    = nullptr;
 	box->first_child     = nullptr;
 	box->last_child      = nullptr;
@@ -102,26 +103,59 @@ void UIBeginFrame(UIContext& ui)
 	for (int i = 0; i < ui.all_boxes.size(); i++)
 	{
 		UIBox* box = ui.all_boxes[i];
-		if (!box->id || box->used_this_frame)
+
+		if (!box->id || !(box->flags & UIBoxFlags_UsedThisFrame))
 		{
 			delete box;
 			ui.all_boxes[i] = ui.all_boxes.back();
 			ui.all_boxes.pop_back();
 			i--;
 		}
-		box->used_this_frame = false;
+		box->flags &= ~UIBoxFlags_UsedThisFrame;
 	}
-
-
 }
 
+bool UIIsBoxHovered(UIBox* box)
+{
+	return box->position.x <= IOMousePosition.x &&
+		box->position.y <= IOMousePosition.y &&
+		(box->position.x + box->size.x) > IOMousePosition.x &&
+		(box->position.y + box->size.y) > IOMousePosition.y;
+}
+
+UIBox* UIFindHoveredChild(UIBox* box)
+{
+	if (!UIIsBoxHovered(box))
+	{
+		return nullptr;
+	}
+
+	UIBox* hovered_box = box;
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		UIBox* hovered_descendant = UIFindHoveredChild(child);
+		if (hovered_descendant) hovered_box = hovered_descendant;
+	}
+
+	return hovered_box;
+}
 
 void UIEndFrame(UIContext& ui)
 {
 	ui.root.layout->Pass1(&ui.root);
 	ui.root.layout->Pass2(&ui.root);
-}
 
+	for (UIBox* box : ui.all_boxes)
+	{
+		box->flags &= ~UIBoxFlags_Hover;
+	}
+
+	UIBox* hovered_box = UIFindHoveredChild(&ui.root);
+	for (UIBox* box = hovered_box; box; box = box->parent)
+	{
+		box->flags |= UIBoxFlags_Hover;
+	}
+}
 
 #define MAIN_AXIS(vec) vec[main_axis]
 #define CROSS_AXIS(vec) vec[cross_axis]
@@ -327,4 +361,25 @@ void UISetGap(UIBox* box, int gap)
 {
 	assert(box->layout == &UILayoutMode_Flex);
 	box->flex_gap = gap;
+}
+
+bool UIButton(UIContext& ui, const char* text)
+{
+	UIPushId(ui, text);
+	UIBox* button = UIBeginBox(ui, 1);
+
+	if (button->flags & UIBoxFlags_Hover)
+	{
+		button->color = COLOR_RGB(33, 97, 145);
+	}
+	else
+	{
+		button->color = COLOR_RGB(21, 74, 115);
+	}
+
+	UISetPadding(button, 8, 16);
+	UILabel(ui, text);
+	UIEndBox(ui);
+	UIPopId(ui);
+	return false;
 }

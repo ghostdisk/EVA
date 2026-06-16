@@ -20,7 +20,7 @@ void main()
 	else // text
 	{
 		float alpha = tex.r;
-		color = v_Tint * alpha;
+		color = vec4(v_Tint.rgb , v_Tint.a * alpha);
 	}
 
 	o_Color = color;

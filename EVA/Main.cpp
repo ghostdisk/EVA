@@ -43,7 +43,7 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
-	fnt_arial = FontLoad("Arial.ttf", 48, 512);
+	fnt_arial = FontLoad("Arial.ttf", 24, 512);
 
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
@@ -84,8 +84,6 @@ int main()
 
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;
-		UI.root.main_axis_alignment = UIAlignment_Center;
-		UI.root.cross_axis_alignment = UIAlignment_Center;
 
 		{ // Process input:
 		}
@@ -95,22 +93,13 @@ int main()
 			CameraUpdateMatrices(camera);
 
 			// Dummy UI:
-			UISetPadding(&UI.root, 20);
-			UISetGap(&UI.root, 20);
+			UISetPadding(&UI.root, 8);
+			UISetGap(&UI.root, 8);
 			{
-				UIBox* box = UIBeginBox(UI, 1);
-				box->color = {0.5,0,0,1};
-				UISetPadding(box, 20, 40);
-				box->flex_grow = 1;
-				UILabel(UI, "This is a centered <div>.");
-				UIEndBox(UI);
-
-				box = UIBeginBox(UI, 2);
-				box->color = {0.0,0,0.5,1};
-				UISetPadding(box, 20, 40);
-				box->flex_grow = 1;
-				UILabel(UI, "are you jealous, web dev?");
-				UIEndBox(UI);
+				if (UIButton(UI, "Button 1")) { printf("Button 1 was pressed"); }
+				if (UIButton(UI, "Button 2")) { printf("Button 2 was pressed"); }
+				if (UIButton(UI, "Button 3")) { printf("Button 3 was pressed"); }
+				if (UIButton(UI, "Button 4")) { printf("Button 4 was pressed"); }
 			}
 		}
 

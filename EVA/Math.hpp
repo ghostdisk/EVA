@@ -4,6 +4,8 @@
 #include <cglm/types.h>
 #include <math.h>
 
+#define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
+
 struct float2
 {
 	float x = 0.0f;

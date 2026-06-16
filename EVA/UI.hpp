@@ -22,15 +22,22 @@ enum UIAlignment : U8
 	UIAlignment_Stretch = 3,
 };
 
+enum UIBoxFlagBits : U32
+{
+	UIBoxFlags_None          = 0,
+	UIBoxFlags_UsedThisFrame = 0x01,
+	UIBoxFlags_Hover         = 0x02,
+};
+typedef U32 UIBoxFlags; 
+
 struct UIBox
 {
-	U32    id              = 0; 
-	bool   used_this_frame = false;
-	UIBox* parent          = nullptr;
-	UIBox* first_child     = nullptr;
-	UIBox* last_child      = nullptr;
-	UIBox* next_sibling    = nullptr;
-	float4 color           = {0,0,0,0};
+	U32        id              = 0; 
+	UIBoxFlags flags           = UIBoxFlags_None;
+	UIBox*     parent          = nullptr;
+	UIBox*     first_child     = nullptr;
+	UIBox*     last_child      = nullptr;
+	UIBox*     next_sibling    = nullptr;
 
 	UILayoutMode* layout = nullptr;
 
@@ -47,6 +54,7 @@ struct UIBox
 	UIAlignment main_axis_alignment  = UIAlignment_Start;
 	UIAlignment cross_axis_alignment = UIAlignment_Start;
 	float       flex_grow            = 0;
+	float4      color                = {0,0,0,0};
 
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
@@ -84,3 +92,5 @@ void UISetGap       (UIBox* box, int gap);
 
 extern UILayoutMode UILayoutMode_Flex;
 extern UILayoutMode UILayoutMode_Text;
+
+bool UIButton(UIContext& ui, const char* text);
