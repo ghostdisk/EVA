@@ -101,7 +101,7 @@ int main()
 
 				UIBox* red_box = UIBeginBox(UI, 1);
 				red_box->color = {0.4,0,0,1};
-				// red_box->min_size = { 100, 100 };
+				UISetPadding(red_box, 20, 40);
 				UILabel(UI, "The quick brown dog jumps over the lazy fox!");
 				UIEndBox(UI);
 			}

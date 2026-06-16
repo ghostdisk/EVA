@@ -109,6 +109,10 @@ void UIFlexLayoutPass1(UIBox* box)
 
 	float main_size = 0;
 	float cross_size = 0;
+	
+	float2 padding(
+		box->padding_left + box->padding_right,
+		box->padding_top + box->padding_bottom);
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
 	{
@@ -120,6 +124,9 @@ void UIFlexLayoutPass1(UIBox* box)
 			cross_size = CROSS_AXIS(child->size);
 		}
 	}
+
+	main_size += MAIN_AXIS(padding);
+	cross_size += CROSS_AXIS(padding);
 
 	if (main_size  < MAIN_AXIS(box->min_size))  main_size  = MAIN_AXIS(box->min_size);
 	if (cross_size < CROSS_AXIS(box->min_size)) cross_size = CROSS_AXIS(box->min_size);
@@ -133,15 +140,16 @@ void UIFlexLayoutPass2(UIBox* box)
 	int main_axis = box->flex_axis;
 	int cross_axis = 1 - main_axis;
 
-	float pos = MAIN_AXIS(box->position);
+	float pos_main = MAIN_AXIS(box->position) + main_axis == 0 ? box->padding_left : box->padding_top;
+	float pos_cross = CROSS_AXIS(box->position) + (main_axis == 0 ? box->padding_top : box->padding_left);
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
 	{
-		MAIN_AXIS(child->position) = pos;
-		CROSS_AXIS(child->position) = CROSS_AXIS(box->position);
+		MAIN_AXIS(child->position) = pos_main;
+		CROSS_AXIS(child->position) = pos_cross;
 
 		child->layout->Pass2(child);
-		pos += MAIN_AXIS(child->size);
+		pos_main += MAIN_AXIS(child->size);
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
@@ -202,3 +210,29 @@ UILayoutMode UILayoutMode_Text = {
 	.Pass1 = UITextLayoutPass1,
 	.Pass2 = UITextLayoutPass2,
 };
+
+
+void UISetPadding(UIBox* box, int padding)
+{
+	box->padding_top    = padding;
+	box->padding_right  = padding;
+	box->padding_bottom = padding;
+	box->padding_left   = padding;
+
+}
+
+void UISetPadding(UIBox* box, int vpadding, int hpadding)
+{
+	box->padding_top    = vpadding;
+	box->padding_right  = hpadding;
+	box->padding_bottom = vpadding;
+	box->padding_left   = hpadding;
+}
+
+void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
+{
+	box->padding_top    = top;
+	box->padding_right  = right;
+	box->padding_bottom = bottom;
+	box->padding_left   = left;
+}

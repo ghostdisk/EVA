@@ -27,10 +27,14 @@ struct UIBox
 	UILayoutMode* layout = nullptr;
 
 	// PROPERTIES:
-	const char* text = nullptr;
-	Font* font = nullptr;
-	int flex_axis = 0;
-	float2 min_size = {};
+	const char* text           = nullptr;
+	Font*       font           = nullptr;
+	int         flex_axis      = 0;
+	float2      min_size       = {};
+	U8          padding_top    = 0;
+	U8          padding_right  = 0;
+	U8          padding_bottom = 0;
+	U8          padding_left   = 0;
 
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
@@ -58,8 +62,13 @@ void UIBeginFrame(UIContext& ui);
 void UIEndFrame(UIContext& ui);
 void UIDraw(UIContext& ui, DrawContext& dc);
 
-
 UIBox* UILabel(UIContext& ui, const char* text);
+
+// Convenience functions:
+void UISetPadding(UIBox* box, int padding);
+void UISetPadding(UIBox* box, int vpadding, int hpadding);
+void UISetPadding(UIBox* box, int top, int right, int bottom, int left);
+
 
 extern UILayoutMode UILayoutMode_Flex;
 extern UILayoutMode UILayoutMode_Text;
