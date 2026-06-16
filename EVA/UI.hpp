@@ -1,13 +1,21 @@
 #pragma once
 #include <EVA/Common.hpp>
+#include <EVA/Math.hpp>
 #include <vector>
 
 struct UIContext;
 struct UIBox;
 
+
+struct UIQuad
+{
+	float4 position_rect;
+};
+
 struct UIContext
 {
 	std::vector<UIBox*> all_boxes;
+	std::vector<UIQuad> quads;
 };
 
 struct UIBox
