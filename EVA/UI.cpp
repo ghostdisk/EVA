@@ -29,8 +29,13 @@ UIBox* UIBeginBox(UIContext& ui, U32 id)
 			}
 		}
 	}
-	if (!box) box = new UIBox();
-	ui.all_boxes.push_back(box);
+	if (!box)
+	{
+		box = new UIBox();
+		ui.all_boxes.push_back(box);
+	}
+
+	assert(!box->used_this_frame && "UIBox id Conflict");
 
 	box->id              = id;
 	box->used_this_frame = true;
@@ -44,7 +49,9 @@ UIBox* UIBeginBox(UIContext& ui, U32 id)
 	if (box->parent->last_child)
 	{
 		box->parent->last_child->next_sibling = box;
+		assert(box->parent->last_child != box);
 		box->parent->last_child = box;
+
 	}
 	else
 	{
@@ -85,6 +92,7 @@ void UIBeginFrame(UIContext& ui)
 	ui.id_stack = { 0 };
 	ui.box_stack = { &ui.root };
 
+	assert(ui.root.next_sibling == nullptr);
 	ui.root.first_child = nullptr;
 	ui.root.last_child  = nullptr;
 	ui.root.size        = float2(WindowWidth, WindowHeight);

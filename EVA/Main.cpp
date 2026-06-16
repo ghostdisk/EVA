@@ -105,7 +105,7 @@ int main()
 				UILabel(UI, "This is a centered <div>.");
 				UIEndBox(UI);
 
-				box = UIBeginBox(UI, 1);
+				box = UIBeginBox(UI, 2);
 				box->color = {0.0,0,0.5,1};
 				UISetPadding(box, 20, 40);
 				box->flex_grow = 1;
