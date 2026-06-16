@@ -1,5 +1,6 @@
 #include <EVA/UI.hpp>
 #include <EVA/GL.hpp>
+#include <EVA/Platform.hpp>
 
 static GLuint UIShader;
 static Mesh* UIQuadMesh = nullptr;
@@ -64,8 +65,15 @@ void UIEndFrame(UIContext& ui)
 void UIRender(UIContext& ui)
 {
 	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
 	glUseProgram(UIShader);
 	glBindVertexArray(UIQuadMesh->vao);
+	GL_ERROR_CHECK();
+
+	glUniform2f(0, WindowWidth, WindowHeight);
+	GL_ERROR_CHECK();
+
 	glDrawElements(GL_TRIANGLES, UIQuadMesh->index_count, GL_UNSIGNED_INT, (void*)0);
+	GL_ERROR_CHECK();
 
 }
