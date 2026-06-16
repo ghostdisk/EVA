@@ -11,6 +11,7 @@ add_executable (EVA
 	"EVA/UI.cpp"
 	"EVA/Draw.cpp"
 	"EVA/Hashing.cpp"
+	"EVA/Arena.cpp"
 )
 
 

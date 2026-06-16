@@ -4,6 +4,7 @@
 #include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/IO.hpp>
+#include <EVA/Arena.hpp>
 
 void UIInitialize()
 {
@@ -323,7 +324,7 @@ UIBox* UILabel(UIContext& ui, const char* text)
 {
 	UIBox* box = UIBeginBox(ui, 0);
 	box->layout = &UILayoutMode_Text;
-	box->text = text; // TODO - use arena for text storage!!!
+	box->text = ArenaInternCString(FrameArena, text);
 	box->color = {1,1,1,1};
 	box->font = ui.default_font;
 	UIEndBox(ui);

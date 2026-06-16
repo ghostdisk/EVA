@@ -4,6 +4,7 @@
 #include <EVA/UI.hpp>
 #include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
+#include <EVA/Arena.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/mat4.h>
 
@@ -38,6 +39,7 @@ int main()
 		Fatal("SDL_CreateWindow: %s", SDL_GetError());
 	}
 
+	ArenaInitialize();
 	GLInitialize();
 	IOInitialize();
 	DrawInitialize();
@@ -66,6 +68,7 @@ int main()
 		DeltaTime = double(dt_ns) / 1'000'000'000;
 		FrameStartTimeNS = new_time;
 
+		ArenaReset(FrameArena);
 		IOBeginFrame();
 
 		SDL_Event event;
@@ -96,10 +99,15 @@ int main()
 			UISetPadding(&UI.root, 8);
 			UISetGap(&UI.root, 8);
 			{
-				if (UIButton(UI, "Button 1")) { printf("Button 1 was pressed"); }
-				if (UIButton(UI, "Button 2")) { printf("Button 2 was pressed"); }
-				if (UIButton(UI, "Button 3")) { printf("Button 3 was pressed"); }
-				if (UIButton(UI, "Button 4")) { printf("Button 4 was pressed"); }
+				for (int i = 0; i < 15; i++)
+				{
+					char buf[64];
+					snprintf(buf, 64, "Button %d", i);
+					if (UIButton(UI,buf))
+					{
+						printf("%s was pressed\n", buf);
+					}
+				}
 			}
 		}
 
