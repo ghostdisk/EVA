@@ -8,8 +8,9 @@ void UIInitialize()
 {
 }
 
-void UIContextInit(UIContext& ui)
+void UIContextInit(UIContext& ui, Font* default_font)
 {
+	ui.default_font = default_font;
 }
 
 UIBox* UIBeginBox(UIContext& ui, U32 id)
@@ -48,10 +49,13 @@ void UIEndFrame(UIContext& ui)
 
 void UIDraw(UIContext& ui, DrawContext& dc)
 {
-	dc.quads.push_back(DrawQuad{
-		.position_rect = { 0, 0, 200, 200 },
-	});
-	dc.quads.push_back(DrawQuad{
-		.position_rect = { 200, 200, 400, 200 },
-	});
+	DrawText(dc, ui.default_font, "The quick brown fox jumps over the lazy dog.", 100, 100);
+	// dc.quads.push_back(DrawQuadRecord{
+	// 	.texture = ui.default_font->atlas,
+	// 	.position_rect = { 0, 0, 200, 200 },
+	// });
+	// dc.quads.push_back(DrawQuadRecord{
+	// 	.texture = ui.default_font->atlas,
+	// 	.position_rect = { 200, 200, 400, 200 },
+	// });
 }

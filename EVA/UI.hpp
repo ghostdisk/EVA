@@ -6,10 +6,12 @@
 struct UIContext;
 struct UIBox;
 struct DrawContext;
+struct Font;
 
 struct UIContext
 {
-	std::vector<UIBox*> all_boxes;
+	Font*               default_font = nullptr;
+	std::vector<UIBox*> all_boxes    = {};
 };
 
 struct UIBox
@@ -19,7 +21,7 @@ struct UIBox
 };
 
 void UIInitialize();
-void UIContextInit(UIContext& ui);
+void UIContextInit(UIContext& ui, Font* default_font);
 UIBox* UIBeginBox(UIContext* ui, U32 id);
 void UIEndBox(UIContext& ui);
 void UIPushId(UIContext& ui, U32 id);
@@ -28,6 +30,5 @@ void UIPopId(UIContext& ui);
 void UIBeginFrame(UIContext& ui);
 void UIEndFrame(UIContext& ui);
 void UIDraw(UIContext& ui, DrawContext& dc);
-
 
 // Widgets:

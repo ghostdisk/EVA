@@ -19,6 +19,7 @@ int WindowHeight = 900;
 Camera camera;
 UIContext UI;
 DrawContext DC;
+Font* fnt_arial = 0;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -42,8 +43,10 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
+	fnt_arial = FontLoad("Arial.ttf", 48, 512);
+
 	DrawContextInit(DC);
-	UIContextInit(UI);
+	UIContextInit(UI, fnt_arial);
 
 	GLuint main_program = GLCompileShaderProgram("Main");
 

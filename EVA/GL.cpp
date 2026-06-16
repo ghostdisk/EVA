@@ -127,12 +127,25 @@ Mesh* MeshCreate(
 	return mesh;
 }
 
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels)
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format)
 {
 	Texture* texture = new Texture();
+	texture->width = width;
+	texture->height = height;
+
 	glGenTextures(1, &texture->handle);
 	glBindTexture(GL_TEXTURE_2D, texture->handle);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+	GLenum baseformat, type;
+	switch (format)
+	{
+		case GL_RGBA8: baseformat = GL_RGBA; type = GL_UNSIGNED_BYTE; break;
+		case GL_R8:    baseformat = GL_RED;  type = GL_UNSIGNED_BYTE; break;
+		default: Fatal("TextureCreate: Invalid format");
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, baseformat, type, pixels);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -154,5 +167,5 @@ Texture* TextureLoad(const char* name)
 	}
 	DEFER(free(pixels));
 
-	return TextureCreate(name, width, height, pixels);
+	return TextureCreate(name, width, height, pixels, GL_RGBA8);
 }

@@ -51,5 +51,5 @@ Mesh* MeshCreate(
 	size_t num_indices, const U32* indices);
 
 
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels);
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format);
 Texture* TextureLoad(const char* name);
