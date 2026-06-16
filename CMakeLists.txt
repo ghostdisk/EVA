@@ -10,6 +10,7 @@ add_executable (EVA
 	"EVA/Camera.cpp"
 	"EVA/UI.cpp"
 	"EVA/Draw.cpp"
+	"EVA/Hashing.cpp"
 )
 
 

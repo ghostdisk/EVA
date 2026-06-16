@@ -220,3 +220,15 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 	}
 
 }
+
+float MeasureText(Font* font, const char* text)
+{
+	float size = 0;
+	for (const char* ptr = text; *ptr; ptr++)
+	{
+		char c = *ptr;
+		FontGlyph& glyph = font->glyphs[c];
+		size += glyph.advance;
+	}
+	return size;
+}

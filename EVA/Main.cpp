@@ -83,6 +83,7 @@ int main()
 		}
 
 		UIBeginFrame(UI);
+		UI.root.flex_axis = 1;
 
 		{ // Process input:
 		}
@@ -90,6 +91,20 @@ int main()
 		{ // Simulate game:
 			CameraFly(camera);
 			CameraUpdateMatrices(camera);
+
+			// Dummy UI:
+			{
+				UIBox* blue_box = UIBeginBox(UI, 1);
+				blue_box->color = {0,0,0.4,1};
+				blue_box->min_size = { 100, 100 };
+				UIEndBox(UI);
+
+				UIBox* red_box = UIBeginBox(UI, 1);
+				red_box->color = {0.4,0,0,1};
+				// red_box->min_size = { 100, 100 };
+				UILabel(UI, "The quick brown dog jumps over the lazy fox!");
+				UIEndBox(UI);
+			}
 		}
 
 		UIEndFrame(UI);

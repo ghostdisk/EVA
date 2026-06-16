@@ -1,8 +1,8 @@
 #include <EVA/UI.hpp>
 #include <EVA/GL.hpp>
 #include <EVA/Draw.hpp>
+#include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
-
 
 void UIInitialize()
 {
@@ -15,41 +15,190 @@ void UIContextInit(UIContext& ui, Font* default_font)
 
 UIBox* UIBeginBox(UIContext& ui, U32 id)
 {
-	return 0;
+	UIBox* box = nullptr;
+	if (id > 0)
+	{
+		id = UIPushId(ui, id);
+
+		for (UIBox* b : ui.all_boxes)
+		{
+			if (b->id == id)
+			{
+				box = b;
+				break;
+			}
+		}
+	}
+	if (!box) box = new UIBox();
+
+	box->id              = id;
+	box->used_this_frame = true;
+	box->next_sibling    = nullptr;
+	box->first_child     = nullptr;
+	box->last_child      = nullptr;
+	box->layout          = &UILayoutMode_Flex;
+	box->color           = {0,0,0,0};
+
+	box->parent = ui.box_stack.back();
+	if (box->parent->last_child)
+	{
+		box->parent->last_child->next_sibling = box;
+		box->parent->last_child = box;
+	}
+	else
+	{
+		box->parent->first_child = box;
+		box->parent->last_child = box;
+	}
+
+	ui.box_stack.push_back(box);
+	return box;
 }
 
 void UIEndBox(UIContext& ui)
 {
+	UIBox* box = ui.box_stack.back();
 
+	if (box->id > 0) UIPopId(ui);
+	ui.box_stack.pop_back();
 }
 
-void UIPushId(UIContext& ui, U32 id)
+U32 UIPushId(UIContext& ui, U32 id)
 {
-
+	ui.id_stack.push_back(ui.id_stack.back() ^ HashU32(id));
+	return ui.id_stack.back();
 }
 
-void UIPushId(UIContext& ui, const char* str)
+U32 UIPushId(UIContext& ui, const char* str)
 {
-
+	return UIPushId(ui, HashBytes(str, strlen(str)));
 }
 
 void UIPopId(UIContext& ui)
 {
-
+	ui.id_stack.pop_back();
 }
 
 void UIBeginFrame(UIContext& ui)
 {
+	ui.id_stack = { 0 };
+	ui.box_stack = { &ui.root };
+
+	ui.root.first_child = nullptr;
+	ui.root.last_child  = nullptr;
+	ui.root.size        = float2(WindowWidth, WindowHeight);
+	ui.root.min_size    = float2(WindowWidth, WindowHeight);
+	ui.root.layout      = &UILayoutMode_Flex;
 }
+
 
 void UIEndFrame(UIContext& ui)
 {
+	ui.root.layout->Pass1(&ui.root);
+	ui.root.layout->Pass2(&ui.root);
+}
 
+
+#define MAIN_AXIS(vec) vec[main_axis]
+#define CROSS_AXIS(vec) vec[cross_axis]
+
+void UIFlexLayoutPass1(UIBox* box)
+{
+	int main_axis = box->flex_axis;
+	int cross_axis = 1 - main_axis;
+
+	float main_size = 0;
+	float cross_size = 0;
+
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		child->layout->Pass1(child);
+
+		main_size += MAIN_AXIS(child->size);
+		if (cross_size < CROSS_AXIS(child->size))
+		{
+			cross_size = CROSS_AXIS(child->size);
+		}
+	}
+
+	if (main_size  < MAIN_AXIS(box->min_size))  main_size  = MAIN_AXIS(box->min_size);
+	if (cross_size < CROSS_AXIS(box->min_size)) cross_size = CROSS_AXIS(box->min_size);
+
+	MAIN_AXIS(box->size) = main_size;
+	CROSS_AXIS(box->size) = cross_size;
+}
+
+void UIFlexLayoutPass2(UIBox* box)
+{
+	int main_axis = box->flex_axis;
+	int cross_axis = 1 - main_axis;
+
+	float pos = MAIN_AXIS(box->position);
+
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		MAIN_AXIS(child->position) = pos;
+		CROSS_AXIS(child->position) = CROSS_AXIS(box->position);
+
+		child->layout->Pass2(child);
+		pos += MAIN_AXIS(child->size);
+	}
+
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		child->layout->Pass2(child);
+	}
+}
+
+void UITextLayoutPass1(UIBox* box)
+{
+	box->size = float2(MeasureText(box->font, box->text), box->font->yoffset);
+}
+
+void UITextLayoutPass2(UIBox* box)
+{
+}
+
+void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
+{
+	if (box->color.w && box->layout != &UILayoutMode_Text)
+	{
+		DrawRectangle(dc, box->position.x, box->position.y, box->size.x, box->size.y, box->color);
+	}
+
+	if (box->text)
+	{
+		DrawText(dc, box->font, box->text, box->position.x, box->position.y, box->color);
+	}
+
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		UIDrawBoxRecursive(ui, dc, child);
+	}
+}
+
+UIBox* UILabel(UIContext& ui, const char* text)
+{
+	UIBox* box = UIBeginBox(ui, 0);
+	box->layout = &UILayoutMode_Text;
+	box->text = text; // TODO - use arena for text storage!!!
+	box->color = {1,1,1,1};
+	box->font = ui.default_font;
+	UIEndBox(ui);
+	return box;
 }
 
 void UIDraw(UIContext& ui, DrawContext& dc)
 {
-	DrawRectangle(dc, 100, 100, 300, 300, {0,0,0.2,1});
-	DrawRectangle(dc, 400, 100, 300, 300, {0.2,0,0,1});
-	DrawText(dc, ui.default_font, "The quick brown fox jumps over the lazy dog.", 100, 100, { 1, 1, 1, 1});
+	UIDrawBoxRecursive(ui, dc, &ui.root);
 }
+
+UILayoutMode UILayoutMode_Flex = {
+	.Pass1 = UIFlexLayoutPass1,
+	.Pass2 = UIFlexLayoutPass2,
+};
+
+UILayoutMode UILayoutMode_Text = {
+	.Pass1 = UITextLayoutPass1,
+	.Pass2 = UITextLayoutPass2,
+};

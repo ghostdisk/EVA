@@ -64,5 +64,6 @@ void DrawRender(DrawContext& dc);
 
 void DrawRectangle(DrawContext& dc, int x, int y, int w, int h, float4 color);
 void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color);
+float MeasureText(Font* font, const char* text);
 
 Font* FontLoad(const char* name, int size, int atlas_size);
