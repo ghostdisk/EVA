@@ -22,8 +22,9 @@ UIContext UI;
 DrawContext DC;
 Font* fnt_arial = 0;
 
-float FPSHistory[20] = {};
+float FrameTimeHistory[50] = {};
 float FPS = 0;
+bool VSync = false;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -48,7 +49,7 @@ int main()
 	DrawInitialize();
 	UIInitialize();
 
-	fnt_arial = FontLoad("Arial.ttf", 24, 512);
+	fnt_arial = FontLoad("Arial.ttf", 16, 512);
 
 	DrawContextInit(DC);
 	UIContextInit(UI, fnt_arial);
@@ -92,22 +93,21 @@ int main()
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;
 		UISetPadding(&UI.root, 8);
-
-		{ // Process input:
-		}
+		UISetGap(&UI.root, 8);
 
 		{ // Update tracked FPS
 			static int k = 0;
-			FPSHistory[k] = 1.0 / DeltaTime;
+			FrameTimeHistory[k] = DeltaTime;
 			k++;
-			if (k >= EVA_ARRAYSIZE(FPSHistory)) k = 0;
+			if (k >= EVA_ARRAYSIZE(FrameTimeHistory)) k = 0;
 
-			FPS = 0;
-			for (int i = 0; i < EVA_ARRAYSIZE(FPSHistory); i++)
+			float avg = 0;
+			for (int i = 0; i < EVA_ARRAYSIZE(FrameTimeHistory); i++)
 			{
-				FPS += FPSHistory[i];
+				avg += FrameTimeHistory[i];
 			}
-			FPS /= (float)EVA_ARRAYSIZE(FPSHistory);
+			avg = avg / (float)EVA_ARRAYSIZE(FrameTimeHistory);
+			FPS = 1.0f / avg;
 		}
 
 		{ // Simulate game:
@@ -121,18 +121,12 @@ int main()
 				UILabel(UI, fps_value);
 			}
 
-			// Dummy UI:
-			UISetGap(&UI.root, 8);
+			char buf[64];
+			snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
+			if (UIButton(UI, buf))
 			{
-				for (int i = 0; i < 15; i++)
-				{
-					char buf[64];
-					snprintf(buf, 64, "Button %d", i);
-					if (UIButton(UI,buf))
-					{
-						printf("%s was pressed\n", buf);
-					}
-				}
+				VSync = !VSync;
+				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
 		}
 
