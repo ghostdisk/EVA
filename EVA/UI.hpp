@@ -27,6 +27,8 @@ enum UIBoxFlagBits : U32
 	UIBoxFlags_None          = 0,
 	UIBoxFlags_UsedThisFrame = 0x01,
 	UIBoxFlags_Hover         = 0x02,
+	UIBoxFlags_Pressed       = 0x04,
+	UIBoxFlags_Clicked       = 0x08,
 };
 typedef U32 UIBoxFlags; 
 
@@ -68,6 +70,7 @@ struct UIContext
 	std::vector<U32>    id_stack     = {};
 	std::vector<UIBox*> box_stack    = {};
 	UIBox               root         = {};
+	U32                 pressed_id   = {};
 };
 
 

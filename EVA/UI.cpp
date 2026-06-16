@@ -145,15 +145,30 @@ void UIEndFrame(UIContext& ui)
 	ui.root.layout->Pass1(&ui.root);
 	ui.root.layout->Pass2(&ui.root);
 
+	bool mouse_down = IOGetButtonDown(IO_BUTTON_MOUSE_LEFT);
+	bool mouse_up   = IOGetButtonUp(IO_BUTTON_MOUSE_LEFT);
+
+	UIBoxFlags flags_to_clear = UIBoxFlags_Hover | UIBoxFlags_Clicked;
+	if (mouse_up || mouse_down) flags_to_clear |= UIBoxFlags_Pressed;
+
 	for (UIBox* box : ui.all_boxes)
 	{
-		box->flags &= ~UIBoxFlags_Hover;
+		box->flags &= ~flags_to_clear;
 	}
 
 	UIBox* hovered_box = UIFindHoveredChild(&ui.root);
 	for (UIBox* box = hovered_box; box; box = box->parent)
 	{
 		box->flags |= UIBoxFlags_Hover;
+		if (mouse_down)
+		{
+			box->flags |= UIBoxFlags_Pressed;
+		}
+
+		if (mouse_up)
+		{
+			box->flags |= UIBoxFlags_Clicked;
+		}
 	}
 }
 
@@ -368,18 +383,14 @@ bool UIButton(UIContext& ui, const char* text)
 	UIPushId(ui, text);
 	UIBox* button = UIBeginBox(ui, 1);
 
-	if (button->flags & UIBoxFlags_Hover)
-	{
-		button->color = COLOR_RGB(33, 97, 145);
-	}
-	else
-	{
-		button->color = COLOR_RGB(21, 74, 115);
-	}
+	if (button->flags & UIBoxFlags_Pressed) { button->color = COLOR_RGB(19, 56, 84); }
+	else if (button->flags & UIBoxFlags_Hover) { button->color = COLOR_RGB(33, 97, 145); }
+	else { button->color = COLOR_RGB(21, 74, 115); }
 
 	UISetPadding(button, 8, 16);
 	UILabel(ui, text);
 	UIEndBox(ui);
 	UIPopId(ui);
-	return false;
+
+	return button->flags & UIBoxFlags_Clicked;
 }
