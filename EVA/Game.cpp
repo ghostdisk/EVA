@@ -4,6 +4,7 @@
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
+#include <tracy/Tracy.hpp>
 
 Game* ActiveGame = nullptr;
 extern int DrawMode;
@@ -23,6 +24,7 @@ void GameInit(Game* game, const char* name)
 
 void GameTick(Game* game, double dt)
 {
+	ZoneScopedN("GameTick");
 	PhysicsTick(game->physics, dt);
 
 	if (ActiveGame == game)
@@ -34,6 +36,7 @@ void GameTick(Game* game, double dt)
 
 void GameDraw(Game* game)
 {
+	ZoneScopedN("GameDraw");
 	switch (DrawMode)
 	{
 		case 0:

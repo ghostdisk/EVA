@@ -256,6 +256,7 @@ Physics* PhysicsCreate()
 
 void PhysicsTick(Physics* physics, double dt)
 {
+	ZoneScopedN("PhysicsTick");
 	{
 		ZoneScopedN("Physics Update");
 		physics->system.Update(dt, PHYSICS_COLLISION_STEPS, physics->temp_allocator, &JobSystem);
@@ -267,7 +268,7 @@ void PhysicsTick(Physics* physics, double dt)
 		JPH::BodyIDVector bodies;
 		physics->system.GetActiveBodies(JPH::EBodyType::RigidBody, bodies);
 
-		JPH::BodyInterface &body_interface = physics->system.GetBodyInterface();
+		JPH::BodyInterface &body_interface = physics->system.GetBodyInterfaceNoLock();
 
 		for (auto body_id : bodies)
 		{
