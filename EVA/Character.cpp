@@ -11,7 +11,7 @@ void EntityInit(ECharacter* character)
 	character->mesh = Library::mesh_character;
 }
 
-void CharacterDoMovement(Game* game, ECharacter* entity)
+void CharacterDoMovement(Game* game, ECharacter* entity, double dt)
 {
 	float3 input = {
 		(float)IOGetButton(SDL_SCANCODE_D) - (float)IOGetButton(SDL_SCANCODE_A),
@@ -19,5 +19,4 @@ void CharacterDoMovement(Game* game, ECharacter* entity)
 		0,
 	};
 	if (input.x || input.y) input = input.Normalized();
-
 }

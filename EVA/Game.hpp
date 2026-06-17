@@ -11,6 +11,7 @@ struct Game
 	EntityManager entity_manager  = {};
 	Camera        camera          = {};
 	Physics*      physics         = nullptr;
+	Entity*       pawn            = nullptr;
 };
 
 extern Game* ActiveGame;

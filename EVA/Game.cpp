@@ -30,7 +30,14 @@ void GameTick(Game* game, double dt)
 
 	if (ActiveGame == game)
 	{
-		CameraFly(game->camera);
+		if (game->pawn)
+		{
+			CameraOrbit(game->camera, game->pawn);
+		}
+		else
+		{
+			CameraFly(game->camera);
+		}
 	}
 	CameraUpdateMatrices(game->camera);
 }

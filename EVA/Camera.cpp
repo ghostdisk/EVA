@@ -1,5 +1,6 @@
 #include <EVA/Camera.hpp>
 #include <EVA/Platform.hpp>
+#include <EVA/Entities.hpp>
 #include <EVA/IO.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/clipspace/persp_rh_no.h>
@@ -22,6 +23,16 @@ void CameraUpdateMatrices(Camera& camera)
 	glm_mat4_mul(camera.projection_matrix, camera.view_matrix, camera.view_projection_matrix);
 }
 
+void CameraUpdateBasisVectors(Camera& camera)
+{
+	float4x4 mat;
+	float euler_angles[3] = {camera.pitch, 0, camera.yaw};
+
+	glm_euler_zxy(euler_angles, mat);
+	camera.right   = float3(mat.data[0][0], mat.data[0][1], mat.data[0][2]);
+	camera.up      = float3(mat.data[2][0], mat.data[2][1], mat.data[2][2]);
+	camera.forward = float3(mat.data[1][0], mat.data[1][1], mat.data[1][2]);
+}
 
 void CameraFly(Camera& camera)
 {
@@ -47,14 +58,13 @@ void CameraFly(Camera& camera)
 	camera.position += input * speed * DeltaTime;
 }
 
-
-void CameraUpdateBasisVectors(Camera& camera)
+void CameraOrbit(Camera& camera, Entity* entity)
 {
-	float4x4 mat;
-	float euler_angles[3] = {camera.pitch, 0, camera.yaw};
+	camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
+	camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
+	CameraUpdateBasisVectors(camera);
 
-	glm_euler_zxy(euler_angles, mat);
-	camera.right   = float3(mat.data[0][0], mat.data[0][1], mat.data[0][2]);
-	camera.up      = float3(mat.data[2][0], mat.data[2][1], mat.data[2][2]);
-	camera.forward = float3(mat.data[1][0], mat.data[1][1], mat.data[1][2]);
+	camera.position = entity->position;
+	camera.position.z += camera.orbit_height;
+	camera.position -= camera.forward * camera.orbit_distance;
 }

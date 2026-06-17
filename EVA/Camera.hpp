@@ -2,6 +2,8 @@
 #include <EVA/Math.hpp>
 #include <EVA/Math.hpp>
 
+struct Entity;
+
 struct Camera
 {
 	float fov = 60 * GLM_PI / 180.0f;
@@ -24,9 +26,14 @@ struct Camera
 	float  fly_speed         = 10.0f;
 	float  fly_speed_sprint  = 100.0f;
 	float2 mouse_sensitivity = { 0.003f, 0.003f };
+
+	// Orbit camera parameters:
+	float orbit_height = 1.5f;
+	float orbit_distance = 4.0f;
 };
 
 void CameraInit(Camera& camera);
 void CameraUpdateBasisVectors(Camera& camera);
 void CameraUpdateMatrices(Camera& camera);
 void CameraFly(Camera& camera);
+void CameraOrbit(Camera& camera, Entity* entity);

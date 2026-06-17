@@ -4,6 +4,7 @@
 #include <EVA/Binary.hpp>
 #include <EVA/Wire.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/Character.hpp>
 #include <EVA/GL.hpp> // Mesh
 #include <enet/enet.h>
 #include <stdio.h>
@@ -34,6 +35,7 @@ void ServerGameInit(ServerGame* server, const char* name)
 	// SpawnSomeBoxes(server, 200);
 
 	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
+	server->pawn = character;
 }
 
 static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)
@@ -136,6 +138,7 @@ void ServerGameTick(ServerGame* server, double dt)
 	}
 
 	GameTick(server, dt);
+	if (server->pawn) CharacterDoMovement(server, (ECharacter*)server->pawn, dt);
 }
 
 void ServerListen(ServerGame* server, int port)
