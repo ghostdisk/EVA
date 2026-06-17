@@ -14,6 +14,7 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Renderer/DebugRenderer.h>
@@ -132,8 +133,32 @@ struct DebugRendererImpl : JPH::DebugRenderer
 	}
 	virtual Batch CreateTriangleBatch(const Triangle *inTriangles, int inTriangleCount)
 	{
-		printf("Stub: CreateTriangleBatch\n");
-		return {};
+		static int k = 0;
+		char name[64];
+		snprintf(name, 64, "JoltTriangleBatch_%d", k++);
+
+		std::vector<MeshVertex> vertices(inTriangleCount * 3);
+
+		for (int i = 0; i < inTriangleCount; i++)
+		{
+			for (int j = 0; j < 3; j++)
+			{
+				vertices[i * 3 + j].position.x = inTriangles[i].mV[j].mPosition.x;
+				vertices[i * 3 + j].position.y = inTriangles[i].mV[j].mPosition.y;
+				vertices[i * 3 + j].position.z = inTriangles[i].mV[j].mPosition.z;
+				vertices[i * 3 + j].normal.x   = inTriangles[i].mV[j].mNormal.x;
+				vertices[i * 3 + j].normal.y   = inTriangles[i].mV[j].mNormal.y;
+				vertices[i * 3 + j].normal.z   = inTriangles[i].mV[j].mNormal.z;
+				vertices[i * 3 + j].texcoord.x = inTriangles[i].mV[j].mUV.x;
+				vertices[i * 3 + j].texcoord.y = inTriangles[i].mV[j].mUV.y;
+			}
+		}
+
+		Mesh* mesh = MeshCreate(name, vertices.size(), vertices.data(), 0, nullptr);
+
+		MeshWrapper* wrapper = new MeshWrapper();
+		wrapper->mesh = mesh;
+		return wrapper;
 	}
 
 	virtual Batch CreateTriangleBatch(const Vertex *inVertices, int inVertexCount, const JPH::uint32 *inIndices, int inIndexCount)
@@ -166,6 +191,7 @@ struct DebugRendererImpl : JPH::DebugRenderer
 	{
 		Batch batch = inGeometry->mLODs[0].mTriangleBatch;
 		MeshWrapper* mesh_wrapper = (MeshWrapper*)batch.GetPtr();
+		if (!mesh_wrapper) return;
 
 		float4x4 matrix = {};
 		memcpy(&matrix, &inModelMatrix, 64);
@@ -279,22 +305,60 @@ void PhysicsTick(Physics* physics, double dt)
 	}
 }
 
-PhysicsShape* PhysicsCreateBoxShape(float3 size)
+static Collider* CreateCollider(const char* name)
 {
-	PhysicsShape* shape = new PhysicsShape();
-	char name[64];
-	snprintf(name, sizeof(name), "BoxShape_%.1f_%.1f_%.1f", size.x, size.y, size.z);
-	AssetInit(shape, AssetType_PhysicsShape, name);
-
-	JPH::BoxShapeSettings floor_shape_settings(ConvertSize(size));
-	floor_shape_settings.SetEmbedded();
-
-	auto shape_ref = floor_shape_settings.Create().Get();
-	shape->shape = shape_ref.Disown();
+	Collider* shape = new Collider();
+	AssetInit(shape, AssetType_Collider, name);
 	return shape;
 }
 
-void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* shape, PhysicsLayer layer)
+Collider* PhysicsCreateBoxCollider(float3 size)
+{
+	char name[64];
+	snprintf(name, sizeof(name), "BoxShape_%.1f_%.1f_%.1f", size.x, size.y, size.z);
+	Collider* collider = CreateCollider(name);
+
+	JPH::BoxShapeSettings shape_settings(ConvertSize(size));
+	shape_settings.SetEmbedded();
+
+	auto shape_ref = shape_settings.Create().Get();
+	collider->shape = shape_ref.Disown();
+	return collider;
+}
+
+Collider* PhysicsCreateMeshCollider(
+	const char* name,
+	size_t num_vertices, const MeshVertex* in_vertices,
+	size_t num_indices, const U32* in_indices)
+{
+	Collider* collider = CreateCollider(name);
+
+	JPH::VertexList vertices(num_vertices);
+
+	int num_triangles = num_indices / 3;
+	assert(num_indices % 3 == 0);
+	JPH::IndexedTriangleList indices(num_triangles);
+
+	for (int i = 0; i < num_vertices; i++)
+	{
+		vertices[i].x =  in_vertices[i].position.x;
+		vertices[i].y =  in_vertices[i].position.z;
+		vertices[i].z =  in_vertices[i].position.y;
+	}
+	for (int t = 0; t < num_triangles; t++)
+	{
+		indices[t] = JPH::IndexedTriangle(in_indices[3*t], in_indices[3*t+2], in_indices[3*t+1]);
+	}
+
+	JPH::MeshShapeSettings shape_settings(vertices, indices);
+	shape_settings.SetEmbedded();
+
+	auto shape_ref = shape_settings.Create().Get();
+	collider->shape = shape_ref.Disown();
+	return collider;
+}
+
+void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, Collider* shape, PhysicsLayer layer)
 {
 	JPH::BodyInterface &body_interface = physics->system.GetBodyInterface();
 

@@ -17,25 +17,19 @@ void ServerGameInit(ServerGame* server, const char* name)
 {
 	GameInit(server, name);
 
-#if 0
-	for (int i = 1; i < 200; i++)
+	server->next_eid = InstantiateScene(server, Library::map_prime->scenes[0], server->next_eid);
+
+#if 1
+	for (int i = 1; i < 100; i++)
 	{
 		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
 		cube->mesh = Library::mesh_cube;
 		cube->position.z = 2 + i * 1.2;
 		cube->position.x = 3 * (rand() % 100) / 100.0f;
 		cube->position.y = 3 * (rand() % 100) / 100.0f;
-		PhysicsAttachBodyToEntity(server->physics, cube, Library::shape_cube, PhysicsLayer_Moving);
+		PhysicsAttachBodyToEntity(server->physics, cube, Library::collider_cube, PhysicsLayer_Moving);
 	}
-
-	EStaticMesh* ground = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
-	ground->mesh = Library::mesh_cube;
-	ground->scale.x = 20;
-	ground->scale.y = 20;
-	PhysicsAttachBodyToEntity(server->physics, ground, Library::shape_ground, PhysicsLayer_NonMoving);
 #endif
-
-	server->next_eid = InstantiateScene(&server->entity_manager, Library::map_prime->scenes[0], server->next_eid);
 }
 
 static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)

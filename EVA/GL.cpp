@@ -107,6 +107,7 @@ Mesh* MeshCreate(
 	AssetInit(mesh, AssetType_Mesh, name);
 
 	mesh->index_count = num_indices;
+	mesh->vertex_count = num_vertices;
 
 	glGenVertexArrays(1, &mesh->vao);
 	glBindVertexArray(mesh->vao);
@@ -115,9 +116,12 @@ Mesh* MeshCreate(
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * num_vertices, vertices, GL_STATIC_DRAW);
 
-	glGenBuffers(1, &mesh->ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * num_indices, indices, GL_STATIC_DRAW);
+	if (indices)
+	{
+		glGenBuffers(1, &mesh->ibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * num_indices, indices, GL_STATIC_DRAW);
+	}
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);

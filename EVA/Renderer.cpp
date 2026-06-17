@@ -56,7 +56,15 @@ void RenderScene()
 			glActiveTexture(GL_TEXTURE0);
 			glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
 			glBindVertexArray(entry.mesh->vao);
-			glDrawElements(GL_TRIANGLES, entry.mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+
+			if (entry.mesh->index_count)
+			{
+				glDrawElements(GL_TRIANGLES, entry.mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+			}
+			else
+			{
+				glDrawArrays(GL_TRIANGLES, 0, entry.mesh->vertex_count);
+			}
 		}
 
 		pending_meshes.clear();

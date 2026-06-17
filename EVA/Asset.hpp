@@ -6,7 +6,7 @@ enum AssetType
 	AssetType_None = 0,
 	AssetType_Mesh,
 	AssetType_Texture,
-	AssetType_PhysicsShape,
+	AssetType_Collider,
 	AssetType_Material,
 };
 

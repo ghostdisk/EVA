@@ -26,4 +26,4 @@ struct GLTF
 	std::vector<GLTFScene*> scenes     = {};
 };
 
-GLTF* GLTFLoad(const char* name);
+GLTF* GLTFLoad(const char* name, bool generate_colliders);

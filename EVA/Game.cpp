@@ -64,7 +64,7 @@ void GameDraw(Game* game)
 	}
 }
 
-EID InstantiateScene(EntityManager* manager, GLTFScene* scene, EID start_eid)
+EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 {
 	EID eid = start_eid;
 
@@ -72,12 +72,17 @@ EID InstantiateScene(EntityManager* manager, GLTFScene* scene, EID start_eid)
 	{
 		if (node.mesh)
 		{
-			EStaticMesh* entity = manager->StaticMesh.CreateEntity(eid++);
+			EStaticMesh* entity = game->entity_manager.StaticMesh.CreateEntity(eid++);
 			entity->mesh     = node.mesh;
 			entity->material = node.material;
 			entity->position = node.position;
 			entity->rotation = node.rotation;
 			entity->scale    = node.scale;
+
+			if (node.mesh->collider)
+			{
+				PhysicsAttachBodyToEntity(game->physics, entity, node.mesh->collider, PhysicsLayer_NonMoving);
+			}
 		}
 	}
 

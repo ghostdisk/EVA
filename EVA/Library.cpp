@@ -14,8 +14,7 @@ Texture* tex_tiles1 = nullptr;
 Texture* tex_tiles2 = nullptr;
 Texture* tex_wall1 = nullptr;
 
-PhysicsShape* shape_cube;
-PhysicsShape* shape_ground;
+Collider* collider_cube;
 
 GLTF* map_prime;
 
@@ -27,15 +26,14 @@ void LibraryInitialize()
 	//             are shared over the network.
 
 	AssetsSkipToId(256);
-	Library::mesh_monke   = GLTFLoad("monke.glb")->meshes[0]; assert(Library::mesh_monke->id == 256);
-	Library::mesh_cube    = GLTFLoad("cube.glb")->meshes[0];
-	Library::tex_test     = TextureLoad("test.jpg");
-	Library::tex_proto    = TextureLoad("proto.png");
-	Library::shape_cube   = PhysicsCreateBoxShape(float3(1,1,1));
-	Library::shape_ground = PhysicsCreateBoxShape(float3(20,1,20));
-	Library::tex_crate    = TextureLoad("tex_crate.jpg");
-	Library::tex_tiles1   = TextureLoad("tex_tiles1.jpg");
-	Library::tex_tiles2   = TextureLoad("tex_tiles2.jpg");
-	Library::tex_wall1    = TextureLoad("tex_wall1.jpg");
-	Library::map_prime    = GLTFLoad("map_prime.glb");
+	Library::mesh_monke      = GLTFLoad("monke.glb", false)->meshes[0]; assert(Library::mesh_monke->id == 256);
+	Library::mesh_cube       = GLTFLoad("cube.glb", false)->meshes[0];
+	Library::tex_test        = TextureLoad("test.jpg");
+	Library::tex_proto       = TextureLoad("proto.png");
+	Library::collider_cube   = PhysicsCreateBoxCollider(float3(1,1,1));
+	Library::tex_crate       = TextureLoad("tex_crate.jpg");
+	Library::tex_tiles1      = TextureLoad("tex_tiles1.jpg");
+	Library::tex_tiles2      = TextureLoad("tex_tiles2.jpg");
+	Library::tex_wall1       = TextureLoad("tex_wall1.jpg");
+	Library::map_prime       = GLTFLoad("map_prime.glb", true);
 }

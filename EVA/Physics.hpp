@@ -10,6 +10,8 @@
 
 struct Physics;
 struct Entity;
+struct Mesh;
+struct MeshVertex;
 
 namespace JPH
 {
@@ -19,7 +21,7 @@ namespace JPH
 
 using PhysicsBody = JPH::Body;
 
-struct PhysicsShape : Asset
+struct Collider : Asset
 {
 	JPH::Shape* shape = nullptr;
 };
@@ -32,13 +34,13 @@ enum PhysicsLayer : U16
 	PhysicsLayer_NUM_LAYERS,
 };
 
-
 void PhysicsInitialize();
 
 Physics*      PhysicsCreate();
 void          PhysicsTick(Physics* physics, double dt);
 
-PhysicsShape* PhysicsCreateBoxShape(float3 size);
-void          PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* shape, PhysicsLayer layer);
+Collider* PhysicsCreateBoxCollider(float3 size);
+Collider* PhysicsCreateMeshCollider( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
+void      PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, Collider* shape, PhysicsLayer layer);
 
 void PhysicsDebugDraw(Physics* phsyics);

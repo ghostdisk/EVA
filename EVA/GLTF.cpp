@@ -1,10 +1,11 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/Entities.hpp>
+#include <EVA/Physics.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>
 
-GLTF* GLTFLoad(const char* name)
+GLTF* GLTFLoad(const char* name, bool generate_colliders)
 {
 	GLTF* gltf = new GLTF();
 
@@ -104,6 +105,12 @@ GLTF* GLTFLoad(const char* name)
 		}
 
 		Mesh* mesh = MeshCreate(mesh_name, vertices.size(), vertices.data(), indices.size(), indices.data());
+		if (generate_colliders)
+		{
+			char collider_name[64];
+			snprintf(collider_name, 64, "%s_shape", mesh_name);
+			mesh->collider = PhysicsCreateMeshCollider(collider_name, vertices.size(), vertices.data(), indices.size(), indices.data());
+		}
 		
 		if (primitive.material)
 		{

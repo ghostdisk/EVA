@@ -18,14 +18,17 @@ struct MeshVertex
 };
 
 struct Material;
+struct Collider;
 
 struct Mesh : Asset
 {
-	GLuint    vao             = 0;
-	GLuint    vbo             = 0;
-	GLuint    ibo             = 0;
-	U32       index_count     = 0;
-	Material* default_maerial = nullptr;
+	GLuint        vao             = 0;
+	GLuint        vbo             = 0;
+	GLuint        ibo             = 0;
+	U32           index_count     = 0;
+	U32           vertex_count    = 0;
+	Material*     default_maerial = nullptr;
+	Collider*     collider        = nullptr;
 };
 
 struct Texture : Asset
@@ -57,7 +60,6 @@ Mesh* MeshCreate(
 	const char* name,
 	size_t num_vertices, const MeshVertex* vertices,
 	size_t num_indices, const U32* indices);
-
 
 Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format);
 Texture* TextureLoad(const char* name);

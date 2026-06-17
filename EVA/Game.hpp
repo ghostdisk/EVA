@@ -19,4 +19,4 @@ void GameInit(Game* game, const char* name);
 void GameTick(Game* game, double dt);
 void GameDraw(Game* game);
 
-EID InstantiateScene(EntityManager* manager, GLTFScene* scene, EID start_eid);
+EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);
