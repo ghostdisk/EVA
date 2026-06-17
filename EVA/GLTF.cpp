@@ -55,8 +55,8 @@ GLTF* GLTFLoad(const char* name)
 		std::vector<MeshVertex> vertices(attr_pos->data->count);
 
 		std::vector<float3> pos(attr_pos->data->count);
-		std::vector<float3> nrm(attr_nrm->data->count);
-		std::vector<float2> uv0(attr_uv0->data->count);
+		std::vector<float3> nrm(attr_pos->data->count);
+		std::vector<float2> uv0(attr_pos->data->count);
 
 		if (1       ) cgltf_accessor_unpack_floats(attr_pos->data, (float*)pos.data(), pos.size() * 3);
 		if (attr_nrm) cgltf_accessor_unpack_floats(attr_nrm->data, (float*)nrm.data(), nrm.size() * 3);

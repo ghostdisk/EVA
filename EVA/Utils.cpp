@@ -44,7 +44,7 @@ bool ReadEntireFile(const char* path, void** out_data, size_t* out_size)
 		return false;
 	}
 
-	if (fread(buffer, length, 1, f) != 1)
+	if (length > 0 && fread(buffer, length, 1, f) != 1)
 	{
 		fprintf(stderr, "ReadEntireFile: I/O error on %s\n", path);
 		free(buffer);

@@ -102,7 +102,7 @@ Mesh* MeshCreate(
 	size_t num_indices, const U32* indices)
 {
 	Mesh* mesh = new Mesh();
-	strcpy(mesh->name, name);
+	snprintf(mesh->name, sizeof(mesh->name), "%s", name);
 	mesh->index_count = num_indices;
 
 	glGenVertexArrays(1, &mesh->vao);

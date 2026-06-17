@@ -105,14 +105,17 @@ void UIBeginFrame(UIContext& ui)
 	{
 		UIBox* box = ui.all_boxes[i];
 
-		if (!box->id || !(box->flags & UIBoxFlags_UsedThisFrame))
+		if (box->id && (box->flags & UIBoxFlags_UsedThisFrame))
+		{
+			box->flags &= ~UIBoxFlags_UsedThisFrame;
+		}
+		else
 		{
 			delete box;
 			ui.all_boxes[i] = ui.all_boxes.back();
 			ui.all_boxes.pop_back();
 			i--;
 		}
-		box->flags &= ~UIBoxFlags_UsedThisFrame;
 	}
 }
 

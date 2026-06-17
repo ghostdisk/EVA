@@ -100,6 +100,10 @@ bool IOHandleSDLEvent(SDL_Event* event)
 			IOReleaseButton(IO_BUTTON_MOUSE_START + event->button.button);
 			return true;
 		}
+		default:
+		{
+			return false;
+		}
 	}
 }
 

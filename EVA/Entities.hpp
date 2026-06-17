@@ -76,7 +76,6 @@ struct EntityPool
 			head++;
 		}
 
-		// TODO: We should probably call the entity's constructor!
 		memset(entity, 0, sizeof(TEntity));
 		entity->eid      = eid;
 		entity->alive    = true;

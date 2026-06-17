@@ -198,6 +198,7 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 	for (const char* ptr = text; *ptr; ptr++)
 	{
 		char c = *ptr;
+		if (c < 0) continue;
 
 		FontGlyph& glyph = font->glyphs[c];
 
@@ -227,6 +228,8 @@ float MeasureText(Font* font, const char* text)
 	for (const char* ptr = text; *ptr; ptr++)
 	{
 		char c = *ptr;
+		if (c < 0) continue;
+
 		FontGlyph& glyph = font->glyphs[c];
 		size += glyph.advance;
 	}

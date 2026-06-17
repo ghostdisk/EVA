@@ -31,7 +31,7 @@ void CameraFly(Camera& camera)
 		0,
 	};
 
-	if (input.x || input.z) input = input.Normalized();
+	if (input.x || input.y) input = input.Normalized();
 
 	if (IOGetButton(IO_BUTTON_MOUSE_RIGHT))
 	{

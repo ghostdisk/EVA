@@ -23,7 +23,7 @@ void ClientGameInit(ClientGame* game, const char* name)
 		PhysicsAttachBodyToEntity(game->physics, cube, shape_cube1x1, PhysicsLayer_Moving);
 	}
 
-	EStaticMesh* floor = game->entity_manager.StaticMesh.CreateEntity(100);
+	EStaticMesh* floor = game->entity_manager.StaticMesh.CreateEntity(5000);
 	floor->mesh = gltf_cube->meshes[0];
 	floor->scale.x = 20;
 	floor->scale.y = 20;

@@ -60,7 +60,7 @@ void* ArenaAllocate(Arena* arena, size_t size, size_t alignment)
 void ArenaAlignHead(Arena* arena, size_t alignment)
 {
 	uintptr_t head = (uintptr_t)arena->head;
-	uintptr_t mask = ~(uintptr_t)alignment;
+	uintptr_t mask = (uintptr_t)alignment - 1;
 	head = (head + mask) & (~mask);
 	arena->head = (U8*)head;
 }
