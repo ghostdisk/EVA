@@ -324,6 +324,7 @@ typedef struct _ENetPeer
    enet_uint32   unsequencedWindow [ENET_PEER_UNSEQUENCED_WINDOW_SIZE / 32]; 
    enet_uint32   eventData;
    size_t        totalWaitingData;
+   void*         userdata; // @PATCH
 } ENetPeer;
 
 /** An ENet packet compressor for compressing UDP packets before socket sends or receives.

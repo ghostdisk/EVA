@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <vector>
 
-static std::vector<Asset*> assets = { 0 };
+Asset zero_dummy = { .type = AssetType_None };
+static std::vector<Asset*> assets = { &zero_dummy };
 
 void AssetsSkipToId(U32 id)
 {
@@ -23,7 +24,22 @@ void AssetInit(Asset* asset, AssetType type, const char* name)
 	assets.push_back(asset);
 }
 
-Asset* AssetGet(U32 id)
+Asset* AssetGet(U32 id, AssetType expected_type)
 {
-	return assets[id];
+	if (id < assets.size())
+	{
+		Asset* asset = assets[id];
+		if (asset->type == expected_type)
+		{
+			return asset;
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+	else
+	{
+		return nullptr;
+	}
 }

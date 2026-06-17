@@ -1,54 +1,129 @@
 #include <EVA/ServerGame.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
-#include <EVA/Library.hpp>
+#include <EVA/Binary.hpp>
+#include <EVA/Wire.hpp>
+#include <EVA/GL.hpp> // Mesh
 #include <enet/enet.h>
 #include <stdio.h>
 
-void ServerGameInit(ServerGame* game, const char* name)
+void ServerGameInit(ServerGame* server, const char* name)
 {
-	GameInit(game, name);
+	GameInit(server, name);
 
-	for (int i = 0; i < 200; i++)
+	for (int i = 1; i < 200; i++)
 	{
-		EStaticMesh* cube = game->entity_manager.StaticMesh.CreateEntity(i);
+		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(i);
 		cube->mesh = Library::mesh_cube;
 		cube->position.z = 2 + i * 1.2;
 		cube->position.x = 3 * (rand() % 100) / 100.0f;
 		cube->position.y = 3 * (rand() % 100) / 100.0f;
-		PhysicsAttachBodyToEntity(game->physics, cube, Library::shape_cube, PhysicsLayer_Moving);
+		PhysicsAttachBodyToEntity(server->physics, cube, Library::shape_cube, PhysicsLayer_Moving);
 	}
 
-	EStaticMesh* ground = game->entity_manager.StaticMesh.CreateEntity(5000);
+	EStaticMesh* ground = server->entity_manager.StaticMesh.CreateEntity(5000);
 	ground->mesh = Library::mesh_cube;
 	ground->scale.x = 20;
 	ground->scale.y = 20;
-	PhysicsAttachBodyToEntity(game->physics, ground, Library::shape_ground, PhysicsLayer_NonMoving);
+	PhysicsAttachBodyToEntity(server->physics, ground, Library::shape_ground, PhysicsLayer_NonMoving);
 }
 
-void ServerGameTick(ServerGame* game, double dt)
+static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)
 {
+}
 
-	if (game->host)
+static bool Send(ServerPlayer* player, const U8* message, size_t message_size)
+{
+	ENetPacket* packet = enet_packet_create(message, message_size, ENET_PACKET_FLAG_RELIABLE);
+	if (enet_peer_send(player->peer, 0, packet) == 0)
+	{
+		return true;
+	}
+	else
+	{
+		enet_packet_destroy(packet);
+		return false;
+	}
+}
+
+static void Broadcast(ServerGame* server, const U8* message, size_t message_size)
+{
+	for (ServerPlayer* player : server->players)
+	{
+		Send(player, message, message_size);
+	}
+}
+
+static void SendHello(ServerGame* server, ServerPlayer* player)
+{
+	BinaryWriter writer;
+	BinaryWriterInit(writer);
+
+	server->entity_manager.Iterate(
+		[&](Entity* entity)
+		{
+			WriteBinT<U8>(writer, S2CMessageType_EntityCreate);
+			WriteBinT<U8>(writer, entity->type);
+			WriteBinT<U32>(writer, entity->eid);
+			WriteBinT<float3>(writer, entity->position);
+			WriteBinT<float4>(writer, entity->rotation);
+			WriteBinT<float3>(writer, entity->scale);
+
+			switch (entity->type)
+			{
+				case EntityType_StaticMesh:
+				{
+					EStaticMesh* static_mesh = (EStaticMesh*)entity;
+					WriteBinT<U32>(writer, static_mesh->mesh ? static_mesh->mesh->id : 0);
+					break;
+				}
+				default: break;
+			}
+		});
+
+	printf("[server] Sending %d bytes hello\n", (int)writer.data.size());
+	Send(player, writer.data.data(), writer.data.size());
+}
+
+
+void ServerGameTick(ServerGame* server, double dt)
+{
+	if (server->host)
 	{
 		ENetEvent event;
-		if (enet_host_service(game->host, &event, 0) > 0)
+		if (enet_host_service(server->host, &event, 0) > 0)
 		{
 			switch (event.type)
 			{
 				case ENET_EVENT_TYPE_CONNECT:
 				{
-					printf("[server] new connection!\n");
+					ServerPlayer* player = new ServerPlayer();
+					player->peer = event.peer;
+					event.peer->userdata = player;
+					SendHello(server, player);
+					server->players.push_back(player);
 					break;
 				}
 				case ENET_EVENT_TYPE_DISCONNECT:
-					printf("[server] new disconnection!\n");
 				{
+					ServerPlayer* player = (ServerPlayer*)event.peer->userdata;
+					OnPlayerDisconnected(server, player);
+
+					for (int i = 0; i < server->players.size(); i++)
+					{
+						if (server->players[i] == player)
+						{
+							server->players[i] = server->players.back();
+							server->players.pop_back();
+							break;
+						}
+					}
+					delete player;
 					break;
 				}
 				case ENET_EVENT_TYPE_RECEIVE:
 				{
-					printf("[server] new messagenection!\n");
+					printf("[server] new message!\n");
 					enet_packet_destroy(event.packet);
 					break;
 				}
@@ -57,16 +132,16 @@ void ServerGameTick(ServerGame* game, double dt)
 		}
 	}
 
-	GameTick(game, dt);
+	GameTick(server, dt);
 }
 
-void ServerListen(ServerGame* game, int port)
+void ServerListen(ServerGame* server, int port)
 {
 	ENetAddress address = {};
 	address.host = ENET_HOST_ANY;
 	address.port = port;
-	game->host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
-	if (!game->host)
+	server->host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
+	if (!server->host)
 	{
 		Fatal("enet_host_create failed");
 	}

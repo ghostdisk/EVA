@@ -9,6 +9,8 @@ enum EntityType : U8
 {
 	EntityType_None       = 0,
 	EntityType_StaticMesh = 1,
+
+	EntityType_ENUM_SIZE,
 };
 
 namespace JPH
@@ -48,17 +50,19 @@ struct EStaticMesh : Entity
 template <typename TEntity>
 struct EntityPool
 {
-	TEntity* begin     = nullptr;
-	TEntity* end       = nullptr;
-	TEntity* head      = nullptr;
-	TEntity* free_list = nullptr;
+	TEntity*   begin     = nullptr;
+	TEntity*   end       = nullptr;
+	TEntity*   head      = nullptr;
+	TEntity*   free_list = nullptr;
+	EntityType type      = {};
 
-	void Init(int capacity)
+	void Init(int capacity, EntityType type)
 	{
 		begin     = (TEntity*)malloc(capacity * sizeof(TEntity));
 		end       = begin + capacity;
 		head      = begin;
 		free_list = nullptr;
+		this->type = type;
 	}
 
 	TEntity* CreateEntity(EID eid)
@@ -78,6 +82,7 @@ struct EntityPool
 
 		memset(entity, 0, sizeof(TEntity));
 		entity->eid      = eid;
+		entity->type     = type;
 		entity->alive    = true;
 		entity->rotation = {0,0,0,1};
 		entity->scale    = {1,1,1};
@@ -108,9 +113,24 @@ struct EntityPool
 struct EntityManager
 {
 	EntityPool<EStaticMesh> StaticMesh;
+
+	template <typename F>
+	void Iterate(F&& callback)
+	{
+		StaticMesh.Iterate(callback);
+	}
+
+	Entity* CreateEntity(EntityType type, EID eid)
+	{
+		switch (type)
+		{
+			case EntityType_StaticMesh: return StaticMesh.CreateEntity(eid);
+			default: assert(0); return nullptr;
+		}
+	}
 };
 
 inline void EntityManagerInit(EntityManager& entity_manager)
 {
-	entity_manager.StaticMesh.Init(512);
+	entity_manager.StaticMesh.Init(512, EntityType_StaticMesh);
 }
