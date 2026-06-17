@@ -252,6 +252,15 @@ static inline float4 ConvertQuat(JPH::Quat quat)
 		 quat.mValue[3]);
 }
 
+static inline JPH::Quat ConvertQuat(float4 quat)
+{
+	return JPH::Quat(
+		 quat.x,
+		 quat.z,
+		-quat.y,
+		 quat.w);
+}
+
 void PhysicsInitialize()
 {
 	JPH::RegisterDefaultAllocator();
@@ -369,7 +378,7 @@ void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, Collider* shape
 	}
 
 	JPH::BodyCreationSettings body_creation_settings(
-		shape->shape, Convert(entity->position), {0,0,0,1}, motion_type, layer);
+		shape->shape, Convert(entity->position), ConvertQuat(entity->rotation), motion_type, layer);
 
 	JPH::Body* body = body_interface.CreateBody(body_creation_settings);
 	body_interface.AddBody(body->GetID(), JPH::EActivation::Activate);
