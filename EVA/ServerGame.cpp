@@ -13,14 +13,9 @@ static EID NewEID(ServerGame* server)
 	return server->next_eid++;
 }
 
-void ServerGameInit(ServerGame* server, const char* name)
+void SpawnSomeBoxes(ServerGame* server, int n)
 {
-	GameInit(server, name);
-
-	server->next_eid = InstantiateScene(server, Library::map_prime->scenes[0], server->next_eid);
-
-#if 1
-	for (int i = 1; i < 100; i++)
+	for (int i = 0; i < n; i++)
 	{
 		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
 		cube->mesh = Library::mesh_cube;
@@ -29,7 +24,16 @@ void ServerGameInit(ServerGame* server, const char* name)
 		cube->position.y = 3 * (rand() % 100) / 100.0f;
 		PhysicsAttachBodyToEntity(server->physics, cube, Library::collider_cube, PhysicsLayer_Moving);
 	}
-#endif
+}
+
+void ServerGameInit(ServerGame* server, const char* name)
+{
+	GameInit(server, name);
+
+	server->next_eid = InstantiateScene(server, Library::map_prime->scenes[0], server->next_eid);
+	// SpawnSomeBoxes(server, 200);
+
+	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
 }
 
 static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)

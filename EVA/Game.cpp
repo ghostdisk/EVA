@@ -42,8 +42,8 @@ void GameDraw(Game* game)
 	{
 		case 0:
 		{
-			game->entity_manager.StaticMesh.Iterate(
-				[](EStaticMesh* entity)
+			game->entity_manager.Iterate(
+				[](Entity* entity)
 				{
 					if (entity->mesh)
 					{

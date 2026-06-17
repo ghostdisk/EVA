@@ -46,10 +46,13 @@ void RenderScene()
 
 		for (const DrawMeshEntry& entry : pending_meshes)
 		{
+			Material* material = entry.material;
+			if (!material) material = entry.mesh->default_maerial;
+
 			Texture* color_texture = Library::tex_proto;
-			if (entry.material && entry.material->color_texture)
+			if (material && material->color_texture)
 			{
-				color_texture = entry.material->color_texture;
+				color_texture = material->color_texture;
 			}
 
 			glBindTexture(GL_TEXTURE_2D, color_texture->handle);

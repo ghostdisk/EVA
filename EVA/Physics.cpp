@@ -292,10 +292,14 @@ Physics* PhysicsCreate()
 void PhysicsTick(Physics* physics, double dt)
 {
 	ZoneScopedN("PhysicsTick");
+
 	{
 		ZoneScopedN("Physics Update");
 		physics->system.Update(dt, PHYSICS_COLLISION_STEPS, physics->temp_allocator, &JobSystem);
 	}
+
+	// auto& narrow_phase = physics->system.GetNarrowPhaseQueryNoLock();
+	// narrow_phase.CastShape()
 
 	{ // sync bodies:
 		ZoneScopedN("Physics Sync");

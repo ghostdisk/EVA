@@ -4,3 +4,4 @@ out
 .clangd
 compile_commands.json
 build
+.ignore

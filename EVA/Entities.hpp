@@ -11,6 +11,7 @@ enum EntityType : U8
 	EntityType_None       = 0,
 	EntityType_StaticMesh = 1,
 	EntityType_Rigidbody  = 2,
+	EntityType_Character  = 3,
 
 	EntityType_ENUM_SIZE,
 };
@@ -55,6 +56,19 @@ struct ERigidbody : Entity
 {
 };
 
+// @CONSTRUCTOR_NOT_CALLED
+struct ECharacter : Entity
+{
+};
+
+template <typename T>
+inline void EntityInit(T* entity)
+{
+}
+
+template <>
+void EntityInit(ECharacter* character);
+
 template <typename TEntity>
 struct EntityPool
 {
@@ -94,6 +108,7 @@ struct EntityPool
 		entity->alive    = true;
 		entity->rotation = {0,0,0,1};
 		entity->scale    = {1,1,1};
+		EntityInit(entity);
 		return entity;
 	}
 
@@ -121,13 +136,15 @@ struct EntityPool
 struct EntityManager
 {
 	EntityPool<EStaticMesh> StaticMesh;
-	EntityPool<ERigidbody> Rigidbody;
+	EntityPool<ERigidbody>  Rigidbody;
+	EntityPool<ECharacter>  Character;
 
 	template <typename F>
 	void Iterate(F&& callback)
 	{
 		StaticMesh.Iterate(callback);
 		Rigidbody.Iterate(callback);
+		Character.Iterate(callback);
 	}
 
 	Entity* CreateEntity(EntityType type, EID eid)
@@ -136,6 +153,7 @@ struct EntityManager
 		{
 			case EntityType_StaticMesh: return StaticMesh.CreateEntity(eid);
 			case EntityType_Rigidbody:  return Rigidbody.CreateEntity(eid);
+			case EntityType_Character:  return Character.CreateEntity(eid);
 			default: assert(0); return nullptr;
 		}
 	}
@@ -143,6 +161,7 @@ struct EntityManager
 
 inline void EntityManagerInit(EntityManager& entity_manager)
 {
-	entity_manager.StaticMesh.Init(512, EntityType_StaticMesh);
-	entity_manager.Rigidbody.Init(512, EntityType_StaticMesh);
+	entity_manager.StaticMesh.Init    (512,   EntityType_StaticMesh);
+	entity_manager.Rigidbody.Init     (512,   EntityType_Rigidbody);
+	entity_manager.Character.Init     (64,    EntityType_Character);
 }
