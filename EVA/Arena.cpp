@@ -42,11 +42,11 @@ void ArenaDestroy(Arena* arena)
 void* ArenaAllocate(Arena* arena, size_t size)
 {
 	U8* ptr = arena->head;
-	arena->head += size;
-	if (arena->head > arena->end)
+	if (size > (arena->end - arena->head))
 	{
 		Fatal("ArenaAllocate: out of memory");
 	}
+	arena->head += size;
 	return ptr;
 
 }

@@ -89,6 +89,8 @@ int main()
 	ClientConnect(client, {127,0,0,1}, 27015);
 	ActiveGame = client;
 
+	FrameStartTimeNS = SDL_GetTicksNS();
+
 	while (!DoQuit)
 	{
 		U64 new_time = SDL_GetTicksNS();

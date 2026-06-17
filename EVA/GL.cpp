@@ -27,7 +27,7 @@ void GLInitialize()
 	}
 }
 
-static const char* GLLoadShaderSource(const char* name, GLenum stage)
+static char* GLLoadShaderSource(const char* name, GLenum stage)
 {
 	char path[256];
 	snprintf(path, sizeof(path), "%s/EVA/Shaders/%s.%s.glsl", EVA_BASE_DIR, name, (stage == GL_VERTEX_SHADER ? "vs" : "fs"));
@@ -38,7 +38,7 @@ static const char* GLLoadShaderSource(const char* name, GLenum stage)
 		Fatal("GLLoadShaderSource: Failed to read %s\n", path);
 	}
 
-	return (const char*)data;
+	return (char*)data;
 }
 
 static GLuint GLCompileShader(const char* name, GLenum type, const char* source)
@@ -65,8 +65,8 @@ GLuint GLCompileShaderProgram(const char* name)
 {
 	GLuint program = glCreateProgram();
 
-	const char* vs_src = GLLoadShaderSource(name, GL_VERTEX_SHADER);
-	const char* fs_src = GLLoadShaderSource(name, GL_FRAGMENT_SHADER);
+	char* vs_src = GLLoadShaderSource(name, GL_VERTEX_SHADER);
+	char* fs_src = GLLoadShaderSource(name, GL_FRAGMENT_SHADER);
 	
 	GLuint vs = GLCompileShader(name, GL_VERTEX_SHADER, vs_src);
 	GLuint fs = GLCompileShader(name, GL_FRAGMENT_SHADER, fs_src);
@@ -86,6 +86,8 @@ GLuint GLCompileShaderProgram(const char* name)
 
 	glDeleteShader(vs);
 	glDeleteShader(fs);
+	free(vs_src);
+	free(fs_src);
 
 	GL_ERROR_CHECK();
 	return program;

@@ -63,7 +63,7 @@ inline float3 float3::Normalized()
 {
 	float len = Length();
 	assert(len > 0.0001f);
-	return (*this) * (1.0f / Length());
+	return (*this) * (1.0f / len);
 }
 
 

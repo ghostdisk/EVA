@@ -50,7 +50,7 @@ GLTF* GLTFLoad(const char* name)
 				default: break;
 			}
 		}
-		if (!attr_pos) Fatal("Invalid gltf %s\n", name);
+		if (!attr_pos || !primitive.indices) Fatal("Invalid gltf %s\n", name);
 
 		std::vector<MeshVertex> vertices(attr_pos->data->count);
 

@@ -53,6 +53,7 @@ void ClientGameTick(ClientGame* game, double dt)
 				case ENET_EVENT_TYPE_RECEIVE:
 				{
 					printf("[client] new messagenection!\n");
+					enet_packet_destroy(event.packet);
 					break;
 				}
 			}
