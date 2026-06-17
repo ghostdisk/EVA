@@ -35,3 +35,5 @@ void          PhysicsTick(Physics* physics, double dt);
 
 PhysicsShape* PhysicsCreateBoxShape(float3 size);
 void          PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* shape, PhysicsLayer layer);
+
+void PhysicsDebugDraw(Physics* phsyics);

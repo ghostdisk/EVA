@@ -13,14 +13,13 @@ void ClientGameInit(ClientGame* game, const char* name)
 	PhysicsShape* shape_cube1x1 = PhysicsCreateBoxShape(float3(1,1,1));
 	PhysicsShape* shape_floor = PhysicsCreateBoxShape(float3(20,1,20));
 
-	for (int i = 0; i < 30; i++)
+	for (int i = 0; i < 200; i++)
 	{
 		EStaticMesh* cube = game->entity_manager.StaticMesh.CreateEntity(i);
-		printf("%p\n", cube);
 		cube->mesh = gltf_cube->meshes[0];
-		cube->position.z = 2 + i * 2.2;
-		cube->position.x = (rand() % 100) / 100.0f;
-		cube->position.y = (rand() % 100) / 100.0f;
+		cube->position.z = 2 + i * 1.2;
+		cube->position.x = 3 * (rand() % 100) / 100.0f;
+		cube->position.y = 3 * (rand() % 100) / 100.0f;
 		PhysicsAttachBodyToEntity(game->physics, cube, shape_cube1x1, PhysicsLayer_Moving);
 	}
 
@@ -59,7 +58,6 @@ void ClientGameTick(ClientGame* game, double dt)
 			}
 		}
 	}
-
 
 	GameTick(game, dt);
 }

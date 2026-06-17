@@ -4,7 +4,6 @@
 
 struct Physics;
 
-
 struct Game
 {
 	const char*   name            = nullptr;
@@ -17,3 +16,4 @@ extern Game* ActiveGame;
 
 void GameInit(Game* game, const char* name);
 void GameTick(Game* game, double dt);
+void GameDraw(Game* game);

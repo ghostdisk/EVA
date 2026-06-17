@@ -1,5 +1,6 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Entities.hpp>
+#include <EVA/Renderer.hpp>
 #include <Jolt/Jolt.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -15,6 +16,7 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
+#include <Jolt/Renderer/DebugRenderer.h>
 
 static JPH::JobSystemThreadPool JobSystem;
 
@@ -24,7 +26,7 @@ static constexpr JPH::uint BroadPhaseLayer_NUM_LAYERS = 2;
 
 struct Physics
 {
-	JPH::PhysicsSystem system;
+	JPH::PhysicsSystem  system;
 };
 
 struct ObjectLayerPairFilterImpl : public JPH::ObjectLayerPairFilter
@@ -104,9 +106,99 @@ static bool AssertFailedImpl(const char *inExpression, const char *inMessage, co
 };
 #endif
 
+struct DebugRendererImpl : JPH::DebugRenderer
+{
+
+	struct MeshWrapper : JPH::RefTargetVirtual
+	{
+		Mesh* mesh = nullptr;
+		virtual void AddRef() {}
+		virtual void Release() {}
+	};
+
+	virtual void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor)
+	{
+		printf("Stub: DrawLine");
+	}
+	virtual void DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor, ECastShadow inCastShadow = ECastShadow::Off)
+	{
+		printf("Stub: DrawTriangle\n");
+	}
+	virtual void DrawText3D(JPH::RVec3Arg inPosition, const std::string_view &inString, JPH::ColorArg inColor = JPH::Color::sWhite, float inHeight = 0.5f)
+	{
+		printf("Stub: DrawText3D\n");
+	}
+	virtual Batch CreateTriangleBatch(const Triangle *inTriangles, int inTriangleCount)
+	{
+		printf("Stub: CreateTriangleBatch\n");
+		return {};
+	}
+
+	virtual Batch CreateTriangleBatch(const Vertex *inVertices, int inVertexCount, const JPH::uint32 *inIndices, int inIndexCount)
+	{
+		static int k = 0;
+		char name[64];
+		snprintf(name, 64, "JoltTriangleBatch_%d", k++);
+
+		std::vector<MeshVertex> vertices(inVertexCount);
+		for (int i = 0; i < inVertexCount; i++)
+		{
+			vertices[i].position.x = inVertices[i].mPosition.x;
+			vertices[i].position.y = inVertices[i].mPosition.y;
+			vertices[i].position.z = inVertices[i].mPosition.z;
+			vertices[i].normal.x   = inVertices[i].mNormal.x;
+			vertices[i].normal.y   = inVertices[i].mNormal.y;
+			vertices[i].normal.z   = inVertices[i].mNormal.z;
+			vertices[i].texcoord.x = inVertices[i].mUV.x;
+			vertices[i].texcoord.y = inVertices[i].mUV.y;
+		}
+
+		Mesh* mesh = MeshCreate(name, vertices.size(), vertices.data(), inIndexCount, inIndices);
+
+		MeshWrapper* wrapper = new MeshWrapper();
+		wrapper->mesh = mesh;
+		return wrapper;
+	}
+
+	virtual void DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox &inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor, const GeometryRef &inGeometry, ECullMode inCullMode, ECastShadow inCastShadow, EDrawMode inDrawMode)
+	{
+		Batch batch = inGeometry->mLODs[0].mTriangleBatch;
+		MeshWrapper* mesh_wrapper = (MeshWrapper*)batch.GetPtr();
+
+		float4x4 matrix = {};
+		memcpy(&matrix, &inModelMatrix, 64);
+
+		float tmp;
+
+		tmp = matrix.data[0][1];
+		matrix.data[0][1] = -matrix.data[0][2];
+		matrix.data[0][2] = tmp;
+
+		tmp = matrix.data[1][1];
+		matrix.data[1][1] = -matrix.data[1][2];
+		matrix.data[1][2] = tmp;
+
+		tmp = matrix.data[2][1];
+		matrix.data[2][1] = -matrix.data[2][2];
+		matrix.data[2][2] = tmp;
+
+		tmp = matrix.data[3][1];
+		matrix.data[3][1] = -matrix.data[3][2];
+		matrix.data[3][2] = tmp;
+
+		DrawMesh(mesh_wrapper->mesh, matrix);
+	}
+
+	void Init()
+	{
+		Initialize();
+	}
+};
+
 static BPLayerInterfaceImpl              broad_phase_layer_interface;
 static ObjectVsBroadPhaseLayerFilterImpl object_vs_broadphase_layer_filter;
 static ObjectLayerPairFilterImpl         object_vs_object_layer_filter;
+static DebugRendererImpl                 debug_renderer;
 
 static inline JPH::Vec3 Convert(float3 vec)
 {
@@ -136,17 +228,19 @@ void PhysicsInitialize()
 		JPH::cMaxPhysicsBarriers, 
 		std::thread::hardware_concurrency() - 1);
 
+	debug_renderer.Init();
 }
 
 Physics* PhysicsCreate()
 {
 	Physics* physics = new Physics();
+
 	physics->system.Init(
 		PHYSICS_MAX_BODIES, 0, PHYSICS_MAX_BODY_PAIRS, PHYSICS_MAX_CONTACT_CONSTRAINTS,
 		broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
+
 	return physics;
 }
-
 
 void PhysicsTick(Physics* physics, double dt)
 {
@@ -196,4 +290,12 @@ void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* s
 
 	body->SetUserData((U64)entity);
 	entity->body = body;
+}
+
+void PhysicsDebugDraw(Physics* physics)
+{
+	physics->system.DrawBodies(JPH::BodyManager::DrawSettings{
+		.mDrawShape = true,
+		.mDrawShapeWireframe = true,
+	}, &debug_renderer);
 }

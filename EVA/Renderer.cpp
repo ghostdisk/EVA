@@ -3,6 +3,8 @@
 #include <vector>
 
 GLuint LineShader;
+GLuint MainShader;
+extern Texture* tex_proto;
 
 struct LineVertex
 {
@@ -10,11 +12,19 @@ struct LineVertex
 	float4 color;
 };
 
+struct DrawMeshEntry
+{
+	Mesh* mesh;
+	float4x4 matrix;
+};
+
 static std::vector<LineVertex> pending_lines;
+static std::vector<DrawMeshEntry> pending_meshes;
 
 void RendererInitialize()
 {
 	LineShader = GLCompileShaderProgram("Lines");
+	MainShader = GLCompileShaderProgram("Main");
 }
 
 void DrawLine(float3 a, float3 b, float4 color)
@@ -23,32 +33,51 @@ void DrawLine(float3 a, float3 b, float4 color)
 	pending_lines.push_back({ b, color });
 }
 
-void RenderPendingLines()
+void RenderScene()
 {
-	GLuint vao, vbo;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, pending_lines.size() * sizeof(pending_lines[0]), pending_lines.data(), GL_STATIC_DRAW);
-	GL_ERROR_CHECK();
+	{ // render pending meshes:
+		glUseProgram(MainShader);
+		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(LineVertex), (void*)0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(LineVertex), (void*)12);
+		glBindTexture(GL_TEXTURE_2D, tex_proto->handle);
+		glActiveTexture(GL_TEXTURE0);
 
-	glUseProgram(LineShader);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
-	glDrawArrays(GL_LINES, 0, pending_lines.size());
-	GL_ERROR_CHECK();
+		for (const DrawMeshEntry& entry : pending_meshes)
+		{
+			glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
+			glBindVertexArray(entry.mesh->vao);
+			glDrawElements(GL_TRIANGLES, entry.mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+		}
 
-	glDeleteVertexArrays(1, &vao);
-	glDeleteBuffers(1, &vbo);
+		pending_meshes.clear();
+	}
 
-	pending_lines.clear();
+	{ // render pending lines:
+		GLuint vao, vbo;
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glGenBuffers(1, &vbo);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, pending_lines.size() * sizeof(pending_lines[0]), pending_lines.data(), GL_STATIC_DRAW);
+		GL_ERROR_CHECK();
+
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(LineVertex), (void*)0);
+		glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(LineVertex), (void*)12);
+
+		glUseProgram(LineShader);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
+		glDrawArrays(GL_LINES, 0, pending_lines.size());
+		GL_ERROR_CHECK();
+
+		glDeleteVertexArrays(1, &vao);
+		glDeleteBuffers(1, &vbo);
+
+		pending_lines.clear();
+	}
 }
 
 void DrawGrid(int size)
@@ -60,4 +89,15 @@ void DrawGrid(int size)
 		DrawLine({(float)i, -s, 0}, {(float)i, (float)size, 0}, color);
 		DrawLine({-s, (float)i, 0}, {(float)size, (float)i, 0}, color);
 	}
+}
+
+void DrawMesh(Mesh* mesh, const float4x4& matrix)
+{
+	pending_meshes.push_back({ mesh, matrix });
+}
+
+void RendererBeginFrame()
+{
+	pending_meshes.clear();
+	pending_lines.clear();
 }

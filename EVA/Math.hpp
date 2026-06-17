@@ -29,6 +29,8 @@ inline void operator-=(float2& a, const float2& b) { a.x -= b.x; a.y -= b.y;  }
 inline void operator*=(float2& vec, float s) { vec.x *= s; vec.y *= s;  }
 inline void operator/=(float2& vec, float s) { vec.x /= s; vec.y /= s;  }
 
+inline float2 operator-(const float2& vec) { return float2(-vec.x, -vec.y); }
+
 struct float3
 {
 	float x = 0.0f;
@@ -55,6 +57,8 @@ inline void operator-=(float3& a, const float3& b) { a.x -= b.x; a.y -= b.y; a.z
 inline void operator*=(float3& vec, float s) { vec.x *= s; vec.y *= s; vec.z *= s; }
 inline void operator/=(float3& vec, float s) { vec.x /= s; vec.y /= s; vec.z /= s; }
 
+inline float3 operator-(const float3& vec) { return float3(-vec.x, -vec.y, -vec.z); }
+
 inline float3 float3::Normalized()
 {
 	float len = Length();
@@ -75,11 +79,17 @@ struct float4
 	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
 };
 
+inline float4 operator-(const float4& vec) { return float4(-vec.x, -vec.y, -vec.z, -vec.w); }
 
 struct __declspec(align(16)) float4x4
 {
 	float data[4][4]; // column major, indexed as [col][row]
 	inline operator vec4*() { return &data[0]; } // needed so we can pss it to cglm conveniently
+
+	float4& column(int c)
+	{
+		return *(float4*)&data[c];
+	}
 };
 
 inline void zero(float4x4& mat)
