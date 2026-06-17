@@ -12,6 +12,7 @@
 #include <EVA/Physics.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
+#include <tracy/Tracy.hpp>
 
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
@@ -202,6 +203,8 @@ int main()
 
 			SDL_GL_SwapWindow(GameWindow);
 		}
+
+		FrameMark;
 	}
 
 	return 0;

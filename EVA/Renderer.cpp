@@ -1,6 +1,7 @@
 #include <EVA/Renderer.hpp>
 #include <EVA/Game.hpp>
 #include <vector>
+#include <tracy/Tracy.hpp>
 
 GLuint LineShader;
 GLuint MainShader;
@@ -35,6 +36,8 @@ void DrawLine(float3 a, float3 b, float4 color)
 
 void RenderScene()
 {
+	ZoneScopedN("RenderScene");
+
 	{ // render pending meshes:
 		glUseProgram(MainShader);
 		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
@@ -98,6 +101,8 @@ void DrawMesh(Mesh* mesh, const float4x4& matrix)
 
 void RendererBeginFrame()
 {
+	ZoneScoped;
+
 	pending_meshes.clear();
 	pending_lines.clear();
 }

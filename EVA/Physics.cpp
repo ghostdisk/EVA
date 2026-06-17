@@ -1,11 +1,11 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Entities.hpp>
 #include <EVA/Renderer.hpp>
-#include <Jolt/Jolt.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <thread>
 
+#include <Jolt/Jolt.h>
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Core/TempAllocator.h>
@@ -17,6 +17,7 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 #include <Jolt/Renderer/DebugRenderer.h>
+#include <tracy/Tracy.hpp>
 
 static JPH::JobSystemThreadPool JobSystem;
 
@@ -27,6 +28,7 @@ static constexpr JPH::uint BroadPhaseLayer_NUM_LAYERS = 2;
 struct Physics
 {
 	JPH::PhysicsSystem  system;
+	JPH::TempAllocatorImpl* temp_allocator;
 };
 
 struct ObjectLayerPairFilterImpl : public JPH::ObjectLayerPairFilter
@@ -243,6 +245,7 @@ void PhysicsInitialize()
 Physics* PhysicsCreate()
 {
 	Physics* physics = new Physics();
+	physics->temp_allocator = new JPH::TempAllocatorImpl(10 * 1024 * 1024);
 
 	physics->system.Init(
 		PHYSICS_MAX_BODIES, 0, PHYSICS_MAX_BODY_PAIRS, PHYSICS_MAX_CONTACT_CONSTRAINTS,
@@ -253,10 +256,14 @@ Physics* PhysicsCreate()
 
 void PhysicsTick(Physics* physics, double dt)
 {
-	JPH::TempAllocatorImpl temp_allocator(10 * 1024 * 1024);
-	physics->system.Update(dt, PHYSICS_COLLISION_STEPS, &temp_allocator, &JobSystem);
+	{
+		ZoneScopedN("Physics Update");
+		physics->system.Update(dt, PHYSICS_COLLISION_STEPS, physics->temp_allocator, &JobSystem);
+	}
 
 	{ // sync bodies:
+		ZoneScopedN("Physics Sync");
+
 		JPH::BodyIDVector bodies;
 		physics->system.GetActiveBodies(JPH::EBodyType::RigidBody, bodies);
 
@@ -304,6 +311,8 @@ void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* s
 
 void PhysicsDebugDraw(Physics* physics)
 {
+	ZoneScoped;
+
 	physics->system.DrawBodies(JPH::BodyManager::DrawSettings{
 		.mDrawShape = true,
 		.mDrawShapeWireframe = true,
