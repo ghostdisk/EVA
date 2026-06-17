@@ -48,10 +48,9 @@ privDefer<F> defer_func(F f) {
 ////////////////////////////////////////////////////////////////////////////////
 // COMMON UTILS
 
-[[noreturn]]
-void Fatal(const char* fmt, ...);
-
+[[noreturn]] void Fatal(const char* fmt, ...);
 bool ReadEntireFile(const char* path, void** out_data, size_t* out_size);
+void ReplaceFileExtension(char* buffer, size_t buflen, const char* new_ext);
 
 ////////////////////////////////////////////////////////////////////////////////
 

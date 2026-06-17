@@ -17,12 +17,15 @@ struct MeshVertex
 	float2 texcoord;
 };
 
+struct Material;
+
 struct Mesh : Asset
 {
-	GLuint vao         = 0;
-	GLuint vbo         = 0;
-	GLuint ibo         = 0;
-	U32    index_count = 0;
+	GLuint    vao             = 0;
+	GLuint    vbo             = 0;
+	GLuint    ibo             = 0;
+	U32       index_count     = 0;
+	Material* default_maerial = nullptr;
 };
 
 struct Texture : Asset
@@ -30,6 +33,11 @@ struct Texture : Asset
 	GLuint handle = 0;
 	size_t width  = 0;
 	size_t height = 0;
+};
+
+struct Material : Asset
+{
+	Texture* color_texture = nullptr;
 };
 
 #define GL_ERROR_CHECK() \
@@ -53,3 +61,4 @@ Mesh* MeshCreate(
 
 Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format);
 Texture* TextureLoad(const char* name);
+Material* MaterialCreate(const char* name, Texture* texture);

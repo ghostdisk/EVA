@@ -43,3 +43,20 @@ Asset* AssetGet(U32 id, AssetType expected_type)
 		return nullptr;
 	}
 }
+
+Asset* AssetGetByName(const char* name, AssetType expected_type)
+{
+	// TODO: This is even slower than what you may expect looking at this code, as there's a bunch of holes
+	//       in the assets vector.
+	for (Asset* asset : assets)
+	{
+		if (asset && strcmp(asset->name, name) == 0)
+		{
+			if (asset->type == expected_type)
+			{
+				return asset;
+			}
+		}
+	}
+	return nullptr;
+}

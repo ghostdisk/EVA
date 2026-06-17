@@ -58,3 +58,26 @@ bool ReadEntireFile(const char* path, void** out_data, size_t* out_size)
 
 	return true;
 }
+
+
+
+void ReplaceFileExtension(char* buffer, size_t buflen, const char* new_ext)
+{
+	size_t len = strlen(buffer);
+	char* candidate = buffer + len;
+
+	for (int i = len - 1; i >= 0; i--)
+	{
+		if (buffer[i] == '.')
+		{
+			candidate = buffer + i;
+			break;
+		}
+		if (buffer[i] == '/' || buffer[i] == '\'')
+		{
+			break;
+		}
+	}
+
+	snprintf(candidate, buflen - (candidate - buffer), "%s", new_ext);
+}

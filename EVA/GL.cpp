@@ -171,5 +171,17 @@ Texture* TextureLoad(const char* name)
 	}
 	DEFER(free(pixels));
 
-	return TextureCreate(name, width, height, pixels, GL_RGBA8);
+	char name_without_ext[64];
+	int len = snprintf(name_without_ext, 64, "%s", name);
+	ReplaceFileExtension(name_without_ext, 64, "");
+
+	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8);
+}
+
+Material* MaterialCreate(const char* name, Texture* texture)
+{
+	Material* material = new Material();
+	AssetInit(material, AssetType_Material, name);
+	material->color_texture = texture;
+	return material;
 }

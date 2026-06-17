@@ -17,5 +17,6 @@ extern Texture* tex_test;
 extern Texture* tex_proto;
 extern PhysicsShape* shape_cube;
 extern PhysicsShape* shape_ground;
+extern GLTF* map_prime;
 
 }

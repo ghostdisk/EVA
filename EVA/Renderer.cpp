@@ -15,8 +15,9 @@ struct LineVertex
 
 struct DrawMeshEntry
 {
-	Mesh* mesh;
-	float4x4 matrix;
+	Mesh*     mesh;
+	Material* material;
+	float4x4  matrix;
 };
 
 static std::vector<LineVertex> pending_lines;
@@ -42,11 +43,17 @@ void RenderScene()
 		glUseProgram(MainShader);
 		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 
-		glBindTexture(GL_TEXTURE_2D, Library::tex_proto->handle);
-		glActiveTexture(GL_TEXTURE0);
 
 		for (const DrawMeshEntry& entry : pending_meshes)
 		{
+			Texture* color_texture = Library::tex_proto;
+			if (entry.material && entry.material->color_texture)
+			{
+				color_texture = entry.material->color_texture;
+			}
+
+			glBindTexture(GL_TEXTURE_2D, color_texture->handle);
+			glActiveTexture(GL_TEXTURE0);
 			glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
 			glBindVertexArray(entry.mesh->vao);
 			glDrawElements(GL_TRIANGLES, entry.mesh->index_count, GL_UNSIGNED_INT, (void*)0);
@@ -94,9 +101,9 @@ void DrawGrid(int size)
 	}
 }
 
-void DrawMesh(Mesh* mesh, const float4x4& matrix)
+void DrawMesh(Mesh* mesh, Material* material, const float4x4& matrix)
 {
-	pending_meshes.push_back({ mesh, matrix });
+	pending_meshes.push_back({ mesh, material, matrix });
 }
 
 void RendererBeginFrame()

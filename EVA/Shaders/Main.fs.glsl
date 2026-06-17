@@ -11,7 +11,7 @@ void main()
 {
 	vec3 normal = normalize(v_Normal);
 
-	float light1 = dot(v_Normal, normalize(vec3(1, -1, 1)));
+	float light1 = dot(v_Normal, normalize(vec3(-1, -.5, 1)));
 	if (light1 < 0.0) light1 = 0.0;
 
 	float light = light1 * 0.6 + 0.4;

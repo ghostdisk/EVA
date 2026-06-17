@@ -7,6 +7,7 @@ enum AssetType
 	AssetType_Mesh,
 	AssetType_Texture,
 	AssetType_PhysicsShape,
+	AssetType_Material,
 };
 
 struct Asset
@@ -20,3 +21,4 @@ void AssetsSkipToId(U32 id);
 
 void   AssetInit(Asset* asset, AssetType type, const char* name);
 Asset* AssetGet(U32 id, AssetType expected_type);
+Asset* AssetGetByName(const char* name, AssetType expected_type);

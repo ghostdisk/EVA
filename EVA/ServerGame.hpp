@@ -10,8 +10,9 @@ struct ServerPlayer
 
 struct ServerGame : Game
 {
-	ENetHost*                  host    = 0;
-	std::vector<ServerPlayer*> players = {};
+	ENetHost*                  host     = 0;
+	std::vector<ServerPlayer*> players  = {};
+	EID                        next_eid = 1;
 };
 
 void ServerGameInit(ServerGame* game, const char* name);

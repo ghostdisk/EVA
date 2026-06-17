@@ -65,24 +65,16 @@ void ClientGameTick(ClientGame* game, double dt)
 								entity->rotation = ReadBinT<float4>(reader);
 								entity->scale = ReadBinT<float3>(reader);
 
-								switch (entity->type)
+								EStaticMesh* static_mesh = (EStaticMesh*)entity;
+								U32 mesh_id = ReadBinT<U32>(reader);
+								if (mesh_id > 0)
 								{
-									case EntityType_StaticMesh:
+									Mesh* mesh = (Mesh*)AssetGet(mesh_id, AssetType_Mesh);
+									if (!mesh)
 									{
-										EStaticMesh* static_mesh = (EStaticMesh*)entity;
-										U32 mesh_id = ReadBinT<U32>(reader);
-										if (mesh_id > 0)
-										{
-											Mesh* mesh = (Mesh*)AssetGet(mesh_id, AssetType_Mesh);
-											if (!mesh)
-											{
-												return Disconnect(game, "Server requested invalid asset");
-											}
-											static_mesh->mesh = mesh;
-										}
-										break;
+										return Disconnect(game, "Server requested invalid asset");
 									}
-									default: break;
+									static_mesh->mesh = mesh;
 								}
 								break;
 							}

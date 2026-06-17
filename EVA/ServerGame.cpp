@@ -3,17 +3,24 @@
 #include <EVA/Library.hpp>
 #include <EVA/Binary.hpp>
 #include <EVA/Wire.hpp>
+#include <EVA/GLTF.hpp>
 #include <EVA/GL.hpp> // Mesh
 #include <enet/enet.h>
 #include <stdio.h>
+
+static EID NewEID(ServerGame* server)
+{
+	return server->next_eid++;
+}
 
 void ServerGameInit(ServerGame* server, const char* name)
 {
 	GameInit(server, name);
 
+#if 0
 	for (int i = 1; i < 200; i++)
 	{
-		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(i);
+		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
 		cube->mesh = Library::mesh_cube;
 		cube->position.z = 2 + i * 1.2;
 		cube->position.x = 3 * (rand() % 100) / 100.0f;
@@ -21,11 +28,14 @@ void ServerGameInit(ServerGame* server, const char* name)
 		PhysicsAttachBodyToEntity(server->physics, cube, Library::shape_cube, PhysicsLayer_Moving);
 	}
 
-	EStaticMesh* ground = server->entity_manager.StaticMesh.CreateEntity(5000);
+	EStaticMesh* ground = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
 	ground->mesh = Library::mesh_cube;
 	ground->scale.x = 20;
 	ground->scale.y = 20;
 	PhysicsAttachBodyToEntity(server->physics, ground, Library::shape_ground, PhysicsLayer_NonMoving);
+#endif
+
+	server->next_eid = InstantiateScene(&server->entity_manager, Library::map_prime->scenes[0], server->next_eid);
 }
 
 static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)
@@ -54,6 +64,17 @@ static void Broadcast(ServerGame* server, const U8* message, size_t message_size
 	}
 }
 
+static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity)
+{
+	WriteBinT<U8>(writer, S2CMessageType_EntityCreate);
+	WriteBinT<U8>(writer, entity->type);
+	WriteBinT<U32>(writer, entity->eid);
+	WriteBinT<float3>(writer, entity->position);
+	WriteBinT<float4>(writer, entity->rotation);
+	WriteBinT<float3>(writer, entity->scale);
+	WriteBinT<U32>(writer, entity->mesh ? entity->mesh->id : 0);
+}
+
 static void SendHello(ServerGame* server, ServerPlayer* player)
 {
 	BinaryWriter writer;
@@ -62,23 +83,7 @@ static void SendHello(ServerGame* server, ServerPlayer* player)
 	server->entity_manager.Iterate(
 		[&](Entity* entity)
 		{
-			WriteBinT<U8>(writer, S2CMessageType_EntityCreate);
-			WriteBinT<U8>(writer, entity->type);
-			WriteBinT<U32>(writer, entity->eid);
-			WriteBinT<float3>(writer, entity->position);
-			WriteBinT<float4>(writer, entity->rotation);
-			WriteBinT<float3>(writer, entity->scale);
-
-			switch (entity->type)
-			{
-				case EntityType_StaticMesh:
-				{
-					EStaticMesh* static_mesh = (EStaticMesh*)entity;
-					WriteBinT<U32>(writer, static_mesh->mesh ? static_mesh->mesh->id : 0);
-					break;
-				}
-				default: break;
-			}
+			FillOutEntityCreateMessage(writer, entity);
 		});
 
 	printf("[server] Sending %d bytes hello\n", (int)writer.data.size());

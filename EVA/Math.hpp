@@ -39,6 +39,7 @@ struct float3
 
 	float3() {}
 	float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
+	float3(float* vec) : x(vec[0]), y(vec[1]), z(vec[2]) {}
 	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
 
 	inline float SquaredLength() { return x*x + y*y + z*z; }
@@ -76,6 +77,7 @@ struct float4
 
 	float4() {}
 	float4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+	float4(float* vec) : x(vec[0]), y(vec[1]), z(vec[2]), w(vec[3]) {}
 	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
 };
 

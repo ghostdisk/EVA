@@ -77,12 +77,13 @@ int main()
 	server = new ServerGame();
 	ServerGameInit(server, "SERVER");
 	ServerListen(server, 27015);
+	ActiveGame = server;
 
 
-	client = new ClientGame();
-	ClientGameInit(client, "CLIENT0");
-	ClientConnect(client, {127,0,0,1}, 27015);
-	ActiveGame = client;
+	// client = new ClientGame();
+	// ClientGameInit(client, "CLIENT0");
+	// ClientConnect(client, {127,0,0,1}, 27015);
+	// ActiveGame = client;
 
 	FrameStartTimeNS = SDL_GetTicksNS();
 
@@ -136,7 +137,7 @@ int main()
 		}
 
 		{ // Simulate game:
-			ClientGameTick(client, DeltaTime);
+			if (client) ClientGameTick(client, DeltaTime);
 			if (server) ServerGameTick(server, DeltaTime);
 
 			// Status label
@@ -161,10 +162,10 @@ int main()
 			}
 		}
 
-		DrawGrid(50);
-		DrawLine({0,0,0}, {1,0,0}, {1,0,0,1});
-		DrawLine({0,0,0}, {0,1,0}, {0,1,0,1});
-		DrawLine({0,0,0}, {0,0,1}, {0,0,1,1});
+		// DrawGrid(50);
+		// DrawLine({0,0,0}, {1,0,0}, {1,0,0,1});
+		// DrawLine({0,0,0}, {0,1,0}, {0,1,0,1});
+		// DrawLine({0,0,0}, {0,0,1}, {0,0,1,1});
 		GameDraw(ActiveGame);
 
 		UIEndFrame(UI);
@@ -174,7 +175,7 @@ int main()
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
 			glViewport(0, 0, WindowWidth, WindowHeight);
-			glClearColor(0.2, 0.2, 0.2, 1);
+			glClearColor(161.0f/255.0f, 234.0f/255.0f, 247.0f/255.0f, 1);
 
 			glEnable(GL_DEPTH_TEST);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

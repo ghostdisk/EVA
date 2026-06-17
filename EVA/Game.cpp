@@ -1,6 +1,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Renderer.hpp>
+#include <EVA/GLTF.hpp>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
@@ -50,7 +51,7 @@ void GameDraw(Game* game)
 						glm_translate_make(model_matrix, &entity->position.x);
 						glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
 						glm_scale(model_matrix, &entity->scale.x);
-						DrawMesh(entity->mesh, model_matrix);
+						DrawMesh(entity->mesh, entity->material, model_matrix);
 					}
 				});
 			break;
@@ -61,4 +62,24 @@ void GameDraw(Game* game)
 			break;
 		}
 	}
+}
+
+EID InstantiateScene(EntityManager* manager, GLTFScene* scene, EID start_eid)
+{
+	EID eid = start_eid;
+
+	for (const GLTFSceneNode& node : scene->nodes)
+	{
+		if (node.mesh)
+		{
+			EStaticMesh* entity = manager->StaticMesh.CreateEntity(eid++);
+			entity->mesh     = node.mesh;
+			entity->material = node.material;
+			entity->position = node.position;
+			entity->rotation = node.rotation;
+			entity->scale    = node.scale;
+		}
+	}
+
+	return eid;
 }

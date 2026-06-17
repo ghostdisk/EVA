@@ -3,6 +3,7 @@
 #include <EVA/Camera.hpp>
 
 struct Physics;
+struct GLTFScene;
 
 struct Game
 {
@@ -17,3 +18,5 @@ extern Game* ActiveGame;
 void GameInit(Game* game, const char* name);
 void GameTick(Game* game, double dt);
 void GameDraw(Game* game);
+
+EID InstantiateScene(EntityManager* manager, GLTFScene* scene, EID start_eid);

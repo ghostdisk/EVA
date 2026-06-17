@@ -1,4 +1,5 @@
 #include <EVA/GLTF.hpp>
+#include <EVA/Entities.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>
@@ -23,6 +24,26 @@ GLTF* GLTFLoad(const char* name)
 		Fatal("cgltf_load_buffers: failed to load %s", path);
 	}
 
+	for (int material_idx = 0; material_idx < data->materials_count; material_idx++)
+	{
+		Material* material = new Material();
+		gltf->materials.push_back(material);
+
+		cgltf_material& gltf_material = data->materials[material_idx];
+
+		cgltf_texture* in_texture = gltf_material.pbr_metallic_roughness.base_color_texture.texture;
+		if (in_texture)
+		{
+			if (in_texture->image)
+			{
+				material->color_texture = (Texture*)AssetGetByName(in_texture->image->name, AssetType_Texture);
+				if (!material->color_texture)
+				{
+					fprintf(stderr, "[warn] missing texture %s\n", in_texture->image->name);
+				}
+			}
+		}
+	}
 
 	for (int mesh_idx = 0; mesh_idx < data->meshes_count; mesh_idx++)
 	{
@@ -73,11 +94,55 @@ GLTF* GLTFLoad(const char* name)
 		cgltf_accessor_unpack_indices(primitive.indices, indices.data(), 4, indices.size());
 
 		char mesh_name[64];
-		snprintf(mesh_name, 64, "%s/meshes/%d", name, mesh_idx);
+		if (gltf_mesh.name)
+		{
+			snprintf(mesh_name, 64, "%s/meshes/%s", name, gltf_mesh.name);
+		}
+		else
+		{
+			snprintf(mesh_name, 64, "%s/meshes/mesh%d", name, mesh_idx);
+		}
 
-		gltf->meshes.push_back(MeshCreate(mesh_name,
-			vertices.size(), vertices.data(),
-			indices.size(), indices.data()));
+		Mesh* mesh = MeshCreate(mesh_name, vertices.size(), vertices.data(), indices.size(), indices.data());
+		
+		if (primitive.material)
+		{
+			mesh->default_maerial = gltf->materials[cgltf_material_index(data, primitive.material)];
+		}
+		gltf->meshes.push_back(mesh);
+	}
+
+	for (int scene_idx = 0; scene_idx < data->scenes_count; scene_idx++)
+	{
+		cgltf_scene& gltf_scene = data->scenes[scene_idx];
+		GLTFScene* scene = new GLTFScene();
+		gltf->scenes.push_back(scene);
+
+		for (int node_idx = 0; node_idx < gltf_scene.nodes_count; node_idx++)
+		{
+			cgltf_node* gltf_node = gltf_scene.nodes[node_idx];
+			if (gltf_node->parent)
+			{
+				fprintf(stderr, "[warn] gltf node has parent, this is not implementerd, result may be wrong\n");
+			}
+
+			Mesh* mesh = nullptr;
+			Material* material = nullptr;
+
+			if (gltf_node->mesh)
+			{
+				mesh = gltf->meshes[cgltf_mesh_index(data, gltf_node->mesh)];
+				material = mesh->default_maerial;
+			}
+
+			scene->nodes.push_back(GLTFSceneNode{
+				.position = float3(gltf_node->translation),
+				.rotation = float4(gltf_node->rotation),
+				.scale    = float3(gltf_node->scale),
+				.mesh     = mesh,
+				.material = material,
+			});
+		}
 	}
 
 	return gltf;

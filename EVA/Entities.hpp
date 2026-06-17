@@ -4,11 +4,13 @@
 
 typedef U32 EID;
 struct Mesh;
+struct Material;
 
 enum EntityType : U8
 {
 	EntityType_None       = 0,
 	EntityType_StaticMesh = 1,
+	EntityType_Rigidbody  = 2,
 
 	EntityType_ENUM_SIZE,
 };
@@ -39,12 +41,18 @@ struct Entity
 	};
 
 	PhysicsBody* body;
+	Mesh* mesh;
+	Material* material;
 };
 
 // @CONSTRUCTOR_NOT_CALLED
 struct EStaticMesh : Entity
 {
-	Mesh* mesh;
+};
+
+// @CONSTRUCTOR_NOT_CALLED
+struct ERigidbody : Entity
+{
 };
 
 template <typename TEntity>
@@ -113,11 +121,13 @@ struct EntityPool
 struct EntityManager
 {
 	EntityPool<EStaticMesh> StaticMesh;
+	EntityPool<ERigidbody> Rigidbody;
 
 	template <typename F>
 	void Iterate(F&& callback)
 	{
 		StaticMesh.Iterate(callback);
+		Rigidbody.Iterate(callback);
 	}
 
 	Entity* CreateEntity(EntityType type, EID eid)
@@ -125,6 +135,7 @@ struct EntityManager
 		switch (type)
 		{
 			case EntityType_StaticMesh: return StaticMesh.CreateEntity(eid);
+			case EntityType_Rigidbody:  return Rigidbody.CreateEntity(eid);
 			default: assert(0); return nullptr;
 		}
 	}
@@ -133,4 +144,5 @@ struct EntityManager
 inline void EntityManagerInit(EntityManager& entity_manager)
 {
 	entity_manager.StaticMesh.Init(512, EntityType_StaticMesh);
+	entity_manager.Rigidbody.Init(512, EntityType_StaticMesh);
 }

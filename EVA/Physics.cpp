@@ -188,7 +188,7 @@ struct DebugRendererImpl : JPH::DebugRenderer
 		matrix.data[3][1] = -matrix.data[3][2];
 		matrix.data[3][2] = tmp;
 
-		DrawMesh(mesh_wrapper->mesh, matrix);
+		DrawMesh(mesh_wrapper->mesh, nullptr, matrix);
 	}
 
 	void Init()
