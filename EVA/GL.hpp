@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
+#include <EVA/Asset.hpp>
 
 #include <glad/glad.h>
 #include <SDL3/SDL.h>
@@ -16,16 +17,15 @@ struct MeshVertex
 	float2 texcoord;
 };
 
-struct Mesh
+struct Mesh : Asset
 {
-	char   name[32]    = {};
 	GLuint vao         = 0;
 	GLuint vbo         = 0;
 	GLuint ibo         = 0;
 	U32    index_count = 0;
 };
 
-struct Texture
+struct Texture : Asset
 {
 	GLuint handle = 0;
 	size_t width  = 0;

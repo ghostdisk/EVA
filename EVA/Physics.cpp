@@ -281,12 +281,16 @@ void PhysicsTick(Physics* physics, double dt)
 
 PhysicsShape* PhysicsCreateBoxShape(float3 size)
 {
+	PhysicsShape* shape = new PhysicsShape();
+	char name[64];
+	snprintf(name, sizeof(name), "BoxShape_%.1f_%.1f_%.1f", size.x, size.y, size.z);
+	AssetInit(shape, AssetType_PhysicsShape, name);
+
 	JPH::BoxShapeSettings floor_shape_settings(ConvertSize(size));
 	floor_shape_settings.SetEmbedded();
 
 	auto shape_ref = floor_shape_settings.Create().Get();
-	JPH::Shape* shape = shape_ref.Disown();
-	shape->AddRef();
+	shape->shape = shape_ref.Disown();
 	return shape;
 }
 
@@ -301,7 +305,7 @@ void PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, PhysicsShape* s
 	}
 
 	JPH::BodyCreationSettings body_creation_settings(
-		shape, Convert(entity->position), {0,0,0,1}, motion_type, layer);
+		shape->shape, Convert(entity->position), {0,0,0,1}, motion_type, layer);
 
 	JPH::Body* body = body_interface.CreateBody(body_creation_settings);
 	body_interface.AddBody(body->GetID(), JPH::EActivation::Activate);

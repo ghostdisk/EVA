@@ -104,7 +104,8 @@ Mesh* MeshCreate(
 	size_t num_indices, const U32* indices)
 {
 	Mesh* mesh = new Mesh();
-	snprintf(mesh->name, sizeof(mesh->name), "%s", name);
+	AssetInit(mesh, AssetType_Mesh, name);
+
 	mesh->index_count = num_indices;
 
 	glGenVertexArrays(1, &mesh->vao);
@@ -134,6 +135,7 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 	Texture* texture = new Texture();
 	texture->width = width;
 	texture->height = height;
+	AssetInit(texture, AssetType_Texture, name);
 
 	glGenTextures(1, &texture->handle);
 	glBindTexture(GL_TEXTURE_2D, texture->handle);

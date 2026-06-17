@@ -35,6 +35,7 @@ void ClientGameTick(ClientGame* game, double dt)
 					enet_packet_destroy(event.packet);
 					break;
 				}
+				default: {}
 			}
 		}
 	}

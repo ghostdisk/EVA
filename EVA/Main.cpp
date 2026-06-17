@@ -61,10 +61,10 @@ int main()
 	GLInitialize();
 	RendererInitialize();
 	PhysicsInitialize();
+	LibraryInitialize();
 	IOInitialize();
 	DrawInitialize();
 	UIInitialize();
-	LibraryInitialize();
 
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 

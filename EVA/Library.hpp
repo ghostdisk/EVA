@@ -4,11 +4,7 @@ struct GLTF;
 struct Game;
 struct Texture;
 struct Mesh;
-namespace JPH
-{
-	class Shape;
-}
-using PhysicsShape = JPH::Shape;
+struct PhysicsShape;
 
 void LibraryInitialize();
 

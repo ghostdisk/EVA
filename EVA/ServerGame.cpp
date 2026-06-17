@@ -52,6 +52,7 @@ void ServerGameTick(ServerGame* game, double dt)
 					enet_packet_destroy(event.packet);
 					break;
 				}
+				default: {}
 			}
 		}
 	}

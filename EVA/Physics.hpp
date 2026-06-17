@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
+#include <EVA/Asset.hpp>
 
 #define PHYSICS_MAX_BODIES              1024
 #define PHYSICS_MAX_BODY_PAIRS          1024
@@ -16,8 +17,12 @@ namespace JPH
 	class Shape;
 }
 
-using PhysicsShape = JPH::Shape;
 using PhysicsBody = JPH::Body;
+
+struct PhysicsShape : Asset
+{
+	JPH::Shape* shape = nullptr;
+};
 
 enum PhysicsLayer : U16
 {

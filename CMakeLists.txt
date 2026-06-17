@@ -22,6 +22,7 @@ add_executable(EVA
 	"EVA/ServerGame.cpp"
 	"EVA/Physics.cpp"
 	"EVA/Library.cpp"
+	"EVA/Asset.cpp"
 )
 
 
