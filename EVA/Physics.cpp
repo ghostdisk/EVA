@@ -215,6 +215,15 @@ static inline float3 Convert(JPH::Vec3 vec)
 	return float3(vec.mF32[0], -vec.mF32[2], vec.mF32[1]);
 }
 
+static inline float4 ConvertQuat(JPH::Quat quat)
+{
+	return float4(
+		 quat.mValue[0],
+		-quat.mValue[2],
+		 quat.mValue[1],
+		 quat.mValue[3]);
+}
+
 void PhysicsInitialize()
 {
 	JPH::RegisterDefaultAllocator();
@@ -257,6 +266,7 @@ void PhysicsTick(Physics* physics, double dt)
 		{
 			Entity* entity = (Entity*)body_interface.GetUserData(body_id);
 			entity->position = Convert(body_interface.GetPosition(body_id));
+			entity->rotation = ConvertQuat(body_interface.GetRotation(body_id));
 		}
 	}
 }

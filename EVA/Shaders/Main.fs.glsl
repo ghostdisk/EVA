@@ -14,7 +14,7 @@ void main()
 	float light1 = dot(v_Normal, normalize(vec3(1, -1, 1)));
 	if (light1 < 0.0) light1 = 0.0;
 
-	float light = light1 * 0.8 + 0.2;
+	float light = light1 * 0.6 + 0.4;
 	
 	vec3 albedo =texture(u_Texture, v_Texcoord).xyz;
 	o_Color = vec4(albedo * light, 1);
