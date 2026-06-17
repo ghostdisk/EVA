@@ -10,6 +10,7 @@
 #include <EVA/ClientGame.hpp>
 #include <EVA/ServerGame.hpp>
 #include <EVA/Physics.hpp>
+#include <EVA/Library.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
@@ -17,10 +18,6 @@
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
 
-GLTF* gltf_monke = nullptr;
-GLTF* gltf_cube = nullptr;
-Texture* tex_test = nullptr;
-Texture* tex_proto = nullptr;
 
 int WindowWidth = 1600;
 int WindowHeight = 900;
@@ -67,6 +64,7 @@ int main()
 	IOInitialize();
 	DrawInitialize();
 	UIInitialize();
+	LibraryInitialize();
 
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
@@ -74,10 +72,6 @@ int main()
 	UIContextInit(UI, fnt_arial);
 
 	{ // load assets:
-		gltf_monke = GLTFLoad("monke.glb");
-		gltf_cube = GLTFLoad("cube.glb");
-		tex_test = TextureLoad("test.jpg");
-		tex_proto = TextureLoad("proto.png");
 	}
 
 	server = new ServerGame();

@@ -1,11 +1,11 @@
 #include <EVA/Renderer.hpp>
 #include <EVA/Game.hpp>
+#include <EVA/Library.hpp>
 #include <vector>
 #include <tracy/Tracy.hpp>
 
 GLuint LineShader;
 GLuint MainShader;
-extern Texture* tex_proto;
 
 struct LineVertex
 {
@@ -42,7 +42,7 @@ void RenderScene()
 		glUseProgram(MainShader);
 		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 
-		glBindTexture(GL_TEXTURE_2D, tex_proto->handle);
+		glBindTexture(GL_TEXTURE_2D, Library::tex_proto->handle);
 		glActiveTexture(GL_TEXTURE0);
 
 		for (const DrawMeshEntry& entry : pending_meshes)

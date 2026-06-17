@@ -3,31 +3,10 @@
 #include <EVA/Physics.hpp>
 #include <enet/enet.h>
 
-extern GLTF* gltf_monke;
-extern GLTF* gltf_cube;
 
 void ClientGameInit(ClientGame* game, const char* name)
 {
 	GameInit(game, name);
-
-	PhysicsShape* shape_cube1x1 = PhysicsCreateBoxShape(float3(1,1,1));
-	PhysicsShape* shape_floor = PhysicsCreateBoxShape(float3(20,1,20));
-
-	for (int i = 0; i < 200; i++)
-	{
-		EStaticMesh* cube = game->entity_manager.StaticMesh.CreateEntity(i);
-		cube->mesh = gltf_cube->meshes[0];
-		cube->position.z = 2 + i * 1.2;
-		cube->position.x = 3 * (rand() % 100) / 100.0f;
-		cube->position.y = 3 * (rand() % 100) / 100.0f;
-		PhysicsAttachBodyToEntity(game->physics, cube, shape_cube1x1, PhysicsLayer_Moving);
-	}
-
-	EStaticMesh* floor = game->entity_manager.StaticMesh.CreateEntity(5000);
-	floor->mesh = gltf_cube->meshes[0];
-	floor->scale.x = 20;
-	floor->scale.y = 20;
-	PhysicsAttachBodyToEntity(game->physics, floor, shape_floor, PhysicsLayer_NonMoving);
 }
 
 void ClientGameTick(ClientGame* game, double dt)
