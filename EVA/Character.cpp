@@ -34,53 +34,58 @@ void CharacterControllerTick(Game* game, ECharacter* character)
 	if (input.x || input.y)
 	{
 		input = input.Normalized();
-
-		float3 camera_forward = {
-			-sinf(game->camera.yaw),
-			cosf(game->camera.yaw),
-			0,
-		};
-		float angles[3] = { 0, 0, game->camera.yaw };
-		glm_euler_xyz_quat(angles, character->rotation);
-		glm_quat_rotatev(character->rotation, input, input);
-
-		float speed = 3;
-		if (IOGetButton(SDL_SCANCODE_LSHIFT)) speed = 10;
-		if (IOGetButton(SDL_SCANCODE_LCTRL)) speed = 0.5;
-
-		character->velocity = input * speed;
 	}
-	else
-	{
-		character->velocity = {};
-	}
+
+	float angles[3] = { 0, 0, game->camera.yaw };
+	glm_euler_xyz_quat(angles, character->rotation);
+	glm_quat_rotatev(character->rotation, input, input);
+
+	float speed = 3;
+	if (IOGetButton(SDL_SCANCODE_LSHIFT)) speed = 10;
+	if (IOGetButton(SDL_SCANCODE_LCTRL)) speed = 0.5;
+
+	character->velocity = input * speed;
 }
 
-void CharacterSweep(Game* game, ECharacter* character, float3 start_position, float3 direction)
+struct CharacterSweepResult
+{
+	bool   hit       = false;
+	float  fraction  = 0;
+	float  distance  = 0;
+	float3 normal    = {};
+};
+
+CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 start_position, float3 delta, float4 color)
 {
 	const JPH::NarrowPhaseQuery& narrow_phase = game->physics->system.GetNarrowPhaseQuery();
 
 	struct Collector : JPH::CastShapeCollector
 	{
 		Game* game;
-		bool collision = false;
-		virtual void AddHit(const JPH::ShapeCastResult &result) override
+		float fraction = INFINITY;
+		JPH::Vec3 normal;
+		virtual void AddHit(const JPH::ShapeCastResult& result) override
 		{
 			Entity* colliding_entity = (Entity*)game->physics->system.GetBodyInterfaceNoLock().GetUserData(result.mBodyID2);
-			// printf("Colliding with %s\n", colliding_entity->name);
-			collision = true;
+
+			float new_fraction = result.GetEarlyOutFraction();
+
+
+			if (new_fraction < this->fraction)
+			{
+				this->fraction = new_fraction;
+				normal = result.mPenetrationAxis;
+			}
 		}
 	};
 
-
 	JPH::Shape* shape = Library::collider_character->shape;
-	JPH::Vec3 dir = Convert(direction);
 
-	float3 center_of_mass_position = character->position;
+	float3 center_of_mass_position = start_position;
 	center_of_mass_position.z += character->height / 2 + 0.01;
 	JPH::RMat44 center_of_mass_start = JPH::RMat44::sTranslation(Convert(center_of_mass_position));
 
-	JPH::RShapeCast shape_cast(shape, JPH::Vec3::sOne(), center_of_mass_start, Convert(direction));
+	JPH::RShapeCast shape_cast(shape, JPH::Vec3::sOne(), center_of_mass_start, Convert(delta));
 
 	JPH::ShapeCastSettings  settings;
 	settings.mBackFaceModeTriangles = JPH::EBackFaceMode::CollideWithBackFaces;
@@ -92,9 +97,28 @@ void CharacterSweep(Game* game, ECharacter* character, float3 start_position, fl
 
 	narrow_phase.CastShape(shape_cast, settings, JPH::Vec3(), collector);
 
-	// printf("%d\n", collector.collision);
-	DrawAABB(center_of_mass_position, float3(0.25, 0.25, 1.8), collector.collision ? float4{1,0,0,1} : float4{1,1,1,1});
-	// DrawLine()
+	if (collector.fraction < INFINITY)
+	{
+		float3 normal = Convert(-collector.normal).Normalized();
+
+		float3 hit_point = center_of_mass_position + delta * collector.fraction;
+		DrawAABB(hit_point, float3(0.25, 0.25, 1.8), color);
+		DrawLine(center_of_mass_position, hit_point, color);
+
+		return CharacterSweepResult{
+			.hit       = true,
+			.fraction  = collector.fraction,
+			.distance  = collector.fraction * delta.Length(),
+			.normal    = normal,
+		};
+	}
+	else
+	{
+		DrawLine(center_of_mass_position, center_of_mass_position + delta, color);
+		return {
+			.hit = false,
+		};
+	}
 }
 
 void CharacterDoMovement(Game* game, ECharacter* character, double dt)
@@ -104,9 +128,51 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		CharacterControllerTick(game, character);
 	}
 
-	float3 center_of_mass_position = character->position;
-	center_of_mass_position.z += character->height / 2 - 0.01;
-	CharacterSweep(game, character, character->position, {});
+
+	float3  pos = character->position;
+	float3 dir = {0, 1, 0};
+	glm_quat_rotatev(character->rotation, dir, dir);
+	dir *= 5;
+
+	int iter = 0;
+
+	float4 colors[] = {
+		{ 1, 0, 0, 1 },
+		{ 0, 1, 0, 1 },
+		{ 0, 1, 1, 1 },
+	};
+
+	for (;;)
+	{
+		iter++;
+		if (iter > 3)
+		{
+			printf("Sanity exit\n");
+			break;
+		}
+
+		CharacterSweepResult sweep;
+		sweep = CharacterSweep(game, character, pos, dir, colors[iter % EVA_ARRAYSIZE(colors)]);
+
+		if (sweep.hit)
+		{
+			float3 hit_point = pos + dir * (sweep.fraction - 0.001f);
+
+			dir = dir * (1.0f - sweep.fraction);
+			float3 refl = dir - sweep.normal * (2 * Dot(sweep.normal, dir));
+
+			float3 proj = sweep.normal * Dot(refl, sweep.normal);
+
+			dir = dir + proj;
+			pos = hit_point;
+			// DrawLine(hit_point, hit_point + dir, {0,1,0,1});
+		}
+		else
+		{
+			break;
+		}
+	}
+
 
 	character->position += character->velocity * dt;
 }

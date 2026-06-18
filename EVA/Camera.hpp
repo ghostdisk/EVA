@@ -10,7 +10,7 @@ struct Camera
 
 	float3 position = {};
 	float  pitch    = 0.0f;
-	float  yaw       = 0.0f;
+	float  yaw       = 0.0f; // TODO: yaw=0 should point to the right, not forward
 
 	// calculated from pitch/yaw by CameraUpdateBasisVectors:
 	float3 forward  = {};

@@ -6,7 +6,7 @@
 
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
 
-#define DEG_TO_RAD (GLM_PI / 180.0f)
+#define DEG_TO_RAD (GLM_PIf / 180.0f)
 #define RAD_TO_DEG (180.0f / GLM_PI)
 
 struct float2
@@ -110,3 +110,7 @@ inline void identity(float4x4& mat)
 	mat.data[2][2] = 1.0f;
 	mat.data[3][3] = 1.0f;
 }
+
+inline float Dot(const float2& a, const float2& b) { return a.x*b.x + a.y*b.y; }
+inline float Dot(const float3& a, const float3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+inline float Dot(const float4& a, const float4& b) { return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w; }
