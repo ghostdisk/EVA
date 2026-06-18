@@ -147,3 +147,11 @@ void DrawAABB(float3 center, float3 size, float4 color)
 	DrawLine(center + float3( hsize.x,  hsize.y, -hsize.z), center + float3( hsize.x,  hsize.y,  hsize.z), color);
 
 }
+
+void DrawPoint(float3 point, float4 color)
+{
+	DrawLine(point - float3(0.1, 0, 0), point + float3(0.1, 0, 0), color);
+	DrawLine(point - float3(0, 0.1, 0), point + float3(0, 0.1, 0), color);
+	DrawLine(point - float3(0,0,  0.1), point + float3(0,0,  0.1), color);
+
+}

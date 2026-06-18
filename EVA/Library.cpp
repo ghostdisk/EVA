@@ -1,6 +1,7 @@
 #include <EVA/Library.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Physics.hpp>
+#include <EVA/Character.hpp>
 
 namespace Library
 {
@@ -17,7 +18,7 @@ Texture* tex_wall1 = nullptr;
 Texture* tex_character = nullptr;
 
 Collider* collider_cube;
-Collider* collider_character;
+CharacterCollider* cc_main = 0;
 
 GLTF* map_prime;
 
@@ -42,5 +43,5 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
-	Library::collider_character = PhysicsCreateBoxCollider(float3(.25,1.8,.25) / 2.0f);
+	Library::cc_main            = CharacterColliderCreate("cc_maian", 0.25, 1.8, 0.25);
 }

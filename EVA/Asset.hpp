@@ -8,6 +8,7 @@ enum AssetType
 	AssetType_Texture,
 	AssetType_Collider,
 	AssetType_Material,
+	AssetType_CharacterCollider,
 };
 
 struct Asset

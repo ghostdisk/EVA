@@ -30,8 +30,8 @@ Font* fnt_arial = 0;
 #define FRAME_TIME_HISTORY_SIZE 50
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
-bool VSync = false;
-int DrawMode = 0;
+bool VSync = true;
+int DrawMode = 1;
 
 // time:
 static U64 FrameStartTimeNS;

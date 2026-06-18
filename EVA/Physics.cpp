@@ -304,11 +304,11 @@ Collider* PhysicsCreateMeshCollider(
 	{
 		vertices[i].x =  in_vertices[i].position.x;
 		vertices[i].y =  in_vertices[i].position.z;
-		vertices[i].z =  in_vertices[i].position.y;
+		vertices[i].z =  -in_vertices[i].position.y;
 	}
 	for (int t = 0; t < num_triangles; t++)
 	{
-		indices[t] = JPH::IndexedTriangle(in_indices[3*t], in_indices[3*t+2], in_indices[3*t+1]);
+		indices[t] = JPH::IndexedTriangle(in_indices[3*t], in_indices[3*t+1], in_indices[3*t+2]);
 	}
 
 	JPH::MeshShapeSettings shape_settings(vertices, indices);

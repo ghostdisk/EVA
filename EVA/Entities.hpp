@@ -5,6 +5,7 @@
 typedef U32 EID;
 struct Mesh;
 struct Material;
+struct CharacterCollider;
 
 enum EntityType : U8
 {
@@ -62,9 +63,9 @@ struct CharacterController;
 // @CONSTRUCTOR_NOT_CALLED
 struct ECharacter : Entity
 {
-	float height = 0;
 	float3 velocity = {};
 	CharacterController* controller = nullptr;
+	CharacterCollider* collider = nullptr;
 };
 
 template <typename T>

@@ -5,6 +5,7 @@ struct Game;
 struct Texture;
 struct Mesh;
 struct Collider;
+struct CharacterCollider;
 
 void LibraryInitialize();
 
@@ -19,7 +20,7 @@ extern Texture* tex_test;
 extern Texture* tex_proto;
 
 extern Collider* collider_cube;
-extern Collider* collider_character;
+extern CharacterCollider* cc_main;
 
 extern GLTF* map_prime;
 
