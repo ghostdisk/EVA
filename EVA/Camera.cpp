@@ -60,8 +60,20 @@ void CameraFly(Camera& camera)
 
 void CameraOrbit(Camera& camera, Entity* entity)
 {
+	SDL_SetWindowRelativeMouseMode(GameWindow, true);
+
 	camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
 	camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
+
+	if (camera.pitch < -90 * DEG_TO_RAD)
+	{
+		camera.pitch = -90 * DEG_TO_RAD;
+	}
+	if (camera.pitch > 45 * DEG_TO_RAD)
+	{
+		camera.pitch = 45 * DEG_TO_RAD;
+	}
+
 	CameraUpdateBasisVectors(camera);
 
 	camera.position = entity->position;

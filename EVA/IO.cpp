@@ -57,6 +57,8 @@ static void IOReleaseButton(int button)
 
 void IOBeginFrame()
 {
+	IOMouseDelta = {};
+
 	for (int i = 0; i < ButtonStates.size(); i++)
 	{
 		IOButtonState& state = ButtonStates[i];
@@ -73,7 +75,6 @@ void IOBeginFrame()
 
 	float2 old_mouse_position = IOMousePosition;
 	SDL_GetMouseState(&IOMousePosition.x, &IOMousePosition.y);
-	IOMouseDelta = IOMousePosition - old_mouse_position;
 }
 
 bool IOHandleSDLEvent(SDL_Event* event)
@@ -98,6 +99,12 @@ bool IOHandleSDLEvent(SDL_Event* event)
 		case SDL_EVENT_MOUSE_BUTTON_UP:
 		{
 			IOReleaseButton(IO_BUTTON_MOUSE_START + event->button.button);
+			return true;
+		}
+		case SDL_EVENT_MOUSE_MOTION:
+		{
+			IOMouseDelta.x += event->motion.xrel;
+			IOMouseDelta.y += event->motion.yrel;
 			return true;
 		}
 		default:

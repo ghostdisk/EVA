@@ -6,6 +6,9 @@
 
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
 
+#define DEG_TO_RAD (GLM_PI / 180.0f)
+#define RAD_TO_DEG (180.0f / GLM_PI)
+
 struct float2
 {
 	float x = 0.0f;
