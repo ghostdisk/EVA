@@ -35,6 +35,7 @@ void ServerGameInit(ServerGame* server, const char* name)
 	// SpawnSomeBoxes(server, 200);
 
 	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
+	CharacterAttachController(character);
 	server->pawn = character;
 }
 
@@ -138,7 +139,12 @@ void ServerGameTick(ServerGame* server, double dt)
 	}
 
 	GameTick(server, dt);
-	if (server->pawn) CharacterDoMovement(server, (ECharacter*)server->pawn, dt);
+	if (server->pawn)
+	{
+		CharacterDoMovement(server, (ECharacter*)server->pawn, dt);
+		CameraOrbit(server->camera, server->pawn);
+		CameraUpdateMatrices(server->camera);
+	}
 }
 
 void ServerListen(ServerGame* server, int port)

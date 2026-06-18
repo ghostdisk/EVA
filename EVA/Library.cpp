@@ -42,5 +42,5 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
-	Library::collider_character = PhysicsCreateBoxCollider(float3(.25,1.8,.25));
+	Library::collider_character = PhysicsCreateBoxCollider(float3(.25,1.8,.25) / 2.0f);
 }

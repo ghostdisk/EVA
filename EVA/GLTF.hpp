@@ -7,6 +7,7 @@ struct EntityManager;
 
 struct GLTFSceneNode
 {
+	char      name[16]  = {};
 	float3    position  = {};
 	float4    rotation  = {0,0,0,1};
 	float3    scale     = {1,1,1};

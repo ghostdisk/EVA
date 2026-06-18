@@ -24,6 +24,7 @@ add_executable(EVA
 	"EVA/Library.cpp"
 	"EVA/Asset.cpp"
 	"EVA/Character.cpp"
+	"EVA/Entities.cpp"
 )
 
 

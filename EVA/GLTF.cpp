@@ -136,6 +136,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders)
 			Mesh* mesh = nullptr;
 			Material* material = nullptr;
 
+
 			if (gltf_node->mesh)
 			{
 				mesh = gltf->meshes[cgltf_mesh_index(data, gltf_node->mesh)];
@@ -149,6 +150,11 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders)
 				.mesh     = mesh,
 				.material = material,
 			});
+
+			if (gltf_node->name)
+			{
+				snprintf(scene->nodes.back().name, 16, "%s", gltf_node->name);
+			}
 		}
 	}
 

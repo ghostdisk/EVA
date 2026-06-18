@@ -25,6 +25,7 @@ using PhysicsBody = JPH::Body;
 // @CONSTRUCTOR_NOT_CALLED
 struct Entity
 {
+	char        name[16];
 	EID         eid;
 	EntityType  type;
 	bool        alive;
@@ -56,9 +57,14 @@ struct ERigidbody : Entity
 {
 };
 
+struct CharacterController;
+
 // @CONSTRUCTOR_NOT_CALLED
 struct ECharacter : Entity
 {
+	float height = 0;
+	float3 velocity = {};
+	CharacterController* controller = nullptr;
 };
 
 template <typename T>
@@ -159,9 +165,6 @@ struct EntityManager
 	}
 };
 
-inline void EntityManagerInit(EntityManager& entity_manager)
-{
-	entity_manager.StaticMesh.Init    (512,   EntityType_StaticMesh);
-	entity_manager.Rigidbody.Init     (512,   EntityType_Rigidbody);
-	entity_manager.Character.Init     (64,    EntityType_Character);
-}
+
+void EntityManagerInit(EntityManager& entity_manager);
+void EntitySetName(Entity* entity, const char* name);

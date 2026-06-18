@@ -30,11 +30,7 @@ void GameTick(Game* game, double dt)
 
 	if (ActiveGame == game)
 	{
-		if (game->pawn)
-		{
-			CameraOrbit(game->camera, game->pawn);
-		}
-		else
+		if (!game->pawn)
 		{
 			CameraFly(game->camera);
 		}
@@ -85,6 +81,7 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 			entity->position = node.position;
 			entity->rotation = node.rotation;
 			entity->scale    = node.scale;
+			EntitySetName(entity, node.name);
 
 			if (node.mesh->collider)
 			{
