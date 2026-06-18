@@ -42,7 +42,7 @@ void RenderScene()
 	{ // render pending meshes:
 		glUseProgram(MainShader);
 		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
-
+		glEnable(GL_DEPTH_TEST);
 
 		for (const DrawMeshEntry& entry : pending_meshes)
 		{
@@ -73,7 +73,10 @@ void RenderScene()
 		pending_meshes.clear();
 	}
 
-	{ // render pending lines:
+	// render pending lines:
+	if (pending_lines.size())
+	{ 
+		glDisable(GL_DEPTH_TEST);
 		GLuint vao, vbo;
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
@@ -123,4 +126,24 @@ void RendererBeginFrame()
 
 	pending_meshes.clear();
 	pending_lines.clear();
+}
+
+void DrawAABB(float3 center, float3 size, float4 color)
+{
+	float3 hsize = size / 2.0f;
+	DrawLine(center + float3(-hsize.x, -hsize.y, -hsize.z), center + float3( hsize.x, -hsize.y, -hsize.z), color);
+	DrawLine(center + float3(-hsize.x,  hsize.y, -hsize.z), center + float3( hsize.x,  hsize.y, -hsize.z), color);
+	DrawLine(center + float3(-hsize.x, -hsize.y, -hsize.z), center + float3(-hsize.x,  hsize.y, -hsize.z), color);
+	DrawLine(center + float3( hsize.x, -hsize.y, -hsize.z), center + float3( hsize.x,  hsize.y, -hsize.z), color);
+
+	DrawLine(center + float3(-hsize.x, -hsize.y,  hsize.z), center + float3( hsize.x, -hsize.y,  hsize.z), color);
+	DrawLine(center + float3(-hsize.x,  hsize.y,  hsize.z), center + float3( hsize.x,  hsize.y,  hsize.z), color);
+	DrawLine(center + float3(-hsize.x, -hsize.y,  hsize.z), center + float3(-hsize.x,  hsize.y,  hsize.z), color);
+	DrawLine(center + float3( hsize.x, -hsize.y,  hsize.z), center + float3( hsize.x,  hsize.y,  hsize.z), color);
+
+	DrawLine(center + float3(-hsize.x, -hsize.y, -hsize.z), center + float3(-hsize.x, -hsize.y,  hsize.z), color);
+	DrawLine(center + float3(-hsize.x,  hsize.y, -hsize.z), center + float3(-hsize.x,  hsize.y,  hsize.z), color);
+	DrawLine(center + float3( hsize.x, -hsize.y, -hsize.z), center + float3( hsize.x, -hsize.y,  hsize.z), color);
+	DrawLine(center + float3( hsize.x,  hsize.y, -hsize.z), center + float3( hsize.x,  hsize.y,  hsize.z), color);
+
 }

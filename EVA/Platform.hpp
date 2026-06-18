@@ -7,3 +7,4 @@ extern int         WindowWidth;
 extern int         WindowHeight;
 extern bool        DoQuit;
 extern double      DeltaTime;
+extern bool        InMenu;

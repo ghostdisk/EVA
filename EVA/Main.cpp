@@ -21,6 +21,7 @@ bool DoQuit = false;
 
 int WindowWidth = 1600;
 int WindowHeight = 900;
+bool InMenu = false;
 
 UIContext UI;
 DrawContext DC;
@@ -113,6 +114,7 @@ int main()
 
 		if (IOGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
 		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
+		if (IOGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
 
 		UIBeginFrame(UI);
 		UI.root.flex_axis = 1;

@@ -60,23 +60,29 @@ void CameraFly(Camera& camera)
 
 void CameraOrbit(Camera& camera, Entity* entity)
 {
-	SDL_SetWindowRelativeMouseMode(GameWindow, true);
+	SDL_SetWindowRelativeMouseMode(GameWindow, !InMenu);
 
-	camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
-	camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
-
-	if (camera.pitch < -90 * DEG_TO_RAD)
+	if (!InMenu)
 	{
-		camera.pitch = -90 * DEG_TO_RAD;
-	}
-	if (camera.pitch > 45 * DEG_TO_RAD)
-	{
-		camera.pitch = 45 * DEG_TO_RAD;
-	}
+		camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
+		camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
 
-	CameraUpdateBasisVectors(camera);
+		if (camera.pitch < -90 * DEG_TO_RAD)
+		{
+			camera.pitch = -90 * DEG_TO_RAD;
+		}
+		if (camera.pitch > 45 * DEG_TO_RAD)
+		{
+			camera.pitch = 45 * DEG_TO_RAD;
+		}
 
-	camera.position = entity->position;
-	camera.position.z += camera.orbit_height;
-	camera.position -= camera.forward * camera.orbit_distance;
+		if (IOGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * DeltaTime;
+		if (IOGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * DeltaTime;
+
+		CameraUpdateBasisVectors(camera);
+
+		camera.position = entity->position;
+		camera.position.z += camera.orbit_height;
+		camera.position -= camera.forward * camera.orbit_distance;
+	}
 }
