@@ -31,7 +31,7 @@ Font* fnt_arial = 0;
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
 bool VSync = true;
-int DrawMode = 1;
+int DrawMode = 0;
 
 // time:
 static U64 FrameStartTimeNS;

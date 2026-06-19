@@ -68,6 +68,7 @@ struct CharacterSweepResult
 	float  fraction       = 0;
 	float3 contact_normal = {};
 	float3 surface_normal = {};
+	float  contact_depth  = {};
 };
 
 CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 start_position, float3 delta, float4 color)
@@ -79,6 +80,7 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 	{
 		float           fraction      = INFINITY;
 		JPH::Vec3       contact_axis  = {};
+		float           contact_depth = {};
 		JPH::Vec3       point         = {};
 		JPH::SubShapeID sub_shape_id  = {};
 		JPH::BodyID     body          = {};
@@ -95,11 +97,12 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 			float new_fraction = result.GetEarlyOutFraction();
 
 			Hit hit = {
-				.fraction     = new_fraction,
-				.contact_axis = result.mPenetrationAxis,
-				.point        = result.mContactPointOn2,
-				.sub_shape_id = result.mSubShapeID2,
-				.body         = result.mBodyID2,
+				.fraction      = new_fraction,
+				.contact_axis  = result.mPenetrationAxis,
+				.contact_depth = result.mPenetrationDepth,
+				.point         = result.mContactPointOn2,
+				.sub_shape_id  = result.mSubShapeID2,
+				.body          = result.mBodyID2,
 			};
 			hits.push_back(hit);
 		}
@@ -149,6 +152,7 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 			if (lock.Succeeded())
 			{
 				hit.surface_normal = Convert(lock.GetBody().GetWorldSpaceSurfaceNormal(hit.sub_shape_id, hit.point));
+				hit.contact_depth = hit.contact_depth;
 				DrawLine(Convert(hit.point), Convert(hit.point) + hit.surface_normal, float4(0, 0, 0, 1));
 			}
 			else
@@ -181,7 +185,7 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 			.contact_normal = contact_normal,
 			.surface_normal = surface_normal,
 		};
-	}
+	} 
 	else
 	{
 		DrawLine(start_position, start_position + delta, color);
@@ -217,6 +221,8 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		{ 0, 1, 1, 1 },
 	};
 
+	DrawAABB(pos + float3(0,0,character->collider->height/2), character->collider->Size(), float4{1,1,1.,3});
+
 	for (;;)
 	{
 		float len = delta.Length();
@@ -235,25 +241,35 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		CharacterSweepResult sweep;
 		sweep = CharacterSweep(game, character, pos, delta, colors[iter % EVA_ARRAYSIZE(colors)]);
 
+
 		if (sweep.hit)
 		{
-
 			float4 color = colors[iter % EVA_ARRAYSIZE(colors)];
 			float rem_fraction = 1.0f - sweep.fraction;
 
-			float3 normal = sweep.surface_normal;
-			normal.z = 0; normal = normal.Normalized();
-			if (normal.x == 0 && normal.y == 0)
+			printf("%f\n", sweep.fraction);
+			if (0 && sweep.fraction < 0)
 			{
+				printf("Unstucking!\n");
+				pos += sweep.contact_normal * sweep.contact_depth;
 				break;
 			}
 
-			float3 pad = -dir * character->collider->padding * Dot(normal, -dir);
+			float3 hnormal = sweep.surface_normal;
+			hnormal.z = 0;
+			hnormal = hnormal.Normalized();
+			if (hnormal.x == 0 && hnormal.y == 0)
+			{
+				break;
+			}
+			
+
+			float3 pad = -dir * character->collider->padding * Dot(hnormal, -dir);
 			float3 hit_point = pos + delta * sweep.fraction + pad;
 
 			float3 rem_delta = delta * rem_fraction;
-			float3 refl_rem_delta = rem_delta - normal * (2 * Dot(normal, rem_delta));
-			float3 proj1 = normal * Dot(refl_rem_delta, normal);
+			float3 refl_rem_delta = rem_delta - hnormal * (2 * Dot(hnormal, rem_delta));
+			float3 proj1 = hnormal * Dot(refl_rem_delta, hnormal);
 			// float3 p
 
 			DrawLine(pos, hit_point, color);
