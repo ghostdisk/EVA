@@ -17,9 +17,6 @@ Texture* tex_tiles2 = nullptr;
 Texture* tex_wall1 = nullptr;
 Texture* tex_character = nullptr;
 
-Collider* collider_cube;
-CharacterCollider* cc_main = 0;
-
 GLTF* map_prime;
 
 }
@@ -33,7 +30,6 @@ void LibraryInitialize()
 	Library::tex_test           = TextureLoad("test.jpg"); assert(Library::tex_test->id == 256);
 
 	Library::tex_proto          = TextureLoad("proto.png");
-	Library::collider_cube      = PhysicsCreateBoxCollider(float3(1,1,1));
 	Library::tex_crate          = TextureLoad("tex_crate.jpg");
 	Library::tex_tiles1         = TextureLoad("tex_tiles1.jpg");
 	Library::tex_tiles2         = TextureLoad("tex_tiles2.jpg");
@@ -43,5 +39,4 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
-	Library::cc_main            = CharacterColliderCreate("cc_maian", 0.25, 1.8, 0.5);
 }

@@ -14,19 +14,6 @@ static EID NewEID(ServerGame* server)
 	return server->next_eid++;
 }
 
-void SpawnSomeBoxes(ServerGame* server, int n)
-{
-	for (int i = 0; i < n; i++)
-	{
-		EStaticMesh* cube = server->entity_manager.StaticMesh.CreateEntity(NewEID(server));
-		cube->mesh = Library::mesh_cube;
-		cube->position.z = 2 + i * 1.2;
-		cube->position.x = 3 * (rand() % 100) / 100.0f;
-		cube->position.y = 3 * (rand() % 100) / 100.0f;
-		PhysicsAttachBodyToEntity(server->physics, cube, Library::collider_cube, PhysicsLayer_Moving);
-	}
-}
-
 void ServerGameInit(ServerGame* server, const char* name)
 {
 	GameInit(server, name);
@@ -36,7 +23,6 @@ void ServerGameInit(ServerGame* server, const char* name)
 
 	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
 	character->position.z = 0.1;
-	CharacterAttachController(character, Library::cc_main);
 	server->pawn = character;
 }
 

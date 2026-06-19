@@ -61,7 +61,6 @@ void GameDraw(Game* game)
 		}
 		case 1:
 		{
-			PhysicsDebugDraw(game->physics);
 			break;
 		}
 	}
@@ -85,7 +84,7 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 
 			if (node.mesh->collider)
 			{
-				PhysicsAttachBodyToEntity(game->physics, entity, node.mesh->collider, PhysicsLayer_NonMoving);
+				PhysicsAttachStaticCollider(game->physics, entity, node.mesh->collider, PhysicsLayer_NonMoving);
 			}
 		}
 	}

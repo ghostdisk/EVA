@@ -75,13 +75,6 @@ target_include_directories(EVA PRIVATE "Vendor/enet-1.3.18/include")
 target_link_libraries(EVA enet "Ws2_32.lib")
 
 #
-# Jolt
-#
-
-add_subdirectory("Vendor/joltphysics/Build")
-target_link_libraries(EVA Jolt)
-
-#
 # Tracy
 #
 add_definitions(-DTRACY_ENABLE)

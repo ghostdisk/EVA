@@ -6,9 +6,7 @@ enum AssetType
 	AssetType_None = 0,
 	AssetType_Mesh,
 	AssetType_Texture,
-	AssetType_Collider,
 	AssetType_Material,
-	AssetType_CharacterCollider,
 };
 
 struct Asset
