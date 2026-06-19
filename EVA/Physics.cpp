@@ -276,10 +276,25 @@ static Collider* CreateCollider(const char* name)
 Collider* PhysicsCreateBoxCollider(float3 size)
 {
 	char name[64];
-	snprintf(name, sizeof(name), "BoxShape_%.1f_%.1f_%.1f", size.x, size.y, size.z);
+	snprintf(name, sizeof(name), "BoxCollider_%.1f_%.1f_%.1f", size.x, size.y, size.z);
 	Collider* collider = CreateCollider(name);
 
 	JPH::BoxShapeSettings shape_settings(ConvertSize(size));
+	shape_settings.SetEmbedded();
+
+	auto shape_ref = shape_settings.Create().Get();
+	collider->shape = shape_ref.Disown();
+	return collider;
+}
+
+Collider* PhysicsCreateCapsuleCollider(float height, float radius)
+{
+	char name[64];
+	snprintf(name, sizeof(name), "CapsuleCollider_%.1f_%.1f", height, radius);
+	Collider* collider = CreateCollider(name);
+
+	float half_height_of_cylinder = height / 2 - radius;
+	JPH::CapsuleShapeSettings shape_settings(half_height_of_cylinder, radius);
 	shape_settings.SetEmbedded();
 
 	auto shape_ref = shape_settings.Create().Get();

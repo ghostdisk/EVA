@@ -26,8 +26,15 @@ CharacterCollider* CharacterColliderCreate(const char* name, float width, float 
 	collider->padding = padding;
 	
 	char shape_name[64];
-	snprintf(shape_name, 64, "%s_collider", name);
+
+	snprintf(shape_name, 64, "%s_aabb", name);
 	collider->aabb = PhysicsCreateBoxCollider(float3(width, height, width) / 2);
+
+	snprintf(shape_name, 64, "%s_aabb2", name);
+	collider->padded_aabb = PhysicsCreateBoxCollider(float3(width + padding, height, width + padding) / 2);
+
+	snprintf(shape_name, 64, "%s_capusle", name);
+	collider->aabb = PhysicsCreateCapsuleCollider(height, width);
 
 	return collider;
 }
@@ -71,9 +78,9 @@ struct CharacterSweepResult
 	float  contact_depth  = {};
 };
 
-CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 start_position, float3 delta, float4 color)
+CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, Collider* collider, float3 start_position, float3 delta, float4 color)
 {
-	const JPH::NarrowPhaseQuery&            narrow_phase   = game->physics->system.GetNarrowPhaseQueryNoLock();
+	const JPH::NarrowPhaseQuery&           narrow_phase   = game->physics->system.GetNarrowPhaseQueryNoLock();
 	const JPH::BodyLockInterfaceNoLock&    lock_interface = game->physics->system.GetBodyLockInterfaceNoLock();
 
 	struct Hit
@@ -108,11 +115,11 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 		}
 	};
 
-	JPH::Shape* shape = character->collider->aabb->shape;
+	JPH::Shape* shape = collider->shape;
 
-	float3 center_of_mass_position = start_position;
-	center_of_mass_position.z += character->collider->height / 2;
-	JPH::RMat44 center_of_mass_start = JPH::RMat44::sTranslation(Convert(center_of_mass_position));
+	float3 com_position = start_position;
+	com_position.z += character->collider->height / 2;
+	JPH::RMat44 center_of_mass_start = JPH::RMat44::sTranslation(Convert(com_position));
 
 	JPH::RShapeCast shape_cast(shape, JPH::Vec3::sOne(), center_of_mass_start, Convert(delta));
 
@@ -152,7 +159,6 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 			if (lock.Succeeded())
 			{
 				hit.surface_normal = Convert(lock.GetBody().GetWorldSpaceSurfaceNormal(hit.sub_shape_id, hit.point));
-				hit.contact_depth = hit.contact_depth;
 				DrawLine(Convert(hit.point), Convert(hit.point) + hit.surface_normal, float4(0, 0, 0, 1));
 			}
 			else
@@ -184,6 +190,7 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 			.fraction       = best_hit->fraction,
 			.contact_normal = contact_normal,
 			.surface_normal = surface_normal,
+			.contact_depth  = best_hit->contact_depth,
 		};
 	} 
 	else
@@ -194,6 +201,57 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 		};
 	}
 }
+
+#if 0
+float3 CharacterUnstuck(Game* game, ECharacter* character, float3 pos, float dt)
+{
+	CharacterSweepResult res = CharacterSweep(game, character, character->collider->padded_aabb, pos, {}, {});
+	if (res.contact_depth > 0)
+	{
+		return pos + res.contact_normal * res.contact_depth * 0.1;
+	}
+	else
+	{
+		return pos;
+	}
+}
+#else
+float3 CharacterUnstuck(Game* game, ECharacter* character, float3 position, double dt)
+{
+	const JPH::NarrowPhaseQuery& narrow_phase = game->physics->system.GetNarrowPhaseQueryNoLock();
+
+	struct Collector : JPH::CollideShapeCollector
+	{
+		Game* game = nullptr;
+		float max_penetration = 0.0f;
+		JPH::Vec3 penetration_axis = JPH::Vec3::sOne();
+		virtual void AddHit(const JPH::CollideShapeResult& result) override
+		{
+			if (result.mPenetrationDepth > max_penetration)
+			{
+				max_penetration = result.mPenetrationDepth;
+				penetration_axis = result.mPenetrationAxis;
+			}
+		}
+	};
+
+	JPH::Shape* shape = character->collider->padded_aabb->shape;
+
+	float3 com_position = position;
+	com_position.z += character->collider->height / 2;
+	JPH::RMat44 com = JPH::RMat44::sTranslation(Convert(com_position));
+
+	JPH::CollideShapeSettings  settings;
+	settings.mActiveEdgeMode = JPH::EActiveEdgeMode::CollideOnlyWithActive;
+
+	Collector collector;
+	collector.game = game;
+
+	narrow_phase.CollideShape(shape, JPH::Vec3::sOne(), com, settings, JPH::Vec3::sZero(), collector);
+
+	return position - Convert(collector.penetration_axis) * collector.max_penetration * 200 * dt;
+}
+#endif
 
 void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 {
@@ -221,7 +279,8 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		{ 0, 1, 1, 1 },
 	};
 
-	DrawAABB(pos + float3(0,0,character->collider->height/2), character->collider->Size(), float4{1,1,1.,3});
+	DrawAABB(pos + float3(0,0,character->collider->height/2), character->collider->PaddedSize(), float4{1,0,0,.8});
+	DrawAABB(pos + float3(0,0,character->collider->height/2), character->collider->Size(), float4{1,1,1,.8});
 
 	for (;;)
 	{
@@ -231,7 +290,6 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 			break;
 		}
 		float3 dir = delta.Normalized();
-
 		iter++;
 		if (iter > 3)
 		{
@@ -239,21 +297,12 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		}
 
 		CharacterSweepResult sweep;
-		sweep = CharacterSweep(game, character, pos, delta, colors[iter % EVA_ARRAYSIZE(colors)]);
-
+		sweep = CharacterSweep(game, character, character->collider->aabb, pos, delta, colors[iter % EVA_ARRAYSIZE(colors)]);
 
 		if (sweep.hit)
 		{
 			float4 color = colors[iter % EVA_ARRAYSIZE(colors)];
 			float rem_fraction = 1.0f - sweep.fraction;
-
-			printf("%f\n", sweep.fraction);
-			if (0 && sweep.fraction < 0)
-			{
-				printf("Unstucking!\n");
-				pos += sweep.contact_normal * sweep.contact_depth;
-				break;
-			}
 
 			float3 hnormal = sweep.surface_normal;
 			hnormal.z = 0;
@@ -263,24 +312,22 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 				break;
 			}
 			
-
-			float3 pad = -dir * character->collider->padding * Dot(hnormal, -dir);
-			float3 hit_point = pos + delta * sweep.fraction + pad;
+			float3 hit_point = pos + delta * sweep.fraction;
 
 			float3 rem_delta = delta * rem_fraction;
 			float3 refl_rem_delta = rem_delta - hnormal * (2 * Dot(hnormal, rem_delta));
 			float3 proj1 = hnormal * Dot(refl_rem_delta, hnormal);
-			// float3 p
 
 			DrawLine(pos, hit_point, color);
 			DrawAABB(hit_point + float3(0,0,character->collider->height/2), character->collider->Size(), color);
-
-			float3 next_delta = refl_rem_delta - proj1;
-
 			// DrawLine(hit_point, hit_point + sweep.surface_normal, {1,0,0,1});
 			// DrawLine(hit_point + float3(0,0,0.04), hit_point + sweep.contact_normal + float3(0,0,0.04), {0,1,0,1});
+
+			float3 next_delta = refl_rem_delta - proj1;
 			delta = next_delta;
 			pos = hit_point;
+
+			// pos = CharacterUnstuck(game, character, pos, dt);
 		}
 		else
 		{
@@ -289,6 +336,6 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		}
 	}
 
-	// character->position += character->velocity * dt;
+	// pos = CharacterUnstuck(game, character, pos, dt);
 	character->position = pos;
 }

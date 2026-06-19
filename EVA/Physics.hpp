@@ -41,6 +41,7 @@ void          PhysicsTick(Physics* physics, double dt);
 
 Collider* PhysicsCreateBoxCollider(float3 size);
 Collider* PhysicsCreateMeshCollider( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
+Collider* PhysicsCreateCapsuleCollider(float height, float radius);
 void      PhysicsAttachBodyToEntity(Physics* physics, Entity* entity, Collider* shape, PhysicsLayer layer);
 
 void PhysicsDebugDraw(Physics* phsyics);
