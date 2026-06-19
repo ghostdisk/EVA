@@ -35,6 +35,7 @@ void ServerGameInit(ServerGame* server, const char* name)
 	// SpawnSomeBoxes(server, 200);
 
 	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
+	character->position.z = 0.1;
 	CharacterAttachController(character, Library::cc_main);
 	server->pawn = character;
 }

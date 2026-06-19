@@ -43,5 +43,5 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
-	Library::cc_main            = CharacterColliderCreate("cc_maian", 0.25, 1.8, 0.25);
+	Library::cc_main            = CharacterColliderCreate("cc_maian", 0.25, 1.8, 0.01);
 }

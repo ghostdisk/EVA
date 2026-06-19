@@ -108,7 +108,7 @@ CharacterSweepResult CharacterSweep(Game* game, ECharacter* character, float3 st
 	JPH::Shape* shape = character->collider->aabb->shape;
 
 	float3 center_of_mass_position = start_position;
-	center_of_mass_position.z += character->collider->height / 2 + 0.01; // TODO!
+	center_of_mass_position.z += character->collider->height / 2;
 	JPH::RMat44 center_of_mass_start = JPH::RMat44::sTranslation(Convert(center_of_mass_position));
 
 	JPH::RShapeCast shape_cast(shape, JPH::Vec3::sOne(), center_of_mass_start, Convert(delta));
@@ -202,11 +202,11 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 	float3 pos = character->position;
 
 #if 0
-	float3 dir = {0, 1, 0};
-	glm_quat_rotatev(character->rotation, dir, dir);
-	dir *= 5;
+	float3 delta = {0, 1, 0};
+	glm_quat_rotatev(character->rotation, delta, delta);
+	delta *= 5;
 #else
-	float3 dir = character->velocity * dt;
+	float3 delta = character->velocity * dt;
 #endif
 
 	int iter = 0;
@@ -219,6 +219,13 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 
 	for (;;)
 	{
+		float len = delta.Length();
+		if (len < 0.0001f)
+		{
+			break;
+		}
+		float3 dir = delta.Normalized();
+
 		iter++;
 		if (iter > 3)
 		{
@@ -226,35 +233,42 @@ void CharacterDoMovement(Game* game, ECharacter* character, double dt)
 		}
 
 		CharacterSweepResult sweep;
-		sweep = CharacterSweep(game, character, pos, dir, colors[iter % EVA_ARRAYSIZE(colors)]);
+		sweep = CharacterSweep(game, character, pos, delta, colors[iter % EVA_ARRAYSIZE(colors)]);
 
 		if (sweep.hit)
 		{
+
 			float4 color = colors[iter % EVA_ARRAYSIZE(colors)];
 			float rem_fraction = 1.0f - sweep.fraction;
 
 			float3 normal = sweep.surface_normal;
+			normal.z = 0; normal = normal.Normalized();
+			if (normal.x == 0 && normal.y == 0)
+			{
+				break;
+			}
 
-			float3 pad = normal * character->collider->padding;
-			float3 hit_point = pos + dir * sweep.fraction + pad;
+			float3 pad = -dir * character->collider->padding * Dot(normal, -dir);
+			float3 hit_point = pos + delta * sweep.fraction + pad;
 
-			float3 rem_delta = dir * rem_fraction;
+			float3 rem_delta = delta * rem_fraction;
 			float3 refl_rem_delta = rem_delta - normal * (2 * Dot(normal, rem_delta));
-			float3 proj_along_normal = normal * Dot(refl_rem_delta, normal);
+			float3 proj1 = normal * Dot(refl_rem_delta, normal);
+			// float3 p
 
 			DrawLine(pos, hit_point, color);
 			DrawAABB(hit_point + float3(0,0,character->collider->height/2), character->collider->Size(), color);
 
-			float3 next_dir = refl_rem_delta - proj_along_normal;
+			float3 next_delta = refl_rem_delta - proj1;
 
 			// DrawLine(hit_point, hit_point + sweep.surface_normal, {1,0,0,1});
 			// DrawLine(hit_point + float3(0,0,0.04), hit_point + sweep.contact_normal + float3(0,0,0.04), {0,1,0,1});
-			dir = next_dir;
+			delta = next_delta;
 			pos = hit_point;
 		}
 		else
 		{
-			pos += dir;
+			pos += delta;
 			break;
 		}
 	}

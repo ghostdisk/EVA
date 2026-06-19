@@ -66,8 +66,14 @@ inline float3 operator-(const float3& vec) { return float3(-vec.x, -vec.y, -vec.
 inline float3 float3::Normalized()
 {
 	float len = Length();
-	assert(len > 0.0001f);
-	return (*this) * (1.0f / len);
+	if (len < 0.00001f)
+	{
+		return float3(0, 0, 0);
+	}
+	else
+	{
+		return (*this) / len;
+	}
 }
 
 
