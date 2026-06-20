@@ -134,6 +134,16 @@ Mesh* MeshCreate(
 	return mesh;
 }
 
+void MeshDestroy(Mesh* mesh)
+{
+	assert(!mesh->collider);
+	if (mesh->vbo) glDeleteBuffers(1, &mesh->vbo);
+	if (mesh->ibo) glDeleteBuffers(1, &mesh->ibo);
+	if (mesh->vao) glDeleteVertexArrays(1, &mesh->vao);
+	AssetDeinit(mesh);
+	delete mesh;
+}
+
 Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format)
 {
 	Texture* texture = new Texture();

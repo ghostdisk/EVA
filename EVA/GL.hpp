@@ -64,3 +64,4 @@ Mesh* MeshCreate(
 Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format);
 Texture* TextureLoad(const char* name);
 Material* MaterialCreate(const char* name, Texture* texture);
+void MeshDestroy(Mesh* mesh);

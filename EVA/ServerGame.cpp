@@ -6,6 +6,7 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/Character.hpp>
 #include <EVA/GL.hpp> // Mesh
+#include <EVA/CSG.hpp> // Mesh
 #include <enet/enet.h>
 #include <stdio.h>
 
@@ -17,13 +18,6 @@ static EID NewEID(ServerGame* server)
 void ServerGameInit(ServerGame* server, const char* name)
 {
 	GameInit(server, name);
-
-	server->next_eid = InstantiateScene(server, Library::map_prime->scenes[0], server->next_eid);
-	// SpawnSomeBoxes(server, 200);
-
-	ECharacter* character = (ECharacter*)server->entity_manager.CreateEntity(EntityType_Character, NewEID(server));
-	character->position.z = 0.1;
-	server->pawn = character;
 }
 
 static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)

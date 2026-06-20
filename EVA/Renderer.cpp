@@ -6,6 +6,7 @@
 
 GLuint LineShader;
 GLuint MainShader;
+bool wireframe = false;
 
 struct LineVertex
 {
@@ -43,6 +44,8 @@ void RenderScene()
 		glUseProgram(MainShader);
 		glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
 		glEnable(GL_DEPTH_TEST);
+
+		glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
 
 		for (const DrawMeshEntry& entry : pending_meshes)
 		{

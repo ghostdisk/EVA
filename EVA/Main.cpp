@@ -177,7 +177,8 @@ int main()
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
 			glViewport(0, 0, WindowWidth, WindowHeight);
-			glClearColor(161.0f/255.0f, 234.0f/255.0f, 247.0f/255.0f, 1);
+			glClearColor(.2, .2, .4, 1);
+			// glClearColor(161.0f/255.0f, 234.0f/255.0f, 247.0f/255.0f, 1);
 
 			glEnable(GL_DEPTH_TEST);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

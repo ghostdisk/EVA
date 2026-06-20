@@ -60,3 +60,8 @@ Asset* AssetGetByName(const char* name, AssetType expected_type)
 	}
 	return nullptr;
 }
+
+void AssetDeinit(Asset* asset)
+{
+	assets[asset->id] = nullptr;
+}
