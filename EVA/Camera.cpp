@@ -51,6 +51,7 @@ void CameraFly(Camera& camera)
 	}
 
 	float speed = IOGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
+	if (IOGetButton(SDL_SCANCODE_LCTRL)) speed = camera.fly_speed_slow;
 
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
 	input.z += (float)IOGetButton(SDL_SCANCODE_E) - (float)IOGetButton(SDL_SCANCODE_Q);

@@ -96,12 +96,22 @@ void GameDraw(Game* game)
 {
 	ZoneScopedN("GameDraw");
 
+	float4 colors[] = {
+		{ 1, 0, 0, 1 },
+		{ 0, 1, 0, 1 },
+		{ 0, 0, 1, 1 },
+		{ 1, 1, 0, 1 },
+		{ 0, 1, 1, 1 },
+		{ 1, 0, 1, 1 },
+		{ 1, 1, 1, 1 },
+	};
+
 	for (int i = 0; i < draw_brushes.size(); i++)
 	{
 		if (1 || i == (k % draw_brushes.size()))
 		{
 			printf("Drawing brush %d\n", (int)(k % draw_brushes.size()));
-			DrawMesh(draw_brushes[i]->mesh, nullptr, float4x4::Identity());
+			DrawMesh(draw_brushes[i]->mesh, nullptr, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);
 		}
 	}
 	if (IOGetButtonDown(SDL_SCANCODE_K)) k++;
@@ -119,7 +129,7 @@ void GameDraw(Game* game)
 						glm_translate_make(model_matrix, &entity->position.x);
 						glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
 						glm_scale(model_matrix, &entity->scale.x);
-						DrawMesh(entity->mesh, entity->material, model_matrix);
+						DrawMesh(entity->mesh, entity->material, model_matrix, {1,1,1,1});
 					}
 				});
 			break;

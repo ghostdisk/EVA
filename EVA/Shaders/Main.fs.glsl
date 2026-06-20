@@ -6,6 +6,7 @@ layout (location = 0) in vec3 v_Normal;
 layout (location = 1) in vec2 v_Texcoord;
 
 layout (location = 1) uniform sampler2D u_Texture;
+layout (location = 3) uniform vec4      u_Tint;
 
 void main()
 {
@@ -18,6 +19,6 @@ void main()
 
 	float light = light1 * 0.7 + 0.3;
 	
-	vec3 albedo =texture(u_Texture, v_Texcoord).xyz;
+	vec3 albedo = texture(u_Texture, v_Texcoord).xyz * u_Tint.xyz;
 	o_Color = vec4(albedo * light, 1);
 }

@@ -7,8 +7,10 @@ layout (location = 2) in vec2 a_Texcoord;
 layout (location = 0) out vec3 v_Normal;
 layout (location = 1) out vec2 v_Texcoord;
 
-layout (location = 0) uniform mat4 u_ViewProjection;
-layout (location = 2) uniform mat4 u_Model;
+layout (location = 0) uniform mat4      u_ViewProjection;
+layout (location = 1) uniform sampler2D u_Texture;
+layout (location = 2) uniform mat4      u_Model;
+layout (location = 3) uniform vec4      u_Tint;
 
 void main()
 {

@@ -25,6 +25,7 @@ struct Camera
 	// CameraFly() parameters:
 	float  fly_speed         = 10.0f;
 	float  fly_speed_sprint  = 100.0f;
+	float  fly_speed_slow    = 0.3f;
 	float2 mouse_sensitivity = { 0.003f, 0.003f };
 
 	// Orbit camera parameters:

@@ -19,6 +19,7 @@ struct DrawMeshEntry
 	Mesh*     mesh;
 	Material* material;
 	float4x4  matrix;
+	float4    color;
 };
 
 static std::vector<LineVertex> pending_lines;
@@ -61,6 +62,7 @@ void RenderScene()
 			glBindTexture(GL_TEXTURE_2D, color_texture->handle);
 			glActiveTexture(GL_TEXTURE0);
 			glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
+			glUniform4fv(3, 1, &entry.color.x);
 			glBindVertexArray(entry.mesh->vao);
 
 			if (entry.mesh->index_count)
@@ -118,9 +120,9 @@ void DrawGrid(int size)
 	}
 }
 
-void DrawMesh(Mesh* mesh, Material* material, const float4x4& matrix)
+void DrawMesh(Mesh* mesh, Material* material, const float4x4& matrix, float4 color)
 {
-	pending_meshes.push_back({ mesh, material, matrix });
+	pending_meshes.push_back({ mesh, material, matrix, color });
 }
 
 void RendererBeginFrame()
