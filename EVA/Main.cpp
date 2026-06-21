@@ -31,7 +31,6 @@ Font* fnt_arial = 0;
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
 bool VSync = true;
-int DrawMode = 0;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -87,6 +86,7 @@ int main()
 	// ActiveGame = client;
 
 	FrameStartTimeNS = SDL_GetTicksNS();
+	SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 
 	while (!DoQuit)
 	{
@@ -156,12 +156,6 @@ int main()
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
-			snprintf(buf, 64, "Draw Mode (%d)", DrawMode);
-			if (UIButton(UI, buf))
-			{
-				DrawMode++;
-				if (DrawMode > 1) DrawMode = 0;
-			}
 		}
 
 		// DrawGrid(50);
@@ -177,7 +171,7 @@ int main()
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
 			glViewport(0, 0, WindowWidth, WindowHeight);
-			glClearColor(.2, .2, .4, 1);
+			glClearColor(0, 0, 0.03, 1);
 			// glClearColor(161.0f/255.0f, 234.0f/255.0f, 247.0f/255.0f, 1);
 
 			glEnable(GL_DEPTH_TEST);

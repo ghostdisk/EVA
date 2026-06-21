@@ -85,15 +85,32 @@ void UIBeginFrame(UIContext& ui);
 void UIEndFrame(UIContext& ui);
 void UIDraw(UIContext& ui, DrawContext& dc);
 
-UIBox* UILabel(UIContext& ui, const char* text);
+extern UILayoutMode UILayoutMode_Flex;
+extern UILayoutMode UILayoutMode_Text;
 
-// Convenience functions:
+////////////////////////////////////////////////////////////
+// Convenience functions
+////////////////////////////////////////////////////////////
+
 void UISetPadding   (UIBox* box, int padding);
 void UISetPadding   (UIBox* box, int vpadding, int hpadding);
 void UISetPadding   (UIBox* box, int top, int right, int bottom, int left);
 void UISetGap       (UIBox* box, int gap);
+void UISetSize      (UIBox* box, float width, float height);
 
-extern UILayoutMode UILayoutMode_Flex;
-extern UILayoutMode UILayoutMode_Text;
+////////////////////////////////////////////////////////////
+// Widgets
+////////////////////////////////////////////////////////////
 
 bool UIButton(UIContext& ui, const char* text);
+UIBox* UILabel(UIContext& ui, const char* text);
+
+enum UITreeNodeFlagBits : U32
+{
+	UITreeNodeFlags_None     = 0x00,
+	UITreeNodeFlags_Leaf     = 0x01,
+	UITreeNodeFlags_Selected = 0x02,
+};
+typedef U32 UITreeNodeFlags;
+
+bool UITreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags);

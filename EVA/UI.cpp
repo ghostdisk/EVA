@@ -6,6 +6,21 @@
 #include <EVA/IO.hpp>
 #include <EVA/Arena.hpp>
 
+void UIFlexLayoutPass1(UIBox* box);
+void UIFlexLayoutPass2(UIBox* box);
+void UITextLayoutPass1(UIBox* box);
+void UITextLayoutPass2(UIBox* box);
+
+UILayoutMode UILayoutMode_Flex = {
+	.Pass1 = UIFlexLayoutPass1,
+	.Pass2 = UIFlexLayoutPass2,
+};
+
+UILayoutMode UILayoutMode_Text = {
+	.Pass1 = UITextLayoutPass1,
+	.Pass2 = UITextLayoutPass2,
+};
+
 void UIInitialize()
 {
 }
@@ -323,78 +338,12 @@ void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 	}
 }
 
-UIBox* UILabel(UIContext& ui, const char* text)
-{
-	UIBox* box = UIBeginBox(ui, 0);
-	box->layout = &UILayoutMode_Text;
-	box->text = ArenaInternCString(FrameArena, text);
-	box->color = {1,1,1,1};
-	box->font = ui.default_font;
-	UIEndBox(ui);
-	return box;
-}
-
 void UIDraw(UIContext& ui, DrawContext& dc)
 {
 	UIDrawBoxRecursive(ui, dc, &ui.root);
 }
 
-UILayoutMode UILayoutMode_Flex = {
-	.Pass1 = UIFlexLayoutPass1,
-	.Pass2 = UIFlexLayoutPass2,
-};
-
-UILayoutMode UILayoutMode_Text = {
-	.Pass1 = UITextLayoutPass1,
-	.Pass2 = UITextLayoutPass2,
-};
-
-void UISetPadding(UIBox* box, int padding)
+bool UITreeNode(UIContext& ui, const char* text)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = padding;
-	box->padding_right  = padding;
-	box->padding_bottom = padding;
-	box->padding_left   = padding;
-}
-
-void UISetPadding(UIBox* box, int vpadding, int hpadding)
-{
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = vpadding;
-	box->padding_right  = hpadding;
-	box->padding_bottom = vpadding;
-	box->padding_left   = hpadding;
-}
-
-void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
-{
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = top;
-	box->padding_right  = right;
-	box->padding_bottom = bottom;
-	box->padding_left   = left;
-}
-
-void UISetGap(UIBox* box, int gap)
-{
-	assert(box->layout == &UILayoutMode_Flex);
-	box->flex_gap = gap;
-}
-
-bool UIButton(UIContext& ui, const char* text)
-{
-	UIPushId(ui, text);
-	UIBox* button = UIBeginBox(ui, 1);
-
-	if (button->flags & UIBoxFlags_Pressed) { button->color = COLOR_RGB(19, 56, 84); }
-	else if (button->flags & UIBoxFlags_Hover) { button->color = COLOR_RGB(33, 97, 145); }
-	else { button->color = COLOR_RGB(21, 74, 115); }
-
-	UISetPadding(button, 8, 16);
-	UILabel(ui, text);
-	UIEndBox(ui);
-	UIPopId(ui);
-
-	return button->flags & UIBoxFlags_Clicked;
+	return false;
 }

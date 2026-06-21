@@ -13,6 +13,8 @@ add_executable(EVA
 	"EVA/IO.cpp"
 	"EVA/Camera.cpp"
 	"EVA/UI.cpp"
+	"EVA/UI_Utils.cpp"
+	"EVA/UI_Widgets.cpp"
 	"EVA/Draw.cpp"
 	"EVA/Hashing.cpp"
 	"EVA/Arena.cpp"

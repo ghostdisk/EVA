@@ -19,6 +19,6 @@ void main()
 
 	float light = light1 * 0.7 + 0.3;
 	
-	vec3 albedo = texture(u_Texture, v_Texcoord).xyz * u_Tint.xyz;
+	vec3 albedo = /* texture(u_Texture, v_Texcoord).xyz * */ u_Tint.xyz;
 	o_Color = vec4(albedo * light, 1);
 }

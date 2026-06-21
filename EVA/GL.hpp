@@ -1,11 +1,15 @@
 #pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
-#include <EVA/Asset.hpp>
 
 #include <glad/glad.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
+
+struct Mesh;
+struct Material;
+struct Collider;
+struct Texture;
 
 void GLInitialize();
 GLuint GLCompileShaderProgram(const char* name);
@@ -17,31 +21,7 @@ struct MeshVertex
 	float2 texcoord;
 };
 
-struct Material;
-struct Collider;
 
-struct Mesh : Asset
-{
-	GLuint        vao             = 0;
-	GLuint        vbo             = 0;
-	GLuint        ibo             = 0;
-	U32           index_count     = 0;
-	U32           vertex_count    = 0;
-	Material*     default_maerial = nullptr;
-	Collider*     collider        = nullptr;
-};
-
-struct Texture : Asset
-{
-	GLuint handle = 0;
-	size_t width  = 0;
-	size_t height = 0;
-};
-
-struct Material : Asset
-{
-	Texture* color_texture = nullptr;
-};
 
 #define GL_ERROR_CHECK() \
 	do \

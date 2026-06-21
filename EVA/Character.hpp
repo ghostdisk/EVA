@@ -1,5 +1,4 @@
 #pragma once
-#include <EVA/Asset.hpp>
 #include <EVA/Math.hpp>
 
 struct ECharacter;

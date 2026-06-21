@@ -1,4 +1,5 @@
 #include <EVA/GL.hpp>
+#include <EVA/Asset.hpp>
 #include <stdio.h>
 
 SDL_GLContext GL = nullptr;
@@ -136,7 +137,7 @@ Mesh* MeshCreate(
 
 void MeshDestroy(Mesh* mesh)
 {
-	assert(!mesh->collider);
+	// assert(!mesh->collider);
 	if (mesh->vbo) glDeleteBuffers(1, &mesh->vbo);
 	if (mesh->ibo) glDeleteBuffers(1, &mesh->ibo);
 	if (mesh->vao) glDeleteVertexArrays(1, &mesh->vao);

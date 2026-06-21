@@ -109,7 +109,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders)
 		{
 			char collider_name[64];
 			snprintf(collider_name, 64, "%s_shape", mesh_name);
-			mesh->collider = PhysicsCreateMeshCollider(collider_name, vertices.size(), vertices.data(), indices.size(), indices.data());
+			// mesh->collider = PhysicsCreateMeshCollider(collider_name, vertices.size(), vertices.data(), indices.size(), indices.data());
 		}
 		
 		if (primitive.material)

@@ -1,6 +1,7 @@
 #include <EVA/Draw.hpp>
 #include <EVA/GL.hpp>
 #include <EVA/Platform.hpp>
+#include <EVA/Asset.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <vector>

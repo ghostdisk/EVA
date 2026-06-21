@@ -1,5 +1,6 @@
-#include <EVA/Renderer.hpp>
+#include <EVA/Asset.hpp>
 #include <EVA/Game.hpp>
+#include <EVA/Renderer.hpp>
 #include <EVA/Library.hpp>
 #include <vector>
 #include <tracy/Tracy.hpp>

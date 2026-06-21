@@ -10,7 +10,6 @@
 #include <tracy/Tracy.hpp>
 
 Game* ActiveGame = nullptr;
-extern int DrawMode;
 CSGStack* stack;
 std::vector<CSGBrush*> draw_brushes;
 int k = 0;
@@ -110,35 +109,24 @@ void GameDraw(Game* game)
 	{
 		if (1 || i == (k % draw_brushes.size()))
 		{
-			printf("Drawing brush %d\n", (int)(k % draw_brushes.size()));
+			// printf("Drawing brush %d\n", (int)(k % draw_brushes.size()));
 			DrawMesh(draw_brushes[i]->mesh, nullptr, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);
 		}
 	}
 	if (IOGetButtonDown(SDL_SCANCODE_K)) k++;
 
-	switch (DrawMode)
-	{
-		case 0:
+	game->entity_manager.Iterate(
+		[](Entity* entity)
 		{
-			game->entity_manager.Iterate(
-				[](Entity* entity)
-				{
-					if (entity->mesh)
-					{
-						float4x4 model_matrix;
-						glm_translate_make(model_matrix, &entity->position.x);
-						glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
-						glm_scale(model_matrix, &entity->scale.x);
-						DrawMesh(entity->mesh, entity->material, model_matrix, {1,1,1,1});
-					}
-				});
-			break;
-		}
-		case 1:
-		{
-			break;
-		}
-	}
+			if (entity->mesh)
+			{
+				float4x4 model_matrix;
+				glm_translate_make(model_matrix, &entity->position.x);
+				glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
+				glm_scale(model_matrix, &entity->scale.x);
+				DrawMesh(entity->mesh, entity->material, model_matrix, {1,1,1,1});
+			}
+		});
 }
 
 EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
@@ -156,11 +144,6 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 			entity->rotation = node.rotation;
 			entity->scale    = node.scale;
 			EntitySetName(entity, node.name);
-
-			if (node.mesh->collider)
-			{
-				PhysicsAttachStaticCollider(game->physics, entity, node.mesh->collider, PhysicsLayer_NonMoving);
-			}
 		}
 	}
 
