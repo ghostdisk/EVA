@@ -1,6 +1,7 @@
 #include <EVA/UI.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Asset.hpp>
+#include <EVA/Library.hpp>
 
 UIBox* UILabel(UIContext& ui, const char* text)
 {
@@ -40,19 +41,61 @@ bool UIButton(UIContext& ui, const char* text)
 	return button->flags & UIBoxFlags_Clicked;
 }
 
-bool UITreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags)
+bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags)
 {
+	UIBox* outer_contents = UIBeginBox(ui);
+	UISetFlex(outer_contents, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+
 	UIPushId(ui, text);
-	UIBox* box = UIBeginBox(ui, 1);
 
-	if      (box->flags & UIBoxFlags_Pressed) box->color = COLOR_RGB(87, 7, 31);
-	else if (box->flags & UIBoxFlags_Hover)   box->color = COLOR_RGB(142, 27, 62);
-	else                                      box->color = COLOR_RGB(115, 18, 47);
+	bool* open = nullptr;
 
-	UISetPadding(box, 4, 16);
-	UILabel(ui, text);
+	{
+		bool default_data = (bool)(flags & UITreeNodeFlags_DefaultOpen);
+		UIBox* box = UIBeginBox(ui, 1, 1, &default_data);
+		open = (bool*)UIBoxGetData(box);
+
+		if      (box->flags & UIBoxFlags_Pressed) box->color = COLOR_RGB(87, 7, 31);
+		else if (box->flags & UIBoxFlags_Hover)   box->color = COLOR_RGB(142, 27, 62);
+		else                                      box->color = COLOR_RGB(115, 18, 47);
+
+		if (box->flags & UIBoxFlags_Clicked)
+		{
+			*open = !*open;
+		}
+
+		UISetPadding(box, 6, 6);
+		UISetGap(box, 6);
+		UISetFlex(box, UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center);
+
+		UIBox* arrow = UISprite(ui, *open ? Library::spr_ui_arrow_down : Library::spr_ui_arrow_right);
+		if (flags & UITreeNodeFlags_Leaf)
+		{
+			arrow->color.w = 0;
+		}
+
+		UILabel(ui, text);
+
+		UIEndBox(ui);
+		UIPopId(ui);
+	}
+
+	if (*open)
+	{
+		UIBox* inner_contents = UIBeginBox(ui);
+		UISetFlex(inner_contents, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+		UISetPadding(inner_contents, 0, 0, 0, 20);
+		return true;
+	}
+	else
+	{
+		UIEndBox(ui);
+		return false;
+	}
+}
+
+void UIEndTreeNode(UIContext& ui)
+{
 	UIEndBox(ui);
-	UIPopId(ui);
-
-	return false;
+	UIEndBox(ui);
 }

@@ -222,7 +222,7 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 	}
 }
 
-void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y)
+void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y, float4 tint)
 {
 		dc.quads.push_back(DrawQuadRecord{
 			.mode = DrawQuadMode_Sprite,
@@ -233,7 +233,7 @@ void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y)
 				(float)sprite->y / (float)sprite->texture->height,
 				(float)sprite->w / (float)sprite->texture->width,
 				(float)sprite->h / (float)sprite->texture->height),
-			.tint = {1,1,1,1},
+			.tint = tint,
 		});
 }
 

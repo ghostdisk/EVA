@@ -12,7 +12,7 @@ add_executable(EVA
 	"EVA/GLTF.cpp"
 	"EVA/IO.cpp"
 	"EVA/Camera.cpp"
-	"EVA/UI.cpp"
+	"EVA/UI_Core.cpp"
 	"EVA/UI_Utils.cpp"
 	"EVA/UI_Widgets.cpp"
 	"EVA/Draw.cpp"

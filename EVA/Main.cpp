@@ -23,7 +23,7 @@ int WindowWidth = 1600;
 int WindowHeight = 900;
 bool InMenu = false;
 
-UIContext UI;
+static UIContext ui;
 DrawContext DC;
 Font* fnt_arial = 0;
 
@@ -69,7 +69,7 @@ int main()
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
 	DrawContextInit(DC);
-	UIContextInit(UI, fnt_arial);
+	UIContextInit(ui, fnt_arial);
 
 	{ // load assets:
 	}
@@ -78,7 +78,6 @@ int main()
 	ServerGameInit(server, "SERVER");
 	ServerListen(server, 27015);
 	ActiveGame = server;
-
 
 	// client = new ClientGame();
 	// ClientGameInit(client, "CLIENT0");
@@ -116,10 +115,10 @@ int main()
 		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
 		if (IOGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
 
-		UIBeginFrame(UI);
-		UI.root.flex_axis = 1;
-		UISetPadding(&UI.root, 8);
-		UISetGap(&UI.root, 8);
+		UIBeginFrame(ui);
+		ui.root.flex_axis = UIAxis_Vertical;
+		UISetPadding(&ui.root, 8);
+		UISetGap(&ui.root, 8);
 
 		RendererBeginFrame();
 
@@ -146,29 +145,39 @@ int main()
 			{
 				char status[256];
 				snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
-				UILabel(UI, status);
+				UILabel(ui, status);
 			}
 
 			char buf[64];
 			snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
-			if (UIButton(UI, buf))
+			if (UIButton(ui, buf))
 			{
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
 
-			for (int i = 0; i < 10; i++)
-				UISprite(UI, Library::spr_ui_arrow);
+			UIBox* box = UIBeginBox(ui);
+			UISetSize(box, 300, 0);
+			UISetFlex(box, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+			if (UIBeginTreeNode(ui, "Test 1"))
+			{
+				if (UIBeginTreeNode(ui, "Test 2"))
+				{
+					if (UIBeginTreeNode(ui, "Test 3", UITreeNodeFlags_Leaf))
+					{
+						UIEndTreeNode(ui);
+					}
+					UIEndTreeNode(ui);
+				}
+				UIEndTreeNode(ui);
+			}
+			UIEndBox(ui);
 		}
 
-		// DrawGrid(50);
-		// DrawLine({0,0,0}, {1,0,0}, {1,0,0,1});
-		// DrawLine({0,0,0}, {0,1,0}, {0,1,0,1});
-		// DrawLine({0,0,0}, {0,0,1}, {0,0,1,1});
 		GameDraw(ActiveGame);
 
-		UIEndFrame(UI);
-		UIDraw(UI, DC);
+		UIEndFrame(ui);
+		UIDraw(ui, DC);
 
 		{ // Render frame:
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
@@ -184,12 +193,6 @@ int main()
 
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
-
-			if (ActiveGame)
-			{ 
-
-
-			}
 
 			RenderScene();
 			DrawRender(DC);

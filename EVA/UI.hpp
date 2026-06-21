@@ -33,6 +33,12 @@ enum UIBoxFlagBits : U32
 };
 typedef U32 UIBoxFlags; 
 
+enum UIAxis : U8
+{
+	UIAxis_Horizontal = 0,
+	UIAxis_Vertical = 1,
+};
+
 struct UIBox
 {
 	U32        id              = 0; 
@@ -52,7 +58,7 @@ struct UIBox
 	U8          padding_right        = 0;
 	U8          padding_bottom       = 0;
 	U8          padding_left         = 0;
-	U8          flex_axis            = 0;
+	UIAxis      flex_axis            = UIAxis_Horizontal;
 	U8          flex_gap             = 0;
 	UIAlignment main_axis_alignment  = UIAlignment_Start;
 	UIAlignment cross_axis_alignment = UIAlignment_Start;
@@ -78,7 +84,7 @@ struct UIContext
 
 void UIInitialize();
 void UIContextInit(UIContext& ui, Font* default_font);
-UIBox* UIBeginBox(UIContext& ui, U32 id);
+UIBox* UIBeginBox(UIContext& ui, U32 id = 0, int data_size = 0, const void* data_default = nullptr);
 void UIEndBox(UIContext& ui);
 U32  UIPushId(UIContext& ui, U32 id);
 U32  UIPushId(UIContext& ui, const char* str);
@@ -94,12 +100,14 @@ extern UILayoutMode UILayoutMode_Text;
 // Convenience functions
 ////////////////////////////////////////////////////////////
 
-void UISetPadding          (UIBox* box, int padding);
-void UISetPadding          (UIBox* box, int vpadding, int hpadding);
-void UISetPadding          (UIBox* box, int top, int right, int bottom, int left);
-void UISetGap              (UIBox* box, int gap);
-void UISetSize             (UIBox* box, float width, float height);
-void UISetBackgroundSprite (UIBox* box, Sprite* sprite);
+void  UISetPadding              (UIBox* box, int padding);
+void  UISetPadding              (UIBox* box, int vpadding, int hpadding);
+void  UISetPadding              (UIBox* box, int top, int right, int bottom, int left);
+void  UISetGap                  (UIBox* box, int gap);
+void  UISetSize                 (UIBox* box, float width, float height);
+void  UISetBackgroundSprite     (UIBox* box, Sprite* sprite);
+void* UIBoxGetData              (UIBox* box);
+void  UISetFlex                 (UIBox* box, UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
 
 ////////////////////////////////////////////////////////////
 // Widgets
@@ -111,10 +119,12 @@ UIBox* UISprite(UIContext& ui, Sprite* sprite);
 
 enum UITreeNodeFlagBits : U32
 {
-	UITreeNodeFlags_None     = 0x00,
-	UITreeNodeFlags_Leaf     = 0x01,
-	UITreeNodeFlags_Selected = 0x02,
+	UITreeNodeFlags_None        = 0x00,
+	UITreeNodeFlags_Leaf        = 0x01,
+	UITreeNodeFlags_Selected    = 0x02,
+	UITreeNodeFlags_DefaultOpen = 0x04,
 };
 typedef U32 UITreeNodeFlags;
 
-bool UITreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags);
+bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags = 0);
+void UIEndTreeNode(UIContext& ui);

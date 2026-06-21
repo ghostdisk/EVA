@@ -30,7 +30,7 @@ void UIContextInit(UIContext& ui, Font* default_font)
 	ui.default_font = default_font;
 }
 
-UIBox* UIBeginBox(UIContext& ui, U32 id)
+UIBox* UIBeginBox(UIContext& ui, U32 id, int data_size, const void* data_default)
 {
 	UIBox* box = nullptr;
 	if (id > 0)
@@ -48,8 +48,10 @@ UIBox* UIBeginBox(UIContext& ui, U32 id)
 	}
 	if (!box)
 	{
-		box = new UIBox();
+		box = (UIBox*)malloc(sizeof(UIBox) + data_size);
+		new (box) UIBox();
 		ui.all_boxes.push_back(box);
+		memcpy((U8*)box + sizeof(UIBox), data_default, data_size);
 	}
 
 	assert(!(box->flags & UIBoxFlags_UsedThisFrame) && "UIBox id Conflict");
@@ -126,7 +128,7 @@ void UIBeginFrame(UIContext& ui)
 		}
 		else
 		{
-			delete box;
+			free(box);
 			ui.all_boxes[i] = ui.all_boxes.back();
 			ui.all_boxes.pop_back();
 			i--;
@@ -210,12 +212,13 @@ void UIFlexLayoutPass1(UIBox* box)
 	{
 		child->layout->Pass1(child);
 
-		main_size += MAIN_AXIS(child->size);
+		main_size += MAIN_AXIS(child->size) + box->flex_gap;
 		if (cross_size < CROSS_AXIS(child->size))
 		{
 			cross_size = CROSS_AXIS(child->size);
 		}
 	}
+	if (box->first_child) main_size -= box->flex_gap; // no gap after last child
 
 	main_size += MAIN_AXIS(padding);
 	cross_size += CROSS_AXIS(padding);
@@ -259,7 +262,7 @@ void UIFlexLayoutPass2(UIBox* box)
 		total_flex_grow += child->flex_grow;
 		total_children_size += box->flex_gap;
 	}
-	total_children_size -= box->flex_gap; // no gap after last child
+	if (box->first_child) total_children_size -= box->flex_gap; // no gap after last child
 
 	float slack = available_space - total_children_size;
 
@@ -301,8 +304,6 @@ void UIFlexLayoutPass2(UIBox* box)
 				break;
 			}
 		}
-
-
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
@@ -326,7 +327,7 @@ void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 	{
 		if (box->background_sprite)
 		{
-			DrawSprite(dc, box->background_sprite, box->position.x, box->position.y);
+			DrawSprite(dc, box->background_sprite, box->position.x, box->position.y, box->color);
 		}
 		else
 		{

@@ -19,7 +19,8 @@ Texture* tex_character = nullptr;
 
 GLTF* map_prime = nullptr;
 
-Sprite* spr_ui_arrow = nullptr;
+Sprite* spr_ui_arrow_down = nullptr;
+Sprite* spr_ui_arrow_right = nullptr;
 
 }
 
@@ -44,5 +45,6 @@ void LibraryInitialize()
 
 	Texture* ui_atlas = TextureLoad("ui_assets.psd");
 
-	Library::spr_ui_arrow = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 9);
+	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);
+	Library::spr_ui_arrow_right = SpriteCreate("spr_ui_arrow", ui_atlas, 16, 0, 15, 15);
 }
