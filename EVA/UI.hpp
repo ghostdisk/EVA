@@ -7,6 +7,7 @@ struct UIContext;
 struct UIBox;
 struct DrawContext;
 struct Font;
+struct Sprite;
 
 struct UILayoutMode
 {
@@ -57,6 +58,7 @@ struct UIBox
 	UIAlignment cross_axis_alignment = UIAlignment_Start;
 	float       flex_grow            = 0;
 	float4      color                = {0,0,0,0};
+	Sprite*     background_sprite    = nullptr;
 
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
@@ -92,11 +94,12 @@ extern UILayoutMode UILayoutMode_Text;
 // Convenience functions
 ////////////////////////////////////////////////////////////
 
-void UISetPadding   (UIBox* box, int padding);
-void UISetPadding   (UIBox* box, int vpadding, int hpadding);
-void UISetPadding   (UIBox* box, int top, int right, int bottom, int left);
-void UISetGap       (UIBox* box, int gap);
-void UISetSize      (UIBox* box, float width, float height);
+void UISetPadding          (UIBox* box, int padding);
+void UISetPadding          (UIBox* box, int vpadding, int hpadding);
+void UISetPadding          (UIBox* box, int top, int right, int bottom, int left);
+void UISetGap              (UIBox* box, int gap);
+void UISetSize             (UIBox* box, float width, float height);
+void UISetBackgroundSprite (UIBox* box, Sprite* sprite);
 
 ////////////////////////////////////////////////////////////
 // Widgets
@@ -104,6 +107,7 @@ void UISetSize      (UIBox* box, float width, float height);
 
 bool UIButton(UIContext& ui, const char* text);
 UIBox* UILabel(UIContext& ui, const char* text);
+UIBox* UISprite(UIContext& ui, Sprite* sprite);
 
 enum UITreeNodeFlagBits : U32
 {

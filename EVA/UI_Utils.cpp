@@ -38,3 +38,8 @@ void UISetSize(UIBox* box, float width, float height)
 	assert(box->layout == &UILayoutMode_Flex);
 	box->min_size = { width, height };
 }
+
+void UISetBackgroundSprite(UIBox* box, Sprite* sprite)
+{
+	box->background_sprite = sprite;
+}

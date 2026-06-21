@@ -4,6 +4,7 @@ struct GLTF;
 struct Game;
 struct Texture;
 struct Mesh;
+struct Sprite;
 
 void LibraryInitialize();
 
@@ -18,5 +19,6 @@ extern Texture* tex_test;
 extern Texture* tex_proto;
 
 extern GLTF* map_prime;
+extern Sprite* spr_ui_arrow;
 
 }

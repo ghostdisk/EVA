@@ -3,8 +3,8 @@
 #include <EVA/GL.hpp>
 #include <vector>
 
-
 struct Texture;
+struct Sprite;
 typedef struct FT_FaceRec_*  FT_Face;
 
 struct FontGlyph
@@ -31,6 +31,7 @@ enum DrawQuadMode
 {
 	DrawQuadMode_SolidColor,
 	DrawQuadMode_Text,
+	DrawQuadMode_Sprite,
 };
 
 struct DrawQuad
@@ -62,8 +63,9 @@ void DrawInitialize();
 void DrawContextInit(DrawContext& dc);
 void DrawRender(DrawContext& dc);
 
-void DrawRectangle(DrawContext& dc, int x, int y, int w, int h, float4 color);
+void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h);
 void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color);
+void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y);
 float MeasureText(Font* font, const char* text);
 
 Font* FontLoad(const char* name, int size, int atlas_size);

@@ -17,10 +17,14 @@ void main()
 	{
 		color = v_Tint;
 	}
-	else // text
+	else if (v_Mode == 1) // text
 	{
 		float alpha = tex.r;
 		color = vec4(v_Tint.rgb , v_Tint.a * alpha);
+	}
+	else // sprite
+	{
+		color = tex * v_Tint;
 	}
 
 	o_Color = color;

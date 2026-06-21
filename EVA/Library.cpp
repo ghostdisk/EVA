@@ -17,7 +17,9 @@ Texture* tex_tiles2 = nullptr;
 Texture* tex_wall1 = nullptr;
 Texture* tex_character = nullptr;
 
-GLTF* map_prime;
+GLTF* map_prime = nullptr;
+
+Sprite* spr_ui_arrow = nullptr;
 
 }
 
@@ -39,4 +41,8 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
+
+	Texture* ui_atlas = TextureLoad("ui_assets.psd");
+
+	Library::spr_ui_arrow = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 9);
 }

@@ -11,6 +11,7 @@ enum AssetType
 	AssetType_Mesh,
 	AssetType_Texture,
 	AssetType_Material,
+	AssetType_Sprite,
 };
 
 struct Asset
@@ -23,6 +24,7 @@ struct Asset
 struct Sprite : Asset
 {
 	Texture* texture;
+	int x, y, w, h;
 };
 
 struct Mesh : Asset
@@ -52,3 +54,5 @@ void   AssetDeinit(Asset* asset);
 Asset* AssetGet(U32 id, AssetType expected_type);
 Asset* AssetGetByName(const char* name, AssetType expected_type);
 void   AssetsSkipToId(U32 id);
+
+Sprite* SpriteCreate(const char* name, Texture* texture, int x, int y, int w, int h);

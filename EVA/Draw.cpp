@@ -184,7 +184,7 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 	return font;
 }
 
-void DrawRectangle(DrawContext& dc, int x, int y, int w, int h, float4 color)
+void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h)
 {
 	dc.quads.push_back(DrawQuadRecord{
 		.mode = DrawQuadMode_SolidColor,
@@ -220,8 +220,23 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 
 		x += glyph.advance;
 	}
-
 }
+
+void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y)
+{
+		dc.quads.push_back(DrawQuadRecord{
+			.mode = DrawQuadMode_Sprite,
+			.texture = sprite->texture,
+			.position_rect = float4(x, y, sprite->w, sprite->h),
+			.uv_rect = float4(
+				(float)sprite->x / (float)sprite->texture->width,
+				(float)sprite->y / (float)sprite->texture->height,
+				(float)sprite->w / (float)sprite->texture->width,
+				(float)sprite->h / (float)sprite->texture->height),
+			.tint = {1,1,1,1},
+		});
+}
+
 
 float MeasureText(Font* font, const char* text)
 {

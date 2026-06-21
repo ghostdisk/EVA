@@ -322,9 +322,16 @@ void UITextLayoutPass2(UIBox* box)
 
 void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 {
-	if (box->color.w && box->layout != &UILayoutMode_Text)
+	if (box->color.w && box->layout != &UILayoutMode_Text) // TODO: Dumb.
 	{
-		DrawRectangle(dc, box->position.x, box->position.y, box->size.x, box->size.y, box->color);
+		if (box->background_sprite)
+		{
+			DrawSprite(dc, box->background_sprite, box->position.x, box->position.y);
+		}
+		else
+		{
+			DrawRectangle(dc, box->color, box->position.x, box->position.y, box->size.x, box->size.y);
+		}
 	}
 
 	if (box->text)

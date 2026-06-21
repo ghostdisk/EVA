@@ -156,6 +156,9 @@ int main()
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
+
+			for (int i = 0; i < 10; i++)
+				UISprite(UI, Library::spr_ui_arrow);
 		}
 
 		// DrawGrid(50);

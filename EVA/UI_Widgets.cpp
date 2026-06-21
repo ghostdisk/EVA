@@ -1,5 +1,6 @@
 #include <EVA/UI.hpp>
 #include <EVA/Arena.hpp>
+#include <EVA/Asset.hpp>
 
 UIBox* UILabel(UIContext& ui, const char* text)
 {
@@ -8,6 +9,16 @@ UIBox* UILabel(UIContext& ui, const char* text)
 	box->text = ArenaInternCString(FrameArena, text);
 	box->color = {1,1,1,1};
 	box->font = ui.default_font;
+	UIEndBox(ui);
+	return box;
+}
+
+UIBox* UISprite(UIContext& ui, Sprite* sprite)
+{
+	UIBox* box = UIBeginBox(ui, 0);
+	box->color = {1,1,1,1};
+	UISetBackgroundSprite(box, sprite);
+	UISetSize(box, sprite->w, sprite->h);
 	UIEndBox(ui);
 	return box;
 }
