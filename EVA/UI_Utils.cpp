@@ -68,3 +68,8 @@ void UISetCrossAxisAlignment(UIBox* box, UIAlignment alignment)
 	assert(box->layout == &UILayoutMode_Flex);
 	box->cross_axis_alignment = alignment;
 }
+
+UIBox* UIGetCurrentBox           (UIContext& ui)
+{
+	return ui.box_stack.back();
+}

@@ -101,6 +101,11 @@ U32 UIPushId(UIContext& ui, const char* str)
 	return UIPushId(ui, HashBytes(str, strlen(str)));
 }
 
+U32 UIPushId(UIContext& ui, const void* ptr)
+{
+	return UIPushId(ui, (U32)(uintptr_t)ptr);
+}
+
 void UIPopId(UIContext& ui)
 {
 	ui.id_stack.pop_back();

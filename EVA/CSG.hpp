@@ -3,6 +3,10 @@
 #include <vector>
 
 struct Mesh;
+struct CSGPlane;
+struct CSGStack;
+struct CSGBrush;
+struct UIContext;
 
 struct CSGPlane
 {
@@ -39,7 +43,7 @@ struct CSGStackNode
 	union
 	{
 		CSGBrush* brush;
-		CSGStackNode* stack;
+		CSGStack* stack;
 	};
 };
 
@@ -49,6 +53,8 @@ struct CSGStack
 	std::vector<CSGStackNode> nodes            = {};
 	std::vector<CSGBrush*>    built_brushes    = {};
 };
+
+void        CSGDrawInspector(UIContext& ui, CSGStack* stack);
 
 CSGBrush*   CSGCreateBrush();
 void        CSGDestroyBrush(CSGBrush* brush);

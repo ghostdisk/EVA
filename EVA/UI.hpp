@@ -88,6 +88,7 @@ UIBox* UIBeginBox(UIContext& ui, U32 id = 0, int data_size = 0, const void* data
 void UIEndBox(UIContext& ui);
 U32  UIPushId(UIContext& ui, U32 id);
 U32  UIPushId(UIContext& ui, const char* str);
+U32  UIPushId(UIContext& ui, const void* ptr);
 void UIPopId(UIContext& ui);
 void UIBeginFrame(UIContext& ui);
 void UIEndFrame(UIContext& ui);
@@ -100,14 +101,15 @@ extern UILayoutMode UILayoutMode_Text;
 // Convenience functions
 ////////////////////////////////////////////////////////////
 
-void  UISetPadding              (UIBox* box, int padding);
-void  UISetPadding              (UIBox* box, int vpadding, int hpadding);
-void  UISetPadding              (UIBox* box, int top, int right, int bottom, int left);
-void  UISetGap                  (UIBox* box, int gap);
-void  UISetSize                 (UIBox* box, float width, float height);
-void  UISetBackgroundSprite     (UIBox* box, Sprite* sprite);
-void* UIBoxGetData              (UIBox* box);
-void  UISetFlex                 (UIBox* box, UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
+void   UISetPadding              (UIBox* box, int padding);
+void   UISetPadding              (UIBox* box, int vpadding, int hpadding);
+void   UISetPadding              (UIBox* box, int top, int right, int bottom, int left);
+void   UISetGap                  (UIBox* box, int gap);
+void   UISetSize                 (UIBox* box, float width, float height);
+void   UISetBackgroundSprite     (UIBox* box, Sprite* sprite);
+void*  UIBoxGetData              (UIBox* box);
+void   UISetFlex                 (UIBox* box, UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
+UIBox* UIGetCurrentBox           (UIContext& ui);
 
 ////////////////////////////////////////////////////////////
 // Widgets
@@ -126,5 +128,9 @@ enum UITreeNodeFlagBits : U32
 };
 typedef U32 UITreeNodeFlags;
 
+void UIBeginTreeList(UIContext& ui);
+void UIEndTreeList(UIContext& ui);
 bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags = 0);
 void UIEndTreeNode(UIContext& ui);
+
+extern UIContext main_ui;

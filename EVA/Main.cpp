@@ -23,7 +23,7 @@ int WindowWidth = 1600;
 int WindowHeight = 900;
 bool InMenu = false;
 
-static UIContext ui;
+UIContext main_ui;
 DrawContext DC;
 Font* fnt_arial = 0;
 
@@ -69,7 +69,7 @@ int main()
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
 	DrawContextInit(DC);
-	UIContextInit(ui, fnt_arial);
+	UIContextInit(main_ui, fnt_arial);
 
 	{ // load assets:
 	}
@@ -115,10 +115,10 @@ int main()
 		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
 		if (IOGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
 
-		UIBeginFrame(ui);
-		ui.root.flex_axis = UIAxis_Vertical;
-		UISetPadding(&ui.root, 8);
-		UISetGap(&ui.root, 8);
+		UIBeginFrame(main_ui);
+		main_ui.root.flex_axis = UIAxis_Vertical;
+		UISetPadding(&main_ui.root, 8);
+		UISetGap(&main_ui.root, 8);
 
 		RendererBeginFrame();
 
@@ -145,39 +145,37 @@ int main()
 			{
 				char status[256];
 				snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
-				UILabel(ui, status);
+				UILabel(main_ui, status);
 			}
 
 			char buf[64];
 			snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
-			if (UIButton(ui, buf))
+			if (UIButton(main_ui, buf))
 			{
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
 
-			UIBox* box = UIBeginBox(ui);
-			UISetSize(box, 300, 0);
-			UISetFlex(box, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
-			if (UIBeginTreeNode(ui, "Test 1"))
+			UIBeginTreeList(main_ui);
+			if (UIBeginTreeNode(main_ui, "Test 1"))
 			{
-				if (UIBeginTreeNode(ui, "Test 2"))
+				if (UIBeginTreeNode(main_ui, "Test 2"))
 				{
-					if (UIBeginTreeNode(ui, "Test 3", UITreeNodeFlags_Leaf))
+					if (UIBeginTreeNode(main_ui, "Test 3", UITreeNodeFlags_Leaf))
 					{
-						UIEndTreeNode(ui);
+						UIEndTreeNode(main_ui);
 					}
-					UIEndTreeNode(ui);
+					UIEndTreeNode(main_ui);
 				}
-				UIEndTreeNode(ui);
+				UIEndTreeNode(main_ui);
 			}
-			UIEndBox(ui);
+			UIEndTreeList(main_ui);
 		}
 
 		GameDraw(ActiveGame);
 
-		UIEndFrame(ui);
-		UIDraw(ui, DC);
+		UIEndFrame(main_ui);
+		UIDraw(main_ui, DC);
 
 		{ // Render frame:
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);

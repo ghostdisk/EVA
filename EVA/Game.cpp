@@ -4,6 +4,7 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/IO.hpp>
+#include <EVA/UI.hpp>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
@@ -94,6 +95,7 @@ void GameTick(Game* game, double dt)
 void GameDraw(Game* game)
 {
 	ZoneScopedN("GameDraw");
+	CSGDrawInspector(main_ui, stack);
 
 	float4 colors[] = {
 		{ 1, 0, 0, 1 },

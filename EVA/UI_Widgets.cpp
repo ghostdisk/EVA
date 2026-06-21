@@ -99,3 +99,15 @@ void UIEndTreeNode(UIContext& ui)
 	UIEndBox(ui);
 	UIEndBox(ui);
 }
+
+void UIBeginTreeList(UIContext& ui)
+{
+	UIBox* box = UIBeginBox(ui);
+	UISetSize(box, 300, 0);
+	UISetFlex(box, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+}
+
+void UIEndTreeList(UIContext& ui)
+{
+	UIEndBox(ui);
+}

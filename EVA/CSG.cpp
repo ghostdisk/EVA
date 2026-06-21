@@ -1,5 +1,6 @@
 #include <EVA/CSG.hpp>
 #include <EVA/GL.hpp>
+#include <EVA/UI.hpp>
 #include <cglm/vec3.h>
 #include <algorithm>
 
@@ -254,4 +255,84 @@ CSGStack* CSGCreateStack()
 void CSGDestroyStack(CSGStack* stack)
 {
 	delete stack;
+}
+
+void CSGDrawInspector1(UIContext& ui, CSGBrush* brush)
+{
+	UIPushId(ui, brush);
+	DEFER(UIPopId(ui));
+
+	if (UIBeginTreeNode(ui, "CSG Brush"))
+	{
+		UISetGap(UIGetCurrentBox(ui), 6);
+		for (CSGPlane& plane : brush->planes)
+		{
+			char buf[256];
+			snprintf(buf, 256, "Plane %.2f,%.2f,%.2f - %.2f", plane.plane.normal.x, plane.plane.normal.y, plane.plane.normal.z, plane.plane.distance);
+			UILabel(ui, buf);
+
+			UIBox* padbox = UIBeginBox(ui);
+			UISetFlex(padbox, UIAxis_Vertical);
+			UISetPadding(padbox, 0, 0, 0, 20);
+			UISetGap(padbox, 6);
+			for (float3 p : plane.points)
+			{
+				snprintf(buf, 256, "POINT %.2f,%.2f,%.2f", p.x, p.y, p.z);
+				UILabel(ui, buf);
+			}
+			UIEndBox(ui);
+		}
+
+		UIEndTreeNode(ui);
+	}
+}
+
+void CSGDrawInspector1(UIContext& ui, CSGStack* stack)
+{
+	UIPushId(ui, stack);
+	DEFER(UIPopId(ui));
+
+	if (UIBeginTreeNode(ui, "CSG Stack", UITreeNodeFlags_DefaultOpen))
+	{
+		if (UIBeginTreeNode(ui, "Nodes"))
+		{
+			for (CSGStackNode& child : stack->nodes)
+			{
+				switch (child.type)
+				{
+					case CSGStackNodeType_Brush:
+					{
+						CSGDrawInspector1(ui, child.brush);
+						break;
+					}
+					case CSGStackNodeType_Stack:
+					{
+						CSGDrawInspector1(ui, child.stack);
+						break;
+					}
+					default:
+					{
+						assert(0);
+					}
+
+				}
+			}
+			UIEndTreeNode(ui);
+		}
+		if (UIBeginTreeNode(ui, "Built"))
+		{
+			for (CSGBrush* brush : stack->built_brushes)
+			{
+				CSGDrawInspector1(ui, brush);
+			}
+		}
+		UIEndTreeNode(ui);
+	}
+}
+
+void CSGDrawInspector(UIContext& ui, CSGStack* stack)
+{
+	UIBeginTreeList(ui);
+	CSGDrawInspector1(ui, stack);
+	UIEndTreeList(ui);
 }
