@@ -187,7 +187,7 @@ void EditorTick()
 {
 	Inspector(main_ui);
 
-	{
+	if (1) {
 		ZoneScopedN("CSG Rebuild");
 		CSGBuildStack(ActiveGame->csg);
 		for (CSGBrush* b : ActiveGame->csg->built_brushes)
@@ -195,5 +195,4 @@ void EditorTick()
 			CSGBuildBrushMesh(b);
 		}
 	}
-
 }

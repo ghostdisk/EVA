@@ -197,29 +197,44 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 	return copy;
 }
 
-void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
+// Takes ownership of a. b is left intact.
+bool CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 {
 	assert(!a->dirty && !b->dirty);
-	CSGBrush* cut1 = CSGCloneBrush(a);
+	bool did_something = false;
 
 	for (CSGPlane& plane : b->planes)
 	{
-		CSGBrush* cut2 = CSGCloneBrush(cut1);
+		CSGBrush* cut2 = CSGCloneBrush(a);
 
-		CSGAddPlane(cut1, plane.plane);
+		CSGAddPlane(a, plane.plane);
 		CSGAddPlane(cut2, plane.plane.Invert());
-		CSGBuildBrush(cut1);
+		CSGBuildBrush(a);
 		CSGBuildBrush(cut2);
 
-		if (cut2->planes.size()) out.push_back(cut2);
-		else CSGDestroyBrush(cut2);
-
-		if (!cut1->planes.size())
+		if (cut2->planes.size())
+		{
+			did_something = true;
+			out.push_back(cut2);
+		}
+		else
+		{
+			CSGDestroyBrush(cut2);
+		}
+		if (!a->planes.size())
 		{
 			break;
 		}
 	}
-	CSGDestroyBrush(cut1);
+	if (did_something)
+	{
+		CSGDestroyBrush(a);
+	}
+	else
+	{
+		out.push_back(a);
+	}
+	return did_something;
 }
 
 void CSGBuildStack(CSGStack* stack)
@@ -246,21 +261,27 @@ void CSGBuildStack(CSGStack* stack)
 				{
 					case CSGOperation_Union:
 					{
-						std::vector<CSGBrush*> new_brushes;
-						assert(stack->built_brushes.size() == 0);
 						assert(!node.brush->dirty);
 
-						stack->built_brushes.push_back(CSGCloneBrush(node.brush));
+						std::vector<CSGBrush*> new_brushes;
+
+						for (CSGBrush* old : stack->built_brushes)
+						{
+							CSGDifference(old, node.brush, new_brushes);
+						}
+						new_brushes.push_back(CSGCloneBrush(node.brush));
+
+						stack->built_brushes = new_brushes;
 						break;
 					}
 					case CSGOperation_Difference:
 					{
 						assert(!node.brush->dirty);
+
 						std::vector<CSGBrush*> new_brushes;
 						for (CSGBrush* old : stack->built_brushes)
 						{
 							CSGDifference(old, node.brush, new_brushes);
-							CSGDestroyBrush(old);
 						}
 						stack->built_brushes = new_brushes;
 						break;

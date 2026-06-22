@@ -28,18 +28,32 @@ void GameInit(Game* game, const char* name)
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCube({3,3,1}),
+		.brush     = CSGCreateCube({1,1,1}),
 	});
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Union,
-	// 	.brush     = CSGCreateCylinder(32, 1.2, 2),
-	// });
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(16, 1, 3),
+		.brush     = CSGCreateCube({ 3, 0.5, 0.5 }),
 	});
+	game->csg->nodes.push_back(CSGStackNode{
+		.type      = CSGStackNodeType_Brush,
+		.operation = CSGOperation_Difference,
+		.brush     = CSGCreateCube({ 0.5, 0.5, 3 }),
+	});
+	game->csg->nodes.push_back(CSGStackNode{
+		.type      = CSGStackNodeType_Brush,
+		.operation = CSGOperation_Difference,
+		.brush     = CSGCreateCube({ 0.5, 3, 0.5 }),
+	});
+
+	if (1) {
+		ZoneScopedN("CSG Rebuild");
+		CSGBuildStack(game->csg);
+		for (CSGBrush* b : game->csg->built_brushes)
+		{
+			CSGBuildBrushMesh(b);
+		}
+	}
 }
 
 void GameTick(Game* game, double dt)
