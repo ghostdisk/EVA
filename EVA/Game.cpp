@@ -46,7 +46,8 @@ void GameInit(Game* game, const char* name)
 		.brush     = CSGCreateCube({ 0.5, 3, 0.5 }),
 	});
 
-	if (1) {
+	if (1)
+	{
 		ZoneScopedN("CSG Rebuild");
 		CSGBuildStack(game->csg);
 		for (CSGBrush* b : game->csg->built_brushes)

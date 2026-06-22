@@ -156,7 +156,11 @@ void CSGBuildBrushMesh(CSGBrush* brush)
 {
 	ZoneScopedN("CSGBuildBrushMesh");
 
-	if (brush->mesh) MeshDestroy(brush->mesh);
+	if (brush->mesh)
+	{
+		MeshDestroy(brush->mesh);
+		brush->mesh = nullptr;
+	}
 
 	std::vector<MeshVertex> vertices;
 	std::vector<U32> indices;

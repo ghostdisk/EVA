@@ -179,7 +179,8 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 	char texture_name[256];
 	snprintf(texture_name, 256, "%s_atlas", name);
 	font->atlas = TextureCreate(texture_name, atlas_size, atlas_size, atlas_buffer, GL_R8);
-	font->yoffset = font->glyphs['O'].height;
+	font->pixel_size = font->glyphs['O'].height;
+	font->line_height = font->pixel_size * 1.5;
 
 	return font;
 }
@@ -196,6 +197,7 @@ void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h)
 
 void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color)
 {
+	float startx = x;
 	for (const char* ptr = text; *ptr; ptr++)
 	{
 		char c = *ptr;
@@ -203,8 +205,15 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 
 		FontGlyph& glyph = font->glyphs[c];
 
+		if (c == '\n')
+		{
+			x = startx;
+			y += font->line_height;
+		}
+
 		int xx = x + glyph.xoffs;
-		int yy = y - glyph.yoffs + font->yoffset;
+		int yy = y - glyph.yoffs + font->line_height;
+
 
 		dc.quads.push_back(DrawQuadRecord{
 			.mode = DrawQuadMode_Text,
@@ -222,6 +231,31 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 	}
 }
 
+float2 MeasureText(Font* font, const char* text)
+{
+	float row = 0;
+	float2 size = {};
+	size.y = font->line_height;
+
+	for (const char* ptr = text; *ptr; ptr++)
+	{
+		char c = *ptr;
+		if (c < 0) continue;
+
+		FontGlyph& glyph = font->glyphs[c];
+
+		if (c == '\n')
+		{
+			row = 0;
+			size.y += font->line_height;
+		}
+
+		row += glyph.advance;
+		if (row > size.x) size.x = row;
+	}
+	return size;
+}
+
 void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y, float4 tint)
 {
 		dc.quads.push_back(DrawQuadRecord{
@@ -235,19 +269,4 @@ void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y, float4 tint)
 				(float)sprite->h / (float)sprite->texture->height),
 			.tint = tint,
 		});
-}
-
-
-float MeasureText(Font* font, const char* text)
-{
-	float size = 0;
-	for (const char* ptr = text; *ptr; ptr++)
-	{
-		char c = *ptr;
-		if (c < 0) continue;
-
-		FontGlyph& glyph = font->glyphs[c];
-		size += glyph.advance;
-	}
-	return size;
 }

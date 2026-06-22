@@ -1,4 +1,5 @@
 #pragma once
 
 void EditorInitialize();
-void EditorTick();
+void EditorEarlyTick();
+void EditorLateTick();

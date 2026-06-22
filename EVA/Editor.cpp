@@ -1,9 +1,13 @@
+#include <EVA/Arena.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer.hpp>
+#include <EVA/Platform.hpp>
 #include <tracy/Tracy.hpp>
+#include <stdlib.h>
+#include <stdarg.h>
 
 enum SelectionType
 {
@@ -18,6 +22,7 @@ struct Selection
 };
 
 std::vector<Selection> selection_list;
+std::vector<const char*> screen_log;
 
 void EditorInitialize()
 {
@@ -176,18 +181,10 @@ void InspectorCSGStack(CSGStack* stack)
 	}
 }
 
-void Inspector()
+void EditorEarlyTick()
 {
-	UIBeginTreeList();
-	InspectorCSGStack(ActiveGame->csg);
-	UIEndTreeList();
-}
-
-void EditorTick()
-{
-	Inspector();
-
-	if (1) {
+	if (1)
+	{
 		ZoneScopedN("CSG Rebuild");
 		CSGBuildStack(ActiveGame->csg);
 		for (CSGBrush* b : ActiveGame->csg->built_brushes)
@@ -195,4 +192,50 @@ void EditorTick()
 			CSGBuildBrushMesh(b);
 		}
 	}
+}
+
+void EditorLateTick()
+{
+
+	{ // status
+		UIBox* status = UIBeginBox();
+		UISetFlex(status, UIAxis_Vertical);
+		UISetGap(status, 4);
+		UISetPadding(status, 8);
+		status->position = { (float)(WindowWidth-400), 0 };
+		status->min_size = {400, 0};
+		status->color = { 0,0,0, .2};
+		
+		char buf[512];
+		snprintf(buf, 512, "FPS: %.1f", FPS);
+		UILabel(buf);
+
+		for (const char* text : screen_log)
+		{
+			UILabel(text);
+		}
+
+		UIEndBox();
+	}
+
+	{
+		UIBox* sidebar = UIBeginBox();
+		sidebar->position = {};
+		sidebar->min_size = { (float)300, (float)WindowHeight };
+		UIEndBox();
+	}
+
+	// UIBeginTreeList();
+	// InspectorCSGStack(ActiveGame->csg);
+	// UIEndTreeList();
+
+	screen_log.clear();
+}
+
+void LogToScreen(const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	screen_log.push_back(ArenaVprintf(FrameArena, fmt, args));
+	va_end(args);
 }

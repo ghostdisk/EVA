@@ -16,22 +16,26 @@
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
 
+#define FRAME_TIME_HISTORY_SIZE 50
+
+struct NextFrameCallback
+{
+	void (*callback)(void* userdata);
+	void* userdata;
+};
+
 SDL_Window* GameWindow = nullptr;
 bool DoQuit = false;
-
-
 int WindowWidth = 1600;
 int WindowHeight = 900;
 bool InMenu = false;
-
 static UIContext main_ui;
 DrawContext DC;
 Font* fnt_arial = 0;
-
-#define FRAME_TIME_HISTORY_SIZE 50
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
 bool VSync = false;
+std::vector<NextFrameCallback> next_frame_callbacks;
 
 // time:
 static U64 FrameStartTimeNS;
@@ -59,6 +63,7 @@ int main()
 	}
 
 	ArenaInitialize();
+	RotateFrameArenas();
 	GLInitialize();
 	RendererInitialize();
 	PhysicsInitialize();
@@ -72,9 +77,6 @@ int main()
 
 	DrawContextInit(DC);
 	UIContextInit(main_ui, fnt_arial);
-
-	{ // load assets:
-	}
 
 	server = new ServerGame();
 	ServerGameInit(server, "SERVER");
@@ -96,11 +98,19 @@ int main()
 		DeltaTime = double(dt_ns) / 1'000'000'000;
 		FrameStartTimeNS = new_time;
 
+		for (auto& cb : next_frame_callbacks)
+		{
+			cb.callback(cb.userdata);
+		}
+		next_frame_callbacks.clear();
+
 		RotateFrameArenas();
 		IOBeginFrame();
 		UIContextMakeCurrent(main_ui);
 		UIBeginFrame();
 		RendererBeginFrame();
+
+		SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
@@ -135,41 +145,38 @@ int main()
 			FPS = 1.0f / avg;
 		}
 
-		{ // Simulate game:
-			if (client) ClientGameTick(client, DeltaTime);
-			if (server) ServerGameTick(server, DeltaTime);
-
-			// Status label
-			{
-				char status[256];
-				snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
-				UILabel(status);
-			}
-
-			char buf[64];
-			snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
-			if (UIButton(buf))
-			{
-				VSync = !VSync;
-				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
-			}
-		}
-
-		{
-			EditorTick();
-		}
-
+		EditorEarlyTick();
+		if (client) ClientGameTick(client, DeltaTime);
+		if (server) ServerGameTick(server, DeltaTime);
 		GameDraw(ActiveGame);
-
+		EditorLateTick();
 		UIEndFrame();
 		UIDraw(DC);
 
-		{ // Render frame:
-			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
+		// { // Simulate game:
 
+		// 	// Status label
+		// 	if (0) {
+		// 	{
+		// 		char status[256];
+		// 		snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
+		// 		UILabel(status);
+		// 	}
+
+		// 	char buf[64];
+		// 	snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
+		// 	if (UIButton(buf))
+		// 	{
+		// 		VSync = !VSync;
+		// 		SDL_GL_SetSwapInterval(VSync ? 1 : 0);
+		// 	}
+		// 	}
+		// }
+
+		{ // Render frame:
 			glViewport(0, 0, WindowWidth, WindowHeight);
-			glClearColor(0, 0, 0.03, 1);
-			// glClearColor(161.0f/255.0f, 234.0f/255.0f, 247.0f/255.0f, 1);
+			float4 clear_color = COLOR_RGB(44, 82, 87);
+			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 
 			glEnable(GL_DEPTH_TEST);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -191,4 +198,9 @@ int main()
 	}
 
 	return 0;
+}
+
+void QueueForNextFrame(void (*callback)(void* userdata), void* userdata)
+{
+	next_frame_callbacks.push_back({ callback, userdata });
 }

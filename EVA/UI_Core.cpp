@@ -334,7 +334,7 @@ void UIFlexLayoutPass2(UIBox* box)
 
 void UITextLayoutPass1(UIBox* box)
 {
-	box->size = float2(MeasureText(box->font, box->text), box->font->yoffset);
+	box->size = MeasureText(box->font, box->text);
 }
 
 void UITextLayoutPass2(UIBox* box)
@@ -343,10 +343,18 @@ void UITextLayoutPass2(UIBox* box)
 
 void UIFixedLayoutPass1(UIBox* box)
 {
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		child->layout->Pass1(child);
+	}
 }
 
 void UIFixedLayoutPass2(UIBox* box)
 {
+	for (UIBox* child = box->first_child; child; child = child->next_sibling)
+	{
+		child->layout->Pass2(child);
+	}
 }
 
 void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)

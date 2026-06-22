@@ -1,5 +1,7 @@
 #include <EVA/Arena.hpp>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #define ARENA_SIZE (1 << 20u) // 1MB
 
@@ -72,6 +74,40 @@ char* ArenaInternCString(Arena* arena, const char* cstring)
 	memcpy(copy, cstring, len);
 	copy[len] = '\0';
 	return copy;
+}
+
+char* ArenaVprintf(Arena* arena, const char* fmt, va_list args)
+{
+	va_list measure_args;
+	va_copy(measure_args, args);
+	char dummy_buffer[1];
+	int needed = vsnprintf(dummy_buffer, 0, fmt, measure_args);
+	va_end(measure_args);
+
+	if (needed < 0)
+	{
+		return NULL;
+	}
+
+	char* buffer = (char*)ArenaAllocate(arena, needed + 1);
+	if (buffer)
+	{
+		va_list write_args;
+		va_copy(write_args, args);
+		vsnprintf(buffer, needed + 1, fmt, write_args);
+		va_end(write_args);
+	}
+
+	return buffer;
+}
+
+char* ArenaPrintf(Arena* arena, const char* fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	char* result = ArenaVprintf(arena, fmt, args);
+	va_end(args);
+	return result;
 }
 
 void ArenaReset(Arena* arena)

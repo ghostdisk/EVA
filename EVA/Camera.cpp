@@ -57,6 +57,15 @@ void CameraFly(Camera& camera)
 	input.z += (float)IOGetButton(SDL_SCANCODE_E) - (float)IOGetButton(SDL_SCANCODE_Q);
 
 	camera.position += input * speed * DeltaTime;
+	camera.yaw = remainderf(camera.yaw, GLM_PIf * 2);
+
+	float yaw_deg = camera.yaw * RAD_TO_DEG;
+	const char* axis;
+	if (yaw_deg > -45 && yaw_deg < 45) axis = "+y";
+	else if (yaw_deg > 45 && yaw_deg < 135) axis = "-x";
+	else if (yaw_deg > 135) axis = "-y";
+	else axis = "+x";
+	LogToScreen("Cam %.1f %.1f %.1f Facing %.1f (%s)", camera.position.x, camera.position.y, camera.position.z, yaw_deg, axis);
 }
 
 void CameraOrbit(Camera& camera, Entity* entity)

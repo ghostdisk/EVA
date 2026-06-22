@@ -20,9 +20,10 @@ struct FontGlyph
 
 struct Font
 {
-	FT_Face face = {};
-	Texture* atlas = 0;
-	int yoffset = 0;
+	FT_Face  face        = {};
+	Texture* atlas       = 0;
+	int      pixel_size  = 0;
+	int      line_height = 0;
 
 	FontGlyph glyphs[256];
 };
@@ -66,6 +67,6 @@ void DrawRender(DrawContext& dc);
 void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h);
 void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color);
 void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y, float4 tint = {1,1,1,1});
-float MeasureText(Font* font, const char* text);
+float2 MeasureText(Font* font, const char* text);
 
 Font* FontLoad(const char* name, int size, int atlas_size);
