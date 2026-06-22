@@ -34,18 +34,24 @@ void GameInit(Game* game, const char* name)
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(64, 1, 2),
+		.brush     = CSGCreateCylinder(32, 1, 2),
 	});
-	CSGBuildStack(game->csg);
-	for (CSGBrush* b : game->csg->built_brushes)
-	{
-		CSGBuildBrushMesh(b);
-	}
 }
 
 void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
+
+	{
+		ZoneScopedN("CSG Rebuild");
+		CSGBuildStack(game->csg);
+		for (CSGBrush* b : game->csg->built_brushes)
+		{
+			CSGBuildBrushMesh(b);
+		}
+	}
+
+
 	PhysicsTick(game->physics, dt);
 
 	if (ActiveGame == game)

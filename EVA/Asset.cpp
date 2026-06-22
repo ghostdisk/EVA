@@ -4,6 +4,7 @@
 
 Asset zero_dummy = { .type = AssetType_None };
 static std::vector<Asset*> assets = { &zero_dummy };
+static std::vector<U32> free_ids = {};
 
 void AssetsSkipToId(U32 id)
 {
@@ -20,8 +21,17 @@ void AssetInit(Asset* asset, AssetType type, const char* name)
 
 	snprintf(asset->name, sizeof(asset->name), "%s", name);
 
-	asset->id = assets.size();
-	assets.push_back(asset);
+	if (free_ids.size())
+	{
+		asset->id = free_ids.back();
+		free_ids.pop_back();
+		assets[asset->id] = asset;
+	}
+	else
+	{
+		asset->id = assets.size();
+		assets.push_back(asset);
+	}
 }
 
 Asset* AssetGet(U32 id, AssetType expected_type)
@@ -63,6 +73,7 @@ Asset* AssetGetByName(const char* name, AssetType expected_type)
 
 void AssetDeinit(Asset* asset)
 {
+	free_ids.push_back(asset->id);
 	assets[asset->id] = nullptr;
 }
 
