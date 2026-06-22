@@ -68,7 +68,7 @@ struct UIBox
 
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
-	float2 size = {};
+	float2 size     = {};
 };
 
 struct UIContext
@@ -96,6 +96,7 @@ void UIDraw(UIContext& ui, DrawContext& dc);
 
 extern UILayoutMode UILayoutMode_Flex;
 extern UILayoutMode UILayoutMode_Text;
+extern UILayoutMode UILayoutMode_Fixed;
 
 ////////////////////////////////////////////////////////////
 // Convenience functions

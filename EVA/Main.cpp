@@ -98,6 +98,8 @@ int main()
 
 		RotateFrameArenas();
 		IOBeginFrame();
+		UIBeginFrame(main_ui);
+		RendererBeginFrame();
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
@@ -116,13 +118,6 @@ int main()
 		if (IOGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
 		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
 		if (IOGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
-
-		UIBeginFrame(main_ui);
-		main_ui.root.flex_axis = UIAxis_Vertical;
-		UISetPadding(&main_ui.root, 8);
-		UISetGap(&main_ui.root, 8);
-
-		RendererBeginFrame();
 
 		{ // Update tracked FPS
 			static int k = 0;

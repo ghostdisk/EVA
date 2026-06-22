@@ -10,6 +10,8 @@ void UIFlexLayoutPass1(UIBox* box);
 void UIFlexLayoutPass2(UIBox* box);
 void UITextLayoutPass1(UIBox* box);
 void UITextLayoutPass2(UIBox* box);
+void UIFixedLayoutPass1(UIBox* box);
+void UIFixedLayoutPass2(UIBox* box);
 
 UILayoutMode UILayoutMode_Flex = {
 	.Pass1 = UIFlexLayoutPass1,
@@ -20,6 +22,12 @@ UILayoutMode UILayoutMode_Text = {
 	.Pass1 = UITextLayoutPass1,
 	.Pass2 = UITextLayoutPass2,
 };
+
+UILayoutMode UILayoutMode_Fixed = {
+	.Pass1 = UIFixedLayoutPass1,
+	.Pass2 = UIFixedLayoutPass2,
+};
+
 
 void UIInitialize()
 {
@@ -121,7 +129,7 @@ void UIBeginFrame(UIContext& ui)
 	ui.root.last_child  = nullptr;
 	ui.root.size        = float2(WindowWidth, WindowHeight);
 	ui.root.min_size    = float2(WindowWidth, WindowHeight);
-	ui.root.layout      = &UILayoutMode_Flex;
+	ui.root.layout      = &UILayoutMode_Fixed;
 
 	for (int i = 0; i < ui.all_boxes.size(); i++)
 	{
@@ -326,6 +334,14 @@ void UITextLayoutPass2(UIBox* box)
 {
 }
 
+void UIFixedLayoutPass1(UIBox* box)
+{
+}
+
+void UIFixedLayoutPass2(UIBox* box)
+{
+}
+
 void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 {
 	if (box->color.w && box->layout != &UILayoutMode_Text) // TODO: Dumb.
@@ -354,9 +370,4 @@ void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 void UIDraw(UIContext& ui, DrawContext& dc)
 {
 	UIDrawBoxRecursive(ui, dc, &ui.root);
-}
-
-bool UITreeNode(UIContext& ui, const char* text)
-{
-	return false;
 }
