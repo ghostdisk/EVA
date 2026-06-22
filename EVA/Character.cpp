@@ -4,11 +4,8 @@
 #include <EVA/IO.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Renderer.hpp>
-#include <SDL3/SDL.h>
 #include <cglm/euler.h>
 #include <cglm/quat.h>
-#include <stdio.h>
-
 
 template <>
 void EntityInit(ECharacter* character)

@@ -1,72 +1,81 @@
 #include <EVA/UI.hpp>
 
-void UISetPadding(UIBox* box, int padding)
+UIBox* UIBox::SetPadding(int padding)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = padding;
-	box->padding_right  = padding;
-	box->padding_bottom = padding;
-	box->padding_left   = padding;
+	this->padding_top    = padding;
+	this->padding_right  = padding;
+	this->padding_bottom = padding;
+	this->padding_left   = padding;
+	return this;
 }
 
-void UISetPadding(UIBox* box, int vpadding, int hpadding)
+UIBox* UIBox::SetPadding(int vpadding, int hpadding)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = vpadding;
-	box->padding_right  = hpadding;
-	box->padding_bottom = vpadding;
-	box->padding_left   = hpadding;
+	this->padding_top    = vpadding;
+	this->padding_right  = hpadding;
+	this->padding_bottom = vpadding;
+	this->padding_left   = hpadding;
+	return this;
 }
 
-void UISetPadding(UIBox* box, int top, int right, int bottom, int left)
+UIBox* UIBox::SetPadding(int top, int right, int bottom, int left)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->padding_top    = top;
-	box->padding_right  = right;
-	box->padding_bottom = bottom;
-	box->padding_left   = left;
+	this->padding_top    = top;
+	this->padding_right  = right;
+	this->padding_bottom = bottom;
+	this->padding_left   = left;
+	return this;
 }
 
-void UISetGap(UIBox* box, int gap)
+UIBox* UIBox::SetGap(int gap)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->flex_gap = gap;
+	this->flex_gap = gap;
+	return this;
 }
 
-void UISetSize(UIBox* box, float width, float height)
+UIBox* UIBox::SetSize(float width, float height)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->min_size = { width, height };
+	assert(this->layout == &UILayoutMode_Flex);
+	this->min_size = { width, height };
+	return this;
 }
 
-void UISetBackgroundSprite(UIBox* box, Sprite* sprite)
+UIBox* UIBox::SetPosition(float x, float y)
 {
-	box->background_sprite = sprite;
+	assert(this->layout == &UILayoutMode_Flex);
+	this->position = { x, y };
+	return this;
 }
 
-void* UIBoxGetData(UIBox* box)
+UIBox *UIBox::SetColor(float4 color)
 {
-	return (U8*)box + sizeof(UIBox);
+	this->color = color;
+	return this;
 }
 
-void UISetFlex(UIBox* box, UIAxis axis, UIAlignment main, UIAlignment cross)
+UIBox* UIBox::SetPosition(float2 position)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->flex_axis = axis;
-	box->main_axis_alignment = main;
-	box->cross_axis_alignment = cross;
+	return SetPosition(position.x, position.y);
 }
 
-void UISetMainAxisAlignment(UIBox* box, UIAlignment alignment)
+UIBox* UIBox::SetBackgroundSprite(Sprite* sprite)
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->main_axis_alignment = alignment;
+	this->background_sprite = sprite;
+	return this;
 }
 
-void UISetCrossAxisAlignment(UIBox* box, UIAlignment alignment)
+void* UIBox::GetData()
 {
-	assert(box->layout == &UILayoutMode_Flex);
-	box->cross_axis_alignment = alignment;
+	return (U8*)this + sizeof(UIBox);
+}
+
+UIBox* UIBox::SetFlex(UIAxis axis, UIAlignment main, UIAlignment cross)
+{
+	assert(this->layout == &UILayoutMode_Flex);
+	this->flex_axis = axis;
+	this->main_axis_alignment = main;
+	this->cross_axis_alignment = cross;
+	return this;
 }
 
 UIBox* UIGetCurrentBox()

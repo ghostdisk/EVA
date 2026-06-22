@@ -1,4 +1,5 @@
 #pragma once
+#include <SDL3/SDL_scancode.h>
 
 struct float2;
 union SDL_Event;

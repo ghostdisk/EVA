@@ -198,6 +198,7 @@ void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h)
 void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color)
 {
 	float startx = x;
+	y += font->pixel_size;;
 	for (const char* ptr = text; *ptr; ptr++)
 	{
 		char c = *ptr;
@@ -212,8 +213,7 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 		}
 
 		int xx = x + glyph.xoffs;
-		int yy = y - glyph.yoffs + font->line_height;
-
+		int yy = y - glyph.yoffs;
 
 		dc.quads.push_back(DrawQuadRecord{
 			.mode = DrawQuadMode_Text,
@@ -235,7 +235,7 @@ float2 MeasureText(Font* font, const char* text)
 {
 	float row = 0;
 	float2 size = {};
-	size.y = font->line_height;
+	size.y = font->pixel_size;
 
 	for (const char* ptr = text; *ptr; ptr++)
 	{

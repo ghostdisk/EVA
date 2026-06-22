@@ -335,6 +335,8 @@ void UIFlexLayoutPass2(UIBox* box)
 void UITextLayoutPass1(UIBox* box)
 {
 	box->size = MeasureText(box->font, box->text);
+	box->size.x += box->padding_left + box->padding_right;
+	box->size.y += box->padding_top + box->padding_bottom;
 }
 
 void UITextLayoutPass2(UIBox* box)
@@ -373,7 +375,7 @@ void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)
 
 	if (box->text)
 	{
-		DrawText(dc, box->font, box->text, box->position.x, box->position.y, box->color);
+		DrawText(dc, box->font, box->text, box->position.x + box->padding_left, box->position.y + box->padding_top, box->color);
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)

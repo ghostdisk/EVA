@@ -69,6 +69,19 @@ struct UIBox
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
 	float2 size     = {};
+
+	// CONVENIENCE FUNCTIONS:
+	UIBox*   SetPadding              (int padding);
+	UIBox*   SetPadding              (int vpadding, int hpadding);
+	UIBox*   SetPadding              (int top, int right, int bottom, int left);
+	UIBox*   SetGap                  (int gap);
+	UIBox*   SetSize                 (float width, float height);
+	UIBox*   SetPosition             (float x, float y);
+	UIBox*   SetColor                (float4 color);
+	UIBox*   SetPosition             (float2 position);
+	UIBox*   SetBackgroundSprite     (Sprite* sprite);
+	UIBox*   SetFlex                 (UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
+	void*    GetData                 ();
 };
 
 struct UIContext
@@ -103,14 +116,6 @@ extern UILayoutMode UILayoutMode_Fixed;
 // Convenience functions
 ////////////////////////////////////////////////////////////
 
-void   UISetPadding              (UIBox* box, int padding);
-void   UISetPadding              (UIBox* box, int vpadding, int hpadding);
-void   UISetPadding              (UIBox* box, int top, int right, int bottom, int left);
-void   UISetGap                  (UIBox* box, int gap);
-void   UISetSize                 (UIBox* box, float width, float height);
-void   UISetBackgroundSprite     (UIBox* box, Sprite* sprite);
-void*  UIBoxGetData              (UIBox* box);
-void   UISetFlex                 (UIBox* box, UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
 UIBox* UIGetCurrentBox           ();
 
 ////////////////////////////////////////////////////////////
@@ -120,6 +125,7 @@ UIBox* UIGetCurrentBox           ();
 bool UIButton(const char* text);
 UIBox* UILabel(const char* text);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
+void   UIFlexSpacer();
 
 enum UITreeNodeFlagBits : U32
 {

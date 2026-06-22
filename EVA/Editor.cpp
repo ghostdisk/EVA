@@ -5,8 +5,8 @@
 #include <EVA/Game.hpp>
 #include <EVA/Renderer.hpp>
 #include <EVA/Platform.hpp>
+#include <EVA/IO.hpp>
 #include <tracy/Tracy.hpp>
-#include <stdlib.h>
 #include <stdarg.h>
 
 enum SelectionType
@@ -23,6 +23,7 @@ struct Selection
 
 std::vector<Selection> selection_list;
 std::vector<const char*> screen_log;
+static bool console_open = false;
 
 void EditorInitialize()
 {
@@ -198,13 +199,13 @@ void EditorLateTick()
 {
 
 	{ // status
-		UIBox* status = UIBeginBox();
-		UISetFlex(status, UIAxis_Vertical);
-		UISetGap(status, 4);
-		UISetPadding(status, 8);
-		status->position = { (float)(WindowWidth-400), 0 };
-		status->min_size = {400, 0};
-		status->color = { 0,0,0, .2};
+		UIBox* status = UIBeginBox()
+			->SetPadding(8)
+			->SetFlex(UIAxis_Vertical)
+			->SetGap(4)
+			->SetSize(400, 0)
+			->SetPosition((float)(WindowWidth-400), 0)
+			->SetColor({ 0, 0, 0, .2 });
 		
 		char buf[512];
 		snprintf(buf, 512, "FPS: %.1f", FPS);
@@ -218,11 +219,40 @@ void EditorLateTick()
 		UIEndBox();
 	}
 
-	{
-		UIBox* sidebar = UIBeginBox();
-		sidebar->position = {};
-		sidebar->min_size = { (float)300, (float)WindowHeight };
+	{ // sidebar
+		UIBox* sidebar = UIBeginBox()
+			->SetPosition(0, 0)
+			->SetSize( (float)300, (float)WindowHeight );
 		UIEndBox();
+	}
+
+	{ // console
+		if (IOGetButtonDown(SDL_SCANCODE_GRAVE))
+		{
+			console_open = !console_open;
+		}
+
+		if (console_open)
+		{
+			UIPushId("console");
+			DEFER(UIPopId());
+
+			UIBeginBox()
+				->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
+				->SetSize(800, 600)
+				->SetPosition((float)WindowWidth/2 - 400, (float)WindowHeight/2 - 300)
+				->SetColor(COLOR_RGB(115, 18, 47));
+			DEFER(UIEndBox());
+
+			{ // titlebar
+				UIBeginBox()
+					->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch);
+				UILabel("Console")->SetPadding(8);
+				UIFlexSpacer();
+				if (UIButton("X")) console_open = false;
+				UIEndBox();
+			}
+		}
 	}
 
 	// UIBeginTreeList();
