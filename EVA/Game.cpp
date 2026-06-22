@@ -24,33 +24,27 @@ void GameInit(Game* game, const char* name)
 
 	game->physics = PhysicsCreate();
 
-
 	game->csg = CSGCreateStack();
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Union,
 		.brush     = CSGCreateCube({3,3,1}),
 	});
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Union,
+	// 	.brush     = CSGCreateCylinder(32, 1.2, 2),
+	// });
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(32, 1, 2),
+		.brush     = CSGCreateCylinder(16, 1, 3),
 	});
 }
 
 void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
-
-	{
-		ZoneScopedN("CSG Rebuild");
-		CSGBuildStack(game->csg);
-		for (CSGBrush* b : game->csg->built_brushes)
-		{
-			CSGBuildBrushMesh(b);
-		}
-	}
-
 
 	PhysicsTick(game->physics, dt);
 

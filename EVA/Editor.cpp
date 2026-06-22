@@ -3,6 +3,7 @@
 #include <EVA/CSG.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer.hpp>
+#include <tracy/Tracy.hpp>
 
 enum SelectionType
 {
@@ -184,6 +185,15 @@ void Inspector(UIContext& ui)
 
 void EditorTick()
 {
-
 	Inspector(main_ui);
+
+	{
+		ZoneScopedN("CSG Rebuild");
+		CSGBuildStack(ActiveGame->csg);
+		for (CSGBrush* b : ActiveGame->csg->built_brushes)
+		{
+			CSGBuildBrushMesh(b);
+		}
+	}
+
 }

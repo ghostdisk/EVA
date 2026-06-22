@@ -37,7 +37,7 @@ void CSGBuildBrush(CSGBrush* brush)
 	CSGClearBrush(brush);
 
 	{
-		ZoneScopedN("Calculate Corners");
+		// ZoneScopedN("Calculate Corners");
 
 		for (int i = 0; i < brush->planes.size(); i++)
 		{
@@ -83,7 +83,7 @@ void CSGBuildBrush(CSGBrush* brush)
 	}
 
 	{
-		ZoneScopedN("Sort points");
+		// ZoneScopedN("Sort points");
 		for (CSGPlane& plane : brush->planes)
 		{
 			// construct a 2D basis in the plane:
@@ -112,7 +112,7 @@ void CSGBuildBrush(CSGBrush* brush)
 	}
 
 	{
-		ZoneScopedN("Deduplicate points within a plane");
+		// ZoneScopedN("Deduplicate points within a plane");
 		for (CSGPlane& plane : brush->planes)
 		{
 			int i = 1, j = 1;
@@ -129,9 +129,8 @@ void CSGBuildBrush(CSGBrush* brush)
 	}
 
 	{
-		ZoneScopedN("Cull planes");
+		// ZoneScopedN("Cull planes"); // Remove planes that don't contribute to the volume:
 
-		// Remove planes that don't contribute to the volume:
 		for (int i = 0; i < brush->planes.size(); i++)
 		{
 			CSGPlane& plane = brush->planes[i];
@@ -247,14 +246,16 @@ void CSGBuildStack(CSGStack* stack)
 				{
 					case CSGOperation_Union:
 					{
+						std::vector<CSGBrush*> new_brushes;
 						assert(stack->built_brushes.size() == 0);
 						assert(!node.brush->dirty);
-						if (node.brush->dirty) CSGBuildBrush(node.brush);
+
 						stack->built_brushes.push_back(CSGCloneBrush(node.brush));
 						break;
 					}
 					case CSGOperation_Difference:
 					{
+						assert(!node.brush->dirty);
 						std::vector<CSGBrush*> new_brushes;
 						for (CSGBrush* old : stack->built_brushes)
 						{
