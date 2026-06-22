@@ -54,8 +54,6 @@ struct CSGStack
 	std::vector<CSGBrush*>    built_brushes    = {};
 };
 
-void        CSGDrawInspector(UIContext& ui, CSGStack* stack);
-
 CSGBrush*   CSGCreateBrush();
 void        CSGDestroyBrush(CSGBrush* brush);
 void        CSGBuildBrushMesh(CSGBrush* brush);
@@ -67,3 +65,4 @@ void        CSGDestroyStack(CSGStack* stack);
 void        CSGBuildStack(CSGStack* stack);
 
 CSGBrush*   CSGCreateCube(float3 size);
+CSGBrush*   CSGCreateCylinder(int segments, float radius, float height);

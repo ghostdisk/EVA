@@ -117,7 +117,7 @@ UIBox* UIGetCurrentBox           (UIContext& ui);
 
 bool UIButton(UIContext& ui, const char* text);
 UIBox* UILabel(UIContext& ui, const char* text);
-UIBox* UISprite(UIContext& ui, Sprite* sprite);
+UIBox* UISprite(UIContext& ui, Sprite* sprite, U32 id = 0);
 
 enum UITreeNodeFlagBits : U32
 {
@@ -128,9 +128,18 @@ enum UITreeNodeFlagBits : U32
 };
 typedef U32 UITreeNodeFlags;
 
+struct UITreeNodeStatus
+{
+	bool open     = false;
+	bool selected = false;
+	bool hover    = false;
+
+	operator bool() { return open; };
+};
+
 void UIBeginTreeList(UIContext& ui);
 void UIEndTreeList(UIContext& ui);
-bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags = 0);
+UITreeNodeStatus UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags = 0);
 void UIEndTreeNode(UIContext& ui);
 
 extern UIContext main_ui;

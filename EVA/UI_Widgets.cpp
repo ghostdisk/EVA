@@ -14,9 +14,9 @@ UIBox* UILabel(UIContext& ui, const char* text)
 	return box;
 }
 
-UIBox* UISprite(UIContext& ui, Sprite* sprite)
+UIBox* UISprite(UIContext& ui, Sprite* sprite, U32 id)
 {
-	UIBox* box = UIBeginBox(ui, 0);
+	UIBox* box = UIBeginBox(ui, id);
 	box->color = {1,1,1,1};
 	UISetBackgroundSprite(box, sprite);
 	UISetSize(box, sprite->w, sprite->h);
@@ -41,10 +41,13 @@ bool UIButton(UIContext& ui, const char* text)
 	return button->flags & UIBoxFlags_Clicked;
 }
 
-bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags)
+UITreeNodeStatus UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags)
 {
 	UIBox* outer_contents = UIBeginBox(ui);
 	UISetFlex(outer_contents, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+
+	UITreeNodeStatus status = {};
+	status.selected = flags & UITreeNodeFlags_Selected;
 
 	UIPushId(ui, text);
 
@@ -55,43 +58,59 @@ bool UIBeginTreeNode(UIContext& ui, const char* text, UITreeNodeFlags flags)
 		UIBox* box = UIBeginBox(ui, 1, 1, &default_data);
 		open = (bool*)UIBoxGetData(box);
 
-		if      (box->flags & UIBoxFlags_Pressed) box->color = COLOR_RGB(87, 7, 31);
-		else if (box->flags & UIBoxFlags_Hover)   box->color = COLOR_RGB(142, 27, 62);
-		else                                      box->color = COLOR_RGB(115, 18, 47);
 
-		if (box->flags & UIBoxFlags_Clicked)
+		if (status.selected)
 		{
-			*open = !*open;
+			box->color = COLOR_RGB(255, 66, 110);
+		}
+		else
+		{
+			if      (box->flags & UIBoxFlags_Pressed) box->color = COLOR_RGB(87, 7, 31);
+			else if (box->flags & UIBoxFlags_Hover)   box->color = COLOR_RGB(142, 27, 62);
+			else                                      box->color = COLOR_RGB(115, 18, 47);
 		}
 
-		UISetPadding(box, 6, 6);
-		UISetGap(box, 6);
 		UISetFlex(box, UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center);
 
+		U32 arrow_id = 1337;
+		UIBox* arrow_box = UIBeginBox(ui, arrow_id);
+		UISetPadding(arrow_box, 6, 6);
 		UIBox* arrow = UISprite(ui, *open ? Library::spr_ui_arrow_down : Library::spr_ui_arrow_right);
 		if (flags & UITreeNodeFlags_Leaf)
 		{
 			arrow->color.w = 0;
 		}
+		UIEndBox(ui);
 
+		if (arrow_box->flags & UIBoxFlags_Clicked)
+		{
+			*open = !*open;
+		}
+		else if (box->flags & UIBoxFlags_Clicked)
+		{
+			status.selected = !status.selected;
+		}
+
+		status.hover = box->flags & UIBoxFlags_Hover;
 		UILabel(ui, text);
 
 		UIEndBox(ui);
 		UIPopId(ui);
 	}
 
+	status.open = *open;
+
 	if (*open)
 	{
 		UIBox* inner_contents = UIBeginBox(ui);
 		UISetFlex(inner_contents, UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
 		UISetPadding(inner_contents, 0, 0, 0, 20);
-		return true;
 	}
 	else
 	{
 		UIEndBox(ui);
-		return false;
 	}
+	return status;
 }
 
 void UIEndTreeNode(UIContext& ui)

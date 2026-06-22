@@ -4,6 +4,7 @@
 
 struct Physics;
 struct GLTFScene;
+struct CSGStack;
 
 struct Game
 {
@@ -12,6 +13,7 @@ struct Game
 	Camera        camera          = {};
 	Physics*      physics         = nullptr;
 	Entity*       pawn            = nullptr;
+	CSGStack*     csg             = nullptr;
 };
 
 extern Game* ActiveGame;

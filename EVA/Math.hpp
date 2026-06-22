@@ -156,6 +156,14 @@ inline float Dot(const float2& a, const float2& b) { return a.x*b.x + a.y*b.y; }
 inline float Dot(const float3& a, const float3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline float Dot(const float4& a, const float4& b) { return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w; }
 
+inline float Distance(const float3& a, const float3& b)
+{
+	float dx = a.x - b.x;
+	float dy = a.y - b.y;
+	float dz = a.z - b.z;
+	return sqrt(dx*dx + dy*dy + dz*dz);
+}
+
 inline float3 Cross(const float3& a, const float3 b)
 {
 	return float3(

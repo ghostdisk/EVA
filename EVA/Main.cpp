@@ -11,6 +11,7 @@
 #include <EVA/ServerGame.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
+#include <EVA/Editor.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
@@ -65,6 +66,7 @@ int main()
 	IOInitialize();
 	DrawInitialize();
 	UIInitialize();
+	EditorInitialize();
 
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
@@ -155,21 +157,10 @@ int main()
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
 			}
+		}
 
-			UIBeginTreeList(main_ui);
-			if (UIBeginTreeNode(main_ui, "Test 1"))
-			{
-				if (UIBeginTreeNode(main_ui, "Test 2"))
-				{
-					if (UIBeginTreeNode(main_ui, "Test 3", UITreeNodeFlags_Leaf))
-					{
-						UIEndTreeNode(main_ui);
-					}
-					UIEndTreeNode(main_ui);
-				}
-				UIEndTreeNode(main_ui);
-			}
-			UIEndTreeList(main_ui);
+		{
+			EditorTick();
 		}
 
 		GameDraw(ActiveGame);

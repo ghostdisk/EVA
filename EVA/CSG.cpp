@@ -13,10 +13,26 @@ void CSGClearBrush(CSGBrush* brush)
 	if (brush->mesh) MeshDestroy(brush->mesh);
 }
 
+bool AddPlane(CSGBrush* brush, Plane plane)
+{
+	for (CSGPlane& p : brush->planes)
+	{
+		if (fabs(plane.distance - p.plane.distance) < 0.001 && Dot(plane.normal, p.plane.normal) > 0.999)
+		{
+			return false;
+		}
+	}
+	brush->dirty = true;
+	brush->planes.push_back({ .plane = plane });
+	return true;
+}
+
+// This currently assumes the brush has no duplicate planes!!
 void CSGBuildBrush(CSGBrush* brush)
 {
 	CSGClearBrush(brush);
 
+	// Calculate corners:
 	for (int i = 0; i < brush->planes.size(); i++)
 	{
 		CSGPlane& a = brush->planes[i];
@@ -42,7 +58,7 @@ void CSGBuildBrush(CSGBrush* brush)
 					for (CSGPlane& plane : brush->planes)
 					{
 						float d = Dot(plane.plane.normal, p);
-						if (d > plane.plane.distance + 0.0001)
+						if (d > plane.plane.distance + 0.001)
 						{
 							culled = true;
 							break;
@@ -59,34 +75,9 @@ void CSGBuildBrush(CSGBrush* brush)
 		}
 	}
 
-	// Remove planes that don't contribute to the volume:
-	for (int i = 0; i < brush->planes.size(); i++)
+	// Sort points:
+	for (CSGPlane& plane : brush->planes)
 	{
-		CSGPlane& plane = brush->planes[i];
-		if (plane.points.size() < 3)
-		{
-			brush->planes[i] = brush->planes.back();
-			brush->planes.pop_back();
-			i--;
-		}
-	}
-
-	brush->dirty = false;
-}
-
-void CSGBuildBrushMesh(CSGBrush* brush)
-{
-	std::vector<MeshVertex> vertices;
-	std::vector<U32> indices;
-
-	for (int i = 0; i < brush->planes.size(); i++)
-	{
-		CSGPlane& plane = brush->planes[i];
-		if (plane.points.size() < 3)
-		{
-			continue;
-		}
-
 		// construct a 2D basis in the plane:
 		float3 n = plane.plane.normal;
 		float3 ref = abs(n.x) > 0.9 ? float3(0, 1, 0) : float3(1, 0, 0);
@@ -109,6 +100,56 @@ void CSGBuildBrushMesh(CSGBrush* brush)
 				float3 db = b - center;
 				return atan2f(Dot(da, v), Dot(da, u)) < atan2f(Dot(db, v), Dot(db, u));
 			});
+	}
+
+	// Deduplicate points within a plane:
+	for (CSGPlane& plane : brush->planes)
+	{
+		int i = 1, j = 1;
+		for (; j < plane.points.size(); j++)
+		{
+			plane.points[i] = plane.points[j];
+			if (Distance(plane.points[i - 1], plane.points[i]) > 0.001)
+			{
+				i++;
+			}
+		}
+		plane.points.resize(i);
+	}
+
+	// Remove planes that don't contribute to the volume:
+	for (int i = 0; i < brush->planes.size(); i++)
+	{
+		CSGPlane& plane = brush->planes[i];
+		if (plane.points.size() < 3)
+		{
+			brush->planes[i] = brush->planes.back();
+			brush->planes.pop_back();
+			i--;
+		}
+	}
+
+	// Remove all planes from zero-volume brushes:
+	if (brush->planes.size() < 4)
+	{
+		brush->planes.clear();
+	}
+
+	brush->dirty = false;
+}
+
+void CSGBuildBrushMesh(CSGBrush* brush)
+{
+	std::vector<MeshVertex> vertices;
+	std::vector<U32> indices;
+
+	for (int i = 0; i < brush->planes.size(); i++)
+	{
+		CSGPlane& plane = brush->planes[i];
+		if (plane.points.size() < 3)
+		{
+			continue;
+		}
 
 		// triangulate:
 		U32 vertex_start = vertices.size();
@@ -147,8 +188,8 @@ void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 	{
 		CSGBrush* cut2 = CSGCloneBrush(cut1);
 
-		cut1->planes.push_back({ .plane = plane.plane });
-		cut2->planes.push_back({ .plane = plane.plane.Invert()});
+		AddPlane(cut1, plane.plane);
+		AddPlane(cut2, plane.plane.Invert());
 		CSGBuildBrush(cut1);
 		CSGBuildBrush(cut2);
 
@@ -230,6 +271,22 @@ CSGBrush* CSGCreateCube(float3 size)
 	brush->planes.push_back({ Plane(float3(0,  -1, 0), size.y) });
 	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
 	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
+	CSGBuildBrush(brush);
+	return brush;
+}
+
+CSGBrush* CSGCreateCylinder(int segments, float radius, float height)
+{
+	CSGBrush* brush = CSGCreateBrush();
+	brush->planes.push_back({ Plane(float3( 0, 0, 1), height/2) });
+	brush->planes.push_back({ Plane(float3( 0, 0, -1), height/2) });
+
+	for (int i = 0; i < segments; i++)
+	{
+		float yaw = (float)i / float(segments) * 2 * GLM_PIf;
+		brush->planes.push_back({ Plane(float3( cos(yaw), sin(yaw), 0), radius) });
+	}
+	CSGBuildBrush(brush);
 	return brush;
 }
 
@@ -255,84 +312,4 @@ CSGStack* CSGCreateStack()
 void CSGDestroyStack(CSGStack* stack)
 {
 	delete stack;
-}
-
-void CSGDrawInspector1(UIContext& ui, CSGBrush* brush)
-{
-	UIPushId(ui, brush);
-	DEFER(UIPopId(ui));
-
-	if (UIBeginTreeNode(ui, "CSG Brush"))
-	{
-		UISetGap(UIGetCurrentBox(ui), 6);
-		for (CSGPlane& plane : brush->planes)
-		{
-			char buf[256];
-			snprintf(buf, 256, "Plane %.2f,%.2f,%.2f - %.2f", plane.plane.normal.x, plane.plane.normal.y, plane.plane.normal.z, plane.plane.distance);
-			UILabel(ui, buf);
-
-			UIBox* padbox = UIBeginBox(ui);
-			UISetFlex(padbox, UIAxis_Vertical);
-			UISetPadding(padbox, 0, 0, 0, 20);
-			UISetGap(padbox, 6);
-			for (float3 p : plane.points)
-			{
-				snprintf(buf, 256, "POINT %.2f,%.2f,%.2f", p.x, p.y, p.z);
-				UILabel(ui, buf);
-			}
-			UIEndBox(ui);
-		}
-
-		UIEndTreeNode(ui);
-	}
-}
-
-void CSGDrawInspector1(UIContext& ui, CSGStack* stack)
-{
-	UIPushId(ui, stack);
-	DEFER(UIPopId(ui));
-
-	if (UIBeginTreeNode(ui, "CSG Stack", UITreeNodeFlags_DefaultOpen))
-	{
-		if (UIBeginTreeNode(ui, "Nodes"))
-		{
-			for (CSGStackNode& child : stack->nodes)
-			{
-				switch (child.type)
-				{
-					case CSGStackNodeType_Brush:
-					{
-						CSGDrawInspector1(ui, child.brush);
-						break;
-					}
-					case CSGStackNodeType_Stack:
-					{
-						CSGDrawInspector1(ui, child.stack);
-						break;
-					}
-					default:
-					{
-						assert(0);
-					}
-
-				}
-			}
-			UIEndTreeNode(ui);
-		}
-		if (UIBeginTreeNode(ui, "Built"))
-		{
-			for (CSGBrush* brush : stack->built_brushes)
-			{
-				CSGDrawInspector1(ui, brush);
-			}
-		}
-		UIEndTreeNode(ui);
-	}
-}
-
-void CSGDrawInspector(UIContext& ui, CSGStack* stack)
-{
-	UIBeginTreeList(ui);
-	CSGDrawInspector1(ui, stack);
-	UIEndTreeList(ui);
 }
