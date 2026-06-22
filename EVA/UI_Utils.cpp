@@ -69,7 +69,7 @@ void UISetCrossAxisAlignment(UIBox* box, UIAlignment alignment)
 	box->cross_axis_alignment = alignment;
 }
 
-UIBox* UIGetCurrentBox           (UIContext& ui)
+UIBox* UIGetCurrentBox()
 {
-	return ui.box_stack.back();
+	return UI->box_stack.back();
 }

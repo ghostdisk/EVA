@@ -28,6 +28,8 @@ UILayoutMode UILayoutMode_Fixed = {
 	.Pass2 = UIFixedLayoutPass2,
 };
 
+UIContext* UI = {};
+
 
 void UIInitialize()
 {
@@ -38,14 +40,19 @@ void UIContextInit(UIContext& ui, Font* default_font)
 	ui.default_font = default_font;
 }
 
-UIBox* UIBeginBox(UIContext& ui, U32 id, int data_size, const void* data_default)
+void UIContextMakeCurrent(UIContext& ui)
+{
+	UI = &ui;
+}
+
+UIBox* UIBeginBox(U32 id, int data_size, const void* data_default)
 {
 	UIBox* box = nullptr;
 	if (id > 0)
 	{
-		id = UIPushId(ui, id);
+		id = UIPushId(id);
 
-		for (UIBox* b : ui.all_boxes)
+		for (UIBox* b : UI->all_boxes)
 		{
 			if (b->id == id)
 			{
@@ -58,7 +65,7 @@ UIBox* UIBeginBox(UIContext& ui, U32 id, int data_size, const void* data_default
 	{
 		box = (UIBox*)malloc(sizeof(UIBox) + data_size);
 		new (box) UIBox();
-		ui.all_boxes.push_back(box);
+		UI->all_boxes.push_back(box);
 		memcpy((U8*)box + sizeof(UIBox), data_default, data_size);
 	}
 
@@ -72,7 +79,7 @@ UIBox* UIBeginBox(UIContext& ui, U32 id, int data_size, const void* data_default
 	box->layout          = &UILayoutMode_Flex;
 	box->color           = {0,0,0,0};
 
-	box->parent = ui.box_stack.back();
+	box->parent = UI->box_stack.back();
 	if (box->parent->last_child)
 	{
 		box->parent->last_child->next_sibling = box;
@@ -86,54 +93,54 @@ UIBox* UIBeginBox(UIContext& ui, U32 id, int data_size, const void* data_default
 		box->parent->last_child = box;
 	}
 
-	ui.box_stack.push_back(box);
+	UI->box_stack.push_back(box);
 	return box;
 }
 
-void UIEndBox(UIContext& ui)
+void UIEndBox()
 {
-	UIBox* box = ui.box_stack.back();
+	UIBox* box = UI->box_stack.back();
 
-	if (box->id > 0) UIPopId(ui);
-	ui.box_stack.pop_back();
+	if (box->id > 0) UIPopId();
+	UI->box_stack.pop_back();
 }
 
-U32 UIPushId(UIContext& ui, U32 id)
+U32 UIPushId(U32 id)
 {
-	ui.id_stack.push_back(ui.id_stack.back() ^ HashU32(id));
-	return ui.id_stack.back();
+	UI->id_stack.push_back(UI->id_stack.back() ^ HashU32(id));
+	return UI->id_stack.back();
 }
 
-U32 UIPushId(UIContext& ui, const char* str)
+U32 UIPushId(const char* str)
 {
-	return UIPushId(ui, HashBytes(str, strlen(str)));
+	return UIPushId(HashBytes(str, strlen(str)));
 }
 
-U32 UIPushId(UIContext& ui, const void* ptr)
+U32 UIPushId(const void* ptr)
 {
-	return UIPushId(ui, (U32)(uintptr_t)ptr);
+	return UIPushId((U32)(uintptr_t)ptr);
 }
 
-void UIPopId(UIContext& ui)
+void UIPopId()
 {
-	ui.id_stack.pop_back();
+	UI->id_stack.pop_back();
 }
 
-void UIBeginFrame(UIContext& ui)
+void UIBeginFrame()
 {
-	ui.id_stack = { 0 };
-	ui.box_stack = { &ui.root };
+	UI->id_stack = { 0 };
+	UI->box_stack = { &UI->root };
 
-	assert(ui.root.next_sibling == nullptr);
-	ui.root.first_child = nullptr;
-	ui.root.last_child  = nullptr;
-	ui.root.size        = float2(WindowWidth, WindowHeight);
-	ui.root.min_size    = float2(WindowWidth, WindowHeight);
-	ui.root.layout      = &UILayoutMode_Fixed;
+	assert(UI->root.next_sibling == nullptr);
+	UI->root.first_child = nullptr;
+	UI->root.last_child  = nullptr;
+	UI->root.size        = float2(WindowWidth, WindowHeight);
+	UI->root.min_size    = float2(WindowWidth, WindowHeight);
+	UI->root.layout      = &UILayoutMode_Fixed;
 
-	for (int i = 0; i < ui.all_boxes.size(); i++)
+	for (int i = 0; i < UI->all_boxes.size(); i++)
 	{
-		UIBox* box = ui.all_boxes[i];
+		UIBox* box = UI->all_boxes[i];
 
 		if (box->id && (box->flags & UIBoxFlags_UsedThisFrame))
 		{
@@ -142,8 +149,8 @@ void UIBeginFrame(UIContext& ui)
 		else
 		{
 			free(box);
-			ui.all_boxes[i] = ui.all_boxes.back();
-			ui.all_boxes.pop_back();
+			UI->all_boxes[i] = UI->all_boxes.back();
+			UI->all_boxes.pop_back();
 			i--;
 		}
 	}
@@ -174,10 +181,10 @@ UIBox* UIFindHoveredChild(UIBox* box)
 	return hovered_box;
 }
 
-void UIEndFrame(UIContext& ui)
+void UIEndFrame()
 {
-	ui.root.layout->Pass1(&ui.root);
-	ui.root.layout->Pass2(&ui.root);
+	UI->root.layout->Pass1(&UI->root);
+	UI->root.layout->Pass2(&UI->root);
 
 	bool mouse_down = IOGetButtonDown(IO_BUTTON_MOUSE_LEFT);
 	bool mouse_up   = IOGetButtonUp(IO_BUTTON_MOUSE_LEFT);
@@ -185,12 +192,12 @@ void UIEndFrame(UIContext& ui)
 	UIBoxFlags flags_to_clear = UIBoxFlags_Hover | UIBoxFlags_Clicked;
 	if (mouse_up || mouse_down) flags_to_clear |= UIBoxFlags_Pressed;
 
-	for (UIBox* box : ui.all_boxes)
+	for (UIBox* box : UI->all_boxes)
 	{
 		box->flags &= ~flags_to_clear;
 	}
 
-	UIBox* hovered_box = UIFindHoveredChild(&ui.root);
+	UIBox* hovered_box = UIFindHoveredChild(&UI->root);
 	for (UIBox* box = hovered_box; box; box = box->parent)
 	{
 		box->flags |= UIBoxFlags_Hover;
@@ -342,7 +349,7 @@ void UIFixedLayoutPass2(UIBox* box)
 {
 }
 
-void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
+void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)
 {
 	if (box->color.w && box->layout != &UILayoutMode_Text) // TODO: Dumb.
 	{
@@ -363,11 +370,11 @@ void UIDrawBoxRecursive(UIContext& ui, DrawContext& dc, UIBox* box)
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
 	{
-		UIDrawBoxRecursive(ui, dc, child);
+		UIDrawBoxRecursive(dc, child);
 	}
 }
 
-void UIDraw(UIContext& ui, DrawContext& dc)
+void UIDraw(DrawContext& dc)
 {
-	UIDrawBoxRecursive(ui, dc, &ui.root);
+	UIDrawBoxRecursive(dc, &UI->root);
 }

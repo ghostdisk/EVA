@@ -24,7 +24,7 @@ int WindowWidth = 1600;
 int WindowHeight = 900;
 bool InMenu = false;
 
-UIContext main_ui;
+static UIContext main_ui;
 DrawContext DC;
 Font* fnt_arial = 0;
 
@@ -98,7 +98,8 @@ int main()
 
 		RotateFrameArenas();
 		IOBeginFrame();
-		UIBeginFrame(main_ui);
+		UIContextMakeCurrent(main_ui);
+		UIBeginFrame();
 		RendererBeginFrame();
 
 		SDL_Event event;
@@ -142,12 +143,12 @@ int main()
 			{
 				char status[256];
 				snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
-				UILabel(main_ui, status);
+				UILabel(status);
 			}
 
 			char buf[64];
 			snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
-			if (UIButton(main_ui, buf))
+			if (UIButton(buf))
 			{
 				VSync = !VSync;
 				SDL_GL_SetSwapInterval(VSync ? 1 : 0);
@@ -160,8 +161,8 @@ int main()
 
 		GameDraw(ActiveGame);
 
-		UIEndFrame(main_ui);
-		UIDraw(main_ui, DC);
+		UIEndFrame();
+		UIDraw(DC);
 
 		{ // Render frame:
 			SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);

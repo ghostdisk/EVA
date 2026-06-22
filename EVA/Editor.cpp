@@ -76,14 +76,14 @@ void OutlineCSGPlane(CSGPlane& plane)
 	}
 }
 
-void InspectorCSGBrush(UIContext& ui, CSGBrush* brush)
+void InspectorCSGBrush(CSGBrush* brush)
 {
-	UIPushId(ui, brush);
-	DEFER(UIPopId(ui));
+	UIPushId(brush);
+	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
 	if (Selected(brush)) flags |= UITreeNodeFlags_Selected;
-	UITreeNodeStatus status = UIBeginTreeNode(ui, "CSG Brush", flags);
+	UITreeNodeStatus status = UIBeginTreeNode("CSG Brush", flags);
 	Select(SelectionType_CSGBrush, brush, status.selected);
 
 	if (status.hover || status.selected)
@@ -94,12 +94,12 @@ void InspectorCSGBrush(UIContext& ui, CSGBrush* brush)
 	{
 		for (CSGPlane& plane : brush->planes)
 		{
-			UIPushId(ui, &plane);
-			DEFER(UIPopId(ui));
+			UIPushId(&plane);
+			DEFER(UIPopId());
 
 			char buf[256];
 			snprintf(buf, 256, "Plane %.1f,%.1f,%.1f:%.2f", plane.plane.normal.x, plane.plane.normal.y, plane.plane.normal.z, plane.plane.distance);
-			UITreeNodeStatus plane_status = UIBeginTreeNode(ui, buf);
+			UITreeNodeStatus plane_status = UIBeginTreeNode(buf);
 
 			if (plane_status.hover)
 				OutlineCSGPlane(plane);
@@ -108,39 +108,39 @@ void InspectorCSGBrush(UIContext& ui, CSGBrush* brush)
 			{
 				for (float3& p : plane.points)
 				{
-					UIPushId(ui, &p);
-					DEFER(UIPopId(ui));
+					UIPushId(&p);
+					DEFER(UIPopId());
 
 					snprintf(buf, 256, "Point %.1f,%.1f,%.1f", p.x, p.y, p.z);
-					UITreeNodeStatus point_status = UIBeginTreeNode(ui, buf, UITreeNodeFlags_Leaf);
+					UITreeNodeStatus point_status = UIBeginTreeNode(buf, UITreeNodeFlags_Leaf);
 					if (point_status.hover)
 					{
 						DrawPoint(p, {1,1,1,1});
 					}
 				}
 
-				UIEndTreeNode(ui);
+				UIEndTreeNode();
 			}
 
 		}
 
-		UIEndTreeNode(ui);
+		UIEndTreeNode();
 	}
 }
 
-void InspectorCSGStack(UIContext& ui, CSGStack* stack)
+void InspectorCSGStack(CSGStack* stack)
 {
-	UIPushId(ui, stack);
-	DEFER(UIPopId(ui));
+	UIPushId(stack);
+	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
 	if (Selected(stack)) flags |= UITreeNodeFlags_Selected;
-	UITreeNodeStatus status = UIBeginTreeNode(ui, "CSG Stack", flags);
+	UITreeNodeStatus status = UIBeginTreeNode("CSG Stack", flags);
 	Select(SelectionType_CSGStack, stack, status.selected);
 
 	if (status.open)
 	{
-		if (UIBeginTreeNode(ui, "Nodes"))
+		if (UIBeginTreeNode("Nodes"))
 		{
 			for (CSGStackNode& child : stack->nodes)
 			{
@@ -148,12 +148,12 @@ void InspectorCSGStack(UIContext& ui, CSGStack* stack)
 				{
 					case CSGStackNodeType_Brush:
 					{
-						InspectorCSGBrush(ui, child.brush);
+						InspectorCSGBrush(child.brush);
 						break;
 					}
 					case CSGStackNodeType_Stack:
 					{
-						InspectorCSGStack(ui, child.stack);
+						InspectorCSGStack(child.stack);
 						break;
 					}
 					default:
@@ -163,29 +163,29 @@ void InspectorCSGStack(UIContext& ui, CSGStack* stack)
 
 				}
 			}
-			UIEndTreeNode(ui);
+			UIEndTreeNode();
 		}
-		if (UIBeginTreeNode(ui, "Built"))
+		if (UIBeginTreeNode("Built"))
 		{
 			for (CSGBrush* brush : stack->built_brushes)
 			{
-				InspectorCSGBrush(ui, brush);
+				InspectorCSGBrush(brush);
 			}
 		}
-		UIEndTreeNode(ui);
+		UIEndTreeNode();
 	}
 }
 
-void Inspector(UIContext& ui)
+void Inspector()
 {
-	UIBeginTreeList(ui);
-	InspectorCSGStack(ui, ActiveGame->csg);
-	UIEndTreeList(ui);
+	UIBeginTreeList();
+	InspectorCSGStack(ActiveGame->csg);
+	UIEndTreeList();
 }
 
 void EditorTick()
 {
-	Inspector(main_ui);
+	Inspector();
 
 	if (1) {
 		ZoneScopedN("CSG Rebuild");
