@@ -14,17 +14,21 @@ struct ConCommand
 	const char* help;
 };
 
-std::vector<char> console_input;
-std::vector<std::string> console_log;
-std::vector<ConCommand> commands;
+static std::vector<char> console_input;
+static std::vector<std::string> console_log;
+static std::vector<ConCommand> commands;
+static std::vector<ConVar*> vars;
 static bool console_open = false;
 
 ConValue Con_help(int num_args, ConValue* args)
 {
-	ConLog("Commands:");
 	for (const ConCommand& cmd : commands)
 	{
 		ConLog("- %s: %s", cmd.name, cmd.help);
+	}
+	for (const ConVar* var : vars)
+	{
+		ConLog("- %s: %s", var->name, var->help);
 	}
 	return {};
 }
@@ -261,6 +265,28 @@ Exec:
 			return cmd.function(values.size() - 1, values.data() + 1);
 		}
 	}
+	for (ConVar* var : vars)
+	{
+		if (strcmp(var->name, values[0].string) == 0)
+		{
+			if (values.size() == 1)
+			{
+				return var->value;
+			}
+			if (var->value.type != values[1].type)
+			{
+				return ConValue{
+					.type = ConValueType_Error,
+					.string = ArenaPrintf(arena, "type mismatch"),
+				};
+			}
+			var->value = values[1];
+			if (var->on_change) var->on_change(var);
+
+			return var->value;
+		}
+	}
+
 	return ConValue{
 		.type = ConValueType_Error,
 		.string = ArenaPrintf(arena, "%s means nothing to me", values[0].string),
@@ -420,4 +446,9 @@ void ConRegisterCommand(const char* name, ConValue (*function)(int num_args, Con
 		.function = function,
 		.help     = help
 	});
+}
+
+void ConRegisterVar(ConVar* var)
+{
+	vars.push_back(var);
 }

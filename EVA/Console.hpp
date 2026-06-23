@@ -24,6 +24,7 @@ struct ConVar
 	const char* name   = nullptr;
 	const char* help   = nullptr;
 	ConValue    value  = {};
+	void (*on_change)(ConVar* cvar) = nullptr;
 };
 
 ConValue  ConExec(const char* script);

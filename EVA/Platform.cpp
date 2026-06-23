@@ -3,23 +3,22 @@
 #include <EVA/GL.hpp>
 #include <SDL3/SDL.h>
 
-int vsync = 0;
+// int vsync = 0;
 
-ConValue Con_vsync(int argc, ConValue* argv)
-{
-	if (argc >= 1 && argv[0].type == ConValueType_Number)
-	{
-		vsync = (int)argv[0].number;
-	}
-	SDL_GL_SetSwapInterval(vsync);
-	return ConValue{
+ConVar vsync = {
+	.name = "vsync",
+	.help = "0 - no vsync, 1 - every vblank, 2 - every 2nd vblank",
+	.value = {
 		.type = ConValueType_Number,
-		.number = (float)vsync,
-	};
-}
-
+		.number = 0,
+	},
+	.on_change = [](ConVar*)
+		{
+			SDL_GL_SetSwapInterval(vsync.value.number);
+		},
+};
 
 void PlatformInitialize()
 {
-	ConRegisterCommand("vsync", Con_vsync, "toggle vsync");
+	ConRegisterVar(&vsync);
 }
