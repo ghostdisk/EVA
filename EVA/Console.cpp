@@ -39,10 +39,30 @@ ConValue Con_clear(int num_args, ConValue* args)
 	return {};
 }
 
+ConValue Con_exec(int num_args, ConValue* args)
+{
+	char path[256];
+	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, "autoexec.cfg");
+
+	char* data = nullptr;
+	ReadEntireFile(path, (void**)&data, nullptr);
+	if (!data)
+	{
+		return ConValue{
+			.type = ConValueType_Error,
+			.string = ArenaPrintf(FrameArena, "failed to open %s", path)
+		};
+	}
+	ConValue val = ConExec(data);
+	free(data);
+	return val;
+}
+
 void ConsoleInitialize()
 {
 	ConRegisterCommand("clear", Con_clear, "clear the console");
 	ConRegisterCommand("help", Con_help, "list commands");
+	ConRegisterCommand("exec", Con_exec, "execute a script file");
 }
 
 void ConLog(const char* fmt, ...)
@@ -295,7 +315,6 @@ Exec:
 
 void ConLog(ConValue val)
 {
-
 	switch (val.type)
 	{
 		case ConValueType_Error:
@@ -337,6 +356,10 @@ ConValue ConExec(const char* script)
 		}
 
 		val = ConExec1(lex, FrameArena);
+		if (val.type == ConValueType_Error)
+		{
+			break;
+		}
 	}
 
 	ConLog(val);

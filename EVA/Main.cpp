@@ -99,7 +99,7 @@ int main()
 	// ActiveGame = client;
 
 	FrameStartTimeNS = SDL_GetTicksNS();
-	// ConExec("vsync 1");
+	ConExec("exec autoexec.cfg");
 
 	while (!DoQuit)
 	{
