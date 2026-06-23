@@ -8,6 +8,7 @@ struct UIBox;
 struct DrawContext;
 struct Font;
 struct Sprite;
+typedef union SDL_Event SDL_Event;
 
 struct UILayoutMode
 {
@@ -39,6 +40,19 @@ enum UIAxis : U8
 	UIAxis_Vertical = 1,
 };
 
+enum UIEventType
+{
+	UIEventType_None = 0,
+	UIEventType_Focus,
+	UIEventType_Unfocus,
+	UIEventType_Text,
+};
+
+struct UIEvent
+{
+	UIEventType type = UIEventType_None;
+};
+
 struct UIBox
 {
 	U32        id              = 0; 
@@ -65,6 +79,7 @@ struct UIBox
 	float       flex_grow            = 0;
 	float4      color                = {0,0,0,0};
 	Sprite*     background_sprite    = nullptr;
+	bool (*event_handler)(UIBox* box, const UIEvent& event) = nullptr;
 
 	// CALCULATED BY LAYOUT:
 	float2 position = {};
@@ -81,6 +96,7 @@ struct UIBox
 	UIBox*   SetPosition             (float2 position);
 	UIBox*   SetBackgroundSprite     (Sprite* sprite);
 	UIBox*   SetFlex                 (UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
+	UIBox*   SetFlexGrow             (float flex_grow);
 	void*    GetData                 ();
 };
 
@@ -92,6 +108,7 @@ struct UIContext
 	std::vector<UIBox*> box_stack    = {};
 	UIBox               root         = {};
 	U32                 pressed_id   = {};
+	UIBox*              focus_box    = nullptr;
 };
 
 
@@ -113,12 +130,6 @@ extern UILayoutMode UILayoutMode_Text;
 extern UILayoutMode UILayoutMode_Fixed;
 
 ////////////////////////////////////////////////////////////
-// Convenience functions
-////////////////////////////////////////////////////////////
-
-UIBox* UIGetCurrentBox           ();
-
-////////////////////////////////////////////////////////////
 // Widgets
 ////////////////////////////////////////////////////////////
 
@@ -135,7 +146,6 @@ enum UITreeNodeFlagBits : U32
 	UITreeNodeFlags_DefaultOpen = 0x04,
 };
 typedef U32 UITreeNodeFlags;
-
 struct UITreeNodeStatus
 {
 	bool open     = false;
@@ -144,10 +154,13 @@ struct UITreeNodeStatus
 
 	operator bool() { return open; };
 };
-
+UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags = 0);
 void UIBeginTreeList();
 void UIEndTreeList();
-UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags = 0);
 void UIEndTreeNode();
+void UIFocus(UIBox* box);
+bool UIProcessSDLEvent(SDL_Event* event);
+
+UIBox* UITextInput(char* buf, size_t buf_size);
 
 extern UIContext* UI; // the current context

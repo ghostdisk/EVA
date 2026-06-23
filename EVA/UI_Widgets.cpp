@@ -2,6 +2,7 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Asset.hpp>
 #include <EVA/Library.hpp>
+#include <SDl3/SDL_events.h>
 
 UIBox* UILabel(const char* text)
 {
@@ -135,4 +136,41 @@ void UIFlexSpacer()
 	UIBox* box = UIBeginBox();
 	box->flex_grow = 1;
 	UIEndBox();
+}
+
+UIBox* UITextInput(char* buf, size_t buf_size)
+{
+	UIBox* box = UIBeginBox(1)
+		->SetPadding(4)
+		->SetColor(COLOR_RGB(87, 7, 31));
+
+	box->event_handler = 
+		[](UIBox* box, const UIEvent& event)
+		{
+			switch (event.type)
+			{
+				case UIEventType_Focus:
+				{
+					printf("Focus!\n");
+					return true;
+				}
+				case UIEventType_Unfocus:
+				{
+					printf("Unfocus!\n");
+					return true;
+				}
+				case UIEventType_Text:
+				{
+					printf("Text!\n");
+					return true;
+				}
+				default: return false;
+			}
+			return false;
+		};
+
+	UILabel("Text text text");
+	UIEndBox();
+
+	return box;
 }

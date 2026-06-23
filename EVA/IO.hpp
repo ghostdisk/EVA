@@ -13,7 +13,7 @@ union SDL_Event;
 
 void IOInitialize();
 void IOBeginFrame();
-bool IOHandleSDLEvent(SDL_Event* event);
+bool IOProcessSDLEvent(SDL_Event* event);
 
 
 // Either call with IO_BUTTON_MOUSE_* or with SDL_SCANCODE_*

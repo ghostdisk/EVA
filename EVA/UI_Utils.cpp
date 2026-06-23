@@ -78,6 +78,13 @@ UIBox* UIBox::SetFlex(UIAxis axis, UIAlignment main, UIAlignment cross)
 	return this;
 }
 
+UIBox* UIBox::SetFlexGrow(float grow)
+{
+	this->flex_grow = grow;
+	return this;
+}
+
+
 UIBox* UIGetCurrentBox()
 {
 	return UI->box_stack.back();

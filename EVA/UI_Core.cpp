@@ -126,6 +126,11 @@ void UIPopId()
 	UI->id_stack.pop_back();
 }
 
+static void Emit(UIBox* box, const UIEvent& event)
+{
+	if (box->event_handler) box->event_handler(box, event);
+}
+
 void UIBeginFrame()
 {
 	UI->id_stack = { 0 };
@@ -137,6 +142,7 @@ void UIBeginFrame()
 	UI->root.size        = float2(WindowWidth, WindowHeight);
 	UI->root.min_size    = float2(WindowWidth, WindowHeight);
 	UI->root.layout      = &UILayoutMode_Fixed;
+	if (UI->focus_box && !(UI->focus_box->flags & UIBoxFlags_UsedThisFrame)) UIFocus(nullptr);
 
 	for (int i = 0; i < UI->all_boxes.size(); i++)
 	{
@@ -198,6 +204,17 @@ void UIEndFrame()
 	}
 
 	UIBox* hovered_box = UIFindHoveredChild(&UI->root);
+
+	if (mouse_down)
+	{
+		UIBox* focus_box = hovered_box;
+		while (focus_box && !focus_box->id)
+		{
+			focus_box = focus_box->parent;
+		}
+		UIFocus(focus_box);
+	}
+
 	for (UIBox* box = hovered_box; box; box = box->parent)
 	{
 		box->flags |= UIBoxFlags_Hover;
@@ -387,4 +404,28 @@ void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)
 void UIDraw(DrawContext& dc)
 {
 	UIDrawBoxRecursive(dc, &UI->root);
+}
+
+void UIFocus(UIBox* box)
+{
+	if (UI->focus_box)
+	{
+		Emit(UI->focus_box, UIEvent{
+			.type = UIEventType_Unfocus,
+		});
+	}
+	UI->focus_box = box;
+	if (box)
+	{
+		assert(box->id);
+		Emit(box, UIEvent{
+			.type = UIEventType_Focus,
+		});
+	}
+}
+
+
+bool UIProcessSDLEvent(SDL_Event* event)
+{
+	return false;
 }

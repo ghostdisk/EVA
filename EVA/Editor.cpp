@@ -227,9 +227,11 @@ void EditorLateTick()
 	}
 
 	{ // console
+		bool just_opened = false;
 		if (IOGetButtonDown(SDL_SCANCODE_GRAVE))
 		{
 			console_open = !console_open;
+			just_opened = true;
 		}
 
 		if (console_open)
@@ -241,7 +243,7 @@ void EditorLateTick()
 				->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
 				->SetSize(800, 600)
 				->SetPosition((float)WindowWidth/2 - 400, (float)WindowHeight/2 - 300)
-				->SetColor(COLOR_RGB(115, 18, 47));
+				->SetColor(COLOR_RGB(57, 9, 23));
 			DEFER(UIEndBox());
 
 			{ // titlebar
@@ -252,6 +254,35 @@ void EditorLateTick()
 				if (UIButton("X")) console_open = false;
 				UIEndBox();
 			}
+
+			UIBeginBox()
+				->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
+				->SetFlexGrow(1)
+				->SetGap(8)
+				->SetPadding(8);
+
+			{ // main content
+				UIBeginBox()
+					->SetFlexGrow(1)
+					->SetColor(COLOR_RGB(0,0,255));
+				UIEndBox();
+			}
+
+			{ // input bar
+				UIBeginBox()
+					->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch)
+					->SetGap(8);
+
+				char buf[64];
+				UIPushId("input");
+				UIBox* text_input = UITextInput(buf, 64)->SetFlexGrow(1);
+				if (just_opened) UIFocus(text_input);
+				UIPopId();
+
+				UIButton("Submit");
+				UIEndBox();
+			}
+			UIEndBox();
 		}
 	}
 

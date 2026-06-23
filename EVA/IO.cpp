@@ -77,7 +77,7 @@ void IOBeginFrame()
 	SDL_GetMouseState(&IOMousePosition.x, &IOMousePosition.y);
 }
 
-bool IOHandleSDLEvent(SDL_Event* event)
+bool IOProcessSDLEvent(SDL_Event* event)
 {
 	switch (event->type)
 	{

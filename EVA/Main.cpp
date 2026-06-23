@@ -115,7 +115,9 @@ int main()
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
-			IOHandleSDLEvent(&event);
+			if (UIProcessSDLEvent(&event)) continue;
+			if (IOProcessSDLEvent(&event)) continue;
+
 			switch (event.type)
 			{
 				case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
