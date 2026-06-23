@@ -2,6 +2,7 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Renderer.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
@@ -10,12 +11,41 @@
 #include <cglm/quat.h>
 #include <tracy/Tracy.hpp>
 
+Game* games[8] = {};
 Game* ActiveGame = nullptr;
 
-void GameInit(Game* game, const char* name)
-{
-	game->name = strdup(name);
+ConVar con_game = {
+	.name = "game",
+	.help = "set active game (0 to 7)",
+	.value = ConValue{
+		.type = ConValueType_Number,
+		.number = 0,
+	},
+	.on_change =
+		[](ConVar* v)
+		{
+			int id = (int)con_game.value.number;
+			if (id < 0) id = 0;
+			if (id > 7) id = 7;
+			con_game.value.number = id;
 
+			if (!games[id])
+			{
+				games[id] = new Game();
+				GameInit(games[id]);
+				games[id]->id = id;
+			}
+			ActiveGame = games[id];
+		},
+};
+
+void GameInitialize()
+{
+	ConRegisterVar(&con_game);
+}
+
+void GameInit(Game* game)
+{
 	CameraInit(game->camera);
 	game->camera.position.y = -10;
 	game->camera.position.z = 3;
@@ -135,4 +165,12 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 	}
 
 	return eid;
+}
+
+void GameTickAll(double dt)
+{
+	for (Game* game : games)
+	{
+		if (game) GameTick(game, dt);
+	}
 }

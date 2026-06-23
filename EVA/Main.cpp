@@ -9,8 +9,7 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Entities.hpp>
 #include <EVA/Renderer.hpp>
-#include <EVA/ClientGame.hpp>
-#include <EVA/ServerGame.hpp>
+#include <EVA/Game.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Editor.hpp>
@@ -42,9 +41,6 @@ std::vector<NextFrameCallback> next_frame_callbacks;
 static U64 FrameStartTimeNS;
 double DeltaTime = 0.01;
 
-ServerGame* server = nullptr;
-ClientGame* client = nullptr;
-
 int main()
 {
 	if (!SDL_Init(SDL_INIT_VIDEO))
@@ -68,6 +64,7 @@ int main()
 	PlatformInitialize();
 	RotateFrameArenas();
 	GLInitialize();
+	GameInitialize();
 	RendererInitialize();
 	PhysicsInitialize();
 	LibraryInitialize();
@@ -88,18 +85,10 @@ int main()
 	DrawContextInit(DC);
 	UIContextInit(main_ui, fnt_arial);
 
-	server = new ServerGame();
-	ServerGameInit(server, "SERVER");
-	ServerListen(server, 27015);
-	ActiveGame = server;
-
-	// client = new ClientGame();
-	// ClientGameInit(client, "CLIENT0");
-	// ClientConnect(client, {127,0,0,1}, 27015);
-	// ActiveGame = client;
-
 	FrameStartTimeNS = SDL_GetTicksNS();
+
 	ConExec("exec autoexec.cfg");
+	ConExec("game 0");
 
 	while (!DoQuit)
 	{
@@ -139,8 +128,6 @@ int main()
 		}
 		InputUpdateAxes();
 
-		if (InputGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
-		if (InputGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
 		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
 
 		{ // Update tracked FPS
@@ -159,9 +146,10 @@ int main()
 		}
 
 		EditorEarlyTick();
-		if (client) ClientGameTick(client, DeltaTime);
-		if (server) ServerGameTick(server, DeltaTime);
+
+		GameTickAll(DeltaTime);
 		GameDraw(ActiveGame);
+
 		EditorLateTick();
 		UIEndFrame();
 		UIDraw(DC);

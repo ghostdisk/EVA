@@ -25,8 +25,28 @@ struct Selection
 std::vector<Selection> selection_list;
 std::vector<const char*> screen_log;
 
+ConVar show_fps = {
+	.name = "show_fps",
+	.help = "show fps on screen",
+	.value = {
+		.type = ConValueType_Number,
+		.number = 0,
+	},
+};
+
+ConVar show_pos = {
+	.name = "cl_showpos 1",
+	.help = "show position on screen",
+	.value = {
+		.type = ConValueType_Number,
+		.number = 0,
+	},
+};
+
+
 void EditorInitialize()
 {
+	ConRegisterVar(&show_fps);
 }
 
 Selection* Selected(void* stack)
@@ -208,21 +228,18 @@ void EditorLateTick()
 			->SetColor({ 0, 0, 0, .2 });
 		
 		char buf[512];
-		snprintf(buf, 512, "FPS: %.1f", FPS);
-		UILabel(buf);
+
+		if (show_fps.value.number)
+		{
+			snprintf(buf, 512, "FPS: %.1f", FPS);
+			UILabel(buf);
+		}
 
 		for (const char* text : screen_log)
 		{
 			UILabel(text);
 		}
 
-		UIEndBox();
-	}
-
-	{ // sidebar
-		UIBox* sidebar = UIBeginBox()
-			->SetPosition(0, 0)
-			->SetSize( (float)300, (float)WindowHeight );
 		UIEndBox();
 	}
 

@@ -8,6 +8,7 @@ struct CSGStack;
 
 struct Game
 {
+	int           id              = 0;
 	const char*   name            = nullptr;
 	EntityManager entity_manager  = {};
 	Camera        camera          = {};
@@ -18,8 +19,11 @@ struct Game
 
 extern Game* ActiveGame;
 
-void GameInit(Game* game, const char* name);
+void GameInitialize();
+
+void GameInit(Game* game);
 void GameTick(Game* game, double dt);
 void GameDraw(Game* game);
+void GameTickAll(double dt);
 
 EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);

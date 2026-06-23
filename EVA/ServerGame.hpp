@@ -1,7 +1,9 @@
 #pragma once
+/*
 #include <EVA/Game.hpp>
 #include <EVA/Net.hpp>
 #include <vector>
+
 
 struct ServerPlayer
 {
@@ -18,3 +20,4 @@ struct ServerGame : Game
 void ServerGameInit(ServerGame* game, const char* name);
 void ServerGameTick(ServerGame* game, double dt);
 void ServerListen(ServerGame* game, int port);
+*/

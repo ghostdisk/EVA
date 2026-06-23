@@ -1,3 +1,4 @@
+/*
 #include <EVA/ServerGame.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
@@ -139,3 +140,4 @@ void ServerListen(ServerGame* server, int port)
 		Fatal("enet_host_create failed");
 	}
 }
+*/

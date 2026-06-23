@@ -141,6 +141,12 @@ static void ConLexToken(ConLexer& lex)
 
 	switch (*lex.tok.start)
 	{
+		case '\r':
+		{
+			lex.tok.end = lex.tok.start + 2;
+			lex.tok.type = ConTokenType_NewLine;
+			return;
+		}
 		case ';':
 		case '\n':
 		{

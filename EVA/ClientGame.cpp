@@ -5,6 +5,7 @@
 #include <EVA/Binary.hpp>
 #include <enet/enet.h>
 
+/*
 
 void ClientGameInit(ClientGame* game, const char* name)
 {
@@ -112,3 +113,4 @@ void ClientConnect(ClientGame* game, IPAddress ip, U16 port)
 
 	game->server = enet_host_connect(game->host, &address, NUM_CHANNELS, 0);
 }
+*/
