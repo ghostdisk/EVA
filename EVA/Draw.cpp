@@ -195,13 +195,15 @@ void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h)
 	});
 }
 
-void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color)
+void DrawText(DrawContext& dc, Font* font, const char* text, int len, int x, int y, float4 color)
 {
+	if (len < 0) len = strlen(text);
+
 	float startx = x;
 	y += font->pixel_size;;
-	for (const char* ptr = text; *ptr; ptr++)
+	for (int i = 0; i < len; i++)
 	{
-		char c = *ptr;
+		char c = text[i];
 		if (c < 0) continue;
 
 		FontGlyph& glyph = font->glyphs[c];
@@ -231,15 +233,17 @@ void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float
 	}
 }
 
-float2 MeasureText(Font* font, const char* text)
+float2 MeasureText(Font* font, const char* text, int len)
 {
+	if (len < 0) len = strlen(text);
+
 	float row = 0;
 	float2 size = {};
 	size.y = font->pixel_size;
 
-	for (const char* ptr = text; *ptr; ptr++)
+	for (int i = 0; i < len; i++)
 	{
-		char c = *ptr;
+		char c = text[i];
 		if (c < 0) continue;
 
 		FontGlyph& glyph = font->glyphs[c];

@@ -2,12 +2,9 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Asset.hpp>
 #include <EVA/Library.hpp>
-#include <SDl3/SDL_events.h>
-
-#define COLOR_BUTTON            COLOR_RGB(115, 18, 47)
-#define COLOR_BUTTON_PRESSED    COLOR_RGB(87, 7, 31)
-#define COLOR_BUTTON_HOVER      COLOR_RGB(142, 27, 62)
-#define COLOR_BUTTON_ACTIVE     COLOR_RGB(255, 66, 110)
+#include <EVA/Input.hpp>
+#include <EVA/Draw.hpp>
+#include <SDL3/SDL_events.h>
 
 UIBox* UILabel(const char* text, int text_len)
 {
@@ -136,18 +133,37 @@ void UIEndTreeList()
 	UIEndBox();
 }
 
-void UIFlexSpacer()
-{
-	UIBox* box = UIBeginBox();
-	box->flex_grow = 1;
-	UIEndBox();
-}
-
 // @CONSTRUCTOR_NOT_CALLED
 struct TextEdit
 {
 	std::vector<char>* buffer;
 	int    cursor;
+
+	void FixCursor()
+	{
+		if (cursor > buffer->size()) cursor = buffer->size() - 1;
+		if (cursor < 0) cursor = 0;
+	}
+
+	void Backspace()
+	{
+		int erase_size = 1;
+		if (erase_size > cursor) erase_size = cursor;
+
+		memmove(
+			buffer->data() + cursor - erase_size,
+			buffer->data() + cursor,
+			buffer->size() - cursor);
+
+		buffer->resize(buffer->size() - erase_size);
+		cursor -= erase_size;
+	}
+
+	void Move(int delta)
+	{
+		cursor += delta;
+		FixCursor();
+	}
 
 	void Insert(const char* chunk)
 	{
@@ -169,13 +185,25 @@ UIBox* UITextInput(std::vector<char>& buffer)
 	TextEdit* text_edit = (TextEdit*)box->GetData();
 	text_edit->buffer = &buffer;
 	if (box->flags & UIBoxFlags_JustCreated) text_edit->cursor = buffer.size();
+	text_edit->FixCursor();
 
-	if (box->flags & UIBoxFlags_Focus) box->SetColor(COLOR_BUTTON_ACTIVE);
-	else                               box->SetColor(COLOR_BUTTON);
+	if (box->flags & UIBoxFlags_Focus)
+	{
+		box->SetColor(COLOR_BUTTON_ACTIVE);
+		if (InputGetButtonDown(SDL_SCANCODE_BACKSPACE)) text_edit->Backspace();
+		if (InputGetButtonDown(SDL_SCANCODE_LEFT)) text_edit->Move(-1);
+		if (InputGetButtonDown(SDL_SCANCODE_RIGHT)) text_edit->Move(1);
+	}
+	else
+	{
+		box->SetColor(COLOR_BUTTON);
+	}
 
 	box->event_handler = 
 		[](UIBox* box, const UIEvent& event)
 		{
+			TextEdit* text_edit = (TextEdit*)box->GetData();
+
 			switch (event.type)
 			{
 				case UIEventType_Focus:
@@ -190,8 +218,26 @@ UIBox* UITextInput(std::vector<char>& buffer)
 				}
 				case UIEventType_Text:
 				{
-					TextEdit* text_edit = (TextEdit*)box->GetData();
-					text_edit->Insert(event.text);
+					text_edit->Insert(event.text.text);
+					return true;
+				}
+				case UIEventType_Draw:
+				{
+					Font* font = UI->default_font;
+					DrawContext& dc = *event.draw.dc;
+
+					float x = box->position.x + 4;
+					float y = box->position.y + (box->size.y - (float)font->pixel_size) / 2.0f;
+
+					DrawText(dc, font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
+
+					if (box->flags & UIBoxFlags_Focus)
+					{
+						float2 cursor_pos = MeasureText(font, text_edit->buffer->data(), text_edit->cursor);
+						float cursor_offset = -(font->line_height - font->pixel_size) / 2.0f;
+						DrawRectangle(dc, COLOR_WHITE, x + cursor_pos.x, y + cursor_offset, 2, font->line_height);
+					}
+
 					return true;
 				}
 				default: return false;
@@ -199,8 +245,6 @@ UIBox* UITextInput(std::vector<char>& buffer)
 			return false;
 		};
 
-	if (buffer.size() > 0)
-		UILabel(buffer.data(), buffer.size());
 	UIEndBox();
 
 	return box;

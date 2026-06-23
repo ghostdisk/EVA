@@ -1,7 +1,7 @@
 #include <EVA/Camera.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Entities.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/clipspace/persp_rh_no.h>
 #include <cglm/clipspace/view_rh_no.h>
@@ -37,24 +37,24 @@ void CameraUpdateBasisVectors(Camera& camera)
 void CameraFly(Camera& camera)
 {
 	float3 input = {
-		(float)IOGetButton(SDL_SCANCODE_D) - (float)IOGetButton(SDL_SCANCODE_A),
-		(float)IOGetButton(SDL_SCANCODE_W) - (float)IOGetButton(SDL_SCANCODE_S),
+		InputGetAxis(InputAxis_Horizontal),
+		InputGetAxis(InputAxis_Vertical),
 		0,
 	};
 
 	if (input.x || input.y) input = input.Normalized();
 
-	if (IOGetButton(IO_BUTTON_MOUSE_RIGHT))
+	if (InputGetButton(INPUT_BUTTON_MOUSE_RIGHT))
 	{
-		camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
-		camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
+		camera.yaw   -= InputGetAxis(InputAxis_MouseX) * camera.mouse_sensitivity.x;
+		camera.pitch -= InputGetAxis(InputAxis_MouseY) * camera.mouse_sensitivity.y;
 	}
 
-	float speed = IOGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
-	if (IOGetButton(SDL_SCANCODE_LCTRL)) speed = camera.fly_speed_slow;
+	float speed = InputGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
+	if (InputGetButton(SDL_SCANCODE_LCTRL)) speed = camera.fly_speed_slow;
 
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
-	input.z += (float)IOGetButton(SDL_SCANCODE_E) - (float)IOGetButton(SDL_SCANCODE_Q);
+	input.z += InputGetAxis(InputAxis_Fly);
 
 	camera.position += input * speed * DeltaTime;
 	camera.yaw = remainderf(camera.yaw, GLM_PIf * 2);
@@ -74,8 +74,8 @@ void CameraOrbit(Camera& camera, Entity* entity)
 
 	if (!InMenu)
 	{
-		camera.yaw   -= IOMouseDelta.x * camera.mouse_sensitivity.x;
-		camera.pitch -= IOMouseDelta.y * camera.mouse_sensitivity.y;
+		camera.yaw   -= InputGetAxis(InputAxis_MouseX) * camera.mouse_sensitivity.x;
+		camera.pitch -= InputGetAxis(InputAxis_MouseY) * camera.mouse_sensitivity.y;
 
 		if (camera.pitch < -90 * DEG_TO_RAD)
 		{
@@ -86,8 +86,8 @@ void CameraOrbit(Camera& camera, Entity* entity)
 			camera.pitch = 45 * DEG_TO_RAD;
 		}
 
-		if (IOGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * DeltaTime;
-		if (IOGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * DeltaTime;
+		if (InputGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * DeltaTime;
+		if (InputGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * DeltaTime;
 
 		CameraUpdateBasisVectors(camera);
 

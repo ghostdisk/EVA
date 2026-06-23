@@ -1,6 +1,6 @@
 #include <EVA/GL.hpp>
 #include <EVA/GLTF.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
@@ -68,10 +68,17 @@ int main()
 	RendererInitialize();
 	PhysicsInitialize();
 	LibraryInitialize();
-	IOInitialize();
+	InputInitialize();
 	DrawInitialize();
 	UIInitialize();
 	EditorInitialize();
+
+	InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_A, -1.0f);
+	InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_D,  1.0f);
+	InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_S, -1.0f);
+	InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_W,  1.0f);
+	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_Q, -1.0f);
+	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
 
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
@@ -105,7 +112,7 @@ int main()
 		next_frame_callbacks.clear();
 
 		RotateFrameArenas();
-		IOBeginFrame();
+		InputBeginFrame();
 		UIContextMakeCurrent(main_ui);
 		UIBeginFrame();
 		RendererBeginFrame();
@@ -116,7 +123,7 @@ int main()
 		while (SDL_PollEvent(&event))
 		{
 			if (UIProcessSDLEvent(&event)) continue;
-			if (IOProcessSDLEvent(&event)) continue;
+			if (InputProcessSDLEvent(&event)) continue;
 
 			switch (event.type)
 			{
@@ -127,10 +134,11 @@ int main()
 				}
 			}
 		}
+		InputUpdateAxes();
 
-		if (IOGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
-		if (IOGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
-		if (IOGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
+		if (InputGetButtonDown(SDL_SCANCODE_F1)) ActiveGame = server;
+		if (InputGetButtonDown(SDL_SCANCODE_F2)) ActiveGame = client;
+		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) InMenu = !InMenu;
 
 		{ // Update tracked FPS
 			static int k = 0;

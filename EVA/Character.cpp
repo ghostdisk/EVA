@@ -1,7 +1,7 @@
 #include <EVA/Character.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Entities.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Renderer.hpp>
 #include <cglm/euler.h>
@@ -17,8 +17,8 @@ void EntityInit(ECharacter* character)
 void CharacterControllerTick(Game* game, ECharacter* character)
 {
 	float3 input = {
-		(float)IOGetButton(SDL_SCANCODE_D) - (float)IOGetButton(SDL_SCANCODE_A),
-		(float)IOGetButton(SDL_SCANCODE_W) - (float)IOGetButton(SDL_SCANCODE_S),
+		InputGetAxis(InputAxis_Horizontal),
+		InputGetAxis(InputAxis_Vertical),
 		0,
 	};
 	if (input.x || input.y)
@@ -31,8 +31,8 @@ void CharacterControllerTick(Game* game, ECharacter* character)
 	glm_quat_rotatev(character->rotation, input, input);
 
 	float speed = 3;
-	if (IOGetButton(SDL_SCANCODE_LSHIFT)) speed = 10;
-	if (IOGetButton(SDL_SCANCODE_LCTRL)) speed = 0.5;
+	if (InputGetButton(SDL_SCANCODE_LSHIFT)) speed = 10;
+	if (InputGetButton(SDL_SCANCODE_LCTRL)) speed = 0.5;
 
 	character->velocity = input * speed;
 }

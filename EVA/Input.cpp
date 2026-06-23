@@ -1,0 +1,205 @@
+#include <EVA/Input.hpp>
+#include <EVA/Math.hpp>
+#include <SDL3/SDL.h>
+#include <vector>
+
+struct InputButtonState
+{
+	int  button        = 0;
+	bool just_pressed  = false;
+	bool held          = false;
+	bool just_released = false;
+};
+
+struct InputAxisKeyBinding
+{
+	InputAxis    axis;
+	SDL_Scancode key;
+	float        value;
+};
+
+struct InputActionKeyBinding
+{
+	InputAction  action;
+	SDL_Scancode key;
+};
+
+static std::vector<InputButtonState>      button_states       = {};
+static std::vector<InputAxisKeyBinding>   axis_key_bindings   = {};
+static std::vector<InputActionKeyBinding> action_key_bindings = {};
+
+float2 InputMousePosition = {};
+
+static float input_axes[InputAxis_ENUM_SIZE] = {};
+static bool input_actions[InputAction_ENUM_SIZE] = {};
+
+void InputInitialize()
+{
+}
+
+bool TextInputConsumesKey(SDL_Scancode scancode)
+{
+	if (!SDL_TextInputActive(GameWindow)) return false;
+	if (scancode >= SDL_SCANCODE_A && SDL_SCANCODE_Z) return true;
+	if (scancode >= SDL_SCANCODE_0 && SDL_SCANCODE_9) return true;
+	return false;
+}
+
+void InputBindKey(InputAxis axis, SDL_Scancode key, float value)
+{
+	axis_key_bindings.push_back({ .axis = axis, .key = key, .value = value });
+}
+
+void InputBindKey(InputAction action, SDL_Scancode key)
+{
+	action_key_bindings.push_back({ .action = action, .key = key });
+}
+
+static InputButtonState* InputGetButtonState(int button, bool create)
+{
+	for (InputButtonState& button_state : button_states)
+	{
+		if (button_state.button == button)
+		{
+			return &button_state;
+		}
+	}
+
+	if (create)
+	{
+		button_states.push_back(InputButtonState{ .button = button });
+		return &button_states.back();
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+static void InputPressButton(int button)
+{
+	InputButtonState* state = InputGetButtonState(button, true);
+	state->just_pressed = true;
+	state->held = true;
+}
+
+static void InputReleaseButton(int button)
+{
+	InputButtonState* state = InputGetButtonState(button, true);
+	state->just_released = true;
+	state->held = false;
+}
+
+void InputBeginFrame()
+{
+	input_axes[InputAxis_MouseX] = 0.0f;
+	input_axes[InputAxis_MouseY] = 0.0f;
+
+	for (int i = 0; i < button_states.size(); i++)
+	{
+		InputButtonState& state = button_states[i];
+		state.just_pressed = false;
+		state.just_released = false;
+
+		if (!state.held)
+		{
+			state = button_states.back();
+			button_states.pop_back();
+			i--;
+		}
+	}
+
+	float2 old_mouse_position = InputMousePosition;
+	SDL_GetMouseState(&InputMousePosition.x, &InputMousePosition.y);
+
+}
+
+bool InputProcessSDLEvent(SDL_Event* event)
+{
+	switch (event->type)
+	{
+		case SDL_EVENT_KEY_DOWN:
+		{
+			InputPressButton(event->key.scancode);
+			return true;
+		}
+		case SDL_EVENT_KEY_UP:
+		{
+			InputReleaseButton(event->key.scancode);
+			return true;
+		}
+		case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		{
+			InputPressButton(INPUT_BUTTON_MOUSE_START + event->button.button);
+			return true;
+		}
+		case SDL_EVENT_MOUSE_BUTTON_UP:
+		{
+			InputReleaseButton(INPUT_BUTTON_MOUSE_START + event->button.button);
+			return true;
+		}
+		case SDL_EVENT_MOUSE_MOTION:
+		{
+			input_axes[InputAxis_MouseX] += event->motion.xrel;
+			input_axes[InputAxis_MouseY] += event->motion.yrel;
+			return true;
+		}
+		default:
+		{
+			return false;
+		}
+	}
+}
+
+void InputUpdateAxes()
+{
+	for (InputAxisKeyBinding& binding : axis_key_bindings)
+	{
+		input_axes[binding.axis] = 0.0f;
+	}
+
+	for (int i = 0; i < InputAction_ENUM_SIZE; i++)
+	{
+		input_actions[i] = false;
+	}
+
+	for (InputAxisKeyBinding& binding : axis_key_bindings)
+	{
+		InputButtonState* button_state = InputGetButtonState(binding.key, false);
+		if (button_state)
+		{
+			if (button_state->held && !TextInputConsumesKey(binding.key))  input_axes[binding.axis] += binding.value;
+		}
+	}
+
+	for (InputActionKeyBinding& binding : action_key_bindings)
+	{
+		if (InputGetButtonDown(binding.key) && !TextInputConsumesKey(binding.key))
+		{
+			input_actions[binding.action] = true;
+		}
+	}
+}
+
+bool InputGetButtonDown(int button)
+{
+	InputButtonState* state = InputGetButtonState(button, false);
+	return state ? state->just_pressed : false;
+}
+
+bool InputGetButton(int button)
+{
+	InputButtonState* state = InputGetButtonState(button, false);
+	return state ? state->held : false;
+}
+
+bool InputGetButtonUp(int button)
+{
+	InputButtonState* state = InputGetButtonState(button, false);
+	return state ? state->just_released : false;
+}
+
+float InputGetAxis(InputAxis axis)
+{
+	return input_axes[axis];
+}

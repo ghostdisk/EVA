@@ -3,7 +3,7 @@
 #include <EVA/Renderer.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/CSG.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
@@ -28,23 +28,33 @@ void GameInit(Game* game, const char* name)
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCube({1,1,1}),
+		.brush     = CSGCreateCube({2,2,1}),
+	});
+	game->csg->nodes.push_back(CSGStackNode{
+		.type      = CSGStackNodeType_Brush,
+		.operation = CSGOperation_Union,
+		.brush     = CSGCreateCylinder(32, 1, 3),
 	});
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCube({ 3, 0.5, 0.5 }),
+		.brush     = CSGCreateCylinder(32, 0.5, 3),
 	});
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
-		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCube({ 0.5, 0.5, 3 }),
-	});
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
-		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCube({ 0.5, 3, 0.5 }),
-	});
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Difference,
+	// 	.brush     = CSGCreateCube({ 3, 0.5, 0.5 }),
+	// });
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Difference,
+	// 	.brush     = CSGCreateCube({ 0.5, 0.5, 3 }),
+	// });
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Difference,
+	// 	.brush     = CSGCreateCube({ 0.5, 3, 0.5 }),
+	// });
 
 	if (1)
 	{

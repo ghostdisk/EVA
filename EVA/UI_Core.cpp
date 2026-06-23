@@ -3,7 +3,7 @@
 #include <EVA/Draw.hpp>
 #include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <EVA/Arena.hpp>
 
 void UIFlexLayoutPass1(UIBox* box);
@@ -168,10 +168,10 @@ void UIBeginFrame()
 
 bool UIIsBoxHovered(UIBox* box)
 {
-	return box->position.x <= IOMousePosition.x &&
-		box->position.y <= IOMousePosition.y &&
-		(box->position.x + box->size.x) > IOMousePosition.x &&
-		(box->position.y + box->size.y) > IOMousePosition.y;
+	return box->position.x <= InputMousePosition.x &&
+		box->position.y <= InputMousePosition.y &&
+		(box->position.x + box->size.x) > InputMousePosition.x &&
+		(box->position.y + box->size.y) > InputMousePosition.y;
 }
 
 UIBox* UIFindHoveredChild(UIBox* box)
@@ -196,8 +196,8 @@ void UIEndFrame()
 	UI->root.layout->Pass1(&UI->root);
 	UI->root.layout->Pass2(&UI->root);
 
-	bool mouse_down = IOGetButtonDown(IO_BUTTON_MOUSE_LEFT);
-	bool mouse_up   = IOGetButtonUp(IO_BUTTON_MOUSE_LEFT);
+	bool mouse_down = InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
+	bool mouse_up   = InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT);
 
 	UIBoxFlags flags_to_clear = UIBoxFlags_Hover | UIBoxFlags_Clicked | UIBoxFlags_JustCreated;
 	if (mouse_up || mouse_down) flags_to_clear |= UIBoxFlags_Pressed;
@@ -396,7 +396,15 @@ void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)
 
 	if (box->text)
 	{
-		DrawText(dc, box->font, box->text, box->position.x + box->padding_left, box->position.y + box->padding_top, box->color);
+		DrawText(dc, box->font, box->text, -1, box->position.x + box->padding_left, box->position.y + box->padding_top, box->color);
+	}
+
+	if (box->event_handler)
+	{
+		Emit(box, UIEvent{
+			.type = UIEventType_Draw,
+			.draw = { .dc = &dc },
+		});
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
@@ -441,7 +449,9 @@ bool UIProcessSDLEvent(SDL_Event* event)
 			{
 				Emit(UI->focus_box, UIEvent{
 					.type = UIEventType_Text,
-					.text = event->text.text,
+					.text = {
+						.text = event->text.text,
+					},
 				});
 			}
 			break;

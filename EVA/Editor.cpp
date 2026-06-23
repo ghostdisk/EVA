@@ -1,11 +1,12 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Editor.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/IO.hpp>
+#include <EVA/Input.hpp>
 #include <tracy/Tracy.hpp>
 #include <stdarg.h>
 
@@ -23,8 +24,6 @@ struct Selection
 
 std::vector<Selection> selection_list;
 std::vector<const char*> screen_log;
-std::vector<char> console_input;
-static bool console_open = false;
 
 void EditorInitialize()
 {
@@ -185,7 +184,7 @@ void InspectorCSGStack(CSGStack* stack)
 
 void EditorEarlyTick()
 {
-	if (1)
+	if (0)
 	{
 		ZoneScopedN("CSG Rebuild");
 		CSGBuildStack(ActiveGame->csg);
@@ -227,69 +226,11 @@ void EditorLateTick()
 		UIEndBox();
 	}
 
-	{ // console
-		bool just_opened = false;
-		if (IOGetButtonDown(SDL_SCANCODE_GRAVE))
-		{
-			console_open = !console_open;
-			just_opened = true;
-		}
+	ConsoleDraw();
 
-		if (console_open)
-		{
-			UIPushId("console");
-			DEFER(UIPopId());
-
-			UIBeginBox()
-				->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
-				->SetSize(800, 600)
-				->SetPosition((float)WindowWidth/2 - 400, (float)WindowHeight/2 - 300)
-				->SetColor(COLOR_RGB(57, 9, 23));
-			DEFER(UIEndBox());
-
-			{ // titlebar
-				UIBeginBox()
-					->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch);
-				UILabel("Console")->SetPadding(8);
-				UIFlexSpacer();
-				if (UIButton("X")) console_open = false;
-				UIEndBox();
-			}
-
-			UIBeginBox()
-				->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
-				->SetFlexGrow(1)
-				->SetGap(8)
-				->SetPadding(8);
-
-			{ // main content
-				UIBeginBox()
-					->SetFlexGrow(1)
-					->SetColor(COLOR_RGB(0,0,255));
-				UIEndBox();
-			}
-
-			{ // input bar
-				UIBeginBox()
-					->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch)
-					->SetGap(8);
-
-				char buf[64];
-				UIPushId("input");
-				UIBox* text_input = UITextInput(console_input)->SetFlexGrow(1);
-				if (just_opened) UIFocus(text_input);
-				UIPopId();
-
-				UIButton("Submit");
-				UIEndBox();
-			}
-			UIEndBox();
-		}
-	}
-
-	// UIBeginTreeList();
-	// InspectorCSGStack(ActiveGame->csg);
-	// UIEndTreeList();
+	UIBeginTreeList();
+	InspectorCSGStack(ActiveGame->csg);
+	UIEndTreeList();
 
 	screen_log.clear();
 }
@@ -300,4 +241,5 @@ void LogToScreen(const char* fmt, ...)
 	va_start(args, fmt);
 	screen_log.push_back(ArenaVprintf(FrameArena, fmt, args));
 	va_end(args);
+
 }

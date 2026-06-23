@@ -65,8 +65,8 @@ void DrawContextInit(DrawContext& dc);
 void DrawRender(DrawContext& dc);
 
 void DrawRectangle(DrawContext& dc, float4 color, int x, int y, int w, int h);
-void DrawText(DrawContext& dc, Font* font, const char* text, int x, int y, float4 color);
+void DrawText(DrawContext& dc, Font* font, const char* text, int len, int x, int y, float4 color);
 void DrawSprite(DrawContext& dc, Sprite* sprite, int x, int y, float4 tint = {1,1,1,1});
-float2 MeasureText(Font* font, const char* text);
+float2 MeasureText(Font* font, const char* text, int text_len = -1);
 
 Font* FontLoad(const char* name, int size, int atlas_size);

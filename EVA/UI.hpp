@@ -10,6 +10,11 @@ struct Font;
 struct Sprite;
 typedef union SDL_Event SDL_Event;
 
+#define COLOR_BUTTON            COLOR_RGB(115, 18, 47)
+#define COLOR_BUTTON_PRESSED    COLOR_RGB(87, 7, 31)
+#define COLOR_BUTTON_HOVER      COLOR_RGB(142, 27, 62)
+#define COLOR_BUTTON_ACTIVE     COLOR_RGB(255, 66, 110)
+
 struct UILayoutMode
 {
 	void (*Pass1)(UIBox* box) = nullptr;
@@ -48,12 +53,25 @@ enum UIEventType
 	UIEventType_Focus,
 	UIEventType_Unfocus,
 	UIEventType_Text,
+	UIEventType_Draw,
 };
 
 struct UIEvent
 {
 	UIEventType type = UIEventType_None;
-	const char* text = nullptr;
+
+	union
+	{
+		struct
+		{
+			const char* text;
+		} text;
+		struct
+		{
+			DrawContext* dc;
+		} draw;
+		int dummy = 0;
+	};
 };
 
 struct UIBox
@@ -139,7 +157,6 @@ extern UILayoutMode UILayoutMode_Fixed;
 bool UIButton(const char* text);
 UIBox* UILabel(const char* text, int text_len = -1);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
-void   UIFlexSpacer();
 
 enum UITreeNodeFlagBits : U32
 {
