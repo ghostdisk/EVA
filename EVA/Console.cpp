@@ -97,9 +97,10 @@ int ConExec(const char* cmd)
 void ConsoleDraw()
 {
 	bool just_opened = false;
-	if (InputGetButtonDown(SDL_SCANCODE_GRAVE))
+
+	if (!console_open && InputGetButtonDown(SDL_SCANCODE_GRAVE))
 	{
-		console_open = !console_open;
+		console_open = true;
 		just_opened = true;
 	}
 
@@ -173,6 +174,11 @@ void ConsoleDraw()
 			if (InputGetButtonDown(SDL_SCANCODE_L) && InputGetButton(SDL_SCANCODE_LCTRL)) ConExec("clear");
 		}
 
+		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE))
+		{
+			console_open = false;
+		}
+
 		if (submit)
 		{
 			ConExec(ArenaInternCString(FrameArena, console_input.data(), console_input.size()));
@@ -181,7 +187,6 @@ void ConsoleDraw()
 
 		UIEndBox();
 	}
-
 }
 
 void ConRegisterCommand(const char* name, int (*function)(int argc, const char** argv), const char* help)

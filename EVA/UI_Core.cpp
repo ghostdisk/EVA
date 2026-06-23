@@ -64,8 +64,8 @@ UIBox* UIBeginBox(U32 id, int data_size, const void* data_default)
 	if (!box)
 	{
 		box = (UIBox*)malloc(sizeof(UIBox) + data_size);
-		box->flags |= UIBoxFlags_JustCreated;
 		new (box) UIBox();
+		box->flags |= UIBoxFlags_JustCreated;
 		UI->all_boxes.push_back(box);
 
 		if (data_default) memcpy((U8*)box + sizeof(UIBox), data_default, data_size);

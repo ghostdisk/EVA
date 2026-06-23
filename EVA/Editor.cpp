@@ -241,5 +241,4 @@ void LogToScreen(const char* fmt, ...)
 	va_start(args, fmt);
 	screen_log.push_back(ArenaVprintf(FrameArena, fmt, args));
 	va_end(args);
-
 }
