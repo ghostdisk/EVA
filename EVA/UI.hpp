@@ -31,6 +31,8 @@ enum UIBoxFlagBits : U32
 	UIBoxFlags_Hover         = 0x02,
 	UIBoxFlags_Pressed       = 0x04,
 	UIBoxFlags_Clicked       = 0x08,
+	UIBoxFlags_Focus         = 0x10,
+	UIBoxFlags_JustCreated   = 0x20,
 };
 typedef U32 UIBoxFlags; 
 
@@ -51,6 +53,7 @@ enum UIEventType
 struct UIEvent
 {
 	UIEventType type = UIEventType_None;
+	const char* text = nullptr;
 };
 
 struct UIBox
@@ -134,7 +137,7 @@ extern UILayoutMode UILayoutMode_Fixed;
 ////////////////////////////////////////////////////////////
 
 bool UIButton(const char* text);
-UIBox* UILabel(const char* text);
+UIBox* UILabel(const char* text, int text_len = -1);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
 void   UIFlexSpacer();
 
@@ -161,6 +164,6 @@ void UIEndTreeNode();
 void UIFocus(UIBox* box);
 bool UIProcessSDLEvent(SDL_Event* event);
 
-UIBox* UITextInput(char* buf, size_t buf_size);
+UIBox* UITextInput(std::vector<char>& buffer);
 
 extern UIContext* UI; // the current context

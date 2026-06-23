@@ -16,7 +16,7 @@ void ArenaDestroy(Arena* arena);
 void* ArenaAllocate(Arena* arena, size_t size);
 void* ArenaAllocate(Arena* arena, size_t size, size_t alignment);
 void ArenaAlignHead(Arena* arena, size_t alignment);
-char* ArenaInternCString(Arena* arena, const char* cstring);
+char* ArenaInternCString(Arena* arena, const char* cstring, int len = -1);
 char* ArenaPrintf(Arena* arena, const char* fmt, ...);
 char* ArenaVprintf(Arena* arena, const char* fmt, va_list args);
 void ArenaReset(Arena* arena);

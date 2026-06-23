@@ -64,9 +64,13 @@ UIBox* UIBeginBox(U32 id, int data_size, const void* data_default)
 	if (!box)
 	{
 		box = (UIBox*)malloc(sizeof(UIBox) + data_size);
+		box->flags |= UIBoxFlags_JustCreated;
 		new (box) UIBox();
 		UI->all_boxes.push_back(box);
-		memcpy((U8*)box + sizeof(UIBox), data_default, data_size);
+
+		if (data_default) memcpy((U8*)box + sizeof(UIBox), data_default, data_size);
+		else              memset((U8*)box + sizeof(UIBox), 0,            data_size);
+
 	}
 
 	assert(!(box->flags & UIBoxFlags_UsedThisFrame) && "UIBox id Conflict");
@@ -195,7 +199,7 @@ void UIEndFrame()
 	bool mouse_down = IOGetButtonDown(IO_BUTTON_MOUSE_LEFT);
 	bool mouse_up   = IOGetButtonUp(IO_BUTTON_MOUSE_LEFT);
 
-	UIBoxFlags flags_to_clear = UIBoxFlags_Hover | UIBoxFlags_Clicked;
+	UIBoxFlags flags_to_clear = UIBoxFlags_Hover | UIBoxFlags_Clicked | UIBoxFlags_JustCreated;
 	if (mouse_up || mouse_down) flags_to_clear |= UIBoxFlags_Pressed;
 
 	for (UIBox* box : UI->all_boxes)
@@ -410,6 +414,7 @@ void UIFocus(UIBox* box)
 {
 	if (UI->focus_box)
 	{
+		UI->focus_box->flags &= ~UIBoxFlags_Focus;
 		Emit(UI->focus_box, UIEvent{
 			.type = UIEventType_Unfocus,
 		});
@@ -418,6 +423,7 @@ void UIFocus(UIBox* box)
 	if (box)
 	{
 		assert(box->id);
+		UI->focus_box->flags |= UIBoxFlags_Focus;
 		Emit(box, UIEvent{
 			.type = UIEventType_Focus,
 		});
@@ -427,5 +433,19 @@ void UIFocus(UIBox* box)
 
 bool UIProcessSDLEvent(SDL_Event* event)
 {
+	switch (event->type)
+	{
+		case SDL_EVENT_TEXT_INPUT:
+		{
+			if (UI->focus_box)
+			{
+				Emit(UI->focus_box, UIEvent{
+					.type = UIEventType_Text,
+					.text = event->text.text,
+				});
+			}
+			break;
+		}
+	}
 	return false;
 }

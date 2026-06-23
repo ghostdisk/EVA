@@ -67,9 +67,10 @@ void ArenaAlignHead(Arena* arena, size_t alignment)
 	arena->head = (U8*)head;
 }
 
-char* ArenaInternCString(Arena* arena, const char* cstring)
+char* ArenaInternCString(Arena* arena, const char* cstring, int len)
 {
-	size_t len = strlen(cstring);
+	if (len < 0) len = strlen(cstring);
+
 	char* copy = (char*)ArenaAllocate(arena, len + 1);
 	memcpy(copy, cstring, len);
 	copy[len] = '\0';

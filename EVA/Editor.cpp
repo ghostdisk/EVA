@@ -23,6 +23,7 @@ struct Selection
 
 std::vector<Selection> selection_list;
 std::vector<const char*> screen_log;
+std::vector<char> console_input;
 static bool console_open = false;
 
 void EditorInitialize()
@@ -275,7 +276,7 @@ void EditorLateTick()
 
 				char buf[64];
 				UIPushId("input");
-				UIBox* text_input = UITextInput(buf, 64)->SetFlexGrow(1);
+				UIBox* text_input = UITextInput(console_input)->SetFlexGrow(1);
 				if (just_opened) UIFocus(text_input);
 				UIPopId();
 
