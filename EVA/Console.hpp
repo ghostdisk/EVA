@@ -1,8 +1,36 @@
 #pragma once
 
-int ConExec(const char* cmd);
-void ConLog(const char* fmt, ...);
-void ConRegisterCommand(const char* name, int (*function)(int argc, const char** argv), const char* help = "");
+enum ConValueType
+{
+	ConValueType_Null,
+	ConValueType_String,
+	ConValueType_Number,
+	ConValueType_Error,
+};
+
+struct ConValue
+{
+	ConValueType type = ConValueType_Null;
+	union
+	{
+		const char* string;
+		float number;
+		void* dummy = 0;
+	};
+};
+
+struct ConVar
+{
+	const char* name   = nullptr;
+	const char* help   = nullptr;
+	ConValue    value  = {};
+};
+
+ConValue  ConExec(const char* script);
+void      ConLog(const char* fmt, ...);
+
+void ConRegisterVar(ConVar* cvar);
+void ConRegisterCommand(const char* name, ConValue (*function)(int num_args, ConValue* args), const char* help = "");
 
 void ConsoleInitialize();
 void ConsoleDraw();

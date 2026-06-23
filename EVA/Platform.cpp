@@ -2,27 +2,22 @@
 #include <EVA/Console.hpp>
 #include <EVA/GL.hpp>
 #include <SDL3/SDL.h>
-#include <string.h>
 
 int vsync = 0;
 
-int Con_vsync(int argc, const char** argv)
+ConValue Con_vsync(int argc, ConValue* argv)
 {
-	if (argc < 2)
+	if (argc >= 1 && argv[0].type == ConValueType_Number)
 	{
-		ConLog("usage: vsync 0|1");
-		return -1;
+		vsync = (int)argv[0].number;
 	}
-
-	vsync = 0;
-	if (strcmp(argv[1], "1") == 0) vsync = 1;
-	if (strcmp(argv[1], "2") == 0) vsync = 2;
-	if (strcmp(argv[1], "3") == 0) vsync = 3;
-	if (strcmp(argv[1], "4") == 0) vsync = 4;
-
 	SDL_GL_SetSwapInterval(vsync);
-	return 0;
+	return ConValue{
+		.type = ConValueType_Number,
+		.number = (float)vsync,
+	};
 }
+
 
 void PlatformInitialize()
 {

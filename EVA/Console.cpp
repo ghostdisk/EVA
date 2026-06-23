@@ -10,7 +10,7 @@
 struct ConCommand
 {
 	const char* name;
-	int (*function)(int argc, const char** argv);
+	ConValue (*function)(int num_args, ConValue* args);
 	const char* help;
 };
 
@@ -19,19 +19,20 @@ std::vector<std::string> console_log;
 std::vector<ConCommand> commands;
 static bool console_open = false;
 
-int Con_help(int argc, const char** argv)
+ConValue Con_help(int num_args, ConValue* args)
 {
+	ConLog("Commands:");
 	for (const ConCommand& cmd : commands)
 	{
 		ConLog("- %s: %s", cmd.name, cmd.help);
 	}
-	return 0;
+	return {};
 }
 
-int Con_clear(int argc, const char** argv)
+ConValue Con_clear(int num_args, ConValue* args)
 {
 	console_log.clear();
-	return 0;
+	return {};
 }
 
 void ConsoleInitialize()
@@ -49,59 +50,282 @@ void ConLog(const char* fmt, ...)
 	console_log.push_back(str);
 }
 
-int ConExec(const char* cmd)
+enum ConTokenType : U8
 {
-	std::vector<const char*> argv;
-	char* cmd_copy = ArenaInternCString(FrameArena, cmd);
+	ConTokenType_EOF = 0,
 
-	char* word_start = cmd_copy;
+	ConTokenType_NewLine   = '\n',
+	ConTokenType_Semi      = ';',
 
-	for (char* c = cmd_copy;; c++)
+	ConTokenType_Word   = 128,
+	ConTokenType_Number = 129,
+	ConTokenType_Error  = 130,
+};
+
+struct ConToken
+{
+	ConTokenType type;
+	const char* start;
+	const char* end;
+	float num;
+};
+
+
+struct ConLexer
+{
+	const char* start;
+	const char* head;
+	const char* end;
+	ConToken tok;
+};
+
+void LexInit(ConLexer& lex, const char* script)
+{
+	lex.start = script;
+	lex.end = script + strlen(script);
+	lex.head = script;
+	lex.tok = {};
+}
+
+static void LexSkipSpace(ConLexer& lex)
+{
+	while (*lex.head == ' ' || *lex.head == '\t')
 	{
-		if (isspace(*c) || *c == '\0')
+		lex.head++;
+	}
+}
+
+static bool LexIsLetter(char ch)
+{
+	return ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+static bool LexIsDigit(char ch)
+{
+	return ch >= '0' && ch <= '9';
+}
+
+static void ConLexToken(ConLexer& lex)
+{
+	if (lex.tok.end > lex.head)
+	{
+		return; // already lexed
+	}
+
+	LexSkipSpace(lex);
+	lex.tok.start = lex.head;
+
+	switch (*lex.tok.start)
+	{
+		case ';':
+		case '\n':
 		{
-			bool exit = *c == '\0';
-			*c = '\0';
-			if (word_start == c)
-			{
-				word_start++;
-			}
-			if (word_start && word_start < c)
-			{
-				argv.push_back(word_start);
-				word_start = nullptr;
-			}
-			if (exit) break;
+			lex.tok.end = lex.tok.start + 1;
+			lex.tok.type = (ConTokenType)*lex.head;
+			return;
 		}
-		else if (!word_start) word_start = c;
 	}
 
-	if (argv.size() == 0)
+	if (LexIsLetter(*lex.head))
 	{
-		return -1;
-	}
-	ConLog("> %s", cmd);
+		lex.tok.type = ConTokenType_Word;
+		lex.tok.end = lex.tok.start;
 
-	for (const auto& command : commands)
-	{
-		if (strcmp(command.name, argv[0]) == 0)
+		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end))
 		{
-			return command.function(argv.size(), argv.data());
+			lex.tok.end++;
+		}
+		return;
+	}
+
+	if (LexIsDigit(*lex.tok.start) || *lex.tok.start == '.')
+	{
+		lex.tok.type = ConTokenType_Number;
+		lex.tok.end = lex.tok.start;
+
+		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.')
+		{
+			lex.tok.end++;
+		}
+		lex.tok.num = 0.0f;
+		if (lex.tok.end < lex.tok.start + 32)
+		{
+			char cp[40];
+			memcpy(cp, lex.tok.start, lex.tok.end - lex.tok.start);
+			cp[lex.tok.end - lex.tok.start] = '\0';
+			char* ep = 0;
+			lex.tok.num = strtof(cp, &ep);
+		}
+
+		return;
+	}
+
+	if (*lex.tok.start == '\0')
+	{
+		lex.tok.type = ConTokenType_EOF;
+		lex.tok.end = lex.tok.start;
+		return;
+	}
+
+	lex.tok.type = ConTokenType_Error;
+	lex.tok.end = lex.tok.start;
+}
+
+static void ConLexAdvance(ConLexer& lex)
+{
+	lex.head = lex.tok.end;
+}
+
+ConValue ConTokenToValue(const ConToken& tok, Arena* arena)
+{
+	switch (tok.type)
+	{
+		case ConTokenType_Error:
+			return ConValue{
+				.type = ConValueType_Error,
+				.string = ArenaInternCString(arena, "parse error"),
+			};
+		case ConTokenType_Number:
+			return ConValue{
+				.type = ConValueType_Number,
+				.number = tok.num,
+			};
+		case ConTokenType_Word:
+			return ConValue{
+				.type = ConValueType_String,
+				.string = ArenaInternCString(arena, tok.start, tok.end - tok.start),
+			};
+		default:
+			return ConValue{
+				.type = ConValueType_Null,
+			};
+	}
+}
+
+ConValue ConExec1(ConLexer& lex, Arena* arena)
+{
+	std::vector<ConValue> values;
+
+	const char* expr_start = lex.tok.start;
+	const char* expr_end = 0;
+
+	for (;;)
+	{
+		ConLexToken(lex);
+		ConLexAdvance(lex);
+
+		switch (lex.tok.type)
+		{
+			case ConTokenType_Word:
+			{
+				values.push_back(ConTokenToValue(lex.tok, arena));
+				break;
+			}
+			case ConTokenType_Error:
+			{
+				return ConTokenToValue(lex.tok, arena);
+			}
+			case ConTokenType_NewLine:
+			case ConTokenType_Semi:
+			case ConTokenType_EOF:
+			{
+				goto Exec;
+			}
+			default:
+			{
+				if (values.size())
+				{
+					values.push_back(ConTokenToValue(lex.tok, arena));
+				}
+				else
+				{
+					expr_end = lex.tok.end;
+					ConLog("> %.*s", (int)(expr_end - expr_start), expr_start);
+					return ConTokenToValue(lex.tok, arena);
+				}
+				break;
+			}
 		}
 	}
 
-	ConLog("%s means nothing to me", argv[0]);
-	return -1;
+
+Exec:
+	expr_end = lex.tok.end;
+	ConLog("> %.*s", (int)(expr_end - expr_start), expr_start);
+	assert(values.size() && values[0].type == ConValueType_String);
+
+	for (ConCommand& cmd : commands)
+	{
+		if (strcmp(cmd.name, values[0].string) == 0)
+		{
+			return cmd.function(values.size() - 1, values.data() + 1);
+		}
+	}
+	return ConValue{
+		.type = ConValueType_Error,
+		.string = ArenaPrintf(arena, "%s means nothing to me", values[0].string),
+	};
+}
+
+void ConLog(ConValue val)
+{
+
+	switch (val.type)
+	{
+		case ConValueType_Error:
+		{
+			ConLog("error: %s", val.string);
+			return;
+		}
+		case ConValueType_String:
+		{
+			ConLog("\"%s\"", val.string);
+			return;
+		}
+		case ConValueType_Number:
+		{
+			ConLog("%g", val.number);
+			return;
+		}
+		case ConValueType_Null:
+		{
+			ConLog("null");
+			return;
+		}
+	}
+}
+
+ConValue ConExec(const char* script)
+{
+	ConLexer lex;
+	LexInit(lex, script);
+
+	ConValue val = {};
+
+	for (;;)
+	{
+		ConLexToken(lex);
+		if (lex.tok.type == ConTokenType_EOF)
+		{
+			break;
+		}
+
+		val = ConExec1(lex, FrameArena);
+	}
+
+	ConLog(val);
+	return val;
 }
 
 void ConsoleDraw()
 {
 	bool just_opened = false;
 
-	if (!console_open && InputGetButtonDown(SDL_SCANCODE_GRAVE))
+	if (InputGetButtonDown(SDL_SCANCODE_GRAVE))
 	{
-		console_open = true;
+		console_open = !console_open;
 		just_opened = true;
+		console_input.clear();
 	}
 
 	if (console_open)
@@ -189,7 +413,11 @@ void ConsoleDraw()
 	}
 }
 
-void ConRegisterCommand(const char* name, int (*function)(int argc, const char** argv), const char* help)
+void ConRegisterCommand(const char* name, ConValue (*function)(int num_args, ConValue* args), const char* help)
 {
-	commands.push_back({ name, function, help });
+	commands.push_back(ConCommand{
+		.name     = name,
+		.function = function,
+		.help     = help
+	});
 }
