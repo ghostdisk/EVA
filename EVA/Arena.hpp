@@ -23,4 +23,4 @@ void ArenaReset(Arena* arena);
 void RotateFrameArenas();
 
 extern Arena* FrameArenas[NUM_FRAME_ARENAS];
-extern Arena* FrameArena;
+extern Arena* FrameArena; // TODO: Add a scratch arena and check most use-cases - a lot of them should be scratchbuffers instead.

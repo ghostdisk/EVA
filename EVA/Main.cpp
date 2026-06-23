@@ -1,4 +1,6 @@
 #include <EVA/GL.hpp>
+#include <EVA/Platform.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
@@ -34,7 +36,6 @@ DrawContext DC;
 Font* fnt_arial = 0;
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
-bool VSync = false;
 std::vector<NextFrameCallback> next_frame_callbacks;
 
 // time:
@@ -63,6 +64,8 @@ int main()
 	}
 
 	ArenaInitialize();
+	ConsoleInitialize();
+	PlatformInitialize();
 	RotateFrameArenas();
 	GLInitialize();
 	RendererInitialize();
@@ -96,7 +99,7 @@ int main()
 	// ActiveGame = client;
 
 	FrameStartTimeNS = SDL_GetTicksNS();
-	SDL_GL_SetSwapInterval(VSync ? 1 : 0);
+	// ConExec("vsync 1");
 
 	while (!DoQuit)
 	{
@@ -162,26 +165,6 @@ int main()
 		EditorLateTick();
 		UIEndFrame();
 		UIDraw(DC);
-
-		// { // Simulate game:
-
-		// 	// Status label
-		// 	if (0) {
-		// 	{
-		// 		char status[256];
-		// 		snprintf(status, sizeof(status), "%s   FPS: %.1f", ActiveGame->name, FPS);
-		// 		UILabel(status);
-		// 	}
-
-		// 	char buf[64];
-		// 	snprintf(buf, 64, "Toggle VSync (%s)", VSync ? "on" : "off");
-		// 	if (UIButton(buf))
-		// 	{
-		// 		VSync = !VSync;
-		// 		SDL_GL_SetSwapInterval(VSync ? 1 : 0);
-		// 	}
-		// 	}
-		// }
 
 		{ // Render frame:
 			glViewport(0, 0, WindowWidth, WindowHeight);

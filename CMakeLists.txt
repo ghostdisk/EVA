@@ -24,6 +24,7 @@ add_executable(EVA
 	"EVA/Library.cpp"
 	"EVA/Main.cpp"
 	"EVA/Physics.cpp"
+	"EVA/Platform.cpp"
 	"EVA/Renderer.cpp"
 	"EVA/ServerGame.cpp"
 	"EVA/UI_Core.cpp"
