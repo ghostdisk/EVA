@@ -403,3 +403,22 @@ void CSGDestroyStack(CSGStack* stack)
 {
 	delete stack;
 }
+
+float Intersect(const Ray& ray, CSGBrush* brush)
+{
+	float min_t = -1.0f;
+	float max_t = INFINITY;
+
+	for (CSGPlane& plane : brush->planes)
+	{
+		float dot = Dot(plane.plane.normal, ray.direction);
+		if (abs(dot) > 0.0001)
+		{
+			float t = Intersect(ray, plane.plane);
+			if (dot > 0 && max_t > t) max_t = t;
+			if (dot < 0 && min_t < t) min_t = t;
+		}
+	}
+
+	return min_t < max_t ? min_t : -1.0f;
+}

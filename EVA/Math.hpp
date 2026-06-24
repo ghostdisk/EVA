@@ -112,17 +112,6 @@ struct __declspec(align(16)) float4x4
 	}
 };
 
-struct Plane
-{
-	float3 normal   = {};
-	float  distance = 0;
-
-	Plane Invert()
-	{
-		return Plane(-normal, -distance);
-	}
-};
-
 
 inline float3 float3::Normalized()
 {
@@ -173,3 +162,27 @@ inline float3 Cross(const float3& a, const float3 b)
 		a.z * b.x - a.x * b.z,
 		a.x * b.y - a.y * b.x);
 }
+
+struct Plane
+{
+	float3 normal   = {};
+	float  distance = 0;
+
+	Plane Invert()
+	{
+		return Plane(-normal, -distance);
+	}
+};
+
+struct Ray
+{
+	float3 origin     = {};
+	float3 direction  = {};
+
+	float3 Evaluate(float t)
+	{
+		return origin + direction * t;
+	}
+};
+
+float Intersect(const Ray& ray, const Plane& plane);

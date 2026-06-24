@@ -22,5 +22,6 @@ extern GLTF* map_prime;
 
 extern Sprite* spr_ui_arrow_down;
 extern Sprite* spr_ui_arrow_right;
+extern Sprite* spr_crosshair;
 
 }

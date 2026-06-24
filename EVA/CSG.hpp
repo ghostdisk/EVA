@@ -66,3 +66,5 @@ void        CSGBuildStack(CSGStack* stack);
 
 CSGBrush*   CSGCreateCube(float3 size);
 CSGBrush*   CSGCreateCylinder(int segments, float radius, float height);
+
+float Intersect(const Ray& ray, CSGBrush* brush);

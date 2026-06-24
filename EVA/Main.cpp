@@ -146,10 +146,9 @@ int main()
 		}
 
 		EditorEarlyTick();
-
 		GameTickAll(DeltaTime);
 		GameDraw(ActiveGame);
-
+		ConsoleDraw();
 		EditorLateTick();
 		UIEndFrame();
 		UIDraw(DC);
@@ -169,6 +168,8 @@ int main()
 
 			RenderScene();
 			DrawRender(DC);
+
+			DrawSprite(DC, Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7);
 
 			GL_ERROR_CHECK();
 

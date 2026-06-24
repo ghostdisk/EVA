@@ -21,6 +21,7 @@ GLTF* map_prime = nullptr;
 
 Sprite* spr_ui_arrow_down = nullptr;
 Sprite* spr_ui_arrow_right = nullptr;
+Sprite* spr_crosshair = nullptr;
 
 }
 
@@ -47,4 +48,5 @@ void LibraryInitialize()
 
 	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);
 	Library::spr_ui_arrow_right = SpriteCreate("spr_ui_arrow", ui_atlas, 16, 0, 15, 15);
+	Library::spr_crosshair = SpriteCreate("spr_crosshair", ui_atlas, 32, 0, 15, 15);
 }

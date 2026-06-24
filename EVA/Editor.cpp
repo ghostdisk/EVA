@@ -25,6 +25,10 @@ struct Selection
 std::vector<Selection> selection_list;
 std::vector<const char*> screen_log;
 
+Ray hover_ray;
+CSGBrush* hover_brush;
+float3 hover_point;
+
 ConVar show_fps = {
 	.name = "show_fps",
 	.help = "show fps on screen",
@@ -34,22 +38,12 @@ ConVar show_fps = {
 	},
 };
 
-ConVar show_pos = {
-	.name = "cl_showpos 1",
-	.help = "show position on screen",
-	.value = {
-		.type = ConValueType_Number,
-		.number = 0,
-	},
-};
-
-
 void EditorInitialize()
 {
 	ConRegisterVar(&show_fps);
 }
 
-Selection* Selected(void* stack)
+Selection* IsSelected(void* stack)
 {
 	for (Selection& s : selection_list)
 	{
@@ -108,7 +102,7 @@ void InspectorCSGBrush(CSGBrush* brush)
 	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
-	if (Selected(brush)) flags |= UITreeNodeFlags_Selected;
+	if (IsSelected(brush)) flags |= UITreeNodeFlags_Selected;
 	UITreeNodeStatus status = UIBeginTreeNode("CSG Brush", flags);
 	Select(SelectionType_CSGBrush, brush, status.selected);
 
@@ -160,7 +154,8 @@ void InspectorCSGStack(CSGStack* stack)
 	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
-	if (Selected(stack)) flags |= UITreeNodeFlags_Selected;
+	if (IsSelected(stack)) flags |= UITreeNodeFlags_Selected;
+
 	UITreeNodeStatus status = UIBeginTreeNode("CSG Stack", flags);
 	Select(SelectionType_CSGStack, stack, status.selected);
 
@@ -217,7 +212,6 @@ void EditorEarlyTick()
 
 void EditorLateTick()
 {
-
 	{ // status
 		UIBox* status = UIBeginBox()
 			->SetPadding(8)
@@ -243,13 +237,37 @@ void EditorLateTick()
 		UIEndBox();
 	}
 
-	ConsoleDraw();
-
 	UIBeginTreeList();
 	InspectorCSGStack(ActiveGame->csg);
 	UIEndTreeList();
 
 	screen_log.clear();
+
+	if (InputGetButton(SDL_SCANCODE_F))
+	{
+		hover_ray.origin = ActiveGame->camera.position;
+		hover_ray.direction = ActiveGame->camera.forward;
+	}
+	hover_brush = nullptr;
+	float hover_t = FLT_MAX;
+	for (CSGBrush* brush : ActiveGame->csg->built_brushes)
+	{
+		float t = Intersect(hover_ray, brush);
+		if (hover_t > t && t >= 0)
+		{
+			hover_t = t;
+			hover_brush = brush;
+		}
+	}
+
+	hover_point = hover_ray.Evaluate(hover_t);
+	if (hover_brush)
+	{
+		for (CSGPlane& plane : hover_brush->planes)
+			OutlineCSGPlane(plane);
+
+		DrawPoint(hover_point, COLOR_RGB(255,0,0));
+	}
 }
 
 void LogToScreen(const char* fmt, ...)

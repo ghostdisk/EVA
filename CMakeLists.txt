@@ -23,6 +23,7 @@ add_executable(EVA
 	"EVA/Input.cpp"
 	"EVA/Library.cpp"
 	"EVA/Main.cpp"
+	"EVA/Math.cpp"
 	"EVA/Physics.cpp"
 	"EVA/Platform.cpp"
 	"EVA/Renderer.cpp"
