@@ -1,6 +1,6 @@
 #pragma once
 
-#include <EVA/GL.hpp>
+#include <EVA/Renderer/GL.hpp>
 #include <vector>
 
 struct EntityManager;

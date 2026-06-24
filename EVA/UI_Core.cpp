@@ -1,10 +1,10 @@
 #include <EVA/UI.hpp>
-#include <EVA/GL.hpp>
-#include <EVA/Draw.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Arena.hpp>
+#include <SDL3/SDL_events.h>
 
 void UIFlexLayoutPass1(UIBox* box);
 void UIFlexLayoutPass2(UIBox* box);
@@ -380,42 +380,42 @@ void UIFixedLayoutPass2(UIBox* box)
 	}
 }
 
-void UIDrawBoxRecursive(DrawContext& dc, UIBox* box)
+void UIDrawBoxRecursive(UIBox* box)
 {
 	if (box->color.w && box->layout != &UILayoutMode_Text) // TODO: Dumb.
 	{
 		if (box->background_sprite)
 		{
-			DrawSprite(dc, box->background_sprite, box->position.x, box->position.y, box->color);
+			DrawSprite(box->background_sprite, box->position.x, box->position.y, box->color);
 		}
 		else
 		{
-			DrawRectangle(dc, box->color, box->position.x, box->position.y, box->size.x, box->size.y);
+			DrawRectangle(box->color, box->position.x, box->position.y, box->size.x, box->size.y);
 		}
 	}
 
 	if (box->text)
 	{
-		DrawText(dc, box->font, box->text, -1, box->position.x + box->padding_left, box->position.y + box->padding_top, box->color);
+		DrawText(box->font, box->text, -1, box->position.x + box->padding_left, box->position.y + box->padding_top, box->color);
 	}
 
 	if (box->event_handler)
 	{
 		Emit(box, UIEvent{
 			.type = UIEventType_Draw,
-			.draw = { .dc = &dc },
 		});
 	}
 
 	for (UIBox* child = box->first_child; child; child = child->next_sibling)
 	{
-		UIDrawBoxRecursive(dc, child);
+		UIDrawBoxRecursive(child);
 	}
 }
 
-void UIDraw(DrawContext& dc)
+void UIDraw()
 {
-	UIDrawBoxRecursive(dc, &UI->root);
+	DrawSetLayer(Layer_UI);
+	UIDrawBoxRecursive(&UI->root);
 }
 
 void UIFocus(UIBox* box)

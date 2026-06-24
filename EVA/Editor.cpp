@@ -4,7 +4,7 @@
 #include <EVA/UI.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Game.hpp>
-#include <EVA/Renderer.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Input.hpp>
 #include <tracy/Tracy.hpp>
@@ -238,6 +238,7 @@ void EditorLateTick()
 		UIEndBox();
 	}
 
+	DrawSetLayer(Layer_Main);
 	DrawGrid(100);
 
 	// UIBeginTreeList();
@@ -246,6 +247,7 @@ void EditorLateTick()
 
 	screen_log.clear();
 
+	DrawSetLayer(Layer_Overlay);
 	for (Selection& sel : selection_list)
 	{
 		if (sel.type == SelectionType_CSGBrush)
@@ -254,6 +256,7 @@ void EditorLateTick()
 				OutlineCSGPlane(plane);
 		}
 	}
+	DrawSetLayer(Layer_Main);
 
 	if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{

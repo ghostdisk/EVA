@@ -66,10 +66,6 @@ struct UIEvent
 		{
 			const char* text;
 		} text;
-		struct
-		{
-			DrawContext* dc;
-		} draw;
 		int dummy = 0;
 	};
 };
@@ -144,7 +140,7 @@ U32  UIPushId(const void* ptr);
 void UIPopId();
 void UIBeginFrame();
 void UIEndFrame();
-void UIDraw(DrawContext& dc);
+void UIDraw();
 
 extern UILayoutMode UILayoutMode_Flex;
 extern UILayoutMode UILayoutMode_Text;

@@ -13,11 +13,9 @@ add_executable(EVA
 	"EVA/ClientGame.cpp"
 	"EVA/Console.cpp"
 	"EVA/CSG.cpp"
-	"EVA/Draw.cpp"
 	"EVA/Editor.cpp"
 	"EVA/Entities.cpp"
 	"EVA/Game.cpp"
-	"EVA/GL.cpp"
 	"EVA/GLTF.cpp"
 	"EVA/Hashing.cpp"
 	"EVA/Input.cpp"
@@ -26,12 +24,14 @@ add_executable(EVA
 	"EVA/Math.cpp"
 	"EVA/Physics.cpp"
 	"EVA/Platform.cpp"
-	"EVA/Renderer.cpp"
 	"EVA/ServerGame.cpp"
 	"EVA/UI_Core.cpp"
 	"EVA/UI_Utils.cpp"
 	"EVA/UI_Widgets.cpp"
 	"EVA/Utils.cpp"
+	"EVA/Renderer/GL.cpp"
+	"EVA/Font.cpp"
+	"EVA/Renderer/Renderer.cpp"
 )
 
 

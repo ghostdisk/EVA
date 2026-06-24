@@ -1,6 +1,6 @@
 #include <EVA/Game.hpp>
 #include <EVA/Physics.hpp>
-#include <EVA/Renderer.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
@@ -148,6 +148,7 @@ void GameDraw(Game* game)
 		{ 0.910f, 0.450f, 0.542f, 1.0f },
 	};
 
+	DrawSetLayer(Layer_Main);
 	for (int i = 0; i < game->csg->built_brushes.size(); i++)
 	{
 		DrawMesh(game->csg->built_brushes[i]->mesh, nullptr, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);

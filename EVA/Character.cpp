@@ -3,7 +3,7 @@
 #include <EVA/Entities.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Library.hpp>
-#include <EVA/Renderer.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <cglm/euler.h>
 #include <cglm/quat.h>
 

@@ -1,6 +1,6 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/GL.hpp>
+#include <EVA/Renderer/GL.hpp>
 #include <SDL3/SDL.h>
 
 // int vsync = 0;

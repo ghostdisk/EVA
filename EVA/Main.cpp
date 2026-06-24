@@ -1,14 +1,13 @@
-#include <EVA/GL.hpp>
+#include <EVA/Renderer/GL.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
-#include <EVA/Draw.hpp>
 #include <EVA/Camera.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Entities.hpp>
-#include <EVA/Renderer.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
@@ -31,7 +30,6 @@ int WindowWidth = 1600;
 int WindowHeight = 900;
 bool InMenu = false;
 static UIContext main_ui;
-DrawContext DC;
 Font* fnt_arial = 0;
 float FrameTimeHistory[FRAME_TIME_HISTORY_SIZE] = {};
 float FPS = 0;
@@ -40,6 +38,8 @@ std::vector<NextFrameCallback> next_frame_callbacks;
 // time:
 static U64 FrameStartTimeNS;
 double DeltaTime = 0.01;
+
+void FontInitialize();
 
 int main()
 {
@@ -69,7 +69,7 @@ int main()
 	PhysicsInitialize();
 	LibraryInitialize();
 	InputInitialize();
-	DrawInitialize();
+	FontInitialize();
 	UIInitialize();
 	EditorInitialize();
 
@@ -82,7 +82,6 @@ int main()
 
 	fnt_arial = FontLoad("Arial.ttf", 20, 512);
 
-	DrawContextInit(DC);
 	UIContextInit(main_ui, fnt_arial);
 
 	FrameStartTimeNS = SDL_GetTicksNS();
@@ -107,7 +106,6 @@ int main()
 		InputBeginFrame();
 		UIContextMakeCurrent(main_ui);
 		UIBeginFrame();
-		RendererBeginFrame();
 
 		SDL_GetWindowSize(GameWindow, &WindowWidth, &WindowHeight);
 
@@ -151,23 +149,10 @@ int main()
 		ConsoleDraw();
 		EditorLateTick();
 		UIEndFrame();
-		UIDraw(DC);
+		UIDraw();
 
 		{ // Render frame:
-			glViewport(0, 0, WindowWidth, WindowHeight);
-			float4 clear_color = COLOR_RGB(44, 82, 87);
-			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-
-			glEnable(GL_DEPTH_TEST);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glDepthFunc(GL_LESS);
-			glDisable(GL_BLEND);
-
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_BACK);
-
-			RenderScene();
-			DrawRender(DC);
+			RenderFrame();
 
 			// DrawSprite(DC, Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7);
 			GL_ERROR_CHECK();

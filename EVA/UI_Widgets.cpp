@@ -3,7 +3,7 @@
 #include <EVA/Asset.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
-#include <EVA/Draw.hpp>
+#include <EVA/Renderer/Renderer.hpp>
 #include <SDL3/SDL_events.h>
 
 UIBox* UILabel(const char* text, int text_len)
@@ -224,18 +224,17 @@ UIBox* UITextInput(std::vector<char>& buffer)
 				case UIEventType_Draw:
 				{
 					Font* font = UI->default_font;
-					DrawContext& dc = *event.draw.dc;
 
 					float x = box->position.x + 4;
 					float y = box->position.y + (box->size.y - (float)font->pixel_size) / 2.0f;
 
-					DrawText(dc, font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
+					DrawText(font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
 
 					if (box->flags & UIBoxFlags_Focus)
 					{
 						float2 cursor_pos = MeasureText(font, text_edit->buffer->data(), text_edit->cursor);
 						float cursor_offset = -(font->line_height - font->pixel_size) / 2.0f;
-						DrawRectangle(dc, COLOR_WHITE, x + cursor_pos.x, y + cursor_offset, 2, font->line_height);
+						DrawRectangle(COLOR_WHITE, x + cursor_pos.x, y + cursor_offset, 2, font->line_height);
 					}
 
 					return true;

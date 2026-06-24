@@ -1,6 +1,8 @@
-#include <EVA/GL.hpp>
+#include <EVA/Renderer/GL.hpp>
 #include <EVA/Asset.hpp>
 #include <stdio.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_opengl.h>
 
 SDL_GLContext GL = nullptr;
 
