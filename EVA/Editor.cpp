@@ -27,7 +27,6 @@ std::vector<const char*> screen_log;
 
 Ray hover_ray;
 CSGBrush* hover_brush;
-float3 hover_point;
 
 ConVar show_fps = {
 	.name = "show_fps",
@@ -105,10 +104,6 @@ void InspectorCSGBrush(CSGBrush* brush)
 	if (IsSelected(brush)) flags |= UITreeNodeFlags_Selected;
 	UITreeNodeStatus status = UIBeginTreeNode("CSG Brush", flags);
 	Select(SelectionType_CSGBrush, brush, status.selected);
-
-	if (status.hover || status.selected)
-		for (CSGPlane& plane : brush->planes)
-			OutlineCSGPlane(plane);
 
 	if (status.open)
 	{
@@ -237,36 +232,58 @@ void EditorLateTick()
 		UIEndBox();
 	}
 
-	UIBeginTreeList();
-	InspectorCSGStack(ActiveGame->csg);
-	UIEndTreeList();
+	{
+		UIBeginBox()->SetSize(400, 0);
+		UIButton("Cube");
+		UIEndBox();
+	}
+
+	DrawGrid(100);
+
+	// UIBeginTreeList();
+	// InspectorCSGStack(ActiveGame->csg);
+	// UIEndTreeList();
 
 	screen_log.clear();
 
-	if (InputGetButton(SDL_SCANCODE_F))
+	for (Selection& sel : selection_list)
 	{
-		hover_ray.origin = ActiveGame->camera.position;
-		hover_ray.direction = ActiveGame->camera.forward;
-	}
-	hover_brush = nullptr;
-	float hover_t = FLT_MAX;
-	for (CSGBrush* brush : ActiveGame->csg->built_brushes)
-	{
-		float t = Intersect(hover_ray, brush);
-		if (hover_t > t && t >= 0)
+		if (sel.type == SelectionType_CSGBrush)
 		{
-			hover_t = t;
-			hover_brush = brush;
+			for (CSGPlane& plane : ((CSGBrush*)sel.data)->planes)
+				OutlineCSGPlane(plane);
 		}
 	}
 
-	hover_point = hover_ray.Evaluate(hover_t);
-	if (hover_brush)
+	if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{
-		for (CSGPlane& plane : hover_brush->planes)
-			OutlineCSGPlane(plane);
+		DeselectAll();
 
-		DrawPoint(hover_point, COLOR_RGB(255,0,0));
+		hover_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
+		hover_brush = nullptr;
+		float hover_t = FLT_MAX;
+		for (const CSGStackNode& node : ActiveGame->csg->nodes)
+		{
+			CSGBrush* brush = 0;
+			if (node.type == CSGStackNodeType_Brush)
+			{
+				brush = node.brush;
+			}
+			if (brush)
+			{
+				float t = Intersect(hover_ray, brush);
+				if (hover_t > t && t >= 0)
+				{
+					hover_t = t;
+					hover_brush = brush;
+				}
+			}
+		}
+
+		if (hover_brush)
+		{
+			Select(SelectionType_CSGBrush, hover_brush, true);
+		}
 	}
 }
 

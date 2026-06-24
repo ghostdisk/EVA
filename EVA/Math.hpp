@@ -74,14 +74,17 @@ struct float4
 
 	float4() {}
 	float4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+	float4(const float3& xyz, float w) : x(xyz.x), y(xyz.y), z(xyz.z), w(w) {}
 	float4(float* vec) : x(vec[0]), y(vec[1]), z(vec[2]), w(vec[3]) {}
-	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
+	inline operator float*() const { return (float*)&x; } // needed so we can pass it to cglm conveniently
+
+	inline float3& xyz() { return *(float3*)this; }
 };
 
 struct __declspec(align(16)) float4x4
 {
 	float data[4][4]; // column major, indexed as [col][row]
-	inline operator vec4*() { return &data[0]; } // needed so we can pss it to cglm conveniently
+	inline operator vec4*() const { return (vec4*)&data[0]; } // needed so we can pss it to cglm conveniently
 
 	float4& column(int c)
 	{
@@ -112,6 +115,7 @@ struct __declspec(align(16)) float4x4
 	}
 };
 
+float4 operator*(const float4x4& mat, const float4& p);
 
 inline float3 float3::Normalized()
 {
@@ -186,3 +190,6 @@ struct Ray
 };
 
 float Intersect(const Ray& ray, const Plane& plane);
+
+Plane operator*(const float4x4& mat, const Plane& plane);
+inline Plane operator*(const Plane& plane, const float4x4& mat) { return mat * plane; }

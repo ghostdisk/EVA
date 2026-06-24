@@ -6,6 +6,7 @@
 #include <cglm/clipspace/persp_rh_no.h>
 #include <cglm/clipspace/view_rh_no.h>
 #include <cglm/euler.h>
+#include <cglm/mat4.h>
 
 void CameraInit(Camera& camera)
 {
@@ -21,6 +22,8 @@ void CameraUpdateMatrices(Camera& camera)
 	glm_look_rh_no(camera.position, camera.forward, camera.up, camera.view_matrix);
 	glm_perspective_rh_no(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.1f, 500.0f, camera.projection_matrix);
 	glm_mat4_mul(camera.projection_matrix, camera.view_matrix, camera.view_projection_matrix);
+
+	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);
 }
 
 void CameraUpdateBasisVectors(Camera& camera)
@@ -95,4 +98,28 @@ void CameraOrbit(Camera& camera, Entity* entity)
 		camera.position.z += camera.orbit_height;
 		camera.position -= camera.forward * camera.orbit_distance;
 	}
+}
+
+Ray CameraClipToRay(Camera& camera, float2 xy)
+{
+	float4 clip0 = { xy.x, xy.y, 0, 1 };
+	float4 clip1 = { xy.x, xy.y, 1, 1 };
+
+	float4 world0;
+	float4 world1;
+
+	glm_mat4_mulv(camera.inverse_view_projection_matrix, clip0, world0);
+	glm_mat4_mulv(camera.inverse_view_projection_matrix, clip1, world1);
+
+	world0.xyz() /= world0.w;
+	world1.xyz() /= world1.w;
+
+	return Ray(camera.position, (world1.xyz() - world0.xyz()).Normalized());
+}
+
+Ray CameraScreenToRay(Camera& camera, float2 screen)
+{
+	return CameraClipToRay(camera, float2(
+		(screen.x / WindowWidth) * 2.0f - 1.0f,
+		-((screen.y / WindowHeight) * 2.0f - 1.0f)));
 }

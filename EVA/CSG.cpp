@@ -202,23 +202,25 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 }
 
 // Takes ownership of a. b is left intact.
-bool CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
+void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vector<CSGBrush*>& out)
 {
 	assert(!a->dirty && !b->dirty);
-	bool did_something = false;
 
-	for (CSGPlane& plane : b->planes)
+	bool fully_inside = true;
+
+	for (CSGPlane& csgplane : b->planes)
 	{
+		Plane plane = csgplane.plane * transform;
 		CSGBrush* cut2 = CSGCloneBrush(a);
 
-		CSGAddPlane(a, plane.plane);
-		CSGAddPlane(cut2, plane.plane.Invert());
+		CSGAddPlane(a, plane);
+		CSGAddPlane(cut2, plane.Invert());
 		CSGBuildBrush(a);
 		CSGBuildBrush(cut2);
 
 		if (cut2->planes.size())
 		{
-			did_something = true;
+			fully_inside = false;
 			out.push_back(cut2);
 		}
 		else
@@ -230,15 +232,14 @@ bool CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 			break;
 		}
 	}
-	if (did_something)
+	if (fully_inside)
 	{
 		CSGDestroyBrush(a);
 	}
-	else
-	{
-		out.push_back(a);
-	}
-	return did_something;
+	//else
+	//{
+	//	out.push_back(a);
+	//}
 }
 
 void CSGBuildStack(CSGStack* stack)
@@ -271,7 +272,7 @@ void CSGBuildStack(CSGStack* stack)
 
 						for (CSGBrush* old : stack->built_brushes)
 						{
-							CSGDifference(old, node.brush, new_brushes);
+							CSGDifference(old, node.brush, node.transform, new_brushes);
 						}
 						new_brushes.push_back(CSGCloneBrush(node.brush));
 
@@ -285,7 +286,7 @@ void CSGBuildStack(CSGStack* stack)
 						std::vector<CSGBrush*> new_brushes;
 						for (CSGBrush* old : stack->built_brushes)
 						{
-							CSGDifference(old, node.brush, new_brushes);
+							CSGDifference(old, node.brush, node.transform, new_brushes);
 						}
 						stack->built_brushes = new_brushes;
 						break;
@@ -296,7 +297,6 @@ void CSGBuildStack(CSGStack* stack)
 						break;
 					}
 				}
-
 
 				break;
 			}

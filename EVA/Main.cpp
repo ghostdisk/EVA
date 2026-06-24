@@ -169,8 +169,7 @@ int main()
 			RenderScene();
 			DrawRender(DC);
 
-			DrawSprite(DC, Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7);
-
+			// DrawSprite(DC, Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7);
 			GL_ERROR_CHECK();
 
 			SDL_GL_SwapWindow(GameWindow);

@@ -55,36 +55,25 @@ void GameInit(Game* game)
 	game->physics = PhysicsCreate();
 
 	game->csg = CSGCreateStack();
+
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCube({2,2,1}),
+		.brush     = CSGCreateCube({10,10,1}),
 	});
+	/*
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
-		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCylinder(32, 1, 3),
-	});
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
+		.transform = float4x4({
+			1,0,0,0,
+			0,1,0,0,
+			0,0,1,0,
+			2,0,0,1,
+		}),
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(32, 0.5, 3),
+		.brush     = CSGCreateCylinder(32, 1, 2)
 	});
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Difference,
-	// 	.brush     = CSGCreateCube({ 3, 0.5, 0.5 }),
-	// });
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Difference,
-	// 	.brush     = CSGCreateCube({ 0.5, 0.5, 3 }),
-	// });
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Difference,
-	// 	.brush     = CSGCreateCube({ 0.5, 3, 0.5 }),
-	// });
+	*/
 
 	if (1)
 	{

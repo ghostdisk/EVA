@@ -1,6 +1,5 @@
 #pragma once
 #include <EVA/Math.hpp>
-#include <EVA/Math.hpp>
 
 struct Entity;
 
@@ -18,9 +17,10 @@ struct Camera
 	float3 up       = {};
 
 	// calculated by CameraUpdateMatrices:
-	float4x4 view_matrix            = {};
-	float4x4 projection_matrix      = {};
-	float4x4 view_projection_matrix = {};
+	float4x4 view_matrix                    = {};
+	float4x4 projection_matrix              = {};
+	float4x4 view_projection_matrix         = {};
+	float4x4 inverse_view_projection_matrix = {};
 
 	// CameraFly() parameters:
 	float  fly_speed         = 10.0f;
@@ -38,3 +38,6 @@ void CameraUpdateBasisVectors(Camera& camera);
 void CameraUpdateMatrices(Camera& camera);
 void CameraFly(Camera& camera);
 void CameraOrbit(Camera& camera, Entity* entity);
+
+Ray CameraClipToRay(Camera& camera, float2 clip_xy);
+Ray CameraScreenToRay(Camera& camera, float2 screen_xy);
