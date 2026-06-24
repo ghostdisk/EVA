@@ -39,9 +39,18 @@ ConVar con_game = {
 		},
 };
 
+ConValue Con_tp(int argc, ConValue* args)
+{
+	if (argc >= 1 && args[0].type == ConValueType_Number) ActiveGame->camera.position.x = args[0].number;
+	if (argc >= 2 && args[1].type == ConValueType_Number) ActiveGame->camera.position.y = args[1].number;
+	if (argc >= 3 && args[2].type == ConValueType_Number) ActiveGame->camera.position.z = args[2].number;
+	return {};
+}
+
 void GameInitialize()
 {
 	ConRegisterVar(&con_game);
+	ConRegisterCommand("tp", Con_tp, "teleport to a position");
 }
 
 void GameInit(Game* game)
