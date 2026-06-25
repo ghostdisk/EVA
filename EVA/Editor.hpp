@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Common.hpp>
+#include <EVA/Math.hpp>
 #include <vector>
 
 struct CSGBrush;
@@ -13,10 +14,12 @@ enum EdOpType
 
 struct EdOp
 {
-	EdOpType               type     = EdOpType_None;
-	std::vector<CSGBrush*> built    = {};
-	bool                   subtract = false;
-	bool                   selected = false;
+	EdOpType               type             = EdOpType_None;
+	std::vector<CSGBrush*> built            = {};
+	bool                   subtract         = false;
+	bool                   selected         = false;
+	float3                 position         = {};
+	float4x4               global_transform = {};
 
 	std::vector<EdOp*>     children = {};      // for EdOpType_Stack
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush

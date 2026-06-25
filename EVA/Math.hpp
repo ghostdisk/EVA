@@ -114,9 +114,12 @@ struct __declspec(align(16)) float4x4
 		mat.data[3][3] = 1.0f;
 		return mat;
 	}
+
+	float3 TransformPosition(float3 pos) const;
 };
 
 float4 operator*(const float4x4& mat, const float4& p);
+float4x4 operator*(const float4x4& mat, const float4x4& p);
 
 inline float3 float3::Normalized()
 {

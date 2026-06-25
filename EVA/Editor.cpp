@@ -5,6 +5,7 @@
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>
+#include <cglm/affine.h>
 
 static EdOp* root = nullptr;
 
@@ -102,13 +103,15 @@ EdOp* EdCreateCube(float3 size)
 	return {};
 }
 
-void EdOutlineBrush(CSGBrush* b, float4 color)
+void EdOutlineBrush(CSGBrush* b, const float4x4& transform, float4 color)
 {
 	for (const CSGPlane& plane : b->planes)
 	{
 		for (int i = 0; i < plane.points.size(); i++)
 		{
-			DrawLine(plane.points[i], plane.points[(i + 1) % plane.points.size()], color);
+			float3 p1 = transform.TransformPosition(plane.points[i]);
+			float3 p2 = transform.TransformPosition(plane.points[(i + 1) % plane.points.size()]);
+			DrawLine(p1, p2, color);
 		}
 	}
 }
@@ -116,21 +119,26 @@ void EdOutlineBrush(CSGBrush* b, float4 color)
 
 void EdOutlineSelectionRecursively(EdOp* op, float4 color)
 {
-	if (op->selected) for (CSGBrush* b : op->built) EdOutlineBrush(b, color);
+	if (op->selected) for (CSGBrush* b : op->built) EdOutlineBrush(b, op->global_transform, color);
 	for (EdOp* child : op->children) EdOutlineSelectionRecursively(child, color);
 }
 
 template <typename F>
 void EdForeach(F&& func, EdOp* op)
 {
-	func(op);
+	if (!func(op))
+		return;
 	for (EdOp* child : op->children) EdForeach(func, child);
 }
 
 template <typename F>
 void EdForeachSelected(F&& func, EdOp* op)
 {
-	if (op->selected) func(op);
+	if (op->selected)
+	{
+		if (!func(op))
+			return;
+	}
 	for (EdOp* child : op->children) EdForeachSelected(func, child);
 }
 
@@ -151,6 +159,12 @@ void EdBuild(EdOp* op)
 		{
 			for (EdOp* child : op->children)
 			{
+				float4x4 child_transform = float4x4::Identity();
+				glm_translate(child_transform, child->position);
+				// glm_rotate(m, angle, (vec3){ ax, ay, az });
+				// glm_scale(m, (vec3){ sx, sy, sz });
+
+				child->global_transform = op->global_transform * child_transform;
 				EdBuild(child);
 				for (CSGBrush* b : child->built)
 				{
@@ -158,13 +172,14 @@ void EdBuild(EdOp* op)
 					for (CSGBrush* a : op->built)
 					{
 						int old_size = new_set.size();
-						CSGDifference(a, b, float4x4::Identity(), new_set);
+						CSGDifference(a, b, child->global_transform, new_set);
 						for (int i = old_size; i < new_set.size(); i++) new_set[i]->source = a->source;
 					}
 					if (!child->subtract)
 					{
 						CSGBrush* clone = CSGCloneBrush(b);
 						clone->source = b->source;
+						CSGBrushTransform(clone, child->global_transform);
 						new_set.push_back(clone);
 					}
 					op->built = new_set;
@@ -194,6 +209,22 @@ void EdInitialize()
 			EdBuild(root);
 			return {};
 		}, "editor: create a cube");
+	ConRegisterCommand("ed_move",
+		[](int argc, ConValue* argv) -> ConValue
+		{
+			float3 offset = {
+				(argc > 0 && argv[0].number) ? argv[0].number : 0.0f,
+				(argc > 1 && argv[1].number) ? argv[1].number : 0.0f,
+				(argc > 2 && argv[2].number) ? argv[2].number : 0.0f,
+			};
+			EdForeachSelected([&](EdOp* op)
+				{
+					op->position += offset;
+					return false;
+				}, root);
+			EdBuild(root);
+			return {};
+		}, "editor: create a cube");
 	ConRegisterCommand("ed_build",
 		[](int argc, ConValue* argv) -> ConValue
 		{
@@ -203,14 +234,14 @@ void EdInitialize()
 	ConRegisterCommand("ed_add",
 		[](int argc, ConValue* argv) -> ConValue
 		{
-			EdForeachSelected([](EdOp* op) { op->subtract = false; }, root);
+			EdForeachSelected([](EdOp* op) { op->subtract = false; return false; }, root);
 			EdBuild(root);
 			return {};
 		}, "editor: set selected to add");
 	ConRegisterCommand("ed_sub",
 		[](int argc, ConValue* argv) -> ConValue
 		{
-			EdForeachSelected([](EdOp* op) { op->subtract = true; }, root);
+			EdForeachSelected([](EdOp* op) { op->subtract = true; return false; }, root);
 			EdBuild(root);
 			return {};
 		}, "editor: set selected to subtract");
@@ -224,6 +255,7 @@ void EdInitialize()
 
 	root = EdCreateOp();
 	root->type = EdOpType_Stack;
+	root->global_transform = float4x4::Identity();
 }
 
 EdOp* EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t)
@@ -232,7 +264,7 @@ EdOp* EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t)
 	{
 		case EdOpType_Brush:
 		{
-			float t = Intersect(mouse_ray, op->brush);
+			float t = Intersect(mouse_ray, op->brush, op->global_transform);
 			if (t < *min_t && t >= 0.0f)
 			{
 				*min_t = t;
@@ -297,8 +329,9 @@ void EdTick()
 			{
 				for (CSGBrush* b : op->built)
 				{
-					EdOutlineBrush(b, {1,0,0.2,0.3});
+					EdOutlineBrush(b, op->global_transform, {1,0,0.2,0.3});
 				}
 			}
+			return true;
 		}, root);
 }

@@ -9,6 +9,20 @@ float4 operator*(const float4x4& mat, const float4& p)
 	return out;
 }
 
+float3 float4x4::TransformPosition(float3 pos) const
+{
+	float3 out;
+	glm_mat4_mulv3(*this, pos, 1, out);
+	return out;
+}
+
+float4x4 operator*(const float4x4& a, const float4x4& b)
+{
+	float4x4 out;
+	glm_mat4_mul(a, b, out);
+	return out;
+}
+
 float Intersect(const Ray& ray, const Plane& plane)
 {
     float denom = Dot(plane.normal, ray.direction);

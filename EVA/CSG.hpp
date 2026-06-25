@@ -18,7 +18,6 @@ struct CSGBrush
 {
 	std::vector<CSGPlane> planes  = {};
 	Mesh*                 mesh    = nullptr;
-	bool                  dirty   = true;
 
 	// userdata
 	EdOp* source = nullptr;
@@ -29,9 +28,10 @@ void        CSGDestroyBrush(CSGBrush* brush);
 void        CSGBuildBrushMesh(CSGBrush* brush);
 void        CSGBuildBrush(CSGBrush* brush);
 CSGBrush*   CSGCloneBrush(CSGBrush* orig);
-void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vector<CSGBrush*>& out);
+void        CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::vector<CSGBrush*>& out);
+void        CSGBrushTransform(CSGBrush* brush, const float4x4& transform);
 
 CSGBrush*   CSGCreateCube(float3 size);
 CSGBrush*   CSGCreateCylinder(int segments, float radius, float height);
 
-float Intersect(const Ray& ray, CSGBrush* brush);
+float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform);

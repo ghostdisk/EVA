@@ -24,7 +24,6 @@ bool CSGAddPlane(CSGBrush* brush, Plane plane)
 			return false;
 		}
 	}
-	brush->dirty = true;
 	brush->planes.push_back({ .plane = plane });
 	return true;
 }
@@ -148,8 +147,6 @@ void CSGBuildBrush(CSGBrush* brush)
 			brush->planes.clear();
 		}
 	}
-
-	brush->dirty = false;
 }
 
 void CSGBuildBrushMesh(CSGBrush* brush)
@@ -197,20 +194,17 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 {
 	CSGBrush* copy = CSGCreateBrush();
 	copy->planes = orig->planes;
-	copy->dirty = orig->dirty;
 	return copy;
 }
 
 // Takes ownership of a. b is left intact.
-void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vector<CSGBrush*>& out)
+void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::vector<CSGBrush*>& out)
 {
-	assert(!a->dirty && !b->dirty);
-
 	bool fully_inside = true;
 
 	for (CSGPlane& csgplane : b->planes)
 	{
-		Plane plane = csgplane.plane * transform;
+		Plane plane = csgplane.plane * b_transform;
 		CSGBrush* cut2 = CSGCloneBrush(a);
 
 		CSGAddPlane(a, plane);
@@ -236,10 +230,6 @@ void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vec
 	{
 		CSGDestroyBrush(a);
 	}
-	//else
-	//{
-	//	out.push_back(a);
-	//}
 }
 
 int HighestBit(unsigned x)
@@ -270,7 +260,6 @@ U32 NextPow2(U32 x)
 CSGBrush* CSGCreateBrush()
 {
 	CSGBrush* brush = new CSGBrush();
-	brush->dirty = true;
 	return brush;
 }
 
@@ -280,17 +269,19 @@ void CSGDestroyBrush(CSGBrush* brush)
 	delete brush;
 }
 
-float Intersect(const Ray& ray, CSGBrush* brush)
+float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform)
 {
 	float min_t = -1.0f;
 	float max_t = INFINITY;
 
-	for (CSGPlane& plane : brush->planes)
+	for (CSGPlane& csgplane : brush->planes)
 	{
-		float dot = Dot(plane.plane.normal, ray.direction);
+		Plane plane = csgplane.plane * transform;
+
+		float dot = Dot(plane.normal, ray.direction);
 		if (abs(dot) > 0.0001)
 		{
-			float t = Intersect(ray, plane.plane);
+			float t = Intersect(ray, plane);
 			if (dot > 0 && max_t > t) max_t = t;
 			if (dot < 0 && min_t < t) min_t = t;
 		}
@@ -344,4 +335,13 @@ CSGBrush* CSGCreateCube(float3 size)
 	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
 	CSGBuildBrush(brush);
 	return brush;
+}
+
+void CSGBrushTransform(CSGBrush* brush, const float4x4& transform)
+{
+	for (CSGPlane& plane : brush->planes)
+	{
+		plane.plane = plane.plane * transform;
+	}
+	CSGBuildBrush(brush);
 }
