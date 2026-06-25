@@ -79,3 +79,8 @@ Font* FontLoad(const char* name, int size, int atlas_size);
 void DrawGrid(int size);
 void DrawPoint(float3 point, float4 color);
 void DrawAABB(float3 center, float3 size, float4 color);
+
+Material* MaterialCreate(const char* name, GLuint shader, Texture* texture);
+
+extern GLuint shd_main;
+extern GLuint shd_brush;

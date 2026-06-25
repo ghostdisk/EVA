@@ -46,6 +46,7 @@ struct Texture : Asset
 
 struct Material : Asset
 {
+	U32      shader        = 0;
 	Texture* color_texture = nullptr;
 };
 

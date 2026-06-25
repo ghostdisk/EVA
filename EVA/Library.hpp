@@ -5,6 +5,7 @@ struct Game;
 struct Texture;
 struct Mesh;
 struct Sprite;
+struct Material;
 
 void LibraryInitialize();
 
@@ -23,5 +24,7 @@ extern GLTF* map_prime;
 extern Sprite* spr_ui_arrow_down;
 extern Sprite* spr_ui_arrow_right;
 extern Sprite* spr_crosshair;
+
+extern Material* mat_brush;
 
 }

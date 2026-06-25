@@ -239,7 +239,7 @@ void EditorLateTick()
 	}
 
 	DrawSetLayer(Layer_Main);
-	DrawGrid(100);
+	// DrawGrid(100);
 
 	// UIBeginTreeList();
 	// InspectorCSGStack(ActiveGame->csg);

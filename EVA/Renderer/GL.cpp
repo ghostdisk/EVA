@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
+#include <vector>
 
 SDL_GLContext GL = nullptr;
 
@@ -44,10 +45,11 @@ static char* GLLoadShaderSource(const char* name, GLenum stage)
 	return (char*)data;
 }
 
-static GLuint GLCompileShader(const char* name, GLenum type, const char* source)
+static GLuint GLCompileShader(const char* name, GLenum type, const char* source, const char* preamble)
 {
 	GLuint shader = glCreateShader(type);
-	glShaderSource(shader, 1, &source, nullptr);
+	const char* sources[] = { preamble, source };
+	glShaderSource(shader, EVA_ARRAYSIZE(sources), sources, nullptr);
 	glCompileShader(shader);
 
 	int success = 0;
@@ -64,15 +66,34 @@ static GLuint GLCompileShader(const char* name, GLenum type, const char* source)
 	return shader;
 }
 
-GLuint GLCompileShaderProgram(const char* name)
+GLuint GLCompileShaderProgram(const char* name, int num_defines, const char** defines)
 {
 	GLuint program = glCreateProgram();
 
 	char* vs_src = GLLoadShaderSource(name, GL_VERTEX_SHADER);
 	char* fs_src = GLLoadShaderSource(name, GL_FRAGMENT_SHADER);
+
+	std::vector<char> preamble;
+
+	auto PushString = [&](const char* str)
+	{
+		int len = strlen(str);
+		int head = preamble.size();
+		preamble.resize(head + len);
+		memcpy(preamble.data() + head, str, len);
+	};
+
+	PushString("#version 430 core\n\n");
+	for (int i = 0; i < num_defines; i++)
+	{
+		PushString("#define ");
+		PushString(defines[i]);
+		PushString("\n");
+	}
+	preamble.push_back('\0');
 	
-	GLuint vs = GLCompileShader(name, GL_VERTEX_SHADER, vs_src);
-	GLuint fs = GLCompileShader(name, GL_FRAGMENT_SHADER, fs_src);
+	GLuint vs = GLCompileShader(name, GL_VERTEX_SHADER, vs_src, preamble.data());
+	GLuint fs = GLCompileShader(name, GL_FRAGMENT_SHADER, fs_src, preamble.data());
 	glAttachShader(program, vs);
 	glAttachShader(program, fs);
 	glLinkProgram(program);
@@ -146,7 +167,7 @@ void MeshDestroy(Mesh* mesh)
 	delete mesh;
 }
 
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format)
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format, bool mips)
 {
 	Texture* texture = new Texture();
 	texture->width = width;
@@ -166,15 +187,24 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, baseformat, type, pixels);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (mips)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	GL_ERROR_CHECK();
 	return texture;
 }
 
-Texture* TextureLoad(const char* name)
+Texture* TextureLoad(const char* name, bool mips)
 {
 	char path[256];
 	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
@@ -191,13 +221,15 @@ Texture* TextureLoad(const char* name)
 	int len = snprintf(name_without_ext, 64, "%s", name);
 	ReplaceFileExtension(name_without_ext, 64, "");
 
-	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8);
+	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8, mips);
 }
 
-Material* MaterialCreate(const char* name, Texture* texture)
+Material* MaterialCreate(const char* name, GLuint shader, Texture* texture)
 {
 	Material* material = new Material();
 	AssetInit(material, AssetType_Material, name);
+
+	material->shader = shader;
 	material->color_texture = texture;
 	return material;
 }

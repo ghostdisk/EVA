@@ -3,13 +3,15 @@
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Library.hpp>
+#include <EVA/Console.hpp>
 #include <vector>
 #include <tracy/Tracy.hpp>
 
-static GLuint LineShader;
-static GLuint MainShader;
-static GLuint DrawBoxShader;
-static Mesh* DrawQuadMesh = nullptr;
+static GLuint shd_lines;
+static GLuint shd_main;
+static GLuint shd_quad;
+static Mesh* mesh_quad = nullptr;
+GLuint shd_brush;
 
 struct LineVertex
 {
@@ -43,13 +45,25 @@ struct LayerData
 LayerData layers[Layer_ENUM_SIZE] = {};
 LayerData* current_layer = &layers[Layer_Main];
 
+ConVar con_gl_wire = {
+	.name = "gl_wire",
+	.help = "toggle opengl wireframe mode",
+	.value = ConValue{
+		.type = ConValueType_Number,
+		.number = 0,
+	},
+};
+
 void RendererInitialize()
 {
-	LineShader    = GLCompileShaderProgram("Lines");
-	MainShader    = GLCompileShaderProgram("Main");
-	DrawBoxShader = GLCompileShaderProgram("DrawBox");
+	shd_lines   = GLCompileShaderProgram("Lines");
+	shd_main    = GLCompileShaderProgram("Main");
+	shd_quad    = GLCompileShaderProgram("DrawBox");
 
-	{ // DrawQuadMesh:
+	const char* brush_defines[] = { "S_BRUSH" };
+	shd_brush = GLCompileShaderProgram("Main", EVA_ARRAYSIZE(brush_defines), brush_defines);
+
+	{ // mesh_quad:
 		MeshVertex quad_vertices[] = {
 			MeshVertex { .position = float3(0, 0, 0) },
 			MeshVertex { .position = float3(1, 0, 0) },
@@ -57,10 +71,12 @@ void RendererInitialize()
 			MeshVertex { .position = float3(0, 1, 0) },
 		};
 		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
-		DrawQuadMesh = MeshCreate("mesh_quad",
+		mesh_quad = MeshCreate("mesh_quad",
 			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
 			EVA_ARRAYSIZE(quad_indices), quad_indices);
 	}
+
+	ConRegisterVar(&con_gl_wire);
 }
 
 void DrawLine(float3 a, float3 b, float4 color)
@@ -117,25 +133,37 @@ void RenderFrame()
 		{ // render pending meshes:
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
-			glUseProgram(MainShader);
-			glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
+			glPolygonMode(GL_FRONT_AND_BACK, con_gl_wire.value.number ?  GL_LINE : GL_FILL);
 
 			for (const DrawMeshEntry& entry : current_layer->meshes)
 			{
-				Material* material = entry.material;
-				if (!material) material = entry.mesh->default_maerial;
+				Material* material      = entry.material;
+				GLuint    shader        = shd_main;
+				Texture*  color_texture = Library::tex_proto;
 
-				Texture* color_texture = Library::tex_proto;
-				if (material && material->color_texture)
+				if (!material)
 				{
-					color_texture = material->color_texture;
+					material = entry.mesh->default_maerial;
 				}
+				if (material)
+				{
+					shader = material->shader;
+					if (material->color_texture)
+					{
+						color_texture = material->color_texture;
+					}
+				}
+
+				glUseProgram(shader);
+				glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
+				GL_ERROR_CHECK();
 
 				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
 				glActiveTexture(GL_TEXTURE0);
 				glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
 				glUniform4fv(3, 1, &entry.color.x);
 				glBindVertexArray(entry.mesh->vao);
+				GL_ERROR_CHECK();
 
 				if (entry.mesh->index_count)
 				{
@@ -145,10 +173,13 @@ void RenderFrame()
 				{
 					glDrawArrays(GL_TRIANGLES, 0, entry.mesh->vertex_count);
 				}
+				GL_ERROR_CHECK();
 			}
 
 			current_layer->meshes.clear();
 		}
+
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 		// render pending lines:
 		if (current_layer->lines.size())
@@ -166,7 +197,7 @@ void RenderFrame()
 			glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(LineVertex), (void*)0);
 			glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(LineVertex), (void*)12);
 
-			glUseProgram(LineShader);
+			glUseProgram(shd_lines);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
@@ -183,8 +214,8 @@ void RenderFrame()
 		{
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_FRONT);
-			glUseProgram(DrawBoxShader);
-			glBindVertexArray(DrawQuadMesh->vao);
+			glUseProgram(shd_quad);
+			glBindVertexArray(mesh_quad->vao);
 			glUniform2f(0, WindowWidth, WindowHeight);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

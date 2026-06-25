@@ -2,6 +2,7 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Input.hpp>
@@ -68,9 +69,13 @@ void GameInit(Game* game)
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCube({10,10,1}),
+		.brush     = CSGCreateCylinder(32, 3, 3),
 	});
-	/*
+	game->csg->nodes.push_back(CSGStackNode{
+		.type      = CSGStackNodeType_Brush,
+		.operation = CSGOperation_Difference,
+		.brush     = CSGCreateCylinder(32, 2, 2),
+	});
 	game->csg->nodes.push_back(CSGStackNode{
 		.type      = CSGStackNodeType_Brush,
 		.transform = float4x4({
@@ -80,9 +85,8 @@ void GameInit(Game* game)
 			2,0,0,1,
 		}),
 		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(32, 1, 2)
+		.brush     = CSGCreateCube({1,0.4,0.8}),
 	});
-	*/
 
 	if (1)
 	{
@@ -151,7 +155,7 @@ void GameDraw(Game* game)
 	DrawSetLayer(Layer_Main);
 	for (int i = 0; i < game->csg->built_brushes.size(); i++)
 	{
-		DrawMesh(game->csg->built_brushes[i]->mesh, nullptr, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);
+		DrawMesh(game->csg->built_brushes[i]->mesh, Library::mat_brush, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);
 	}
 
 	game->entity_manager.Iterate(
