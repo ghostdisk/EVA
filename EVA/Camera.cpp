@@ -20,7 +20,7 @@ void CameraUpdateMatrices(Camera& camera)
 	CameraUpdateBasisVectors(camera);
 
 	glm_look_rh_zo(camera.position, camera.forward, camera.up, camera.view_matrix);
-	glm_perspective_rh_zo(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.02f, 300.0f, camera.projection_matrix);
+	glm_perspective_rh_zo(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.02f, 500.0f, camera.projection_matrix);
 	glm_mat4_mul(camera.projection_matrix, camera.view_matrix, camera.view_projection_matrix);
 
 	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);

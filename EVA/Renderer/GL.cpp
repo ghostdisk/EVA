@@ -10,13 +10,17 @@ SDL_GLContext GL = nullptr;
 #define STB_IMAGE_IMPLEMENTATION
 #include <Vendor/stb_image.h>
 
-void GLInitialize()
+void GLPreInitialize()
 {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+}
+
+void GLInitialize()
+{
 	GL = SDL_GL_CreateContext(GameWindow);
 	if (!GL)
 	{

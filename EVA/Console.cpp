@@ -42,7 +42,7 @@ ConValue Con_clear(int num_args, ConValue* args)
 ConValue Con_exec(int num_args, ConValue* args)
 {
 	char path[256];
-	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, "autoexec.cfg");
+	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, "autoexec.cfg"); // TODO: unhardcode this when we figure out how to do strings rofl
 
 	char* data = nullptr;
 	ReadEntireFile(path, (void**)&data, nullptr);
@@ -111,11 +111,29 @@ void LexInit(ConLexer& lex, const char* script)
 	lex.tok = {};
 }
 
-static void LexSkipSpace(ConLexer& lex)
+static bool LexSkipSpace(ConLexer& lex)
 {
-	while (*lex.head == ' ' || *lex.head == '\t')
+	if (*lex.head == ' ' || *lex.head == '\t')
 	{
-		lex.head++;
+		while (*lex.head == ' ' || *lex.head == '\t') lex.head++;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+static bool LexSkipComment(ConLexer& lex)
+{
+	if (*lex.head == '#')
+	{
+		while (*lex.head != '\n') lex.head++;
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -136,7 +154,9 @@ static void ConLexToken(ConLexer& lex)
 		return; // already lexed
 	}
 
-	LexSkipSpace(lex);
+	while (LexSkipSpace(lex) || LexSkipComment(lex))
+	{
+	}
 	lex.tok.start = lex.head;
 
 	switch (*lex.tok.start)
@@ -161,19 +181,19 @@ static void ConLexToken(ConLexer& lex)
 		lex.tok.type = ConTokenType_Word;
 		lex.tok.end = lex.tok.start;
 
-		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end))
+		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.')
 		{
 			lex.tok.end++;
 		}
 		return;
 	}
 
-	if (LexIsDigit(*lex.tok.start) || *lex.tok.start == '.')
+	if (LexIsDigit(*lex.tok.start) || *lex.tok.start == '.' || *lex.tok.start == '-')
 	{
 		lex.tok.type = ConTokenType_Number;
 		lex.tok.end = lex.tok.start;
 
-		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.')
+		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.' || *lex.tok.end == '-')
 		{
 			lex.tok.end++;
 		}
@@ -281,8 +301,13 @@ ConValue ConExec1(ConLexer& lex, Arena* arena)
 
 Exec:
 	expr_end = lex.tok.end;
+	if (values.size() == 0)
+	{
+		return {};
+	}
+
+	assert(values[0].type == ConValueType_String);
 	ConLog("> %.*s", (int)(expr_end - expr_start), expr_start);
-	assert(values.size() && values[0].type == ConValueType_String);
 
 	for (ConCommand& cmd : commands)
 	{
@@ -390,8 +415,7 @@ void ConsoleDraw()
 
 		UIBeginBox()
 			->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
-			->SetSize(800, 600)
-			->SetPosition((float)WindowWidth/2 - 400, (float)WindowHeight/2 - 300)
+			->SetSize(WindowWidth, 400)
 			->SetColor(COLOR_RGB(57, 9, 23));
 		DEFER(UIEndBox());
 

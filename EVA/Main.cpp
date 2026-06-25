@@ -48,6 +48,7 @@ int main()
 		Fatal("SDL_Init: %s", SDL_GetError());
 	}
 
+	GLPreInitialize();
 	GameWindow = SDL_CreateWindow("EVA", WindowWidth, WindowHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 	if (!GameWindow)
 	{
@@ -153,7 +154,7 @@ int main()
 		{ // Render frame:
 			RenderFrame();
 
-			// DrawSprite(DC, Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7);
+			DrawSprite(Library::spr_crosshair, WindowWidth/2 - 7, WindowHeight/2 - 7, COLOR_WHITE);
 			GL_ERROR_CHECK();
 
 			SDL_GL_SwapWindow(GameWindow);

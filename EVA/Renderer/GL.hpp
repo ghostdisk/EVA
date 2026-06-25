@@ -7,6 +7,7 @@ struct Mesh;
 struct Material;
 struct Texture;
 
+void GLPreInitialize();
 void GLInitialize();
 GLuint GLCompileShaderProgram(const char* name, int num_defines = 0, const char** defines = nullptr);
 
