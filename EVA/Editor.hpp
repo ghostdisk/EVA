@@ -1,5 +1,26 @@
 #pragma once
+#include <EVA/Common.hpp>
+#include <vector>
 
-void EditorInitialize();
-void EditorEarlyTick();
-void EditorLateTick();
+struct CSGBrush;
+
+enum EdOpType
+{
+	EdOpType_None,
+	EdOpType_Brush,
+	EdOpType_Stack,
+};
+
+struct EdOp
+{
+	EdOpType               type     = EdOpType_None;
+	std::vector<CSGBrush*> built    = {};
+	bool                   subtract = false;
+	bool                   selected = false;
+
+	std::vector<EdOp*>     children = {};      // for EdOpType_Stack
+	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
+};
+
+void EdInitialize();
+void EdTick();

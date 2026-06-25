@@ -71,7 +71,7 @@ int main()
 	InputInitialize();
 	FontInitialize();
 	UIInitialize();
-	EditorInitialize();
+	EdInitialize();
 
 	InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_A, -1.0f);
 	InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_D,  1.0f);
@@ -143,11 +143,10 @@ int main()
 			FPS = 1.0f / avg;
 		}
 
-		EditorEarlyTick();
 		GameTickAll(DeltaTime);
 		GameDraw(ActiveGame);
 		ConsoleDraw();
-		EditorLateTick();
+		EdTick();
 		UIEndFrame();
 		UIDraw();
 

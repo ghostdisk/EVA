@@ -15,7 +15,7 @@
 Game* games[8] = {};
 Game* ActiveGame = nullptr;
 
-ConVar con_game = {
+ConVar cvar_game = {
 	.name = "game",
 	.help = "set active game (0 to 7)",
 	.value = ConValue{
@@ -25,10 +25,10 @@ ConVar con_game = {
 	.on_change =
 		[](ConVar* v)
 		{
-			int id = (int)con_game.value.number;
+			int id = (int)cvar_game.value.number;
 			if (id < 0) id = 0;
 			if (id > 7) id = 7;
-			con_game.value.number = id;
+			cvar_game.value.number = id;
 
 			if (!games[id])
 			{
@@ -38,6 +38,15 @@ ConVar con_game = {
 			}
 			ActiveGame = games[id];
 		},
+};
+
+ConVar cvar_show_fps = {
+	.name = "show_fps",
+	.help = "show fps on screen",
+	.value = {
+		.type = ConValueType_Number,
+		.number = 0,
+	},
 };
 
 ConValue Con_tp(int argc, ConValue* args)
@@ -50,7 +59,8 @@ ConValue Con_tp(int argc, ConValue* args)
 
 void GameInitialize()
 {
-	ConRegisterVar(&con_game);
+	ConRegisterVar(&cvar_game);
+	ConRegisterVar(&cvar_show_fps);
 	ConRegisterCommand("tp", Con_tp, "teleport to a position");
 }
 
