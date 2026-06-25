@@ -407,11 +407,13 @@ void ConsoleDraw()
 			UIEndBox();
 		}
 
+		// window padding box
 		UIBeginBox()
 			->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
 			->SetFlexGrow(1)
 			->SetGap(8)
 			->SetPadding(8);
+		DEFER(UIEndBox());
 
 		{ // main content
 			UIBeginBox()
@@ -463,8 +465,6 @@ void ConsoleDraw()
 			ConExec(ArenaInternCString(FrameArena, console_input.data(), console_input.size()));
 			console_input.clear();
 		}
-
-		UIEndBox();
 	}
 }
 

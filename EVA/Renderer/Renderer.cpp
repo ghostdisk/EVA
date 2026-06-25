@@ -74,6 +74,11 @@ void DrawSetLayer(Layer l)
 	current_layer = &layers[l];
 }
 
+void DrawSetLineThickness()
+{
+
+}
+
 void RenderFrame()
 {
 	ZoneScopedN("RenderScene");
