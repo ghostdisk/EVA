@@ -92,7 +92,6 @@ void DrawSetLayer(Layer l)
 
 void DrawSetLineThickness()
 {
-
 }
 
 void RenderFrame()
@@ -100,7 +99,9 @@ void RenderFrame()
 	ZoneScopedN("RenderScene");
 
 	glViewport(0, 0, WindowWidth, WindowHeight);
+	glDepthRange(0.0, 1.0);
 
+	if (glClipControl) glClipControl(GL_LOWER_LEFT,  GL_ZERO_TO_ONE);
 
 	for (Layer layer = (Layer)0; layer < Layer_ENUM_SIZE; layer = (Layer)(layer + 1))
 	{
@@ -122,7 +123,7 @@ void RenderFrame()
 		if (layer_has_depth)
 		{
 			glEnable(GL_DEPTH_TEST);
-			glDepthFunc(GL_LESS);
+			glDepthFunc(GL_LEQUAL);
 			glClear(GL_DEPTH_BUFFER_BIT);
 		}
 		else

@@ -4,9 +4,9 @@
 
 struct Mesh;
 struct CSGPlane;
-struct CSGStack;
 struct CSGBrush;
 struct UIContext;
+struct EdOp;
 
 struct CSGPlane
 {
@@ -19,39 +19,9 @@ struct CSGBrush
 	std::vector<CSGPlane> planes  = {};
 	Mesh*                 mesh    = nullptr;
 	bool                  dirty   = true;
-};
 
-enum CSGStackNodeType
-{
-	CSGStackNodeType_None,
-	CSGStackNodeType_Brush,
-	CSGStackNodeType_Stack,
-};
-
-enum CSGOperation
-{
-	CSGOperation_Union,
-	CSGOperation_Difference,
-	CSGOperation_Intersection,
-};
-
-struct CSGStackNode
-{
-	CSGStackNodeType  type      = CSGStackNodeType_None;
-	float4x4          transform = float4x4::Identity();
-	CSGOperation      operation = CSGOperation_Union;
-	union
-	{
-		CSGBrush* brush;
-		CSGStack* stack;
-	};
-};
-
-struct CSGStack
-{
-	bool                      dirty            = true;
-	std::vector<CSGStackNode> nodes            = {};
-	std::vector<CSGBrush*>    built_brushes    = {};
+	// userdata
+	EdOp* source = nullptr;
 };
 
 CSGBrush*   CSGCreateBrush();
@@ -59,10 +29,7 @@ void        CSGDestroyBrush(CSGBrush* brush);
 void        CSGBuildBrushMesh(CSGBrush* brush);
 void        CSGBuildBrush(CSGBrush* brush);
 CSGBrush*   CSGCloneBrush(CSGBrush* orig);
-
-CSGStack*   CSGCreateStack();
-void        CSGDestroyStack(CSGStack* stack);
-void        CSGBuildStack(CSGStack* stack);
+void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vector<CSGBrush*>& out);
 
 CSGBrush*   CSGCreateCube(float3 size);
 CSGBrush*   CSGCreateCylinder(int segments, float radius, float height);

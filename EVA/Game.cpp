@@ -73,40 +73,28 @@ void GameInit(Game* game)
 	EntityManagerInit(game->entity_manager);
 
 	game->physics = PhysicsCreate();
-
-	game->csg = CSGCreateStack();
-
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
-		.operation = CSGOperation_Union,
-		.brush     = CSGCreateCylinder(32, 3, 3),
-	});
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
-		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCylinder(32, 2, 2),
-	});
-	game->csg->nodes.push_back(CSGStackNode{
-		.type      = CSGStackNodeType_Brush,
-		.transform = float4x4({
-			1,0,0,0,
-			0,1,0,0,
-			0,0,1,0,
-			2,0,0,1,
-		}),
-		.operation = CSGOperation_Difference,
-		.brush     = CSGCreateCube({1,0.4,0.8}),
-	});
-
-	if (1)
-	{
-		ZoneScopedN("CSG Rebuild");
-		CSGBuildStack(game->csg);
-		for (CSGBrush* b : game->csg->built_brushes)
-		{
-			CSGBuildBrushMesh(b);
-		}
-	}
+	// game->csg = CSGCreateStack();
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Union,
+	// 	.brush     = CSGCreateCylinder(32, 3, 3),
+	// });
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.operation = CSGOperation_Difference,
+	// 	.brush     = CSGCreateCylinder(32, 2, 2),
+	// });
+	// game->csg->nodes.push_back(CSGStackNode{
+	// 	.type      = CSGStackNodeType_Brush,
+	// 	.transform = float4x4({
+	// 		1,0,0,0,
+	// 		0,1,0,0,
+	// 		0,0,1,0,
+	// 		2,0,0,1,
+	// 	}),
+	// 	.operation = CSGOperation_Difference,
+	// 	.brush     = CSGCreateCube({1,0.4,0.8}),
+	// });
 }
 
 void GameTick(Game* game, double dt)
@@ -128,45 +116,6 @@ void GameTick(Game* game, double dt)
 void GameDraw(Game* game)
 {
 	ZoneScopedN("GameDraw");
-
-	float4 colors[] = {
-		{ 0.910f, 0.450f, 0.450f, 1.0f },  // red
-		{ 0.910f, 0.542f, 0.450f, 1.0f },
-		{ 0.910f, 0.634f, 0.450f, 1.0f },
-		{ 0.910f, 0.726f, 0.450f, 1.0f },
-		{ 0.910f, 0.818f, 0.450f, 1.0f },
-		{ 0.910f, 0.910f, 0.450f, 1.0f },  // yellow
-		{ 0.818f, 0.910f, 0.450f, 1.0f },
-		{ 0.726f, 0.910f, 0.450f, 1.0f },
-		{ 0.634f, 0.910f, 0.450f, 1.0f },
-		{ 0.542f, 0.910f, 0.450f, 1.0f },
-		{ 0.450f, 0.910f, 0.450f, 1.0f },  // green
-		{ 0.450f, 0.910f, 0.542f, 1.0f },
-		{ 0.450f, 0.910f, 0.634f, 1.0f },
-		{ 0.450f, 0.910f, 0.726f, 1.0f },
-		{ 0.450f, 0.910f, 0.818f, 1.0f },
-		{ 0.450f, 0.910f, 0.910f, 1.0f },  // cyan
-		{ 0.450f, 0.818f, 0.910f, 1.0f },
-		{ 0.450f, 0.726f, 0.910f, 1.0f },
-		{ 0.450f, 0.634f, 0.910f, 1.0f },
-		{ 0.450f, 0.542f, 0.910f, 1.0f },
-		{ 0.450f, 0.450f, 0.910f, 1.0f },  // blue
-		{ 0.542f, 0.450f, 0.910f, 1.0f },
-		{ 0.634f, 0.450f, 0.910f, 1.0f },
-		{ 0.726f, 0.450f, 0.910f, 1.0f },
-		{ 0.818f, 0.450f, 0.910f, 1.0f },
-		{ 0.910f, 0.450f, 0.910f, 1.0f },  // magenta
-		{ 0.910f, 0.450f, 0.818f, 1.0f },
-		{ 0.910f, 0.450f, 0.726f, 1.0f },
-		{ 0.910f, 0.450f, 0.634f, 1.0f },
-		{ 0.910f, 0.450f, 0.542f, 1.0f },
-	};
-
-	DrawSetLayer(Layer_Main);
-	for (int i = 0; i < game->csg->built_brushes.size(); i++)
-	{
-		DrawMesh(game->csg->built_brushes[i]->mesh, Library::mat_brush, float4x4::Identity(), colors[i % EVA_ARRAYSIZE(colors)]);
-	}
 
 	game->entity_manager.Iterate(
 		[](Entity* entity)

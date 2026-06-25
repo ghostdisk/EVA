@@ -3,8 +3,8 @@
 #include <EVA/Entities.hpp>
 #include <EVA/Input.hpp>
 #include <SDL3/SDL.h>
-#include <cglm/clipspace/persp_rh_no.h>
-#include <cglm/clipspace/view_rh_no.h>
+#include <cglm/clipspace/persp_rh_zo.h>
+#include <cglm/clipspace/view_rh_zo.h>
 #include <cglm/euler.h>
 #include <cglm/mat4.h>
 
@@ -19,8 +19,8 @@ void CameraUpdateMatrices(Camera& camera)
 {
 	CameraUpdateBasisVectors(camera);
 
-	glm_look_rh_no(camera.position, camera.forward, camera.up, camera.view_matrix);
-	glm_perspective_rh_no(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.1f, 500.0f, camera.projection_matrix);
+	glm_look_rh_zo(camera.position, camera.forward, camera.up, camera.view_matrix);
+	glm_perspective_rh_zo(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.02f, 300.0f, camera.projection_matrix);
 	glm_mat4_mul(camera.projection_matrix, camera.view_matrix, camera.view_projection_matrix);
 
 	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);

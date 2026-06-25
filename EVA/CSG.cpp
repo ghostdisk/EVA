@@ -242,85 +242,6 @@ void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& transform, std::vec
 	//}
 }
 
-void CSGBuildStack(CSGStack* stack)
-{
-	ZoneScopedN("CSGBuildStack");
-	stack->dirty = false;
-
-	for (CSGBrush* brush : stack->built_brushes)
-	{
-		CSGDestroyBrush(brush);
-	}
-	stack->built_brushes.clear();
-
-	for (const CSGStackNode& node : stack->nodes)
-	{
-		switch (node.type)
-		{
-			case CSGStackNodeType_Brush:
-			{
-				if (node.brush->dirty) CSGBuildBrush(node.brush);
-				std::vector<CSGBrush*> out;
-
-				switch (node.operation)
-				{
-					case CSGOperation_Union:
-					{
-						assert(!node.brush->dirty);
-
-						std::vector<CSGBrush*> new_brushes;
-
-						for (CSGBrush* old : stack->built_brushes)
-						{
-							CSGDifference(old, node.brush, node.transform, new_brushes);
-						}
-						new_brushes.push_back(CSGCloneBrush(node.brush));
-
-						stack->built_brushes = new_brushes;
-						break;
-					}
-					case CSGOperation_Difference:
-					{
-						assert(!node.brush->dirty);
-
-						std::vector<CSGBrush*> new_brushes;
-						for (CSGBrush* old : stack->built_brushes)
-						{
-							CSGDifference(old, node.brush, node.transform, new_brushes);
-						}
-						stack->built_brushes = new_brushes;
-						break;
-					}
-					case CSGOperation_Intersection:
-					{
-						assert(0);
-						break;
-					}
-				}
-
-				break;
-			}
-			default:
-			{
-				assert(!"Not implemented");
-			}
-		}
-	}
-}
-
-CSGBrush* CSGCreateCube(float3 size)
-{
-	CSGBrush* brush = CSGCreateBrush();
-	brush->planes.push_back({ Plane(float3( 1, 0, 0), size.x) });
-	brush->planes.push_back({ Plane(float3( -1, 0, 0), size.x) });
-	brush->planes.push_back({ Plane(float3(0,  1, 0), size.y) });
-	brush->planes.push_back({ Plane(float3(0,  -1, 0), size.y) });
-	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
-	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
-	CSGBuildBrush(brush);
-	return brush;
-}
-
 int HighestBit(unsigned x)
 {
 	if (x == 0) return -1; 
@@ -344,6 +265,38 @@ U32 NextPow2(U32 x)
 	x |= x >> 16;
 	x++;
 	return x;
+}
+
+CSGBrush* CSGCreateBrush()
+{
+	CSGBrush* brush = new CSGBrush();
+	brush->dirty = true;
+	return brush;
+}
+
+void CSGDestroyBrush(CSGBrush* brush)
+{
+	if (brush->mesh) MeshDestroy(brush->mesh);
+	delete brush;
+}
+
+float Intersect(const Ray& ray, CSGBrush* brush)
+{
+	float min_t = -1.0f;
+	float max_t = INFINITY;
+
+	for (CSGPlane& plane : brush->planes)
+	{
+		float dot = Dot(plane.plane.normal, ray.direction);
+		if (abs(dot) > 0.0001)
+		{
+			float t = Intersect(ray, plane.plane);
+			if (dot > 0 && max_t > t) max_t = t;
+			if (dot < 0 && min_t < t) min_t = t;
+		}
+	}
+
+	return min_t < max_t ? min_t : -1.0f;
 }
 
 CSGBrush* CSGCreateCylinder(int segments, float radius, float height)
@@ -380,45 +333,15 @@ CSGBrush* CSGCreateCylinder(int segments, float radius, float height)
 	return brush;
 }
 
-CSGBrush* CSGCreateBrush()
+CSGBrush* CSGCreateCube(float3 size)
 {
-	CSGBrush* brush = new CSGBrush();
-	brush->dirty = true;
+	CSGBrush* brush = CSGCreateBrush();
+	brush->planes.push_back({ Plane(float3( 1, 0, 0), size.x) });
+	brush->planes.push_back({ Plane(float3( -1, 0, 0), size.x) });
+	brush->planes.push_back({ Plane(float3(0,  1, 0), size.y) });
+	brush->planes.push_back({ Plane(float3(0,  -1, 0), size.y) });
+	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
+	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
+	CSGBuildBrush(brush);
 	return brush;
-}
-
-void CSGDestroyBrush(CSGBrush* brush)
-{
-	if (brush->mesh) MeshDestroy(brush->mesh);
-	delete brush;
-}
-
-CSGStack* CSGCreateStack()
-{
-	CSGStack* stack = new CSGStack();
-	return stack;
-}
-
-void CSGDestroyStack(CSGStack* stack)
-{
-	delete stack;
-}
-
-float Intersect(const Ray& ray, CSGBrush* brush)
-{
-	float min_t = -1.0f;
-	float max_t = INFINITY;
-
-	for (CSGPlane& plane : brush->planes)
-	{
-		float dot = Dot(plane.plane.normal, ray.direction);
-		if (abs(dot) > 0.0001)
-		{
-			float t = Intersect(ray, plane.plane);
-			if (dot > 0 && max_t > t) max_t = t;
-			if (dot < 0 && min_t < t) min_t = t;
-		}
-	}
-
-	return min_t < max_t ? min_t : -1.0f;
 }
