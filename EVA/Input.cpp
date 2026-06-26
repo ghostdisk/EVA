@@ -1,6 +1,7 @@
 #include <EVA/Input.hpp>
 #include <EVA/Math.hpp>
 #include <SDL3/SDL.h>
+#include <EVA/Console.hpp>
 #include <vector>
 
 struct InputButtonState
@@ -24,6 +25,10 @@ struct InputActionKeyBinding
 	SDL_Scancode key;
 };
 
+struct CommandKeyBinding
+{
+};
+
 static std::vector<InputButtonState>      button_states       = {};
 static std::vector<InputAxisKeyBinding>   axis_key_bindings   = {};
 static std::vector<InputActionKeyBinding> action_key_bindings = {};
@@ -33,8 +38,13 @@ float2 InputMousePosition = {};
 static float input_axes[InputAxis_ENUM_SIZE] = {};
 static bool input_actions[InputAction_ENUM_SIZE] = {};
 
+void Con_bind(ConParser& parser)
+{
+}
+
 void InputInitialize()
 {
+	ConRegisterCommand("bind", Con_bind, "bind an action to a button");
 }
 
 bool TextInputConsumesKey(SDL_Scancode scancode)

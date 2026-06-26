@@ -13,10 +13,7 @@ static EdOp* root = nullptr;
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
 	.help = "show subtract brushes",
-	.value = {
-		.type = ConValueType_Number,
-		.number = 0,
-	},
+	.fvalue = 0,
 };
 
 static float4 brush_colors[] = {
@@ -200,77 +197,58 @@ void EdInitialize()
 {
 	ConRegisterVar(&cvar_ed_show_sub);
 	ConRegisterCommand("ed_cube",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdOp* op = EdCreateOp();
-			op->brush = CSGCreateCube({
-				(argc > 0 && argv[0].number) ? argv[0].number : 1.0f,
-				(argc > 1 && argv[1].number) ? argv[1].number : 1.0f,
-				(argc > 2 && argv[2].number) ? argv[2].number : 1.0f,
-			});
+			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 			op->type = EdOpType_Brush;
 			root->children.push_back(op);
 			EdSelect(op);
 			EdBuild(root);
-			return {};
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_cylinder",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdOp* op = EdCreateOp();
-			op->brush = CSGCreateCylinder(
-				(argc > 0 && argv[0].number) ? argv[0].number : 12,
-				(argc > 1 && argv[1].number) ? argv[1].number : 1.0f,
-				(argc > 2 && argv[2].number) ? argv[2].number : 1.0f
-			);
+			op->brush = CSGCreateCylinder( parser.FloatArg(12.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f));
 			op->type = EdOpType_Brush;
 			root->children.push_back(op);
 			EdSelect(op);
 			EdBuild(root);
-			return {};
 		}, "editor: create a cylinder");
 	ConRegisterCommand("ed_move",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
-			float3 offset = {
-				(argc > 0 && argv[0].number) ? argv[0].number : 0.0f,
-				(argc > 1 && argv[1].number) ? argv[1].number : 0.0f,
-				(argc > 2 && argv[2].number) ? argv[2].number : 0.0f,
-			};
+			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
 			EdForeachSelected([&](EdOp* op)
 				{
 					op->position += offset;
 					return false;
 				}, root);
 			EdBuild(root);
-			return {};
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_build",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdBuild(root);
-			return {};
 		}, "editor: rebuild csg");
 	ConRegisterCommand("ed_add",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdForeachSelected([](EdOp* op) { op->subtract = false; return false; }, root);
 			EdBuild(root);
-			return {};
 		}, "editor: set selected to add");
 	ConRegisterCommand("ed_sub",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdForeachSelected([](EdOp* op) { op->subtract = true; return false; }, root);
 			EdBuild(root);
-			return {};
 		}, "editor: set selected to subtract");
 	ConRegisterCommand("ed_del",
-		[](int argc, ConValue* argv) -> ConValue
+		[](ConParser& parser)
 		{
 			EdDestroySelectedRecursively(root);
 			EdBuild(root);
-			return {};
 		}, "editor: delete subtract");
 
 	root = EdCreateOp();
@@ -379,7 +357,7 @@ void EdTick()
 	DrawSetLayer(Layer_Main);
 	EdOutlineSelectionRecursively(root, {1,1,1,1});
 
-	if (cvar_ed_show_sub.value.number)
+	if (cvar_ed_show_sub.fvalue)
 	{
 		EdForeach([](EdOp* op)
 			{

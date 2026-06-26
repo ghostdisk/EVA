@@ -18,17 +18,14 @@ Game* ActiveGame = nullptr;
 ConVar cvar_game = {
 	.name = "game",
 	.help = "set active game (0 to 7)",
-	.value = ConValue{
-		.type = ConValueType_Number,
-		.number = 0,
-	},
+	.fvalue = 0,
 	.on_change =
 		[](ConVar* v)
 		{
-			int id = (int)cvar_game.value.number;
+			int id = (int)cvar_game.fvalue;
 			if (id < 0) id = 0;
 			if (id > 7) id = 7;
-			cvar_game.value.number = id;
+			cvar_game.fvalue = id;
 
 			if (!games[id])
 			{
@@ -43,18 +40,16 @@ ConVar cvar_game = {
 ConVar cvar_show_fps = {
 	.name = "show_fps",
 	.help = "show fps on screen",
-	.value = {
-		.type = ConValueType_Number,
-		.number = 0,
-	},
+	.fvalue = 0,
 };
 
-ConValue Con_tp(int argc, ConValue* args)
+void Con_tp(ConParser& parser)
 {
-	if (argc >= 1 && args[0].type == ConValueType_Number) ActiveGame->camera.position.x = args[0].number;
-	if (argc >= 2 && args[1].type == ConValueType_Number) ActiveGame->camera.position.y = args[1].number;
-	if (argc >= 3 && args[2].type == ConValueType_Number) ActiveGame->camera.position.z = args[2].number;
-	return {};
+	Camera* cam = &ActiveGame->camera;
+	cam->position = float3(
+		parser.FloatArg(cam->position.x),
+		parser.FloatArg(cam->position.y),
+		parser.FloatArg(cam->position.z));
 }
 
 void GameInitialize()

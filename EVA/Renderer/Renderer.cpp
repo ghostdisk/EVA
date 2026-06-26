@@ -45,13 +45,10 @@ struct LayerData
 LayerData layers[Layer_ENUM_SIZE] = {};
 LayerData* current_layer = &layers[Layer_Main];
 
-ConVar con_gl_wire = {
+ConVar cvar_gl_wire = {
 	.name = "gl_wire",
 	.help = "toggle opengl wireframe mode",
-	.value = ConValue{
-		.type = ConValueType_Number,
-		.number = 0,
-	},
+	.fvalue = 0,
 };
 
 void RendererInitialize()
@@ -76,7 +73,7 @@ void RendererInitialize()
 			EVA_ARRAYSIZE(quad_indices), quad_indices);
 	}
 
-	ConRegisterVar(&con_gl_wire);
+	ConRegisterVar(&cvar_gl_wire);
 }
 
 void DrawLine(float3 a, float3 b, float4 color)
@@ -134,7 +131,7 @@ void RenderFrame()
 		{ // render pending meshes:
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_BACK);
-			glPolygonMode(GL_FRONT_AND_BACK, con_gl_wire.value.number ?  GL_LINE : GL_FILL);
+			glPolygonMode(GL_FRONT_AND_BACK, cvar_gl_wire.fvalue ?  GL_LINE : GL_FILL);
 
 			for (const DrawMeshEntry& entry : current_layer->meshes)
 			{

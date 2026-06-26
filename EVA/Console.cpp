@@ -10,7 +10,7 @@
 struct ConCommand
 {
 	const char* name;
-	ConValue (*function)(int num_args, ConValue* args);
+	ConProc proc;
 	const char* help;
 };
 
@@ -20,7 +20,7 @@ static std::vector<ConCommand> commands;
 static std::vector<ConVar*> vars;
 static bool console_open = false;
 
-ConValue Con_help(int num_args, ConValue* args)
+void Con_help(ConParser& parser)
 {
 	for (const ConCommand& cmd : commands)
 	{
@@ -30,32 +30,26 @@ ConValue Con_help(int num_args, ConValue* args)
 	{
 		ConLog("- %s: %s", var->name, var->help);
 	}
-	return {};
 }
 
-ConValue Con_clear(int num_args, ConValue* args)
+void Con_clear(ConParser& parser)
 {
 	console_log.clear();
-	return {};
 }
 
-ConValue Con_exec(int num_args, ConValue* args)
+void Con_exec(ConParser& parser)
 {
 	char path[256];
-	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, "autoexec.cfg"); // TODO: unhardcode this when we figure out how to do strings rofl
+	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, parser.StringArg());
 
 	char* data = nullptr;
 	ReadEntireFile(path, (void**)&data, nullptr);
 	if (!data)
 	{
-		return ConValue{
-			.type = ConValueType_Error,
-			.string = ArenaPrintf(FrameArena, "failed to open %s", path)
-		};
+		return ConError("failed to open %s", path);
 	}
-	ConValue val = ConExec(data);
+	ConExec(data);
 	free(data);
-	return val;
 }
 
 void ConsoleInitialize()
@@ -74,327 +68,126 @@ void ConLog(const char* fmt, ...)
 	console_log.push_back(str);
 }
 
-enum ConTokenType : U8
+void ConError(const char* fmt, ...)
 {
-	ConTokenType_EOF = 0,
-
-	ConTokenType_NewLine   = '\n',
-	ConTokenType_Semi      = ';',
-
-	ConTokenType_Word   = 128,
-	ConTokenType_Number = 129,
-	ConTokenType_Error  = 130,
-};
-
-struct ConToken
-{
-	ConTokenType type;
-	const char* start;
-	const char* end;
-	float num;
-};
-
-
-struct ConLexer
-{
-	const char* start;
-	const char* head;
-	const char* end;
-	ConToken tok;
-};
-
-void LexInit(ConLexer& lex, const char* script)
-{
-	lex.start = script;
-	lex.end = script + strlen(script);
-	lex.head = script;
-	lex.tok = {};
+	va_list args;
+	va_start(args, fmt);
+	const char* str = ArenaVprintf(FrameArena, fmt, args);
+	va_end(args);
+	console_log.push_back(ArenaPrintf(FrameArena, "error: %s", str));
 }
 
-static bool LexSkipSpace(ConLexer& lex)
+static bool ConSkipSpace(ConParser& parser)
 {
-	if (*lex.head == ' ' || *lex.head == '\t')
+	if (*parser.head != ' ' && *parser.head != '\t') return false;
+	while (*parser.head == ' ' || *parser.head == '\t') parser.head++;
+	return true;
+}
+
+static void ConSkipLine(ConParser& parser)
+{
+	while (*parser.head != '\n' && *parser.head != '\0') parser.head++;
+	if (*parser.head == '\n') parser.head++;
+}
+
+static bool ConSkipComment(ConParser& parser)
+{
+	if (*parser.head != '#') return false;
+	ConSkipLine(parser);
+	return true;
+}
+
+const char* ConParser::StringArg()
+{
+	ConSkipSpace(*this);
+
+	if (*head == '\n' || *head == '\r' || *head == '\r') return nullptr;
+
+	const char* start = head;
+	while ((*head > ' ' && *head <= '~'))
 	{
-		while (*lex.head == ' ' || *lex.head == '\t') lex.head++;
-		return true;
+		head++;
+	}
+	return ArenaInternCString(FrameArena, start, head - start);
+}
+
+float ConParser::FloatArg(float fallback)
+{
+	const char* s = StringArg();
+	char* endptr = 0;
+	float f = strtof(s, &endptr);
+	if (*endptr == '\0')
+	{
+		return f;
 	}
 	else
 	{
+		return fallback;
+	}
+}
+
+void ConExec(const char* script)
+{
+	ConParser parser;
+	parser.start = script;
+	parser.end = script + strlen(script);
+	parser.head = script;
+	ConExec(parser);
+}
+
+bool ConExecSingle(ConParser& parser)
+{
+	const char* cmd = parser.StringArg();
+	if (!cmd)
+	{
+		ConSkipLine(parser);
 		return false;
 	}
-}
 
-static bool LexSkipComment(ConLexer& lex)
-{
-	if (*lex.head == '#')
+	for (ConCommand c : commands)
 	{
-		while (*lex.head != '\n') lex.head++;
-		return true;
+		if (strcmp(c.name, cmd) == 0)
+		{
+			c.proc(parser);
+			return true;
+		}
 	}
-	else
+
+	const char* value = parser.StringArg();
+	if (!value)
 	{
+		ConSkipLine(parser);
 		return false;
 	}
-}
 
-static bool LexIsLetter(char ch)
-{
-	return ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-}
-
-static bool LexIsDigit(char ch)
-{
-	return ch >= '0' && ch <= '9';
-}
-
-static void ConLexToken(ConLexer& lex)
-{
-	if (lex.tok.end > lex.head)
-	{
-		return; // already lexed
-	}
-
-	while (LexSkipSpace(lex) || LexSkipComment(lex))
-	{
-	}
-	lex.tok.start = lex.head;
-
-	switch (*lex.tok.start)
-	{
-		case '\r':
-		{
-			lex.tok.end = lex.tok.start + 2;
-			lex.tok.type = ConTokenType_NewLine;
-			return;
-		}
-		case ';':
-		case '\n':
-		{
-			lex.tok.end = lex.tok.start + 1;
-			lex.tok.type = (ConTokenType)*lex.head;
-			return;
-		}
-	}
-
-	if (LexIsLetter(*lex.head))
-	{
-		lex.tok.type = ConTokenType_Word;
-		lex.tok.end = lex.tok.start;
-
-		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.')
-		{
-			lex.tok.end++;
-		}
-		return;
-	}
-
-	if (LexIsDigit(*lex.tok.start) || *lex.tok.start == '.' || *lex.tok.start == '-')
-	{
-		lex.tok.type = ConTokenType_Number;
-		lex.tok.end = lex.tok.start;
-
-		while (LexIsLetter(*lex.tok.end) || LexIsDigit(*lex.tok.end) || *lex.tok.end == '.' || *lex.tok.end == '-')
-		{
-			lex.tok.end++;
-		}
-		lex.tok.num = 0.0f;
-		if (lex.tok.end < lex.tok.start + 32)
-		{
-			char cp[40];
-			memcpy(cp, lex.tok.start, lex.tok.end - lex.tok.start);
-			cp[lex.tok.end - lex.tok.start] = '\0';
-			char* ep = 0;
-			lex.tok.num = strtof(cp, &ep);
-		}
-
-		return;
-	}
-
-	if (*lex.tok.start == '\0')
-	{
-		lex.tok.type = ConTokenType_EOF;
-		lex.tok.end = lex.tok.start;
-		return;
-	}
-
-	lex.tok.type = ConTokenType_Error;
-	lex.tok.end = lex.tok.start;
-}
-
-static void ConLexAdvance(ConLexer& lex)
-{
-	lex.head = lex.tok.end;
-}
-
-ConValue ConTokenToValue(const ConToken& tok, Arena* arena)
-{
-	switch (tok.type)
-	{
-		case ConTokenType_Error:
-			return ConValue{
-				.type = ConValueType_Error,
-				.string = ArenaInternCString(arena, "parse error"),
-			};
-		case ConTokenType_Number:
-			return ConValue{
-				.type = ConValueType_Number,
-				.number = tok.num,
-			};
-		case ConTokenType_Word:
-			return ConValue{
-				.type = ConValueType_String,
-				.string = ArenaInternCString(arena, tok.start, tok.end - tok.start),
-			};
-		default:
-			return ConValue{
-				.type = ConValueType_Null,
-			};
-	}
-}
-
-ConValue ConExec1(ConLexer& lex, Arena* arena)
-{
-	std::vector<ConValue> values;
-
-	const char* expr_start = lex.tok.start;
-	const char* expr_end = 0;
-
-	for (;;)
-	{
-		ConLexToken(lex);
-		ConLexAdvance(lex);
-
-		switch (lex.tok.type)
-		{
-			case ConTokenType_Word:
-			{
-				values.push_back(ConTokenToValue(lex.tok, arena));
-				break;
-			}
-			case ConTokenType_Error:
-			{
-				return ConTokenToValue(lex.tok, arena);
-			}
-			case ConTokenType_NewLine:
-			case ConTokenType_Semi:
-			case ConTokenType_EOF:
-			{
-				goto Exec;
-			}
-			default:
-			{
-				if (values.size())
-				{
-					values.push_back(ConTokenToValue(lex.tok, arena));
-				}
-				else
-				{
-					expr_end = lex.tok.end;
-					ConLog("> %.*s", (int)(expr_end - expr_start), expr_start);
-					return ConTokenToValue(lex.tok, arena);
-				}
-				break;
-			}
-		}
-	}
-
-
-Exec:
-	expr_end = lex.tok.end;
-	if (values.size() == 0)
-	{
-		return {};
-	}
-
-	assert(values[0].type == ConValueType_String);
-	ConLog("> %.*s", (int)(expr_end - expr_start), expr_start);
-
-	for (ConCommand& cmd : commands)
-	{
-		if (strcmp(cmd.name, values[0].string) == 0)
-		{
-			return cmd.function(values.size() - 1, values.data() + 1);
-		}
-	}
 	for (ConVar* var : vars)
 	{
-		if (strcmp(var->name, values[0].string) == 0)
+		if (strcmp(var->name, cmd) == 0)
 		{
-			if (values.size() == 1)
+			snprintf(var->svalue, sizeof(var->svalue), "%s", value);
+			char* endptr = 0;
+			float f = strtof(var->svalue, &endptr);
+			if (*endptr == '\0')
 			{
-				return var->value;
+				var->fvalue = f;
 			}
-			if (var->value.type != values[1].type)
-			{
-				return ConValue{
-					.type = ConValueType_Error,
-					.string = ArenaPrintf(arena, "type mismatch"),
-				};
-			}
-			var->value = values[1];
+			ConSkipLine(parser);
 			if (var->on_change) var->on_change(var);
-
-			return var->value;
+			return true;
 		}
 	}
 
-	return ConValue{
-		.type = ConValueType_Error,
-		.string = ArenaPrintf(arena, "%s means nothing to me", values[0].string),
-	};
+	ConError("%s means nothing to me", cmd);
+	ConSkipLine(parser);
+	return false;
 }
 
-void ConLog(ConValue val)
+void ConExec(ConParser& parser)
 {
-	switch (val.type)
+	while (parser.head < parser.end)
 	{
-		case ConValueType_Error:
-		{
-			ConLog("error: %s", val.string);
-			return;
-		}
-		case ConValueType_String:
-		{
-			ConLog("\"%s\"", val.string);
-			return;
-		}
-		case ConValueType_Number:
-		{
-			ConLog("%g", val.number);
-			return;
-		}
-		case ConValueType_Null:
-		{
-			ConLog("null");
-			return;
-		}
+		ConExecSingle(parser);
 	}
-}
-
-ConValue ConExec(const char* script)
-{
-	ConLexer lex;
-	LexInit(lex, script);
-
-	ConValue val = {};
-
-	for (;;)
-	{
-		ConLexToken(lex);
-		if (lex.tok.type == ConTokenType_EOF)
-		{
-			break;
-		}
-
-		val = ConExec1(lex, FrameArena);
-		if (val.type == ConValueType_Error)
-		{
-			break;
-		}
-	}
-
-	ConLog(val);
-	return val;
 }
 
 void ConsoleDraw()
@@ -492,11 +285,11 @@ void ConsoleDraw()
 	}
 }
 
-void ConRegisterCommand(const char* name, ConValue (*function)(int num_args, ConValue* args), const char* help)
+void ConRegisterCommand(const char* name, ConProc proc, const char* help)
 {
 	commands.push_back(ConCommand{
 		.name     = name,
-		.function = function,
+		.proc     = proc,
 		.help     = help
 	});
 }
