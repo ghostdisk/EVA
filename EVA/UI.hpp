@@ -115,17 +115,23 @@ struct UIBox
 	UIBox*   SetFlex                 (UIAxis axis, UIAlignment main = UIAlignment_Start, UIAlignment cross = UIAlignment_Start);
 	UIBox*   SetFlexGrow             (float flex_grow);
 	void*    GetData                 ();
+
+	bool Clicked() { return flags & UIBoxFlags_Clicked; }
+	bool Hovered() { return flags & UIBoxFlags_Hover; }
+	bool Pressed() { return flags & UIBoxFlags_Pressed; }
+	bool Focused() { return flags & UIBoxFlags_Focus; }
 };
 
 struct UIContext
 {
-	Font*               default_font = nullptr;
-	std::vector<UIBox*> all_boxes    = {};
-	std::vector<U32>    id_stack     = {};
-	std::vector<UIBox*> box_stack    = {};
-	UIBox               root         = {};
-	U32                 pressed_id   = {};
-	UIBox*              focus_box    = nullptr;
+	Font*               default_font     = nullptr;
+	std::vector<UIBox*> all_boxes        = {};
+	std::vector<U32>    id_stack         = {};
+	std::vector<UIBox*> box_stack        = {};
+	UIBox               root             = {};
+	U32                 pressed_id       = {};
+	UIBox*              focus_box        = nullptr;
+	bool                captures_mouse   = false;
 };
 
 
@@ -158,24 +164,17 @@ enum UITreeNodeFlagBits : U32
 {
 	UITreeNodeFlags_None        = 0x00,
 	UITreeNodeFlags_Leaf        = 0x01,
-	UITreeNodeFlags_Selected    = 0x02,
-	UITreeNodeFlags_DefaultOpen = 0x04,
+	UITreeNodeFlags_DefaultOpen = 0x02,
+	UITreeNodeFlags_Selected    = 0x04,
 };
 typedef U32 UITreeNodeFlags;
-struct UITreeNodeStatus
-{
-	bool open     = false;
-	bool selected = false;
-	bool hover    = false;
-
-	operator bool() { return open; };
-};
-UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags = 0);
+bool UIBeginTreeNode(const char* text,  UIBox** out_box = nullptr, UITreeNodeFlags flags = 0);
 void UIBeginTreeList();
 void UIEndTreeList();
 void UIEndTreeNode();
 void UIFocus(UIBox* box);
 bool UIProcessSDLEvent(SDL_Event* event);
+bool UICapturesMouse();
 
 UIBox* UITextInput(std::vector<char>& buffer);
 

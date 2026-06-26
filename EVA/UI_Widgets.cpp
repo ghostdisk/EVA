@@ -32,24 +32,21 @@ bool UIButton(const char* text)
 	UIPushId(text);
 	UIBox* button = UIBeginBox(1)->SetPadding(8, 16);
 
-	if      (button->flags & UIBoxFlags_Pressed) button->color = COLOR_BUTTON_PRESSED;
-	else if (button->flags & UIBoxFlags_Hover)   button->color = COLOR_BUTTON_HOVER;
-	else                                         button->color = COLOR_BUTTON;
+	if      (button->Pressed()) button->color = COLOR_BUTTON_PRESSED;
+	else if (button->Hovered()) button->color = COLOR_BUTTON_HOVER;
+	else                        button->color = COLOR_BUTTON;
 
 	UILabel(text);
 	UIEndBox();
 	UIPopId();
 
-	return button->flags & UIBoxFlags_Clicked;
+	return button->Clicked();
 }
 
-UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags)
+bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
 {
 	UIBox* outer_contents = UIBeginBox()
 		->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
-
-	UITreeNodeStatus status = {};
-	status.selected = flags & UITreeNodeFlags_Selected;
 
 	UIPushId(text);
 
@@ -59,19 +56,20 @@ UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags)
 		bool default_data = (bool)(flags & UITreeNodeFlags_DefaultOpen);
 
 		UIBox* box = UIBeginBox(1, 1, &default_data)
-			->SetFlex(UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center);
+			->SetFlex(UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center)
+			->SetPadding(2, 8);
 
 		open = (bool*)box->GetData();
 
-		if (status.selected)
+		if (flags & UITreeNodeFlags_Selected)
 		{
 			box->color = COLOR_BUTTON_ACTIVE;
 		}
 		else
 		{
-			if      (box->flags & UIBoxFlags_Pressed) box->color = COLOR_BUTTON_PRESSED;
-			else if (box->flags & UIBoxFlags_Hover)   box->color = COLOR_BUTTON_HOVER;
-			else                                      box->color = COLOR_BUTTON;
+			if      (box->Pressed())   box->color = COLOR_BUTTON_PRESSED;
+			else if (box->Hovered())   box->color = COLOR_BUTTON_HOVER;
+			else                       box->color = COLOR_BUTTON;
 		}
 
 
@@ -84,23 +82,18 @@ UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags)
 		}
 		UIEndBox();
 
-		if (arrow_box->flags & UIBoxFlags_Clicked)
+		if (arrow_box->Clicked())
 		{
 			*open = !*open;
 		}
-		else if (box->flags & UIBoxFlags_Clicked)
-		{
-			status.selected = !status.selected;
-		}
 
-		status.hover = box->flags & UIBoxFlags_Hover;
 		UILabel(text);
 
 		UIEndBox();
 		UIPopId();
-	}
 
-	status.open = *open;
+		if (out_box) *out_box = box;
+	}
 
 	if (*open)
 	{
@@ -112,7 +105,7 @@ UITreeNodeStatus UIBeginTreeNode(const char* text, UITreeNodeFlags flags)
 	{
 		UIEndBox();
 	}
-	return status;
+	return *open;
 }
 
 void UIEndTreeNode()
@@ -187,7 +180,7 @@ UIBox* UITextInput(std::vector<char>& buffer)
 	if (box->flags & UIBoxFlags_JustCreated) text_edit->cursor = buffer.size();
 	text_edit->FixCursor();
 
-	if (box->flags & UIBoxFlags_Focus)
+	if (box->Focused())
 	{
 		box->SetColor(COLOR_BUTTON_ACTIVE);
 		if (InputGetButtonDown(SDL_SCANCODE_BACKSPACE)) text_edit->Backspace();
@@ -230,7 +223,7 @@ UIBox* UITextInput(std::vector<char>& buffer)
 
 					DrawText(font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
 
-					if (box->flags & UIBoxFlags_Focus)
+					if (box->Focused())
 					{
 						float2 cursor_pos = MeasureText(font, text_edit->buffer->data(), text_edit->cursor);
 						float cursor_offset = -(font->line_height - font->pixel_size) / 2.0f;

@@ -5,6 +5,7 @@
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>
+#include <EVA/UI.hpp>
 #include <cglm/affine.h>
 
 static EdOp* root = nullptr;
@@ -312,6 +313,41 @@ EdOp* EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t)
 	}
 }
 
+void EdOpGUI(EdOp* op)
+{
+	UIPushId(op);
+	DEFER(UIPopId());
+
+	UITreeNodeFlags flags = 0;
+	if (op->selected) flags |= UITreeNodeFlags_Selected;
+	if (op->type == EdOpType_Brush) flags |= UITreeNodeFlags_Leaf;
+	flags |= UITreeNodeFlags_DefaultOpen;
+
+	const char* name = op->type == EdOpType_Brush ? "Brush" : "Stack";
+
+	UIBox* tree_node = 0;
+	if (UIBeginTreeNode(name, &tree_node, flags))
+	{
+		switch (op->type)
+		{
+			case EdOpType_Stack:
+			{
+				for (EdOp* child : op->children)
+				{
+					EdOpGUI(child);
+				}
+				break;
+			}
+			default: break;
+		}
+		UIEndTreeNode();
+	}
+	if (tree_node->Clicked())
+	{
+		EdSelect(op);
+	}
+}
+
 void EdTick()
 {
 	DrawSetLayer(Layer_Main);
@@ -323,7 +359,7 @@ void EdTick()
 	}
 
 	bool select = false;
-	if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{
 		select = true;
 	}
@@ -356,5 +392,11 @@ void EdTick()
 				}
 				return true;
 			}, root);
+	}
+
+	{
+		UIBeginBox()->SetSize(200, 0)->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
+		EdOpGUI(root);
+		UIEndBox();
 	}
 }

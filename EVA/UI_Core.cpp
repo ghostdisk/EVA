@@ -219,6 +219,8 @@ void UIEndFrame()
 		UIFocus(focus_box);
 	}
 
+	UI->captures_mouse = hovered_box && hovered_box != &UI->root;
+
 	for (UIBox* box = hovered_box; box; box = box->parent)
 	{
 		box->flags |= UIBoxFlags_Hover;
@@ -458,4 +460,9 @@ bool UIProcessSDLEvent(SDL_Event* event)
 		}
 	}
 	return false;
+}
+
+bool UICapturesMouse()
+{
+	return UI->captures_mouse;
 }
