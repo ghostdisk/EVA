@@ -257,7 +257,7 @@ void InputUpdateAxes()
 
 	for (const CommandKeyBinding& bind : command_key_bindings)
 	{
-		if (InputGetButtonDown(bind.button))
+		if (!TextInputConsumesKey((SDL_Scancode)bind.button) && InputGetButtonDown(bind.button))
 		{
 			ConExec(bind.command);
 		}

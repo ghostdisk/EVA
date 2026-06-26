@@ -210,7 +210,10 @@ void EdInitialize()
 		[](ConParser& parser)
 		{
 			EdOp* op = EdCreateOp();
-			op->brush = CSGCreateCylinder( parser.FloatArg(12.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f));
+			int nseg = parser.FloatArg(12.0f);
+			int rad  = parser.FloatArg(1.0f);
+			int height = parser.FloatArg(1.0f);
+			op->brush = CSGCreateCylinder(nseg, rad, height);
 			op->type = EdOpType_Brush;
 			root->children.push_back(op);
 			EdSelect(op);
@@ -332,8 +335,8 @@ void EdTick()
 	for (int i = 0; i < root->built.size(); i++)
 	{
 		CSGBrush* b = root->built[i];
-		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
-		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
+		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
+		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
 	}
 
 	bool select = false;
