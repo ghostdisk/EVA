@@ -9,6 +9,15 @@
 
 static EdOp* root = nullptr;
 
+static ConVar cvar_ed_show_sub = {
+	.name = "ed_show_sub",
+	.help = "show subtract brushes",
+	.value = {
+		.type = ConValueType_Number,
+		.number = 0,
+	},
+};
+
 static float4 brush_colors[] = {
 	{ 0.910f, 0.450f, 0.450f, 1.0f },  // red
 	{ 0.910f, 0.542f, 0.450f, 1.0f },
@@ -91,16 +100,6 @@ bool EdDestroySelectedRecursively(EdOp* op)
 		}
 	}
 	return false;
-}
-
-EdOp* EdCreateCube(float3 size)
-{
-	EdOp* op = EdCreateOp();
-	op->brush = CSGCreateCube(size);
-	op->type = EdOpType_Brush;
-	root->children.push_back(op);
-	EdSelect(op);
-	return {};
 }
 
 void EdOutlineBrush(CSGBrush* b, const float4x4& transform, float4 color)
@@ -198,17 +197,37 @@ void EdBuild(EdOp* op)
 
 void EdInitialize()
 {
+	ConRegisterVar(&cvar_ed_show_sub);
 	ConRegisterCommand("ed_cube",
 		[](int argc, ConValue* argv) -> ConValue
 		{
-			EdCreateCube({
+			EdOp* op = EdCreateOp();
+			op->brush = CSGCreateCube({
 				(argc > 0 && argv[0].number) ? argv[0].number : 1.0f,
 				(argc > 1 && argv[1].number) ? argv[1].number : 1.0f,
 				(argc > 2 && argv[2].number) ? argv[2].number : 1.0f,
 			});
+			op->type = EdOpType_Brush;
+			root->children.push_back(op);
+			EdSelect(op);
 			EdBuild(root);
 			return {};
 		}, "editor: create a cube");
+	ConRegisterCommand("ed_cylinder",
+		[](int argc, ConValue* argv) -> ConValue
+		{
+			EdOp* op = EdCreateOp();
+			op->brush = CSGCreateCylinder(
+				(argc > 0 && argv[0].number) ? argv[0].number : 12,
+				(argc > 1 && argv[1].number) ? argv[1].number : 1.0f,
+				(argc > 2 && argv[2].number) ? argv[2].number : 1.0f
+			);
+			op->type = EdOpType_Brush;
+			root->children.push_back(op);
+			EdSelect(op);
+			EdBuild(root);
+			return {};
+		}, "editor: create a cylinder");
 	ConRegisterCommand("ed_move",
 		[](int argc, ConValue* argv) -> ConValue
 		{
@@ -299,7 +318,8 @@ void EdTick()
 	for (int i = 0; i < root->built.size(); i++)
 	{
 		CSGBrush* b = root->built[i];
-		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
+		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
+		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
 	}
 
 	bool select = false;
@@ -323,15 +343,18 @@ void EdTick()
 	DrawSetLayer(Layer_Main);
 	EdOutlineSelectionRecursively(root, {1,1,1,1});
 
-	EdForeach([](EdOp* op)
-		{
-			if (op->subtract)
+	if (cvar_ed_show_sub.value.number)
+	{
+		EdForeach([](EdOp* op)
 			{
-				for (CSGBrush* b : op->built)
+				if (op->subtract)
 				{
-					EdOutlineBrush(b, op->global_transform, {1,0,0.2,0.3});
+					for (CSGBrush* b : op->built)
+					{
+						EdOutlineBrush(b, op->global_transform, {1,0,0.2,0.3});
+					}
 				}
-			}
-			return true;
-		}, root);
+				return true;
+			}, root);
+	}
 }

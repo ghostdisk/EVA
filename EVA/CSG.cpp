@@ -197,14 +197,31 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 	return copy;
 }
 
+CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b, const float4x4& b_transform)
+{
+	CSGBrush* x = CSGCreateBrush();
+	for (CSGPlane& p : a->planes)
+	{
+		x->planes.push_back({ .plane = p.plane });
+	}
+	for (CSGPlane& p : b->planes)
+	{
+		x->planes.push_back({ .plane = p.plane * b_transform });
+	}
+	CSGBuildBrush(x);
+	return x;
+}
+
 // Takes ownership of a. b is left intact.
 void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::vector<CSGBrush*>& out)
 {
 	bool fully_inside = true;
+	CSGBrush* x = CSGIntersect(a, b, b_transform);
+	DEFER(CSGDestroyBrush(x));
 
-	for (CSGPlane& csgplane : b->planes)
+	for (CSGPlane& csgplane : x->planes)
 	{
-		Plane plane = csgplane.plane * b_transform;
+		Plane plane = csgplane.plane;
 		CSGBrush* cut2 = CSGCloneBrush(a);
 
 		CSGAddPlane(a, plane);
@@ -226,7 +243,11 @@ void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::v
 			break;
 		}
 	}
-	if (fully_inside)
+	if (!x->planes.size())
+	{
+		out.push_back(a);
+	}
+	else if (fully_inside)
 	{
 		CSGDestroyBrush(a);
 	}
@@ -327,12 +348,12 @@ CSGBrush* CSGCreateCylinder(int segments, float radius, float height)
 CSGBrush* CSGCreateCube(float3 size)
 {
 	CSGBrush* brush = CSGCreateBrush();
+	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
+	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
 	brush->planes.push_back({ Plane(float3( 1, 0, 0), size.x) });
 	brush->planes.push_back({ Plane(float3( -1, 0, 0), size.x) });
 	brush->planes.push_back({ Plane(float3(0,  1, 0), size.y) });
 	brush->planes.push_back({ Plane(float3(0,  -1, 0), size.y) });
-	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
-	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
 	CSGBuildBrush(brush);
 	return brush;
 }
