@@ -200,13 +200,10 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b, const float4x4& b_transform)
 {
 	CSGBrush* x = CSGCreateBrush();
-	for (CSGPlane& p : a->planes)
+	if (a->planes.size() && b->planes.size())
 	{
-		x->planes.push_back({ .plane = p.plane });
-	}
-	for (CSGPlane& p : b->planes)
-	{
-		x->planes.push_back({ .plane = p.plane * b_transform });
+		for (CSGPlane& p : a->planes) x->planes.push_back({ .plane = p.plane });
+		for (CSGPlane& p : b->planes) x->planes.push_back({ .plane = p.plane * b_transform });
 	}
 	CSGBuildBrush(x);
 	return x;

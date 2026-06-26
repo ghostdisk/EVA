@@ -211,8 +211,8 @@ void EdInitialize()
 		{
 			EdOp* op = EdCreateOp();
 			int nseg = parser.FloatArg(12.0f);
-			int rad  = parser.FloatArg(1.0f);
-			int height = parser.FloatArg(1.0f);
+			float rad  = parser.FloatArg(1.0f);
+			float height = parser.FloatArg(1.0f);
 			op->brush = CSGCreateCylinder(nseg, rad, height);
 			op->type = EdOpType_Brush;
 			root->children.push_back(op);

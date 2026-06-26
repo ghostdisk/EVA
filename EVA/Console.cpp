@@ -126,16 +126,12 @@ const char* ConParser::RestArgs()
 float ConParser::FloatArg(float fallback)
 {
 	const char* s = StringArg();
+	if (!s) return fallback;
+
 	char* endptr = 0;
 	float f = strtof(s, &endptr);
-	if (*endptr == '\0' && endptr > s)
-	{
-		return f;
-	}
-	else
-	{
-		return fallback;
-	}
+	if (*endptr == '\0' && endptr > s) return f;
+	else return fallback;
 }
 
 void ConExec(const char* script)

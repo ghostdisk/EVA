@@ -46,10 +46,10 @@ ConVar cvar_show_fps = {
 void Con_tp(ConParser& parser)
 {
 	Camera* cam = &ActiveGame->camera;
-	cam->position = float3(
-		parser.FloatArg(cam->position.x),
-		parser.FloatArg(cam->position.y),
-		parser.FloatArg(cam->position.z));
+
+	cam->position.x = parser.FloatArg(cam->position.x);
+	cam->position.y = parser.FloatArg(cam->position.y);
+	cam->position.z = parser.FloatArg(cam->position.z);
 }
 
 void GameInitialize()
