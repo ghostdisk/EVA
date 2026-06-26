@@ -9,6 +9,7 @@ struct ConParser
 
 	const char* StringArg();
 	float FloatArg(float fallback = 0.0f);
+	const char* RestArgs();
 };
 
 

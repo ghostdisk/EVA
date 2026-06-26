@@ -111,12 +111,24 @@ const char* ConParser::StringArg()
 	return ArenaInternCString(FrameArena, start, head - start);
 }
 
+const char* ConParser::RestArgs()
+{
+	ConSkipSpace(*this);
+
+	const char* start = head;
+	while (*head != '#' && *head != '\n' && *head != '\r' && *head != '\0')
+	{
+		head++;
+	}
+	return ArenaInternCString(FrameArena, start, head - start);
+}
+
 float ConParser::FloatArg(float fallback)
 {
 	const char* s = StringArg();
 	char* endptr = 0;
 	float f = strtof(s, &endptr);
-	if (*endptr == '\0')
+	if (*endptr == '\0' && endptr > s)
 	{
 		return f;
 	}

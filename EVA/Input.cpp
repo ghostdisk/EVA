@@ -27,11 +27,64 @@ struct InputActionKeyBinding
 
 struct CommandKeyBinding
 {
+	int          button;
+	const char*  command;
 };
 
-static std::vector<InputButtonState>      button_states       = {};
-static std::vector<InputAxisKeyBinding>   axis_key_bindings   = {};
-static std::vector<InputActionKeyBinding> action_key_bindings = {};
+struct ButtonNameMapEntry {
+	char name[12];
+	int  button;
+};
+
+static std::vector<InputButtonState>      button_states        = {};
+static std::vector<InputAxisKeyBinding>   axis_key_bindings    = {};
+static std::vector<InputActionKeyBinding> action_key_bindings  = {};
+static std::vector<CommandKeyBinding>     command_key_bindings = {};
+
+static const ButtonNameMapEntry button_names[] = {
+	{ "a", SDL_SCANCODE_A },
+	{ "b", SDL_SCANCODE_B },
+	{ "c", SDL_SCANCODE_C },
+	{ "d", SDL_SCANCODE_D },
+	{ "e", SDL_SCANCODE_E },
+	{ "f", SDL_SCANCODE_F },
+	{ "g", SDL_SCANCODE_G },
+	{ "h", SDL_SCANCODE_H },
+	{ "i", SDL_SCANCODE_I },
+	{ "j", SDL_SCANCODE_J },
+	{ "k", SDL_SCANCODE_K },
+	{ "l", SDL_SCANCODE_L },
+	{ "m", SDL_SCANCODE_M },
+	{ "n", SDL_SCANCODE_N },
+	{ "o", SDL_SCANCODE_O },
+	{ "p", SDL_SCANCODE_P },
+	{ "q", SDL_SCANCODE_Q },
+	{ "r", SDL_SCANCODE_R },
+	{ "s", SDL_SCANCODE_S },
+	{ "t", SDL_SCANCODE_T },
+	{ "u", SDL_SCANCODE_U },
+	{ "v", SDL_SCANCODE_V },
+	{ "w", SDL_SCANCODE_W },
+	{ "x", SDL_SCANCODE_X },
+	{ "y", SDL_SCANCODE_Y },
+	{ "z", SDL_SCANCODE_Z },
+	{ "0", SDL_SCANCODE_0 },
+	{ "1", SDL_SCANCODE_1 },
+	{ "2", SDL_SCANCODE_2 },
+	{ "3", SDL_SCANCODE_3 },
+	{ "4", SDL_SCANCODE_4 },
+	{ "5", SDL_SCANCODE_5 },
+	{ "6", SDL_SCANCODE_6 },
+	{ "7", SDL_SCANCODE_7 },
+	{ "8", SDL_SCANCODE_8 },
+	{ "9", SDL_SCANCODE_9 },
+	{ "space", SDL_SCANCODE_SPACE },
+	{ "tab", SDL_SCANCODE_TAB },
+	{ "up", SDL_SCANCODE_UP },
+	{ "down", SDL_SCANCODE_DOWN },
+	{ "left", SDL_SCANCODE_LEFT },
+	{ "right", SDL_SCANCODE_RIGHT },
+};
 
 float2 InputMousePosition = {};
 
@@ -40,6 +93,18 @@ static bool input_actions[InputAction_ENUM_SIZE] = {};
 
 void Con_bind(ConParser& parser)
 {
+	const char* button = parser.StringArg();
+	const char* cmd = parser.RestArgs();
+
+	for (const ButtonNameMapEntry& entry : button_names)
+	{
+		if (strcmp(entry.name, button) == 0)
+		{
+			command_key_bindings.push_back({ entry.button, strdup(cmd) });
+			return;
+		}
+	}
+	ConError("%s is not a real button", button);
 }
 
 void InputInitialize()
@@ -187,6 +252,14 @@ void InputUpdateAxes()
 		if (InputGetButtonDown(binding.key) && !TextInputConsumesKey(binding.key))
 		{
 			input_actions[binding.action] = true;
+		}
+	}
+
+	for (const CommandKeyBinding& bind : command_key_bindings)
+	{
+		if (InputGetButtonDown(bind.button))
+		{
+			ConExec(bind.command);
 		}
 	}
 }
