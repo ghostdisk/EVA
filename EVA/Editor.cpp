@@ -497,10 +497,44 @@ void EdTick()
 	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
 
 	std::vector<EdOp*> selected_ops = {};
+	bool dirty = false;
+
 	for (const EdSelection& sel : selection)
 	{
-		if (sel.type == EdSelectionType_Node) selected_ops.push_back(sel.op);
+		if (sel.type == EdSelectionType_Node)
+		{
+			selected_ops.push_back(sel.op);
+		}
+
+		if (sel.type == EdSelectionType_BrushPlane)
+		{
+			CSGBrush* brush = sel.op->brush;
+			CSGPlane& plane = brush->planes[sel.index];
+
+			float3 center = {};
+			for (float3 p : plane.points) center += p;
+			center /= plane.points.size();
+			center += sel.op->global_transform.column(3).xyz();
+
+			hash_stack.Push(brush);
+			hash_stack.Push(EdSelectionType_BrushPlane);
+			DEFER(hash_stack.Pop());
+			DEFER(hash_stack.Pop());
+
+			float3 old_center = center;
+			EdArrowGizmo(sel.index, center, plane.plane.normal, {1,1,0,1});
+			float3 d = center - old_center;
+
+			float add = Dot(d, plane.plane.normal);
+			if (abs(add) > 0.001f)
+			{
+				plane.plane.distance += add;
+				CSGBuildBrush(brush);
+				dirty = true;
+			}
+		}
 	}
+
 	if (selected_ops.size())
 	{
 		static float3 center = {};
@@ -521,10 +555,10 @@ void EdTick()
 		EdTranslationGizmo(&center, center);
 		float3 d = center - old_center;
 
-		if (d.x || d.y || d.z)
+		if (abs(d.Length()) > 0.0001f)
 		{
 			for (EdOp* op : selected_ops) op->position += d;
-			EdBuild(root);
+			dirty = true;
 		}
 	}
 	
@@ -551,6 +585,9 @@ void EdTick()
 			if (!InputGetButton(SDL_SCANCODE_LSHIFT)) EdDeselect();
 		}
 	}
+
+	if (dirty)
+		EdBuild(root);
 
 	DrawSetLayer(Layer_Main);
 	EdDrawSelectionOutline({1,1,1,1});
