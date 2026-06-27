@@ -399,7 +399,7 @@ void EdOpGUI(EdOp* op)
 	}
 }
 
-void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color)
+void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1)
 {
 	U32 id = hash_stack.Push(hash);
 	DEFER(hash_stack.Pop());
@@ -408,7 +408,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color)
 	const float cone_scale = 0.075f;
 
 	const float3 a = pos;
-	const float3 b = pos + direction * scale;
+	const float3 b = pos + direction * scale * base_scale;
 
 	const float3 a_screen = CameraWorldToScreen(ActiveGame->camera, a);
 	const float3 b_screen = CameraWorldToScreen(ActiveGame->camera, b);
@@ -487,6 +487,37 @@ void EdDrawSelectionOutline(float4 color)
 	}
 }
 
+bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
+{
+	CSGPlane& plane = brush->planes[idx];
+
+	float3 center = {};
+	for (float3 p : plane.points) center += p;
+	center /= plane.points.size();
+	center += op->global_transform.column(3).xyz();
+
+	hash_stack.Push(brush);
+	hash_stack.Push(EdSelectionType_BrushPlane);
+	DEFER(hash_stack.Pop());
+	DEFER(hash_stack.Pop());
+
+	float3 old_center = center;
+	EdArrowGizmo(idx, center, plane.plane.normal, {1,1,0,1}, 0.3);
+	float3 d = center - old_center;
+
+	float add = Dot(d, plane.plane.normal);
+	if (abs(add) > 0.001f)
+	{
+		plane.plane.distance += add;
+		CSGBuildBrush(brush);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 void EdTick()
 {
 	hash_stack.Reset();
@@ -503,35 +534,21 @@ void EdTick()
 	{
 		if (sel.type == EdSelectionType_Node)
 		{
+
+			if (sel.op->type == EdOpType_Brush)
+			{
+				for (int i = 0; i < sel.op->brush->planes.size(); i++)
+				{
+					if (EdDoPlaneDragGizmo(sel.op, sel.op->brush, i)) dirty = true;
+				}
+			}
+
 			selected_ops.push_back(sel.op);
 		}
 
-		if (sel.type == EdSelectionType_BrushPlane)
+		if (sel.type == EdSelectionType_BrushPlane && !EdIsSelected(sel.op))
 		{
-			CSGBrush* brush = sel.op->brush;
-			CSGPlane& plane = brush->planes[sel.index];
-
-			float3 center = {};
-			for (float3 p : plane.points) center += p;
-			center /= plane.points.size();
-			center += sel.op->global_transform.column(3).xyz();
-
-			hash_stack.Push(brush);
-			hash_stack.Push(EdSelectionType_BrushPlane);
-			DEFER(hash_stack.Pop());
-			DEFER(hash_stack.Pop());
-
-			float3 old_center = center;
-			EdArrowGizmo(sel.index, center, plane.plane.normal, {1,1,0,1});
-			float3 d = center - old_center;
-
-			float add = Dot(d, plane.plane.normal);
-			if (abs(add) > 0.001f)
-			{
-				plane.plane.distance += add;
-				CSGBuildBrush(brush);
-				dirty = true;
-			}
+			if (EdDoPlaneDragGizmo(sel.op, sel.op->brush, sel.index)) dirty = true;
 		}
 	}
 
