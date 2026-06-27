@@ -18,7 +18,6 @@ struct EdOp
 	EdOpType               type             = EdOpType_None;
 	std::vector<CSGBrush*> built            = {};
 	bool                   subtract         = false;
-	bool                   selected         = false;
 	float3                 position         = {};
 	float4x4               global_transform = {};
 

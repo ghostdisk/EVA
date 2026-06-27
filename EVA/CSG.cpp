@@ -287,24 +287,34 @@ void CSGDestroyBrush(CSGBrush* brush)
 	delete brush;
 }
 
-float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform)
+float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform, int* out_plane)
 {
 	float min_t = -1.0f;
 	float max_t = INFINITY;
+	int min_plane = -1;
 
-	for (CSGPlane& csgplane : brush->planes)
+	for (int i = 0; i < brush->planes.size(); i++)
 	{
+		CSGPlane& csgplane = brush->planes[i];
 		Plane plane = csgplane.plane * transform;
 
 		float dot = Dot(plane.normal, ray.direction);
 		if (abs(dot) > 0.0001)
 		{
 			float t = Intersect(ray, plane);
-			if (dot > 0 && max_t > t) max_t = t;
-			if (dot < 0 && min_t < t) min_t = t;
+			if (dot > 0 && max_t > t)
+			{
+				max_t = t;
+			}
+			if (dot < 0 && min_t < t)
+			{
+				min_plane = i;
+				min_t = t;
+			}
 		}
 	}
 
+	if (out_plane) *out_plane = min_plane;
 	return min_t < max_t ? min_t : -1.0f;
 }
 

@@ -34,4 +34,4 @@ void        CSGBrushTransform(CSGBrush* brush, const float4x4& transform);
 CSGBrush*   CSGCreateCube(float3 size);
 CSGBrush*   CSGCreateCylinder(int segments, float radius, float height);
 
-float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform);
+float Intersect(const Ray& ray, CSGBrush* brush, const float4x4& transform, int* out_plane = nullptr);

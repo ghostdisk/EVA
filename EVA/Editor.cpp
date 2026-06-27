@@ -13,11 +13,26 @@
 // selection_parent is their parent - to get selection iterate its children and check the selected field
 static EdOp* selection_parent = nullptr;
 
+enum EdSelectionType
+{
+	EdSelectionType_None,
+	EdSelectionType_Node,
+	EdSelectionType_BrushPlane,
+};
+
+struct EdSelection
+{
+	EdSelectionType type   = EdSelectionType_None;
+	EdOp*           op     = 0;
+	int             index  = 0;
+};
+
 static EdOp* root = nullptr;
+static std::vector<EdSelection> selection = {};
 
 float grid_size = 0.25;
 
-#define FOREACH_SELECTED(name) if (selection_parent) for (EdOp* name : selection_parent->children) if (name->selected)
+#define FOREACH_SELECTED(name) 
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
@@ -80,24 +95,45 @@ EdOp* EdCreateOp()
 
 void EdDeselect()
 {
-	if (selection_parent)
-		for (EdOp* op : selection_parent->children)
-			op->selected = false;
-	selection_parent = nullptr;
+	selection.clear();
 }
 
-void EdSelect(EdOp* op, bool additive = false)
+void EdSelectPlane(EdOp* op, int plane, bool additive = false)
 {
-	if (op)
+	assert(op);
+	if (!additive) EdDeselect();
+	if (selection.size() && selection[0].type != EdSelectionType_BrushPlane) return;
+
+	selection.push_back(EdSelection{
+		.type = EdSelectionType_BrushPlane,
+		.op = op,
+		.index = plane,
+	});
+}
+
+void EdSelectOp(EdOp* op, bool additive = false)
+{
+	assert(op);
+	if (!additive) EdDeselect();
+
+	for (const EdSelection& sel : selection)
 	{
-		if (!additive || op->parent != selection_parent) EdDeselect();
-		selection_parent = op->parent;
-		if (op) op->selected = true;
+		if (sel.type != EdSelectionType_Node) { EdDeselect();  break; }
+		if (sel.op->parent != op->parent) { EdDeselect();  break; }
 	}
-	else
-	{
-		if (!additive) EdDeselect();
-	}
+
+	selection.push_back(EdSelection{
+		.type = EdSelectionType_Node,
+		.op = op,
+	});
+}
+
+bool EdIsSelected(EdOp* op)
+{
+	for (const EdSelection& sel : selection)
+		if (sel.type == EdSelectionType_Node && sel.op == op)
+			return true;
+	return false;
 }
 
 void EdDestroyOp(EdOp* op)
@@ -110,31 +146,33 @@ void EdDestroyOp(EdOp* op)
 
 void EdDestroySelection()
 {
-	if (selection_parent)
+	bool did_something = false;
+	for (const EdSelection& sel : selection)
 	{
-		for (int i = 0; i < selection_parent->children.size(); i++)
+		if (sel.type == EdSelectionType_Node)
 		{
-			if (selection_parent->children[i]->selected)
-			{
-				EdDestroyOp(selection_parent->children[i]);
-				selection_parent->children.erase(selection_parent->children.begin() + i);
-				i--;
-			}
+			EdDestroyOp(sel.op);
+			did_something = true;
 		}
+	}
+	if (did_something) EdDeselect();
+}
+
+void EdDrawBrushPlaneOutline(CSGBrush* b, int i, const float4x4& transform, const float4& color)
+{
+	const CSGPlane& plane = b->planes[i];
+	for (int i = 0; i < plane.points.size(); i++)
+	{
+		float3 p1 = transform.TransformPosition(plane.points[i]);
+		float3 p2 = transform.TransformPosition(plane.points[(i + 1) % plane.points.size()]);
+		DrawLine(p1, p2, color);
 	}
 }
 
 void EdDrawBrushOutline(CSGBrush* b, const float4x4& transform, const float4& color)
 {
-	for (const CSGPlane& plane : b->planes)
-	{
-		for (int i = 0; i < plane.points.size(); i++)
-		{
-			float3 p1 = transform.TransformPosition(plane.points[i]);
-			float3 p2 = transform.TransformPosition(plane.points[(i + 1) % plane.points.size()]);
-			DrawLine(p1, p2, color);
-		}
-	}
+	for (int i = 0; i < b->planes.size(); i++)
+		EdDrawBrushPlaneOutline(b, i, transform, color);
 }
 
 void EdDrawOutline(EdOp* op, const float4& color)
@@ -150,7 +188,7 @@ void EdDrawOutline(EdOp* op, const float4& color)
 		{
 			for (EdOp* child : op->children)
 			{
-				EdDrawOutline(op, color);
+				EdDrawOutline(child, color);
 			}
 			break;
 		}
@@ -237,7 +275,7 @@ void EdInitialize()
 			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 			op->type = EdOpType_Brush;
 			EdOpAddChild(root, op);
-			EdSelect(op);
+			EdSelectOp(op);
 			EdBuild(root);
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_cylinder",
@@ -250,14 +288,16 @@ void EdInitialize()
 			op->brush = CSGCreateCylinder(nseg, rad, height);
 			op->type = EdOpType_Brush;
 			EdOpAddChild(root, op);
-			EdSelect(op);
+			EdSelectOp(op);
 			EdBuild(root);
 		}, "editor: create a cylinder");
 	ConRegisterCommand("ed_move",
 		[](ConParser& parser)
 		{
 			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
-			FOREACH_SELECTED(op) op->position += offset;
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->position += offset;
 			EdBuild(root);
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_build",
@@ -268,13 +308,17 @@ void EdInitialize()
 	ConRegisterCommand("ed_add",
 		[](ConParser& parser)
 		{
-			FOREACH_SELECTED(op) op->subtract = false;
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->subtract = false;
 			EdBuild(root);
 		}, "editor: set selected to add");
 	ConRegisterCommand("ed_sub",
 		[](ConParser& parser)
 		{
-			FOREACH_SELECTED(op) op->subtract = true;
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->subtract = true;
 			EdBuild(root);
 		}, "editor: set selected to subtract");
 	ConRegisterCommand("ed_del",
@@ -289,38 +333,34 @@ void EdInitialize()
 	root->global_transform = float4x4::Identity();
 }
 
-EdOp* EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t)
+void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
 {
 	switch (op->type)
 	{
 		case EdOpType_Brush:
 		{
-			float t = Intersect(mouse_ray, op->brush, op->global_transform);
+			int plane_hit = -1;
+			float t = Intersect(mouse_ray, op->brush, op->global_transform, &plane_hit);
 			if (t < *min_t && t >= 0.0f)
 			{
 				*min_t = t;
-				return op;
+				*out_op = op;
+				*out_plane = plane_hit;
+				break;
 			}
 			else
 			{
-				return nullptr;
+				break;
 			}
 		}
 		case EdOpType_Stack:
 		{
 			EdOp* picked = nullptr;
 			for (EdOp* child : op->children)
-			{
-				EdOp* candidate = EdMousePickRecursive(child, mouse_ray, min_t);
-				if (candidate) picked = candidate;
-			}
-			return picked;
+				EdMousePickRecursive(child, mouse_ray, min_t, out_op, out_plane);
+			break;
 		}
-		default:
-		{
-			assert(0);
-			return nullptr;
-		}
+		default: assert(0);
 	}
 }
 
@@ -330,7 +370,7 @@ void EdOpGUI(EdOp* op)
 	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
-	if (op->selected) flags |= UITreeNodeFlags_Selected;
+	if (EdIsSelected(op)) flags |= UITreeNodeFlags_Selected;
 	if (op->type == EdOpType_Brush) flags |= UITreeNodeFlags_Leaf;
 	flags |= UITreeNodeFlags_DefaultOpen;
 
@@ -355,7 +395,7 @@ void EdOpGUI(EdOp* op)
 	}
 	if (tree_node->Clicked())
 	{
-		EdSelect(op);
+		EdSelectOp(op, InputGetButton(SDL_SCANCODE_LCTRL));
 	}
 }
 
@@ -425,15 +465,26 @@ void EdTranslationGizmo(Hash hash, float3& pos)
 	hash_stack.Pop();
 }
 
-EdOp* EdGetFirstSelected(EdOp* el)
+void EdDrawSelectionOutline(float4 color)
 {
-	if (el->selected) return el;
-	for (EdOp* child : el->children)
+	for (const EdSelection& sel : selection)
 	{
-		EdOp* sel = EdGetFirstSelected(child);
-		if (sel) return sel;
+		switch (sel.type)
+		{
+			case EdSelectionType_Node:
+			{
+				EdDrawOutline(sel.op, color);
+			}
+			case EdSelectionType_BrushPlane:
+			{
+				EdDrawBrushPlaneOutline(sel.op->brush, sel.index, sel.op->global_transform, color);
+			}
+			default:
+			{
+				break;
+			}
+		}
 	}
-	return nullptr;
 }
 
 void EdTick()
@@ -443,38 +494,68 @@ void EdTick()
 	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	bool do_selection = false;
-	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
-	{
-		do_selection = true;
-	}
-
 	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
-	EdOp* first_selected_op = EdGetFirstSelected(root);
 
-	if (first_selected_op)
+	std::vector<EdOp*> selected_ops = {};
+	for (const EdSelection& sel : selection)
 	{
-		hash_stack.Push(first_selected_op);
-		EdTranslationGizmo(first_selected_op, first_selected_op->position);
-		hash_stack.Pop();
-		if (g_active_gizmo_state.id)
+		if (sel.type == EdSelectionType_Node) selected_ops.push_back(sel.op);
+	}
+	if (selected_ops.size())
+	{
+		static float3 center = {};
+		if (!g_active_gizmo_state.id)
 		{
-			do_selection = false;
+			center = {};
+			for (EdOp* op : selected_ops)
+			{
+				center += op->global_transform.column(3).xyz();
+			}
+			center /= selected_ops.size();
+		}
+
+		hash_stack.Push(&center);
+		DEFER(hash_stack.Pop());
+
+		float3 old_center = center;
+		EdTranslationGizmo(&center, center);
+		float3 d = center - old_center;
+
+		if (d.x || d.y || d.z)
+		{
+			for (EdOp* op : selected_ops) op->position += d;
 			EdBuild(root);
 		}
 	}
 	
-	if (do_selection)
+	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT) && !g_active_gizmo_state.id)
 	{
 		float min_t = FLT_MAX;
-		EdOp* selected = EdMousePickRecursive(root, mouse_ray, &min_t);
-		EdSelect(selected, InputGetButton(SDL_SCANCODE_LCTRL));
+		EdOp* hit = nullptr;
+		int hit_plane = 0;
+
+		EdMousePickRecursive(root, mouse_ray, &min_t, &hit, &hit_plane);
+		if (hit)
+		{
+			if (InputGetButton(SDL_SCANCODE_LCTRL))
+			{
+				EdSelectPlane(hit, hit_plane, InputGetButton(SDL_SCANCODE_LSHIFT));
+			}
+			else
+			{
+				EdSelectOp(hit, InputGetButton(SDL_SCANCODE_LSHIFT));
+			}
+		}
+		else
+		{
+			if (!InputGetButton(SDL_SCANCODE_LSHIFT)) EdDeselect();
+		}
 	}
 
-	DrawSetLayer(Layer_Overlay);
-	FOREACH_SELECTED(op) EdDrawOutline(op, {1,1,1,0.1});
 	DrawSetLayer(Layer_Main);
-	FOREACH_SELECTED(op) EdDrawOutline(op, {1,1,1,1});
+	EdDrawSelectionOutline({1,1,1,1});
+	DrawSetLayer(Layer_Overlay);
+	EdDrawSelectionOutline({1,1,1,0.1});
 
 	if (cvar_ed_show_sub.fvalue)
 	{
@@ -502,7 +583,7 @@ void EdTick()
 	{
 		CSGBrush* b = root->built[i];
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
-		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
+		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
 	}
 
 	g_hover_gizmo_state = g_new_hover_gizmo_state;
