@@ -29,6 +29,8 @@ struct CommandKeyBinding
 {
 	int          button;
 	const char*  command;
+	bool         ctrl;
+	bool         shift;
 };
 
 struct ButtonNameMapEntry {
@@ -98,11 +100,31 @@ void Con_bind(ConParser& parser)
 	const char* button = parser.StringArg();
 	const char* cmd = parser.RestArgs();
 
+	bool ctrl = false;
+	bool shift = false;
+	for (const char* c = button; *c; c++)
+	{
+		if (*c == '-')
+		{
+			for (const char* f = button; f < c; f++)
+			{
+				if (*f == 's') shift = true;
+				if (*f == 'c') ctrl = true;
+			}
+			button = c + 1;
+			break;
+		}
+	}
 	for (const ButtonNameMapEntry& entry : button_names)
 	{
 		if (strcmp(entry.name, button) == 0)
 		{
-			command_key_bindings.push_back({ entry.button, strdup(cmd) });
+			command_key_bindings.push_back({
+				.button = entry.button,
+				.command = strdup(cmd),
+				.ctrl = ctrl,
+				.shift = shift,
+			});
 			return;
 		}
 	}
@@ -257,13 +279,31 @@ void InputUpdateAxes()
 		}
 	}
 
-	for (const CommandKeyBinding& bind : command_key_bindings)
-	{
-		if (!TextInputConsumesKey((SDL_Scancode)bind.button) && InputGetButtonDown(bind.button))
+	std::vector<int> consumed_buttons = {};
+
+	auto is_consumed = [&](int key)
 		{
-			ConExec(bind.command);
-		}
-	}
+			for (int k : consumed_buttons) if (key == k) return true;
+			return false;
+		};
+	auto process = [&](bool ctrl, bool shift)
+		{
+			for (const CommandKeyBinding& bind : command_key_bindings)
+			{
+				if (bind.ctrl == ctrl && bind.shift == shift && !is_consumed(bind.button) && InputGetButton(SDL_SCANCODE_LCTRL) == ctrl && InputGetButton(SDL_SCANCODE_LSHIFT) == shift)
+				{
+					if (!TextInputConsumesKey((SDL_Scancode)bind.button) && InputGetButtonDown(bind.button))
+					{
+						consumed_buttons.push_back(bind.button);
+						ConExec(bind.command);
+					}
+				}
+			}
+		};
+	process(true, true);
+	process(false, true);
+	process(true, false);
+	process(false, false);
 }
 
 bool InputGetButtonDown(int button)
