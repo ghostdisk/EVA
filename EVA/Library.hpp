@@ -15,6 +15,7 @@ namespace Library
 extern Mesh* mesh_cube;
 extern Mesh* mesh_monke;
 extern Mesh* mesh_character;
+extern Mesh* mesh_cone;
 
 extern Texture* tex_test;
 extern Texture* tex_proto;

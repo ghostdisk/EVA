@@ -1,6 +1,8 @@
 #include <EVA/Math.hpp>
 #include <math.h>
 #include <cglm/mat4.h>
+#include <cglm/affine.h>
+#include <cglm/quat.h>
 #include <stdio.h>
 
 float4 operator*(const float4x4& mat, const float4& p)
@@ -79,3 +81,27 @@ Plane operator*(const float4x4& mat, const Plane& plane0)
 	return Plane(n1, d1);
 }
 
+
+float4x4 float4x4::FromTransform(const float3& position)
+{
+	float4x4 m;
+	glm_translate_make(m, position);
+	return m;
+}
+
+float4x4 float4x4::FromTransform(const float3& position, const float4& rotation)
+{
+	float4x4 m;
+	glm_translate_make(m, position);
+	glm_quat_rotate(m, rotation, m);
+	return m;
+}
+
+float4x4 float4x4::FromTransform(const float3& position, const float4& rotation, const float3& scale)
+{
+	float4x4 m;
+	glm_translate_make(m, position);
+	glm_quat_rotate(m, rotation, m);
+	glm_scale(m, scale);
+	return m;
+}

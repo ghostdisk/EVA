@@ -6,9 +6,11 @@
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/UI.hpp>
-#include <cglm/affine.h>
+#include <cglm/quat.h>
 
 static EdOp* root = nullptr;
+
+float grid_size = 0.25;
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
@@ -357,8 +359,15 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 	float3 new_offset;
 	float3 point_along_line;
 
+	float dist = Distance(pos, ActiveGame->camera.position) * 0.1;
+	float scale = dist;
+	// if (scale < 0.3) scale = 0.3;
+
+	float cone_scale = 0.075f * scale;
+
 	auto picker = [&](int axis, float3 a, float3 b, float4 color, Ray ray)
 	{
+		b *= scale;
 		a += pos;
 		b += pos;
 
@@ -374,7 +383,7 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 		DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t2);
 		float3 nearest_world = a + (b - a).Normalized() * t2;
 
-		if (!gizmo.active && dist_screen < 30 && dist_screen < min_distp && nearest_screen_t >= 0.0f && nearest_screen_t <= 1.0f)
+		if (!gizmo.active && dist_screen < 30 && dist_screen < min_distp && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + cone_scale * 2))
 		{
 			min_distp = dist_screen;
 			new_active_axis = axis;
@@ -386,7 +395,12 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 			point_along_line = nearest_world;
 			color = COLOR_WHITE;
 		}
+
+		float4 cone_rotation;
+		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
+
 		DrawLine(a, b, color);
+		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale, cone_scale, cone_scale)), color);
 	};
 
 	DrawSetLayer(Layer_Overlay);
@@ -405,6 +419,16 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 	if (gizmo.active)
 	{
 		pos = point_along_line - gizmo.offset;
+
+		if (InputGetButton(SDL_SCANCODE_LCTRL))
+		{
+			pos = pos / grid_size;
+			if (gizmo.active_axis == 0) pos.x = round(pos.x);
+			if (gizmo.active_axis == 1) pos.y = round(pos.y);
+			if (gizmo.active_axis == 2) pos.z = round(pos.z);
+			pos = pos * grid_size;
+		}
+
 		if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
 		{
 			gizmo.active = false;

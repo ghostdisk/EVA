@@ -6,9 +6,11 @@
 
 namespace Library
 {
+
 Mesh* mesh_cube = nullptr;
 Mesh* mesh_monke = nullptr;
 Mesh* mesh_character = nullptr;
+Mesh* mesh_cone = nullptr;
 
 Texture* tex_test = nullptr;
 Texture* tex_proto = nullptr;
@@ -46,6 +48,7 @@ void LibraryInitialize()
 	Library::mesh_monke         = GLTFLoad("monke.glb", false)->meshes[0];
 	Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
 	Library::mesh_character     = GLTFLoad("character.glb", false)->meshes[0];
+	Library::mesh_cone          = GLTFLoad("cone.glb", false)->meshes[0];
 
 	Texture* ui_atlas = TextureLoad("ui_assets.psd", false);
 

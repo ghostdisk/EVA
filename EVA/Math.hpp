@@ -49,7 +49,7 @@ struct float3
 	float3() {}
 	float3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	float3(float* vec) : x(vec[0]), y(vec[1]), z(vec[2]) {}
-	inline operator float*() { return &x; } // needed so we can pass it to cglm conveniently
+	inline operator float*() const { return (float*)&x; } // needed so we can pass it to cglm conveniently
 
 	inline float SquaredLength() { return x*x + y*y + z*z; }
 	inline float Length() { return sqrtf(x*x + y*y + z*z); }
@@ -119,6 +119,10 @@ struct __declspec(align(16)) float4x4
 		mat.data[3][3] = 1.0f;
 		return mat;
 	}
+
+	static float4x4 FromTransform(const float3& position);
+	static float4x4 FromTransform(const float3& position, const float4& rotation);
+	static float4x4 FromTransform(const float3& position, const float4& rotation, const float3& scale);
 
 	float3 TransformPosition(float3 pos) const;
 };
