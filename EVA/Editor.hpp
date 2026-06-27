@@ -14,6 +14,7 @@ enum EdOpType
 
 struct EdOp
 {
+	EdOp*                  parent           = nullptr;
 	EdOpType               type             = EdOpType_None;
 	std::vector<CSGBrush*> built            = {};
 	bool                   subtract         = false;

@@ -9,9 +9,15 @@
 #include <EVA/Hashing.hpp>
 #include <cglm/quat.h>
 
+// We allow multiple selection, but only for sibling nodes
+// selection_parent is their parent - to get selection iterate its children and check the selected field
+static EdOp* selection_parent = nullptr;
+
 static EdOp* root = nullptr;
 
 float grid_size = 0.25;
+
+#define FOREACH_SELECTED(name) if (selection_parent) for (EdOp* name : selection_parent->children) if (name->selected)
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
@@ -72,24 +78,26 @@ EdOp* EdCreateOp()
 	return op;
 }
 
-void EdDeselectRecursive(EdOp* op)
+void EdDeselect()
 {
-	for (EdOp* child : op->children)
-	{
-		EdDeselectRecursive(child);
-	}
-	op->selected = false;
-}
-
-void EdDeselectAll()
-{
-	EdDeselectRecursive(root);
+	if (selection_parent)
+		for (EdOp* op : selection_parent->children)
+			op->selected = false;
+	selection_parent = nullptr;
 }
 
 void EdSelect(EdOp* op, bool additive = false)
 {
-	if (!additive) EdDeselectAll();
-	if (op) op->selected = true;
+	if (op)
+	{
+		if (!additive || op->parent != selection_parent) EdDeselect();
+		selection_parent = op->parent;
+		if (op) op->selected = true;
+	}
+	else
+	{
+		if (!additive) EdDeselect();
+	}
 }
 
 void EdDestroyOp(EdOp* op)
@@ -100,24 +108,23 @@ void EdDestroyOp(EdOp* op)
 	delete op;
 }
 
-bool EdDestroySelectionRec(EdOp* op)
+void EdDestroySelection()
 {
-	if (op->selected)
+	if (selection_parent)
 	{
-		EdDestroyOp(op);
-		return true;
-	}
-	for (int i = 0; i < op->children.size(); i++)
-	{
-		if (EdDestroySelectionRec(op->children[i]))
+		for (int i = 0; i < selection_parent->children.size(); i++)
 		{
-			op->children.erase(op->children.begin() + i);
+			if (selection_parent->children[i]->selected)
+			{
+				EdDestroyOp(selection_parent->children[i]);
+				selection_parent->children.erase(selection_parent->children.begin() + i);
+				i--;
+			}
 		}
 	}
-	return false;
 }
 
-void EdDrawBrushOutline(CSGBrush* b, const float4x4& transform, float4 color)
+void EdDrawBrushOutline(CSGBrush* b, const float4x4& transform, const float4& color)
 {
 	for (const CSGPlane& plane : b->planes)
 	{
@@ -130,10 +137,25 @@ void EdDrawBrushOutline(CSGBrush* b, const float4x4& transform, float4 color)
 	}
 }
 
-void EdDrawSelectionOutlineRec(EdOp* op, float4 color)
+void EdDrawOutline(EdOp* op, const float4& color)
 {
-	if (op->selected) for (CSGBrush* b : op->built) EdDrawBrushOutline(b, op->global_transform, color);
-	for (EdOp* child : op->children) EdDrawSelectionOutlineRec(child, color);
+	switch (op->type)
+	{
+		case EdOpType_Brush:
+		{
+			EdDrawBrushOutline(op->brush, op->global_transform, color);
+			break;
+		}
+		case EdOpType_Stack:
+		{
+			for (EdOp* child : op->children)
+			{
+				EdDrawOutline(op, color);
+			}
+			break;
+		}
+		default: break;
+	}
 }
 
 template <typename F>
@@ -142,17 +164,6 @@ void EdForeach(F&& func, EdOp* op)
 	if (!func(op))
 		return;
 	for (EdOp* child : op->children) EdForeach(func, child);
-}
-
-template <typename F>
-void EdForeachSelected(F&& func, EdOp* op)
-{
-	if (op->selected)
-	{
-		if (!func(op))
-			return;
-	}
-	for (EdOp* child : op->children) EdForeachSelected(func, child);
 }
 
 void EdBuild(EdOp* op)
@@ -209,6 +220,13 @@ void EdBuild(EdOp* op)
 	}
 }
 
+void EdOpAddChild(EdOp* parent, EdOp* child)
+{
+	assert(!child->parent);
+	parent->children.push_back(child);
+	child->parent = parent;
+}
+
 void EdInitialize()
 {
 	ConRegisterVar(&cvar_ed_show_sub);
@@ -218,7 +236,7 @@ void EdInitialize()
 			EdOp* op = EdCreateOp();
 			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 			op->type = EdOpType_Brush;
-			root->children.push_back(op);
+			EdOpAddChild(root, op);
 			EdSelect(op);
 			EdBuild(root);
 		}, "editor: create a cube");
@@ -231,7 +249,7 @@ void EdInitialize()
 			float height = parser.FloatArg(1.0f);
 			op->brush = CSGCreateCylinder(nseg, rad, height);
 			op->type = EdOpType_Brush;
-			root->children.push_back(op);
+			EdOpAddChild(root, op);
 			EdSelect(op);
 			EdBuild(root);
 		}, "editor: create a cylinder");
@@ -239,11 +257,7 @@ void EdInitialize()
 		[](ConParser& parser)
 		{
 			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
-			EdForeachSelected([&](EdOp* op)
-				{
-					op->position += offset;
-					return false;
-				}, root);
+			FOREACH_SELECTED(op) op->position += offset;
 			EdBuild(root);
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_build",
@@ -254,19 +268,19 @@ void EdInitialize()
 	ConRegisterCommand("ed_add",
 		[](ConParser& parser)
 		{
-			EdForeachSelected([](EdOp* op) { op->subtract = false; return false; }, root);
+			FOREACH_SELECTED(op) op->subtract = false;
 			EdBuild(root);
 		}, "editor: set selected to add");
 	ConRegisterCommand("ed_sub",
 		[](ConParser& parser)
 		{
-			EdForeachSelected([](EdOp* op) { op->subtract = true; return false; }, root);
+			FOREACH_SELECTED(op) op->subtract = true;
 			EdBuild(root);
 		}, "editor: set selected to subtract");
 	ConRegisterCommand("ed_del",
 		[](ConParser& parser)
 		{
-			EdDestroySelectionRec(root);
+			EdDestroySelection();
 			EdBuild(root);
 		}, "editor: delete subtract");
 
@@ -371,7 +385,12 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color)
 		g_new_hover_gizmo_state.screen_dist = screen_dist;
 	}
 
-	if (g_active_gizmo_state.id == id || g_hover_gizmo_state.id == id) color = COLOR_WHITE;
+	if (g_active_gizmo_state.id == id || g_hover_gizmo_state.id == id)
+	{
+		color.x += 0.7;
+		color.y += 0.7;
+		color.z += 0.7;
+	}
 
 	{ // draw:
 		DrawSetLayer(Layer_Overlay);
@@ -433,9 +452,6 @@ void EdTick()
 	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
 	EdOp* first_selected_op = EdGetFirstSelected(root);
 
-	static float3 dummy_pos = {5 ,0, 0};
-	EdTranslationGizmo(&dummy_pos, dummy_pos);
-
 	if (first_selected_op)
 	{
 		hash_stack.Push(first_selected_op);
@@ -456,9 +472,9 @@ void EdTick()
 	}
 
 	DrawSetLayer(Layer_Overlay);
-	EdDrawSelectionOutlineRec(root, {1,1,1,0.1});
+	FOREACH_SELECTED(op) EdDrawOutline(op, {1,1,1,0.1});
 	DrawSetLayer(Layer_Main);
-	EdDrawSelectionOutlineRec(root, {1,1,1,1});
+	FOREACH_SELECTED(op) EdDrawOutline(op, {1,1,1,1});
 
 	if (cvar_ed_show_sub.fvalue)
 	{

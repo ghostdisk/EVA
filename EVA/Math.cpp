@@ -3,7 +3,6 @@
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
-#include <stdio.h>
 
 float4 operator*(const float4x4& mat, const float4& p)
 {
