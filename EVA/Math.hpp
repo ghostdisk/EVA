@@ -5,12 +5,15 @@
 #include <math.h>
 
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
-#define COLOR_WHITE {1,1,1,1}
-#define COLOR_BLACK {0,0,0,1}
+#define COLOR_WHITE (float4{1,1,1,1})
+#define COLOR_BLACK (float4{0,0,0,1})
 #define COLOR_SKY COLOR_RGB(44, 82, 87)
 
 #define DEG_TO_RAD (GLM_PIf / 180.0f)
 #define RAD_TO_DEG (180.0f / GLM_PI)
+
+#define PRINT_V3(v) v.x, v.y, v.z
+#define PRINT_V4(v) v.x, v.y, v.z, v.w
 
 struct float2
 {
@@ -52,6 +55,8 @@ struct float3
 	inline float Length() { return sqrtf(x*x + y*y + z*z); }
 
 	inline float3 Normalized();
+
+	inline float2& xy() { return *(float2*)this; }
 };
 
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
@@ -155,6 +160,14 @@ inline float Dot(const float2& a, const float2& b) { return a.x*b.x + a.y*b.y; }
 inline float Dot(const float3& a, const float3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline float Dot(const float4& a, const float4& b) { return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w; }
 
+
+inline float Distance(const float2& a, const float2& b)
+{
+	float dx = a.x - b.x;
+	float dy = a.y - b.y;
+	return sqrt(dx*dx + dy*dy);
+}
+
 inline float Distance(const float3& a, const float3& b)
 {
 	float dx = a.x - b.x;
@@ -191,9 +204,12 @@ struct Ray
 	{
 		return origin + direction * t;
 	}
+
 };
 
 float Intersect(const Ray& ray, const Plane& plane);
+float DistanceToLineSegment(const Ray& ray, const float3& p1, const float3& p2, float* out_t1 = nullptr, float* out_t2 = nullptr);
+float2 NearestPointToLineSegment(float2 a, float2 b, float2 point);
 
 Plane operator*(const float4x4& mat, const Plane& plane);
 inline Plane operator*(const Plane& plane, const float4x4& mat) { return mat * plane; }

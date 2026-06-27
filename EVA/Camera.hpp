@@ -41,3 +41,4 @@ void CameraOrbit(Camera& camera, Entity* entity);
 
 Ray CameraClipToRay(Camera& camera, float2 clip_xy);
 Ray CameraScreenToRay(Camera& camera, float2 screen_xy);
+float3 CameraWorldToScreen(Camera& camera, float3 world);

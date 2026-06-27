@@ -16,6 +16,13 @@ static ConVar cvar_ed_show_sub = {
 	.fvalue = 0,
 };
 
+struct EdTranslationGizmoState
+{
+	float3 offset;
+	bool active = false;
+	int active_axis = -1;
+};
+
 static float4 brush_colors[] = {
 	{ 0.910f, 0.450f, 0.450f, 1.0f },  // red
 	{ 0.910f, 0.542f, 0.450f, 1.0f },
@@ -48,6 +55,8 @@ static float4 brush_colors[] = {
 	{ 0.910f, 0.450f, 0.634f, 1.0f },
 	{ 0.910f, 0.450f, 0.542f, 1.0f },
 };
+
+EdTranslationGizmoState g_gizmo = {};
 
 EdOp* EdCreateOp()
 {
@@ -329,15 +338,95 @@ void EdOpGUI(EdOp* op)
 	}
 }
 
+float Unlerp(float2 a, float2 m, float2 b)
+{
+	if (abs(m.x - a.x) > 0.01f)
+	{
+		return (m.x - a.x) / (b.x - a.x);
+	}
+	else
+	{
+		return (m.y - a.y) / (b.y - a.y);
+	}
+}
+
+void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& mouse_ray, bool mouse_down)
+{
+	int new_active_axis = -1;
+	float min_distp = FLT_MAX;
+	float3 new_offset;
+	float3 point_along_line;
+
+	auto picker = [&](int axis, float3 a, float3 b, float4 color, Ray ray)
+	{
+		a += pos;
+		b += pos;
+
+		float3 a_screen = CameraWorldToScreen(ActiveGame->camera, a);
+		float3 b_screen = CameraWorldToScreen(ActiveGame->camera, b);
+		float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), InputMousePosition);
+		float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
+
+		float dist_screen = Distance(nearest_screen, InputMousePosition);
+		Ray ray_to_nearest = CameraScreenToRay(ActiveGame->camera, nearest_screen);
+
+		float t2;
+		DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t2);
+		float3 nearest_world = a + (b - a).Normalized() * t2;
+
+		if (!gizmo.active && dist_screen < 30 && dist_screen < min_distp && nearest_screen_t >= 0.0f && nearest_screen_t <= 1.0f)
+		{
+			min_distp = dist_screen;
+			new_active_axis = axis;
+			point_along_line = nearest_world;
+			new_offset = nearest_world - pos;
+		}
+		if (axis == gizmo.active_axis)
+		{
+			point_along_line = nearest_world;
+			color = COLOR_WHITE;
+		}
+		DrawLine(a, b, color);
+	};
+
+	DrawSetLayer(Layer_Overlay);
+	picker(0, {0,0,0}, {1,0,0}, {1,0,0,1}, mouse_ray);
+	picker(1, {0,0,0}, {0,1,0}, {0,1,0,1}, mouse_ray);
+	picker(2, {0,0,0}, {0,0,1}, {0,0,1,1}, mouse_ray);
+	DrawSetLayer(Layer_Main);
+
+	if (!gizmo.active) gizmo.active_axis = new_active_axis;
+	if (mouse_down && new_active_axis >= 0)
+	{
+		gizmo.active = true;
+		gizmo.offset = new_offset;
+	}
+
+	if (gizmo.active)
+	{
+		pos = point_along_line - gizmo.offset;
+		if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
+		{
+			gizmo.active = false;
+			gizmo.offset = {};
+			gizmo.active_axis = -1;
+		}
+	}
+}
+
+EdOp* EdGetFirstSelected(EdOp* el)
+{
+	if (el->selected) return el;
+	for (EdOp* child : el->children)
+	{
+		EdOp* sel = EdGetFirstSelected(child);
+		if (sel) return sel;
+	}
+	return nullptr;
+}
+
 void EdTick()
 {
-	DrawSetLayer(Layer_Main);
-	for (int i = 0; i < root->built.size(); i++)
-	{
-		CSGBrush* b = root->built[i];
-		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
-		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
-	}
 
 	bool select = false;
 	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
@@ -345,9 +434,22 @@ void EdTick()
 		select = true;
 	}
 
+	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
+	EdOp* sel = EdGetFirstSelected(root);
+
+	if (sel)
+	{
+		EdTranslationGizmo(g_gizmo, sel->position, mouse_ray, select);
+		if (g_gizmo.active)
+		{
+			select = false;
+			EdBuild(root);
+		}
+	}
+	
+
 	if (select)
 	{
-		Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
 
 		float min_t = FLT_MAX;
 		EdOp* selected = EdMousePickRecursive(root, mouse_ray, &min_t);
@@ -379,5 +481,13 @@ void EdTick()
 		UIBeginBox()->SetSize(200, 0)->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
 		EdOpGUI(root);
 		UIEndBox();
+	}
+
+	DrawSetLayer(Layer_Main);
+	for (int i = 0; i < root->built.size(); i++)
+	{
+		CSGBrush* b = root->built[i];
+		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
+		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
 	}
 }

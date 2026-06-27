@@ -124,3 +124,15 @@ Ray CameraScreenToRay(Camera& camera, float2 screen)
 		(screen.x / WindowWidth) * 2.0f - 1.0f,
 		-((screen.y / WindowHeight) * 2.0f - 1.0f)));
 }
+
+
+float3 CameraWorldToScreen(Camera& camera, float3 world)
+{
+	float4 clip = camera.view_projection_matrix * float4(world, 1);
+	clip.xyz() /= clip.w;
+
+	return float3(
+		((clip.x * 0.5) + 0.5) * WindowWidth,
+		((-clip.y * 0.5) + 0.5) * WindowHeight,
+		clip.z);
+}
