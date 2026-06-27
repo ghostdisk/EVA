@@ -361,9 +361,7 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 
 	float dist = Distance(pos, ActiveGame->camera.position) * 0.1;
 	float scale = dist;
-	// if (scale < 0.3) scale = 0.3;
-
-	float cone_scale = 0.075f * scale;
+	float cone_scale = 0.075f;
 
 	auto picker = [&](int axis, float3 a, float3 b, float4 color, Ray ray)
 	{
@@ -400,7 +398,7 @@ void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& 
 		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
 
 		DrawLine(a, b, color);
-		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale, cone_scale, cone_scale)), color);
+		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale * scale, cone_scale * scale, cone_scale * scale)), color);
 	};
 
 	DrawSetLayer(Layer_Overlay);
