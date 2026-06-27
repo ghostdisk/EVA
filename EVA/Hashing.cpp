@@ -62,3 +62,40 @@ U32 HashBytes(const void * key, int len, U32 seed)
 	h ^= h >> 15;
 	return h;
 } 
+
+void HashStack::Reset()
+{
+	stack = { 1 };
+}
+
+Hash::Hash(U32 id)
+{
+	hash = HashU32(id);
+}
+
+Hash::Hash(const void* ptr)
+{
+	uintptr_t num = (uintptr_t)ptr;
+	hash = HashU32((num & 0xFFFFFFFF) | (num >> 32));
+}
+
+Hash::Hash(const char* string)
+{
+	hash = HashBytes(string, strlen(string));
+}
+
+Hash::Hash(const void* bytes, size_t len)
+{
+	hash = HashBytes(bytes, len);
+}
+
+U32 HashStack::Push(Hash hash)
+{
+	stack.push_back(hash.hash ^ stack.back());
+	return stack.back();
+}
+
+void HashStack::Pop()
+{
+	stack.pop_back();
+}

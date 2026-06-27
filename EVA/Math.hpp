@@ -56,7 +56,8 @@ struct float3
 
 	inline float3 Normalized();
 
-	inline float2& xy() { return *(float2*)this; }
+	inline       float2& xy()       { return *(float2*)this; }
+	inline const float2& xy() const { return *(float2*)this; }
 };
 
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
@@ -84,7 +85,8 @@ struct float4
 	float4(float* vec) : x(vec[0]), y(vec[1]), z(vec[2]), w(vec[3]) {}
 	inline operator float*() const { return (float*)&x; } // needed so we can pass it to cglm conveniently
 
-	inline float3& xyz() { return *(float3*)this; }
+	inline       float3& xyz()       { return *(float3*)this; }
+	inline const float3& xyz() const { return *(float3*)this; }
 };
 
 struct __declspec(align(16)) float4x4
@@ -164,6 +166,7 @@ inline float Dot(const float2& a, const float2& b) { return a.x*b.x + a.y*b.y; }
 inline float Dot(const float3& a, const float3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline float Dot(const float4& a, const float4& b) { return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w; }
 
+float Unlerp(float2 a, float2 mid, float2 b);
 
 inline float Distance(const float2& a, const float2& b)
 {

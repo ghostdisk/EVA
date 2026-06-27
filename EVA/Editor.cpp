@@ -6,6 +6,7 @@
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/UI.hpp>
+#include <EVA/Hashing.hpp>
 #include <cglm/quat.h>
 
 static EdOp* root = nullptr;
@@ -18,11 +19,12 @@ static ConVar cvar_ed_show_sub = {
 	.fvalue = 0,
 };
 
-struct EdTranslationGizmoState
+struct EdGizmoState
 {
-	float3 offset;
-	bool active = false;
-	int active_axis = -1;
+	U32      id             = 0;
+	float    world_dist     = 0;
+	float    screen_dist    = 0;
+	float3   offset         = {};
 };
 
 static float4 brush_colors[] = {
@@ -58,7 +60,11 @@ static float4 brush_colors[] = {
 	{ 0.910f, 0.450f, 0.542f, 1.0f },
 };
 
-EdTranslationGizmoState g_gizmo = {};
+EdGizmoState g_active_gizmo_state = {};
+EdGizmoState g_hover_gizmo_state = {};
+EdGizmoState g_new_hover_gizmo_state = {};
+
+HashStack hash_stack;
 
 EdOp* EdCreateOp()
 {
@@ -94,7 +100,7 @@ void EdDestroyOp(EdOp* op)
 	delete op;
 }
 
-bool EdDestroySelectedRecursively(EdOp* op)
+bool EdDestroySelectionRec(EdOp* op)
 {
 	if (op->selected)
 	{
@@ -103,7 +109,7 @@ bool EdDestroySelectedRecursively(EdOp* op)
 	}
 	for (int i = 0; i < op->children.size(); i++)
 	{
-		if (EdDestroySelectedRecursively(op->children[i]))
+		if (EdDestroySelectionRec(op->children[i]))
 		{
 			op->children.erase(op->children.begin() + i);
 		}
@@ -111,7 +117,7 @@ bool EdDestroySelectedRecursively(EdOp* op)
 	return false;
 }
 
-void EdOutlineBrush(CSGBrush* b, const float4x4& transform, float4 color)
+void EdDrawBrushOutline(CSGBrush* b, const float4x4& transform, float4 color)
 {
 	for (const CSGPlane& plane : b->planes)
 	{
@@ -124,11 +130,10 @@ void EdOutlineBrush(CSGBrush* b, const float4x4& transform, float4 color)
 	}
 }
 
-
-void EdOutlineSelectionRecursively(EdOp* op, float4 color)
+void EdDrawSelectionOutlineRec(EdOp* op, float4 color)
 {
-	if (op->selected) for (CSGBrush* b : op->built) EdOutlineBrush(b, op->global_transform, color);
-	for (EdOp* child : op->children) EdOutlineSelectionRecursively(child, color);
+	if (op->selected) for (CSGBrush* b : op->built) EdDrawBrushOutline(b, op->global_transform, color);
+	for (EdOp* child : op->children) EdDrawSelectionOutlineRec(child, color);
 }
 
 template <typename F>
@@ -261,7 +266,7 @@ void EdInitialize()
 	ConRegisterCommand("ed_del",
 		[](ConParser& parser)
 		{
-			EdDestroySelectedRecursively(root);
+			EdDestroySelectionRec(root);
 			EdBuild(root);
 		}, "editor: delete subtract");
 
@@ -340,100 +345,65 @@ void EdOpGUI(EdOp* op)
 	}
 }
 
-float Unlerp(float2 a, float2 m, float2 b)
+void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color)
 {
-	if (abs(m.x - a.x) > 0.01f)
+	U32 id = hash_stack.Push(hash);
+	DEFER(hash_stack.Pop());
+
+	const float scale = Distance(pos, ActiveGame->camera.position) * 0.1;
+	const float cone_scale = 0.075f;
+
+	const float3 a = pos;
+	const float3 b = pos + direction * scale;
+
+	const float3 a_screen = CameraWorldToScreen(ActiveGame->camera, a);
+	const float3 b_screen = CameraWorldToScreen(ActiveGame->camera, b);
+	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), InputMousePosition);
+
+	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
+
+	const float screen_dist = Distance(nearest_screen, InputMousePosition);
+	const Ray ray_to_nearest = CameraScreenToRay(ActiveGame->camera, nearest_screen);
+
+	if (screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + cone_scale * 2) && screen_dist < g_new_hover_gizmo_state.screen_dist)
 	{
-		return (m.x - a.x) / (b.x - a.x);
+		g_new_hover_gizmo_state.id = id;
+		g_new_hover_gizmo_state.screen_dist = screen_dist;
 	}
-	else
+
+	if (g_active_gizmo_state.id == id || g_hover_gizmo_state.id == id) color = COLOR_WHITE;
+
+	{ // draw:
+		DrawSetLayer(Layer_Overlay);
+		float4 cone_rotation;
+		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
+		DrawLine(a, b, color);
+		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale * scale, cone_scale * scale, cone_scale * scale)), color);
+	}
+
+	float t;
+	DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t);
+	float3 nearest_world = a + (b - a).Normalized() * t;
+
+	if (g_hover_gizmo_state.id == id && !g_active_gizmo_state.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{
-		return (m.y - a.y) / (b.y - a.y);
+		g_active_gizmo_state = g_hover_gizmo_state;
+		g_active_gizmo_state.offset = nearest_world - pos;
+	}
+
+	if (g_active_gizmo_state.id == id)
+	{
+		pos = nearest_world - g_active_gizmo_state.offset;
 	}
 }
 
-void EdTranslationGizmo(EdTranslationGizmoState& gizmo, float3& pos, const Ray& mouse_ray, bool mouse_down)
+void EdTranslationGizmo(Hash hash, float3& pos)
 {
-	int new_active_axis = -1;
-	float min_distp = FLT_MAX;
-	float3 new_offset;
-	float3 point_along_line;
-
-	float dist = Distance(pos, ActiveGame->camera.position) * 0.1;
-	float scale = dist;
-	float cone_scale = 0.075f;
-
-	auto picker = [&](int axis, float3 a, float3 b, float4 color, Ray ray)
-	{
-		b *= scale;
-		a += pos;
-		b += pos;
-
-		float3 a_screen = CameraWorldToScreen(ActiveGame->camera, a);
-		float3 b_screen = CameraWorldToScreen(ActiveGame->camera, b);
-		float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), InputMousePosition);
-		float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
-
-		float dist_screen = Distance(nearest_screen, InputMousePosition);
-		Ray ray_to_nearest = CameraScreenToRay(ActiveGame->camera, nearest_screen);
-
-		float t2;
-		DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t2);
-		float3 nearest_world = a + (b - a).Normalized() * t2;
-
-		if (!gizmo.active && dist_screen < 30 && dist_screen < min_distp && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + cone_scale * 2))
-		{
-			min_distp = dist_screen;
-			new_active_axis = axis;
-			point_along_line = nearest_world;
-			new_offset = nearest_world - pos;
-		}
-		if (axis == gizmo.active_axis)
-		{
-			point_along_line = nearest_world;
-			color = COLOR_WHITE;
-		}
-
-		float4 cone_rotation;
-		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
-
-		DrawLine(a, b, color);
-		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale * scale, cone_scale * scale, cone_scale * scale)), color);
-	};
-
-	DrawSetLayer(Layer_Overlay);
-	picker(0, {0,0,0}, {1,0,0}, {1,0,0,1}, mouse_ray);
-	picker(1, {0,0,0}, {0,1,0}, {0,1,0,1}, mouse_ray);
-	picker(2, {0,0,0}, {0,0,1}, {0,0,1,1}, mouse_ray);
-	DrawSetLayer(Layer_Main);
-
-	if (!gizmo.active) gizmo.active_axis = new_active_axis;
-	if (mouse_down && new_active_axis >= 0)
-	{
-		gizmo.active = true;
-		gizmo.offset = new_offset;
-	}
-
-	if (gizmo.active)
-	{
-		pos = point_along_line - gizmo.offset;
-
-		if (InputGetButton(SDL_SCANCODE_LCTRL))
-		{
-			pos = pos / grid_size;
-			if (gizmo.active_axis == 0) pos.x = round(pos.x);
-			if (gizmo.active_axis == 1) pos.y = round(pos.y);
-			if (gizmo.active_axis == 2) pos.z = round(pos.z);
-			pos = pos * grid_size;
-		}
-
-		if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
-		{
-			gizmo.active = false;
-			gizmo.offset = {};
-			gizmo.active_axis = -1;
-		}
-	}
+	hash_stack.Push(hash);
+	EdArrowGizmo(1, pos, float3(1, 0, 0), float4(1, 0, 0, 1));
+	EdArrowGizmo(2, pos, float3(0, 1, 0), float4(0, 1, 0, 1));
+	EdArrowGizmo(3, pos, float3(0, 0, 1), float4(0, 0, 1, 1));
+	hash_stack.Pop();
 }
 
 EdOp* EdGetFirstSelected(EdOp* el)
@@ -449,40 +419,46 @@ EdOp* EdGetFirstSelected(EdOp* el)
 
 void EdTick()
 {
+	hash_stack.Reset();
+	g_new_hover_gizmo_state = {};
+	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
+	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	bool select = false;
+	bool do_selection = false;
 	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{
-		select = true;
+		do_selection = true;
 	}
 
 	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
-	EdOp* sel = EdGetFirstSelected(root);
+	EdOp* first_selected_op = EdGetFirstSelected(root);
 
-	if (sel)
+	static float3 dummy_pos = {5 ,0, 0};
+	EdTranslationGizmo(&dummy_pos, dummy_pos);
+
+	if (first_selected_op)
 	{
-		EdTranslationGizmo(g_gizmo, sel->position, mouse_ray, select);
-		if (g_gizmo.active)
+		hash_stack.Push(first_selected_op);
+		EdTranslationGizmo(first_selected_op, first_selected_op->position);
+		hash_stack.Pop();
+		if (g_active_gizmo_state.id)
 		{
-			select = false;
+			do_selection = false;
 			EdBuild(root);
 		}
 	}
 	
-
-	if (select)
+	if (do_selection)
 	{
-
 		float min_t = FLT_MAX;
 		EdOp* selected = EdMousePickRecursive(root, mouse_ray, &min_t);
-
 		EdSelect(selected, InputGetButton(SDL_SCANCODE_LCTRL));
 	}
 
 	DrawSetLayer(Layer_Overlay);
-	EdOutlineSelectionRecursively(root, {1,1,1,0.1});
+	EdDrawSelectionOutlineRec(root, {1,1,1,0.1});
 	DrawSetLayer(Layer_Main);
-	EdOutlineSelectionRecursively(root, {1,1,1,1});
+	EdDrawSelectionOutlineRec(root, {1,1,1,1});
 
 	if (cvar_ed_show_sub.fvalue)
 	{
@@ -492,7 +468,7 @@ void EdTick()
 				{
 					for (CSGBrush* b : op->built)
 					{
-						EdOutlineBrush(b, op->global_transform, {1,0,0.2,0.3});
+						EdDrawBrushOutline(b, op->global_transform, {1,0,0.2,0.3});
 					}
 				}
 				return true;
@@ -511,5 +487,11 @@ void EdTick()
 		CSGBrush* b = root->built[i];
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
+	}
+
+	g_hover_gizmo_state = g_new_hover_gizmo_state;
+	if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
+	{
+		g_active_gizmo_state = {};
 	}
 }

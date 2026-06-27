@@ -105,3 +105,15 @@ float4x4 float4x4::FromTransform(const float3& position, const float4& rotation,
 	glm_scale(m, scale);
 	return m;
 }
+
+float Unlerp(float2 a, float2 m, float2 b)
+{
+	if (fabs(m.x - a.x) > 0.01f)
+	{
+		return (m.x - a.x) / (b.x - a.x);
+	}
+	else
+	{
+		return (m.y - a.y) / (b.y - a.y);
+	}
+}
