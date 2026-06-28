@@ -116,6 +116,7 @@ void EdSelectOp(EdOp* op, bool additive = false)
 {
 	assert(op);
 	if (!additive) EdDeselect();
+	if (op == root) return;
 
 	for (const EdSelection& sel : selection)
 	{
@@ -420,10 +421,12 @@ void EdDrawSelectionOutline(float4 color)
 			case EdSelectionType_Node:
 			{
 				EdDrawOutline(sel.op, color);
+				break;
 			}
 			case EdSelectionType_BrushPlane:
 			{
 				EdDrawBrushPlaneOutline(sel.op->brush, sel.index, sel.op->global_transform, color);
+				break;
 			}
 			default:
 			{
@@ -772,6 +775,42 @@ void EdLoadMap(const char* name)
 	snprintf(loaded_map_name, sizeof(loaded_map_name), "%s", name);
 }
 
+void EdCompileMap()
+{
+	int indent = 0;
+	char path[256];
+	assert(loaded_map_name[0]);
+	snprintf(path, 256, "%s/Assets/%s.mapc", EVA_BASE_DIR, loaded_map_name);
+	FILE* f = fopen(path, "wb");
+	if (!f)
+	{
+		ConLog("Failed to open %s", path);
+		return;
+	}
+	DEFER(fclose(f));
+
+	EdBuild(root);
+
+	fprintf(f, "type mapc\n");
+	fprintf(f, "version 1\n");
+	fprintf(f, "brushes %d\n", (int)root->built.size());
+
+	indent++;
+	for (int i = 0; i < root->built.size(); i++)
+	{
+		CSGBrush* brush = root->built[i];
+		EdIdent(f, indent); fprintf(f, "planes %d\n", (int)brush->planes.size());
+		indent++;
+		for (int i = 0; i < brush->planes.size(); i++)
+		{
+			CSGPlane& plane = brush->planes[i];
+			EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", PRINT_V3(plane.plane.normal), plane.plane.distance);
+		}
+		indent--;
+	}
+	indent--;
+}
+
 void EdInitialize()
 {
 	ConRegisterVar(&cvar_ed_show_sub);
@@ -848,7 +887,7 @@ void EdInitialize()
 				return;
 			}
 			EdSaveMap(name);
-		}, "editor: save");
+		}, "editor: save map");
 	ConRegisterCommand("ed_load",
 		[](ConParser& parser)
 		{
@@ -859,7 +898,11 @@ void EdInitialize()
 				return;
 			}
 			EdLoadMap(name);
-		}, "editor: save");
+		}, "editor: load a map");
+	ConRegisterCommand("ed_compile", [](ConParser& parser)
+		{
+			EdCompileMap();
+		}, "editor: compile mapc");
 
 	root = EdCreateOp();
 	root->type = EdOpType_Stack;
