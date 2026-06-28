@@ -12,8 +12,8 @@
 #include <cglm/quat.h>
 #include <tracy/Tracy.hpp>
 
-Game* games[8] = {};
-Game* g_active_game = nullptr;
+Game*    g_games[8]        = {};
+Game*    g_active_game     = nullptr;
 
 ConVar cvar_game = {
 	.name = "game",
@@ -27,14 +27,14 @@ ConVar cvar_game = {
 			if (id > 7) id = 7;
 			cvar_game.fvalue = id;
 
-			if (!games[id])
+			if (!g_games[id])
 			{
-				games[id] = new Game();
-				GameInit(games[id]);
-				games[id]->id = id;
+				g_games[id] = new Game();
+				GameInit(g_games[id]);
+				g_games[id]->id = id;
 			}
 			
-			AppSetMode(AppMode_Game, games[id]);
+			AppSetMode(AppMode_Game, g_games[id]);
 		},
 };
 
@@ -51,11 +51,22 @@ void Con_tp(ConParser& parser)
 	g_current_camera->position.z = parser.FloatArg(g_current_camera->position.z);
 }
 
+void Con_map(ConParser& parser)
+{
+	if (!g_active_game)
+	{
+		ConExec("game 0");
+	}
+	GameLoadMap(g_active_game, parser.StringArg());
+}
+
 void GameInitialize()
 {
 	ConRegisterVar(&cvar_game);
 	ConRegisterVar(&cvar_show_fps);
+
 	ConRegisterCommand("tp", Con_tp, "teleport to a position");
+	ConRegisterCommand("map", Con_map, "load a map");
 }
 
 void GameInit(Game* game)
@@ -84,6 +95,12 @@ void GameTick(Game* game, double dt)
 void GameDraw(Game* game)
 {
 	ZoneScopedN("GameDraw");
+
+	DrawSetLayer(Layer_Main);
+	for (CSGBrush* brush : game->level_brushes)
+	{
+		DrawMesh(brush->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
+	}
 
 	game->entity_manager.Iterate(
 		[](Entity* entity)
@@ -122,8 +139,66 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 
 void GameTickAll(double dt)
 {
-	for (Game* game : games)
+	for (Game* game : g_games)
 	{
 		if (game) GameTick(game, dt);
+	}
+}
+
+void GameUnloadMap(Game* game)
+{
+	for (CSGBrush* b : game->level_brushes)
+	{
+		CSGDestroyBrush(b);
+	}
+	game->level_brushes.clear();
+}
+
+void GameLoadMap(Game* game, const char* name)
+{
+	int n;
+	char path[256];
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	FILE* f = fopen(path, "rb");
+	if (!f)
+	{
+		ConLog("Failed to open %s", path);
+		return;
+	}
+	DEFER(fclose(f));
+
+	fscanf(f, "type map\n");
+
+	int version;
+	n = fscanf(f, "version %d\n", &version);
+	assert(n == 1);
+	if (version != 1)
+	{
+		ConError("map %s is version %d, expected %d", name, version, 1);
+		return;
+	}
+
+	int num_brushes;
+	n = fscanf(f, "brushes %d\n", &num_brushes);
+	assert(n == 1);
+
+	for (int i = 0; i < num_brushes; i++)
+	{
+		int num_planes;
+		n = fscanf(f, "planes %d\n", &num_planes);
+		assert(n == 1);
+
+		CSGBrush* b = CSGCreateBrush();
+
+		for (int j = 0; j < num_planes; j++)
+		{
+			Plane plane;
+			n = fscanf(f, "plane %f %f %f %f\n", PRINT_V3(&plane.normal), &plane.distance);
+			assert(n == 4);
+			b->planes.push_back({ .plane = plane });
+		}
+		CSGBuildBrush(b);
+		CSGBuildBrushMesh(b);
+		game->level_brushes.push_back(b);
 	}
 }

@@ -1,8 +1,10 @@
 #pragma once
 #include <EVA/Entities.hpp>
 #include <EVA/Camera.hpp>
+#include <vector>
 
 struct GLTFScene;
+struct CSGBrush;
 
 struct Game
 {
@@ -11,6 +13,8 @@ struct Game
 	EntityManager entity_manager  = {};
 	Camera        camera          = {};
 	Entity*       pawn            = nullptr;
+
+	std::vector<CSGBrush*> level_brushes = {};
 };
 
 void GameInitialize();
