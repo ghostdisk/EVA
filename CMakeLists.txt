@@ -43,12 +43,16 @@ target_include_directories(EVA PRIVATE "${CMAKE_SOURCE_DIR}")
 # SDL
 #
 
-add_subdirectory("Vendor/SDL-release-3.4.10")
+ set(SDL3_MAINPROJECT OFF)
+
+set(SDL_GPU          OFF CACHE BOOL "" FORCE)
+set(SDL_RENDER       OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED       OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC       ON  CACHE BOOL "" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
 set(SDL_TESTS        OFF CACHE BOOL "" FORCE)
 set(SDL_EXAMPLES     OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC       ON  CACHE BOOL "" FORCE)
+add_subdirectory("Vendor/SDL-release-3.4.10")
 target_link_libraries(EVA SDL3-static)
 
 #
