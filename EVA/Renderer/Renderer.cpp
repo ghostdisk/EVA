@@ -1,4 +1,4 @@
-#include <EVA/Asset.hpp>
+#include <EVA/Assets.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Font.hpp>
@@ -154,7 +154,7 @@ void RenderFrame()
 				}
 
 				glUseProgram(shader);
-				glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
+				glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
 				GL_ERROR_CHECK();
 
 				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
@@ -199,7 +199,7 @@ void RenderFrame()
 			glUseProgram(shd_lines);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glUniformMatrix4fv(0, 1, false, (float*)&ActiveGame->camera.view_projection_matrix);
+			glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
 			glDrawArrays(GL_LINES, 0, current_layer->lines.size());
 			GL_ERROR_CHECK();
 

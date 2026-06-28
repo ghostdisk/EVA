@@ -9,8 +9,8 @@
 	va_list args;
 	va_start(args, fmt);
 	vsnprintf(message_buffer, sizeof(message_buffer), fmt, args);
-	__debugbreak();
 	MessageBoxA(nullptr, message_buffer, "Fatal Error", MB_ICONERROR | MB_OK);
+	__debugbreak();
 	exit(1);
 }
 

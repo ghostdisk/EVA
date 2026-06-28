@@ -1,8 +1,10 @@
+#include <EVA/App.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
+#include <EVA/Camera.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Net.hpp>
 #include <EVA/Font.hpp>
@@ -17,6 +19,8 @@
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
 
+AppMode g_app_mode = AppMode_None;
+
 struct NextFrameCallback
 {
 	void (*callback)(void* userdata);
@@ -24,6 +28,36 @@ struct NextFrameCallback
 };
 
 static std::vector<NextFrameCallback> next_frame_callbacks;
+
+
+void QueueForNextFrame(void (*callback)(void* userdata), void* userdata)
+{
+	next_frame_callbacks.push_back({ callback, userdata });
+}
+
+void AppSetMode(AppMode mode, Game* game)
+{
+	g_app_mode = mode;
+
+	switch (g_app_mode)
+	{
+		case AppMode_Editor:
+		{
+			assert(!game);
+			g_active_game = nullptr;
+			g_current_camera = &g_editor_camera;
+			break;
+		}
+		case AppMode_Game:
+		{
+			assert(game);
+			g_active_game = game;
+			g_current_camera = &game->camera;
+			break;
+		}
+		default: assert(0);
+	}
+}
 
 int main()
 {
@@ -49,7 +83,6 @@ int main()
 	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
 
 	ConExec("exec autoexec.cfg");
-	ConExec("game 0");
 
 	while (!g_quit)
 	{
@@ -72,9 +105,22 @@ int main()
 		InputUpdateAxes();
 
 		GameTickAll(g_delta_time);
-		GameDraw(ActiveGame);
+
+		switch (g_app_mode)
+		{
+			case AppMode_Game:
+			{
+				GameDraw(g_active_game);
+				break;
+			}
+			case AppMode_Editor:
+			{
+				EdTick();
+			}
+			default: break;
+		}
+
 		ConsoleDraw();
-		EdTick();
 		UIEndFrame();
 		UIDraw();
 
@@ -85,9 +131,4 @@ int main()
 	}
 
 	return 0;
-}
-
-void QueueForNextFrame(void (*callback)(void* userdata), void* userdata)
-{
-	next_frame_callbacks.push_back({ callback, userdata });
 }

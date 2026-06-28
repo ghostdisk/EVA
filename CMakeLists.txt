@@ -6,8 +6,9 @@ project(EVA)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_executable(EVA
+	"EVA/App.cpp"
 	"EVA/Arena.cpp"
-	"EVA/Asset.cpp"
+	"EVA/Assets.cpp"
 	"EVA/Camera.cpp"
 	"EVA/Character.cpp"
 	"EVA/ClientGame.cpp"
@@ -20,7 +21,6 @@ add_executable(EVA
 	"EVA/Hashing.cpp"
 	"EVA/Input.cpp"
 	"EVA/Library.cpp"
-	"EVA/Main.cpp"
 	"EVA/Math.cpp"
 	"EVA/Net.cpp"
 	"EVA/Platform.cpp"

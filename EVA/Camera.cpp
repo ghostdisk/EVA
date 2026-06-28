@@ -8,6 +8,8 @@
 #include <cglm/euler.h>
 #include <cglm/mat4.h>
 
+Camera* g_current_camera = nullptr;
+
 void CameraInit(Camera& camera)
 {
 	camera.position = {};

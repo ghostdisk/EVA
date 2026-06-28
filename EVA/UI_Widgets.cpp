@@ -1,7 +1,7 @@
 #include <EVA/UI.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Asset.hpp>
+#include <EVA/Assets.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Font.hpp>
 #include <EVA/Input.hpp>

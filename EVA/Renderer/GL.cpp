@@ -1,5 +1,5 @@
 #include <EVA/Renderer/GL.hpp>
-#include <EVA/Asset.hpp>
+#include <EVA/Assets.hpp>
 #include <EVA/Platform.hpp>
 #include <stdio.h>
 #include <SDL3/SDL.h>
@@ -128,7 +128,8 @@ GLuint GLCompileShaderProgram(const char* name, int num_defines, const char** de
 
 void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
 {
-	Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
+	//Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
+	printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
 }
 
 Mesh* MeshCreate(

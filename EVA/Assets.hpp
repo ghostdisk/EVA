@@ -5,6 +5,7 @@ typedef struct FT_FaceRec_*  FT_Face;
 struct Texture;
 struct Material;
 struct Texture;
+struct CSGBrush;
 
 enum AssetType
 {
@@ -14,6 +15,7 @@ enum AssetType
 	AssetType_Material,
 	AssetType_Sprite,
 	AssetType_Font,
+	AssetType_Map,
 };
 
 struct Asset
@@ -73,10 +75,15 @@ struct Font : Asset
 	FontGlyph glyphs[256];
 };
 
-void   AssetInit(Asset* asset, AssetType type, const char* name);
-void   AssetDeinit(Asset* asset);
-Asset* AssetGet(U32 id, AssetType expected_type);
-Asset* AssetGetByName(const char* name, AssetType expected_type);
-void   AssetsSkipToId(U32 id);
+struct Map : Asset
+{
+	CSGBrush* brushes;
+};
+
+void    AssetInit(Asset* asset, AssetType type, const char* name);
+void    AssetDeinit(Asset* asset);
+Asset*  AssetGet(U32 id, AssetType expected_type);
+Asset*  AssetGetByName(const char* name, AssetType expected_type);
+void    AssetsSkipToId(U32 id);
 
 Sprite* SpriteCreate(const char* name, Texture* texture, int x, int y, int w, int h);

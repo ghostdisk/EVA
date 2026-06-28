@@ -1,3 +1,4 @@
+#include <EVA/App.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
@@ -12,7 +13,7 @@
 #include <tracy/Tracy.hpp>
 
 Game* games[8] = {};
-Game* ActiveGame = nullptr;
+Game* g_active_game = nullptr;
 
 ConVar cvar_game = {
 	.name = "game",
@@ -32,7 +33,8 @@ ConVar cvar_game = {
 				GameInit(games[id]);
 				games[id]->id = id;
 			}
-			ActiveGame = games[id];
+			
+			AppSetMode(AppMode_Game, games[id]);
 		},
 };
 
@@ -44,11 +46,9 @@ ConVar cvar_show_fps = {
 
 void Con_tp(ConParser& parser)
 {
-	Camera* cam = &ActiveGame->camera;
-
-	cam->position.x = parser.FloatArg(cam->position.x);
-	cam->position.y = parser.FloatArg(cam->position.y);
-	cam->position.z = parser.FloatArg(cam->position.z);
+	g_current_camera->position.x = parser.FloatArg(g_current_camera->position.x);
+	g_current_camera->position.y = parser.FloatArg(g_current_camera->position.y);
+	g_current_camera->position.z = parser.FloatArg(g_current_camera->position.z);
 }
 
 void GameInitialize()
@@ -71,7 +71,7 @@ void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
 
-	if (ActiveGame == game)
+	if (g_active_game == game)
 	{
 		if (!game->pawn)
 		{

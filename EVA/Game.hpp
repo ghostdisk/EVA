@@ -13,13 +13,12 @@ struct Game
 	Entity*       pawn            = nullptr;
 };
 
-extern Game* ActiveGame;
-
 void GameInitialize();
 
 void GameInit(Game* game);
 void GameTick(Game* game, double dt);
 void GameDraw(Game* game);
 void GameTickAll(double dt);
+void GameLoadMap(Game* game, const char* map);
 
 EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);

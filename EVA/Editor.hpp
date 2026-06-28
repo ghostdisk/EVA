@@ -4,6 +4,7 @@
 #include <vector>
 
 struct CSGBrush;
+struct Camera;
 
 enum EdOpType
 {
@@ -29,3 +30,5 @@ struct EdOp
 
 void EdInitialize();
 void EdTick();
+
+extern Camera g_editor_camera;

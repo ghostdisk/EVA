@@ -276,7 +276,7 @@ void ConsoleDraw()
 
 		if (text_input->flags & UIBoxFlags_Focus) 
 		{
-			if (InputGetButtonDown(SDL_SCANCODE_RETURN)) submit = true;
+			if (InputGetButtonDown(SDL_SCANCODE_RETURN) || InputGetButtonDown(SDL_SCANCODE_KP_ENTER)) submit = true;
 			if (InputGetButtonDown(SDL_SCANCODE_L) && InputGetButton(SDL_SCANCODE_LCTRL)) ConExec("clear");
 		}
 

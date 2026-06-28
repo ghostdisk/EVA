@@ -7,8 +7,8 @@ struct Camera
 {
 	float fov = 60 * GLM_PI / 180.0f;
 
-	float3 position = {};
-	float  pitch    = 0.0f;
+	float3 position  = {};
+	float  pitch     = 0.0f;
 	float  yaw       = 0.0f; // TODO: yaw=0 should point to the right, not forward
 
 	// calculated from pitch/yaw by CameraUpdateBasisVectors:
@@ -33,12 +33,14 @@ struct Camera
 	float orbit_distance = 4.0f;
 };
 
-void CameraInit(Camera& camera);
-void CameraUpdateBasisVectors(Camera& camera);
-void CameraUpdateMatrices(Camera& camera);
-void CameraFly(Camera& camera);
-void CameraOrbit(Camera& camera, Entity* entity);
+void CameraInit                (Camera& camera);
+void CameraUpdateBasisVectors  (Camera& camera);
+void CameraUpdateMatrices      (Camera& camera);
+void CameraFly                 (Camera& camera);
+void CameraOrbit               (Camera& camera, Entity* entity);
 
 Ray CameraClipToRay(Camera& camera, float2 clip_xy);
 Ray CameraScreenToRay(Camera& camera, float2 screen_xy);
 float3 CameraWorldToScreen(Camera& camera, float3 world);
+
+extern Camera* g_current_camera;

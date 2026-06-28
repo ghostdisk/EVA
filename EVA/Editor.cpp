@@ -1,3 +1,4 @@
+#include <EVA/App.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Console.hpp>
@@ -8,10 +9,6 @@
 #include <EVA/UI.hpp>
 #include <EVA/Hashing.hpp>
 #include <cglm/quat.h>
-
-// We allow multiple selection, but only for sibling nodes
-// selection_parent is their parent - to get selection iterate its children and check the selected field
-static EdOp* selection_parent = nullptr;
 
 enum EdSelectionType
 {
@@ -27,11 +24,12 @@ struct EdSelection
 	int             index  = 0;
 };
 
-static EdOp* root = nullptr;
-static std::vector<EdSelection> selection = {};
-static char loaded_map_name[64] = {};
+Camera g_editor_camera = {};
 
-float grid_size = 0.25;
+static EdOp*                    root                   = nullptr;
+static std::vector<EdSelection> selection              = {};
+static char                     loaded_map_name[64]    = {};
+
 
 #define FOREACH_SELECTED(name) 
 
@@ -351,20 +349,20 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	U32 id = hash_stack.Push(hash);
 	DEFER(hash_stack.Pop());
 
-	const float scale = Distance(pos, ActiveGame->camera.position) * 0.1;
+	const float scale = Distance(pos, g_editor_camera.position) * 0.1;
 	const float cone_scale = 0.075f;
 
 	const float3 a = pos;
 	const float3 b = pos + direction * scale * base_scale;
 
-	const float3 a_screen = CameraWorldToScreen(ActiveGame->camera, a);
-	const float3 b_screen = CameraWorldToScreen(ActiveGame->camera, b);
+	const float3 a_screen = CameraWorldToScreen(g_editor_camera, a);
+	const float3 b_screen = CameraWorldToScreen(g_editor_camera, b);
 	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), InputMousePosition);
 
 	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
 
 	const float screen_dist = Distance(nearest_screen, InputMousePosition);
-	const Ray ray_to_nearest = CameraScreenToRay(ActiveGame->camera, nearest_screen);
+	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
 
 	if (screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + cone_scale * 2) && screen_dist < g_new_hover_gizmo_state.screen_dist)
 	{
@@ -469,12 +467,16 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 
 void EdTick()
 {
+	CameraFly(g_editor_camera);
+	CameraUpdateMatrices(g_editor_camera);
+
+
 	hash_stack.Reset();
 	g_new_hover_gizmo_state = {};
 	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	Ray mouse_ray = CameraScreenToRay(ActiveGame->camera, InputMousePosition);
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, InputMousePosition);
 
 	std::vector<EdOp*> selected_ops = {};
 	bool dirty = false;
@@ -903,8 +905,16 @@ void EdInitialize()
 		{
 			EdCompileMap();
 		}, "editor: compile map");
+	ConRegisterCommand("ed", [](ConParser& parser)
+		{
+			AppSetMode(AppMode_Editor, nullptr);
+		}, "editor: compile map");
 
 	root = EdCreateOp();
 	root->type = EdOpType_Stack;
 	root->global_transform = float4x4::Identity();
+
+	CameraInit(g_editor_camera);
+	g_editor_camera.position.y = -10;
+	g_editor_camera.position.z = 3;
 }
