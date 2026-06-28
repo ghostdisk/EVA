@@ -10,7 +10,6 @@
 template <>
 void EntityInit(ECharacter* character)
 {
-	character->mesh = Library::mesh_character;
 }
 
 
