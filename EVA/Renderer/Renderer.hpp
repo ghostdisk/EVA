@@ -53,7 +53,6 @@ void DrawText(Font* font, const char* text, int len, int x, int y, float4 color)
 void DrawSprite(Sprite* sprite, int x, int y, float4 color);
 
 float2 MeasureText(Font* font, const char* text, int text_len = -1);
-Font* FontLoad(const char* name, int size, int atlas_size);
 
 void DrawGrid(int size);
 void DrawPoint(float3 point, float4 color);

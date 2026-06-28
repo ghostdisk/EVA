@@ -6,6 +6,7 @@ struct Texture;
 struct Mesh;
 struct Sprite;
 struct Material;
+struct Font;
 
 void LibraryInitialize();
 
@@ -25,5 +26,7 @@ extern Sprite* spr_ui_arrow_right;
 extern Sprite* spr_crosshair;
 
 extern Material* mat_brush;
+
+extern Font* fnt_arial;
 
 }

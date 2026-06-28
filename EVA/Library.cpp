@@ -3,6 +3,7 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Character.hpp>
 #include <EVA/Renderer/Renderer.hpp>
+#include <EVA/Font.hpp>
 
 namespace Library
 {
@@ -23,6 +24,8 @@ Sprite* spr_ui_arrow_right = nullptr;
 Sprite* spr_crosshair = nullptr;
 
 Material* mat_brush = nullptr;
+
+Font* fnt_arial = 0;
 
 }
 
@@ -48,4 +51,6 @@ void LibraryInitialize()
 	Library::spr_crosshair = SpriteCreate("spr_crosshair", ui_atlas, 32, 0, 15, 15);
 
 	Library::mat_brush = MaterialCreate("mat_brush", shd_brush, Library::tex_proto);
+
+	Library::fnt_arial = FontLoad("Arial.ttf", 20, 512);
 }

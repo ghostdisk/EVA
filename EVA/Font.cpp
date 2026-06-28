@@ -36,6 +36,7 @@ static void Blit(
 Font* FontLoad(const char* name, int size, int atlas_size)
 {
 	Font* font = new Font();
+	AssetInit(font, AssetType_Font, name);
 
 	char path[256];
 	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);

@@ -1,9 +1,10 @@
 #pragma once
 #include <EVA/Common.hpp>
 
+typedef struct FT_FaceRec_*  FT_Face;
 struct Texture;
 struct Material;
-struct Collider;
+struct Texture;
 
 enum AssetType
 {
@@ -12,6 +13,7 @@ enum AssetType
 	AssetType_Texture,
 	AssetType_Material,
 	AssetType_Sprite,
+	AssetType_Font,
 };
 
 struct Asset
@@ -48,6 +50,27 @@ struct Material : Asset
 {
 	U32      shader        = 0;
 	Texture* color_texture = nullptr;
+};
+
+struct FontGlyph
+{
+	int x       = 0;
+	int y       = 0;
+	int width   = 0;
+	int height  = 0;
+	int advance = 0;
+	int xoffs   = 0;
+	int yoffs   = 0;
+};
+
+struct Font : Asset
+{
+	FT_Face  face        = {};
+	Texture* atlas       = 0;
+	int      pixel_size  = 0;
+	int      line_height = 0;
+
+	FontGlyph glyphs[256];
 };
 
 void   AssetInit(Asset* asset, AssetType type, const char* name);

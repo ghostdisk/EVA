@@ -4,6 +4,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Arena.hpp>
+#include <EVA/Library.hpp>
 #include <SDL3/SDL_events.h>
 
 void UIFlexLayoutPass1(UIBox* box);
@@ -33,7 +34,7 @@ UIContext* UI = &g_main_ui;
 
 void UIInitialize()
 {
-	g_main_ui.default_font = FontLoad("Arial.ttf", 20, 512);
+	g_main_ui.default_font = Library::fnt_arial;
 }
 
 void UIContextMakeCurrent(UIContext& ui)

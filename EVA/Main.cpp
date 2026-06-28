@@ -24,7 +24,6 @@ struct NextFrameCallback
 	void* userdata;
 };
 
-Font* fnt_arial = 0;
 static std::vector<NextFrameCallback> next_frame_callbacks;
 
 int main()
@@ -38,9 +37,9 @@ int main()
 	GameInitialize();
 	RendererInitialize();
 	PhysicsInitialize();
+	FontInitialize();
 	LibraryInitialize();
 	InputInitialize();
-	FontInitialize();
 	UIInitialize();
 	EdInitialize();
 
