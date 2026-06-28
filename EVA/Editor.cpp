@@ -726,7 +726,7 @@ EdOp* EdLoadOp(FILE* f)
 void EdSaveMap(const char* name)
 {
 	char path[256];
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "wb");
 	if (!f)
 	{
@@ -734,7 +734,7 @@ void EdSaveMap(const char* name)
 		return;
 	}
 	DEFER(fclose(f));
-	fprintf(f, "type map\n");
+	fprintf(f, "type mpe\n");
 	fprintf(f, "version 1\n");
 	EdSaveOp(f, root, 0);
 
@@ -750,7 +750,7 @@ void EdLoadMap(const char* name)
 	}
 
 	char path[256];
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
 	if (!f)
 	{
@@ -760,7 +760,7 @@ void EdLoadMap(const char* name)
 	DEFER(fclose(f));
 
 	int version = 0;
-	fscanf(f, "type map\n");
+	fscanf(f, "type mpe\n");
 	fscanf(f, "version %d\n", &version);
 	if (version != 1)
 	{
@@ -780,7 +780,7 @@ void EdCompileMap()
 	int indent = 0;
 	char path[256];
 	assert(loaded_map_name[0]);
-	snprintf(path, 256, "%s/Assets/%s.mapc", EVA_BASE_DIR, loaded_map_name);
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, loaded_map_name);
 	FILE* f = fopen(path, "wb");
 	if (!f)
 	{
@@ -791,7 +791,7 @@ void EdCompileMap()
 
 	EdBuild(root);
 
-	fprintf(f, "type mapc\n");
+	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
 	fprintf(f, "brushes %d\n", (int)root->built.size());
 
@@ -887,7 +887,7 @@ void EdInitialize()
 				return;
 			}
 			EdSaveMap(name);
-		}, "editor: save map");
+		}, "editor: save map .mpe");
 	ConRegisterCommand("ed_load",
 		[](ConParser& parser)
 		{
@@ -898,11 +898,11 @@ void EdInitialize()
 				return;
 			}
 			EdLoadMap(name);
-		}, "editor: load a map");
+		}, "editor: load a map .mpe");
 	ConRegisterCommand("ed_compile", [](ConParser& parser)
 		{
 			EdCompileMap();
-		}, "editor: compile mapc");
+		}, "editor: compile map");
 
 	root = EdCreateOp();
 	root->type = EdOpType_Stack;

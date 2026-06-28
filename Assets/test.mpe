@@ -1,4 +1,4 @@
-type map
+type mpe
 version 1
 op 2
 	subtract 0
