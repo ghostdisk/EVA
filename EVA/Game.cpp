@@ -1,5 +1,4 @@
 #include <EVA/Game.hpp>
-#include <EVA/Physics.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Library.hpp>
@@ -66,37 +65,11 @@ void GameInit(Game* game)
 	game->camera.position.z = 3;
 
 	EntityManagerInit(game->entity_manager);
-
-	game->physics = PhysicsCreate();
-	// game->csg = CSGCreateStack();
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Union,
-	// 	.brush     = CSGCreateCylinder(32, 3, 3),
-	// });
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.operation = CSGOperation_Difference,
-	// 	.brush     = CSGCreateCylinder(32, 2, 2),
-	// });
-	// game->csg->nodes.push_back(CSGStackNode{
-	// 	.type      = CSGStackNodeType_Brush,
-	// 	.transform = float4x4({
-	// 		1,0,0,0,
-	// 		0,1,0,0,
-	// 		0,0,1,0,
-	// 		2,0,0,1,
-	// 	}),
-	// 	.operation = CSGOperation_Difference,
-	// 	.brush     = CSGCreateCube({1,0.4,0.8}),
-	// });
 }
 
 void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
-
-	PhysicsTick(game->physics, dt);
 
 	if (ActiveGame == game)
 	{

@@ -1,6 +1,5 @@
 #include <EVA/ClientGame.hpp>
 #include <EVA/GLTF.hpp>
-#include <EVA/Physics.hpp>
 #include <EVA/Wire.hpp>
 #include <EVA/Binary.hpp>
 #include <enet/enet.h>

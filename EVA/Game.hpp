@@ -2,7 +2,6 @@
 #include <EVA/Entities.hpp>
 #include <EVA/Camera.hpp>
 
-struct Physics;
 struct GLTFScene;
 
 struct Game
@@ -11,7 +10,6 @@ struct Game
 	const char*   name            = nullptr;
 	EntityManager entity_manager  = {};
 	Camera        camera          = {};
-	Physics*      physics         = nullptr;
 	Entity*       pawn            = nullptr;
 };
 

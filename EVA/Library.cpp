@@ -1,6 +1,5 @@
 #include <EVA/Library.hpp>
 #include <EVA/GLTF.hpp>
-#include <EVA/Physics.hpp>
 #include <EVA/Character.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Font.hpp>

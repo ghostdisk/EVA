@@ -17,12 +17,6 @@ enum EntityType : U8
 	EntityType_ENUM_SIZE,
 };
 
-namespace JPH
-{
-	class Body;
-}
-using PhysicsBody = JPH::Body;
-
 // @CONSTRUCTOR_NOT_CALLED
 struct Entity
 {
@@ -43,7 +37,6 @@ struct Entity
 		Entity* next_free;
 	};
 
-	PhysicsBody* body;
 	Mesh* mesh;
 	Material* material;
 };

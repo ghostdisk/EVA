@@ -23,7 +23,6 @@ add_executable(EVA
 	"EVA/Main.cpp"
 	"EVA/Math.cpp"
 	"EVA/Net.cpp"
-	"EVA/Physics.cpp"
 	"EVA/Platform.cpp"
 	"EVA/ServerGame.cpp"
 	"EVA/UI_Core.cpp"

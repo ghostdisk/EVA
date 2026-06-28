@@ -11,7 +11,6 @@
 #include <EVA/Entities.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Game.hpp>
-#include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Editor.hpp>
 #include <SDL3/SDL.h>
@@ -36,7 +35,6 @@ int main()
 	GLInitialize();
 	GameInitialize();
 	RendererInitialize();
-	PhysicsInitialize();
 	FontInitialize();
 	LibraryInitialize();
 	InputInitialize();
