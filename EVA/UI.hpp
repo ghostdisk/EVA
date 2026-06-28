@@ -137,7 +137,6 @@ struct UIContext
 
 void UIInitialize();
 void UIContextInit(UIContext& ui, Font* default_font);
-void UIContextMakeCurrent(UIContext& ui);
 UIBox* UIBeginBox(U32 id = 0, int data_size = 0, const void* data_default = nullptr);
 void UIEndBox();
 U32  UIPushId(U32 id);

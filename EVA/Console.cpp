@@ -216,7 +216,7 @@ void ConsoleDraw()
 
 		UIBeginBox()
 			->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
-			->SetSize(WindowWidth, 400)
+			->SetSize(g_window_size.x, 400)
 			->SetColor(COLOR_RGB(57, 9, 23));
 		DEFER(UIEndBox());
 

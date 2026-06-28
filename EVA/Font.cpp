@@ -1,5 +1,6 @@
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Platform.hpp>
+#include <EVA/Font.hpp>
 #include <EVA/Asset.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H

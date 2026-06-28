@@ -11,3 +11,5 @@ struct IPAddress
 {
 	U8 octets[4] = {0,0,0,0};
 };
+
+void NetInitialize();

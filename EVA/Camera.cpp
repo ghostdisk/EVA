@@ -20,7 +20,7 @@ void CameraUpdateMatrices(Camera& camera)
 	CameraUpdateBasisVectors(camera);
 
 	glm_look_rh_zo(camera.position, camera.forward, camera.up, camera.view_matrix);
-	glm_perspective_rh_zo(camera.fov, (float)WindowWidth / (float)WindowHeight, 0.02f, 500.0f, camera.projection_matrix);
+	glm_perspective_rh_zo(camera.fov, g_window_size.x / g_window_size.y, 0.02f, 500.0f, camera.projection_matrix);
 	glm_mat4_mul(camera.projection_matrix, camera.view_matrix, camera.view_projection_matrix);
 
 	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);
@@ -59,7 +59,7 @@ void CameraFly(Camera& camera)
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
 	input.z += InputGetAxis(InputAxis_Fly);
 
-	camera.position += input * speed * DeltaTime;
+	camera.position += input * speed * g_delta_time;
 	camera.yaw = remainderf(camera.yaw, GLM_PIf * 2);
 
 	float yaw_deg = camera.yaw * RAD_TO_DEG;
@@ -74,6 +74,7 @@ void CameraFly(Camera& camera)
 
 void CameraOrbit(Camera& camera, Entity* entity)
 {
+	bool InMenu = false; // TODO
 	SDL_SetWindowRelativeMouseMode(GameWindow, !InMenu);
 
 	if (!InMenu)
@@ -90,8 +91,8 @@ void CameraOrbit(Camera& camera, Entity* entity)
 			camera.pitch = 45 * DEG_TO_RAD;
 		}
 
-		if (InputGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * DeltaTime;
-		if (InputGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * DeltaTime;
+		if (InputGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * g_delta_time;
+		if (InputGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * g_delta_time;
 
 		CameraUpdateBasisVectors(camera);
 
@@ -121,8 +122,8 @@ Ray CameraClipToRay(Camera& camera, float2 xy)
 Ray CameraScreenToRay(Camera& camera, float2 screen)
 {
 	return CameraClipToRay(camera, float2(
-		(screen.x / WindowWidth) * 2.0f - 1.0f,
-		-((screen.y / WindowHeight) * 2.0f - 1.0f)));
+		(screen.x / g_window_size.x) * 2.0f - 1.0f,
+		-((screen.y / g_window_size.y) * 2.0f - 1.0f)));
 }
 
 
@@ -132,7 +133,7 @@ float3 CameraWorldToScreen(Camera& camera, float3 world)
 	clip.xyz() /= clip.w;
 
 	return float3(
-		((clip.x * 0.5) + 0.5) * WindowWidth,
-		((-clip.y * 0.5) + 0.5) * WindowHeight,
+		((clip.x * 0.5) + 0.5) * g_window_size.x,
+		((-clip.y * 0.5) + 0.5) * g_window_size.y,
 		clip.z);
 }

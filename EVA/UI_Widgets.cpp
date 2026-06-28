@@ -2,6 +2,7 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Asset.hpp>
 #include <EVA/Library.hpp>
+#include <EVA/Font.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <SDL3/SDL_events.h>

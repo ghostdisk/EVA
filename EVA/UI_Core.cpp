@@ -28,16 +28,12 @@ UILayoutMode UILayoutMode_Fixed = {
 	.Pass2 = UIFixedLayoutPass2,
 };
 
-UIContext* UI = {};
-
+static UIContext g_main_ui = {};
+UIContext* UI = &g_main_ui;
 
 void UIInitialize()
 {
-}
-
-void UIContextInit(UIContext& ui, Font* default_font)
-{
-	ui.default_font = default_font;
+	g_main_ui.default_font = FontLoad("Arial.ttf", 20, 512);
 }
 
 void UIContextMakeCurrent(UIContext& ui)
@@ -143,8 +139,8 @@ void UIBeginFrame()
 	assert(UI->root.next_sibling == nullptr);
 	UI->root.first_child = nullptr;
 	UI->root.last_child  = nullptr;
-	UI->root.size        = float2(WindowWidth, WindowHeight);
-	UI->root.min_size    = float2(WindowWidth, WindowHeight);
+	UI->root.size        = g_window_size;
+	UI->root.min_size    = g_window_size;
 	UI->root.layout      = &UILayoutMode_Fixed;
 	if (UI->focus_box && !(UI->focus_box->flags & UIBoxFlags_UsedThisFrame)) UIFocus(nullptr);
 

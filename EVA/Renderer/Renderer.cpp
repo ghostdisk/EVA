@@ -1,6 +1,7 @@
 #include <EVA/Asset.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
+#include <EVA/Font.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
@@ -95,7 +96,7 @@ void RenderFrame()
 {
 	ZoneScopedN("RenderScene");
 
-	glViewport(0, 0, WindowWidth, WindowHeight);
+	glViewport(0, 0, g_window_size.x, g_window_size.y);
 	glDepthRange(0.0, 1.0);
 
 	if (glClipControl) glClipControl(GL_LOWER_LEFT,  GL_ZERO_TO_ONE);
@@ -214,7 +215,7 @@ void RenderFrame()
 			glCullFace(GL_FRONT);
 			glUseProgram(shd_quad);
 			glBindVertexArray(mesh_quad->vao);
-			glUniform2f(0, WindowWidth, WindowHeight);
+			glUniform2f(0, g_window_size.x, g_window_size.y);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			GL_ERROR_CHECK();
@@ -271,7 +272,6 @@ void RenderFrame()
 		}
 
 	}
-
 }
 
 void DrawGrid(int size)
