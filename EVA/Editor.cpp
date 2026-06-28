@@ -29,6 +29,7 @@ struct EdSelection
 
 static EdOp* root = nullptr;
 static std::vector<EdSelection> selection = {};
+static char loaded_map_name[64] = {};
 
 float grid_size = 0.25;
 
@@ -733,6 +734,8 @@ void EdSaveMap(const char* name)
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
 	EdSaveOp(f, root, 0);
+
+	snprintf(loaded_map_name, sizeof(loaded_map_name), "%s", name);
 }
 
 void EdLoadMap(const char* name)
@@ -765,6 +768,8 @@ void EdLoadMap(const char* name)
 	root = EdLoadOp(f);
 	root->global_transform = float4x4::Identity();
 	EdBuild(root);
+
+	snprintf(loaded_map_name, sizeof(loaded_map_name), "%s", name);
 }
 
 void EdInitialize()
@@ -833,12 +838,26 @@ void EdInitialize()
 		[](ConParser& parser)
 		{
 			const char* name = parser.StringArg();
+			if (!name || name[0] == '\0')
+			{
+				name = loaded_map_name;
+			}
+			if (!name[0])
+			{
+				ConError("no map opened");
+				return;
+			}
 			EdSaveMap(name);
 		}, "editor: save");
 	ConRegisterCommand("ed_load",
 		[](ConParser& parser)
 		{
 			const char* name = parser.StringArg();
+			if (!name || name[0] == '\0')
+			{
+				ConError("required arg missing");
+				return;
+			}
 			EdLoadMap(name);
 		}, "editor: save");
 
