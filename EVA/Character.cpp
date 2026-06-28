@@ -12,7 +12,6 @@ void EntityInit(ECharacter* character)
 {
 }
 
-
 void CharacterControllerTick(Game* game, ECharacter* character)
 {
 	float3 input = {

@@ -141,6 +141,19 @@ void EdDestroyOp(EdOp* op)
 	if (op->brush) CSGDestroyBrush(op->brush);
 	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
 	for (EdOp* child : op->children) EdDestroyOp(child);
+
+	if (op->parent)
+	{
+		for (int i = 0; i < op->parent->children.size(); i++)
+		{
+			if (op->parent->children[i] == op)
+			{
+				op->parent->children.erase(op->parent->children.begin() + i);
+				break;
+			}
+		}
+	}
+
 	delete op;
 }
 
@@ -263,74 +276,6 @@ void EdOpAddChild(EdOp* parent, EdOp* child)
 	assert(!child->parent);
 	parent->children.push_back(child);
 	child->parent = parent;
-}
-
-void EdInitialize()
-{
-	ConRegisterVar(&cvar_ed_show_sub);
-	ConRegisterCommand("ed_cube",
-		[](ConParser& parser)
-		{
-			EdOp* op = EdCreateOp();
-			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
-			op->type = EdOpType_Brush;
-			EdOpAddChild(root, op);
-			EdSelectOp(op);
-			EdBuild(root);
-		}, "editor: create a cube");
-	ConRegisterCommand("ed_cylinder",
-		[](ConParser& parser)
-		{
-			EdOp* op = EdCreateOp();
-			int nseg = parser.FloatArg(12.0f);
-			float rad  = parser.FloatArg(1.0f);
-			float height = parser.FloatArg(1.0f);
-			op->brush = CSGCreateCylinder(nseg, rad, height);
-			op->type = EdOpType_Brush;
-			EdOpAddChild(root, op);
-			EdSelectOp(op);
-			EdBuild(root);
-		}, "editor: create a cylinder");
-	ConRegisterCommand("ed_move",
-		[](ConParser& parser)
-		{
-			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
-			for (EdSelection& sel : selection)
-				if (sel.type == EdSelectionType_Node)
-					sel.op->position += offset;
-			EdBuild(root);
-		}, "editor: create a cube");
-	ConRegisterCommand("ed_build",
-		[](ConParser& parser)
-		{
-			EdBuild(root);
-		}, "editor: rebuild csg");
-	ConRegisterCommand("ed_add",
-		[](ConParser& parser)
-		{
-			for (EdSelection& sel : selection)
-				if (sel.type == EdSelectionType_Node)
-					sel.op->subtract = false;
-			EdBuild(root);
-		}, "editor: set selected to add");
-	ConRegisterCommand("ed_sub",
-		[](ConParser& parser)
-		{
-			for (EdSelection& sel : selection)
-				if (sel.type == EdSelectionType_Node)
-					sel.op->subtract = true;
-			EdBuild(root);
-		}, "editor: set selected to subtract");
-	ConRegisterCommand("ed_del",
-		[](ConParser& parser)
-		{
-			EdDestroySelection();
-			EdBuild(root);
-		}, "editor: delete subtract");
-
-	root = EdCreateOp();
-	root->type = EdOpType_Stack;
-	root->global_transform = float4x4::Identity();
 }
 
 void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
@@ -645,4 +590,259 @@ void EdTick()
 	{
 		g_active_gizmo_state = {};
 	}
+}
+
+void EdIdent(FILE* f, int indent)
+{
+	for (int i = 0; i < indent; i++) fprintf(f, "\t");
+}
+
+void EdSaveOp(FILE* f, EdOp* op, int indent)
+{
+	EdIdent(f, indent); fprintf(f, "op %d\n", op->type);
+
+	indent++;
+
+	EdIdent(f, indent); fprintf(f, "subtract %d\n", op->subtract);
+	EdIdent(f, indent); fprintf(f, "position %f %f %f\n", PRINT_V3(op->position));
+
+	switch (op->type)
+	{
+		case EdOpType_Brush:
+		{
+			EdIdent(f, indent); fprintf(f, "planes %d\n", (int)op->brush->planes.size());
+			indent++;
+			for (int i = 0; i < op->brush->planes.size(); i++)
+			{
+				CSGPlane& plane = op->brush->planes[i];
+				EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", PRINT_V3(plane.plane.normal), plane.plane.distance);
+			}
+			indent--;
+			break;
+		}
+		case EdOpType_Stack:
+		{
+			EdIdent(f, indent); fprintf(f, "children %d\n", (int)op->children.size());
+			for (int i = 0; i < op->children.size(); i++)
+			{
+				EdSaveOp(f, op->children[i], indent + 1);
+			}
+			break;
+		}
+		default: assert(0);
+	}
+
+	indent--;
+	EdIdent(f, indent); fprintf(f, "op_end\n");
+}
+
+EdOp* EdLoadOp(FILE* f)
+{
+	int n;
+	EdOp* op = EdCreateOp();
+	n = fscanf(f, "op %d\n", &op->type);
+	assert(n == 1);
+
+	switch (op->type)
+	{
+		case EdOpType_Brush:
+		{
+			op->brush = CSGCreateBrush();
+			break;
+		}
+		default: break;
+	}
+	assert(op->type > EdOpType_None && op->type < EdOpType_ENUM_SIZE);
+
+	for (;;)
+	{
+		char t[32] = {};
+		n = fscanf(f, "%s", t);
+		assert(n == 1);
+
+		if (strcmp(t, "subtract") == 0)
+		{
+			int sub;
+			n = fscanf(f, "%d\n", &sub);
+			assert(n == 1);
+			op->subtract = sub;
+		}
+		else if (strcmp(t, "position") == 0)
+		{
+			n = fscanf(f, "%f %f %f\n", PRINT_V3(&op->position));
+			assert(n == 3);
+		}
+		else if (strcmp(t, "planes") == 0)
+		{
+			assert(op->type == EdOpType_Brush);
+
+			int num_planes;
+			n = fscanf(f, "%d\n", &num_planes);
+			assert(n == 1);
+
+			for (int i = 0; i < num_planes; i++)
+			{
+				Plane plane;
+				n = fscanf(f, "plane %f %f %f %f\n", PRINT_V3(&plane.normal), &plane.distance);
+				assert(n == 4);
+
+				op->brush->planes.push_back({ .plane = plane });
+			}
+		}
+		else if (strcmp(t, "children") == 0)
+		{
+			int num_children;
+			n = fscanf(f, "%d\n", &num_children);
+			assert(num_children >= 0 && num_children < 1000);
+			for (int i = 0; i < num_children; i++)
+			{
+				op->children.push_back(EdLoadOp(f));
+			}
+		}
+		else if (strcmp(t, "op_end") == 0)
+		{
+			fscanf(f, "\n");
+			break;
+		}
+	}
+
+	switch (op->type)
+	{
+		case EdOpType_Brush:
+		{
+			CSGBuildBrush(op->brush);
+			break;
+		}
+		default: break;
+	}
+
+	return op;
+}
+
+void EdSaveMap(const char* name)
+{
+	char path[256];
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	FILE* f = fopen(path, "wb");
+	if (!f)
+	{
+		ConError("Failed to open %s", name);
+		return;
+	}
+	DEFER(fclose(f));
+	fprintf(f, "type map\n");
+	fprintf(f, "version 1\n");
+	EdSaveOp(f, root, 0);
+}
+
+void EdLoadMap(const char* name)
+{
+	if (root)
+	{
+		EdDestroyOp(root);
+		root = nullptr;
+	}
+
+	char path[256];
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	FILE* f = fopen(path, "rb");
+	if (!f)
+	{
+		ConLog("Failed to open %s", name);
+		return;
+	}
+	DEFER(fclose(f));
+
+	int version = 0;
+	fscanf(f, "type map\n");
+	fscanf(f, "version %d\n", &version);
+	if (version != 1)
+	{
+		ConError("map %s is version %d, expected %d", name, version, 1);
+		return;
+	}
+
+	root = EdLoadOp(f);
+	root->global_transform = float4x4::Identity();
+	EdBuild(root);
+}
+
+void EdInitialize()
+{
+	ConRegisterVar(&cvar_ed_show_sub);
+	ConRegisterCommand("ed_cube",
+		[](ConParser& parser)
+		{
+			EdOp* op = EdCreateOp();
+			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
+			op->type = EdOpType_Brush;
+			EdOpAddChild(root, op);
+			EdSelectOp(op);
+			EdBuild(root);
+		}, "editor: create a cube");
+	ConRegisterCommand("ed_cylinder",
+		[](ConParser& parser)
+		{
+			EdOp* op = EdCreateOp();
+			int nseg = parser.FloatArg(12.0f);
+			float rad  = parser.FloatArg(1.0f);
+			float height = parser.FloatArg(1.0f);
+			op->brush = CSGCreateCylinder(nseg, rad, height);
+			op->type = EdOpType_Brush;
+			EdOpAddChild(root, op);
+			EdSelectOp(op);
+			EdBuild(root);
+		}, "editor: create a cylinder");
+	ConRegisterCommand("ed_move",
+		[](ConParser& parser)
+		{
+			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->position += offset;
+			EdBuild(root);
+		}, "editor: create a cube");
+	ConRegisterCommand("ed_build",
+		[](ConParser& parser)
+		{
+			EdBuild(root);
+		}, "editor: rebuild csg");
+	ConRegisterCommand("ed_add",
+		[](ConParser& parser)
+		{
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->subtract = false;
+			EdBuild(root);
+		}, "editor: set selected to add");
+	ConRegisterCommand("ed_sub",
+		[](ConParser& parser)
+		{
+			for (EdSelection& sel : selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->subtract = true;
+			EdBuild(root);
+		}, "editor: set selected to subtract");
+	ConRegisterCommand("ed_del",
+		[](ConParser& parser)
+		{
+			EdDestroySelection();
+			EdBuild(root);
+		}, "editor: delete subtract");
+	ConRegisterCommand("ed_save",
+		[](ConParser& parser)
+		{
+			const char* name = parser.StringArg();
+			EdSaveMap(name);
+		}, "editor: save");
+	ConRegisterCommand("ed_load",
+		[](ConParser& parser)
+		{
+			const char* name = parser.StringArg();
+			EdLoadMap(name);
+		}, "editor: save");
+
+	root = EdCreateOp();
+	root->type = EdOpType_Stack;
+	root->global_transform = float4x4::Identity();
 }

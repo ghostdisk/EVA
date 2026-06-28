@@ -7,9 +7,11 @@ struct CSGBrush;
 
 enum EdOpType
 {
-	EdOpType_None,
-	EdOpType_Brush,
-	EdOpType_Stack,
+	EdOpType_None   = 0,
+	EdOpType_Brush  = 1,
+	EdOpType_Stack  = 2,
+
+	EdOpType_ENUM_SIZE,
 };
 
 struct EdOp
