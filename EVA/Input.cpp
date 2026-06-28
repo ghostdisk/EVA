@@ -1,4 +1,5 @@
 #include <EVA/Input.hpp>
+#include <EVA/Platform.hpp>
 #include <EVA/Math.hpp>
 #include <SDL3/SDL.h>
 #include <EVA/Console.hpp>
@@ -138,7 +139,7 @@ void InputInitialize()
 
 bool TextInputConsumesKey(SDL_Scancode scancode)
 {
-	if (!SDL_TextInputActive(GameWindow)) return false;
+	if (!SDL_TextInputActive(g_game_window)) return false;
 	if (scancode >= SDL_SCANCODE_A && SDL_SCANCODE_Z) return true;
 	if (scancode >= SDL_SCANCODE_0 && SDL_SCANCODE_9) return true;
 	return false;

@@ -1,5 +1,6 @@
 #include <EVA/UI.hpp>
 #include <EVA/Arena.hpp>
+#include <EVA/Platform.hpp>
 #include <EVA/Asset.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Font.hpp>
@@ -202,12 +203,12 @@ UIBox* UITextInput(std::vector<char>& buffer)
 			{
 				case UIEventType_Focus:
 				{
-					SDL_StartTextInput(GameWindow);
+					SDL_StartTextInput(g_game_window);
 					return true;
 				}
 				case UIEventType_Unfocus:
 				{
-					SDL_StopTextInput(GameWindow);
+					SDL_StopTextInput(g_game_window);
 					return true;
 				}
 				case UIEventType_Text:

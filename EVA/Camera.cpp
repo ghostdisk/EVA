@@ -75,7 +75,7 @@ void CameraFly(Camera& camera)
 void CameraOrbit(Camera& camera, Entity* entity)
 {
 	bool InMenu = false; // TODO
-	SDL_SetWindowRelativeMouseMode(GameWindow, !InMenu);
+	SDL_SetWindowRelativeMouseMode(g_game_window, !InMenu);
 
 	if (!InMenu)
 	{

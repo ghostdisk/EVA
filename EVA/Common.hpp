@@ -55,4 +55,3 @@ void QueueForNextFrame(void (*callback)(void* userdata), void* userdata);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-extern SDL_Window* GameWindow;

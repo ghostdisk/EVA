@@ -1,5 +1,6 @@
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Asset.hpp>
+#include <EVA/Platform.hpp>
 #include <stdio.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_opengl.h>
@@ -22,13 +23,13 @@ void GLPreInitialize()
 
 void GLInitialize()
 {
-	GL = SDL_GL_CreateContext(GameWindow);
+	GL = SDL_GL_CreateContext(g_game_window);
 	if (!GL)
 	{
 		Fatal("SDL_GL_CreateContext: %s", SDL_GetError());
 	}
 
-	if (!SDL_GL_MakeCurrent(GameWindow, GL))
+	if (!SDL_GL_MakeCurrent(g_game_window, GL))
 	{
 		Fatal("SDL_GL_MakeCurrent: %s", SDL_GetError());
 	}

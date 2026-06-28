@@ -12,6 +12,7 @@ double g_delta_time  = 0.01;
 
 static U64   g_frame_start_ns = 0;
 static float g_frame_time_history[FRAME_TIME_HISTORY_SIZE] = {};
+SDL_Window*  g_game_window = nullptr;
 
 ConVar cvar_vsync = {
 	.name = "vsync",
@@ -22,6 +23,24 @@ ConVar cvar_vsync = {
 			SDL_GL_SetSwapInterval((int)cvar_vsync.fvalue);
 		},
 };
+
+void PlatformInitialize()
+{
+	if (!SDL_Init(SDL_INIT_VIDEO))
+	{
+		Fatal("SDL_Init: %s", SDL_GetError());
+	}
+
+	GLPreInitialize();
+
+	g_game_window = SDL_CreateWindow("EVA", g_window_size.x, g_window_size.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	if (!g_game_window)
+	{
+		Fatal("SDL_CreateWindow: %s", SDL_GetError());
+	}
+
+	ConRegisterVar(&cvar_vsync);
+}
 
 void PlatformBeginFrame()
 {
@@ -35,7 +54,7 @@ void PlatformBeginFrame()
 
 	{ // Update window size:
 		int w, h;
-		SDL_GetWindowSize(GameWindow, &w, &h);
+		SDL_GetWindowSize(g_game_window, &w, &h);
 		g_window_size.x = w;
 		g_window_size.y = h;
 	}
@@ -54,11 +73,6 @@ void PlatformBeginFrame()
 		avg = avg / (float)(FRAME_TIME_HISTORY_SIZE);
 		g_fps = 1.0f / avg;
 	}
-}
-
-void PlatformInitialize()
-{
-	ConRegisterVar(&cvar_vsync);
 }
 
 bool PlatformProcessSDLEvent(SDL_Event* event)

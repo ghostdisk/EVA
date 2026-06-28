@@ -18,33 +18,21 @@
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
 
-
 struct NextFrameCallback
 {
 	void (*callback)(void* userdata);
 	void* userdata;
 };
 
-SDL_Window* GameWindow = nullptr;
 Font* fnt_arial = 0;
-std::vector<NextFrameCallback> next_frame_callbacks;
-
-// time:
-
+static std::vector<NextFrameCallback> next_frame_callbacks;
 
 int main()
 {
-	if (!SDL_Init(SDL_INIT_VIDEO)) Fatal("SDL_Init: %s", SDL_GetError());
-
-	GLPreInitialize();
-
-	GameWindow = SDL_CreateWindow("EVA", g_window_size.x, g_window_size.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-	if (!GameWindow) Fatal("SDL_CreateWindow: %s", SDL_GetError());
-
+	PlatformInitialize();
 	NetInitialize();
 	ArenaInitialize();
 	ConsoleInitialize();
-	PlatformInitialize();
 	RotateFrameArenas();
 	GLInitialize();
 	GameInitialize();
@@ -94,7 +82,7 @@ int main()
 		UIDraw();
 
 		RenderFrame();
-		SDL_GL_SwapWindow(GameWindow);
+		SDL_GL_SwapWindow(g_game_window);
 
 		FrameMark;
 	}
