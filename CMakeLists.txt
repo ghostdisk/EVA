@@ -89,6 +89,12 @@ target_link_libraries(EVA enet "Ws2_32.lib")
 #
 # Tracy
 #
-# add_definitions(-DTRACY_ENABLE)
 target_sources(EVA PRIVATE "Vendor/tracy-0.13.1/public/TracyClient.cpp")
 target_include_directories(EVA PRIVATE "Vendor/tracy-0.13.1/public")
+# add_definitions(-DTRACY_ENABLE)
+
+#
+# Jolt
+#
+add_subdirectory(Vendor/joltphysics/Build)
+target_link_libraries(EVA Jolt)

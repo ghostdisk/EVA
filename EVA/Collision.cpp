@@ -50,20 +50,3 @@ float DistPlanePoint(const Plane& plane, const float3& point)
 {
 	return plane.distance - Dot(point, plane.normal);
 }
-
-float3 ClosestPtPlanePoint(const Plane& plane, const float3& point)
-{
-	float t = plane.distance - Dot(point, plane.normal);
-	return point + t * plane.normal;
-}
-
-void ClosestPtPointSegment(const float3& c, const float3& a, const float3& b, float* out_t, float3* out_d)
-{
-	float3 ac = c - a;
-	float3 ab = b - a;
-	float t = Dot(ac, ab) / Dot(ab, ab);
-	if (t < 0.0f) t = 0.0f;
-	if (t > 1.0f) t = 1.0f;
-	*out_t = t;
-	*out_d = a + t * ab;
-}
