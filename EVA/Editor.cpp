@@ -1,6 +1,7 @@
 #include <EVA/App.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/CSG.hpp>
+#include <EVA/Collision.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Library.hpp>

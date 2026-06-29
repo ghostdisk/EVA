@@ -31,6 +31,7 @@ struct float2
 inline float2 operator+(const float2& a, const float2& b) { return float2(a.x+b.x, a.y+b.y); }
 inline float2 operator-(const float2& a, const float2& b) { return float2(a.x-b.x, a.y-b.y); }
 inline float2 operator*(const float2& vec, float s) { return float2(vec.x*s, vec.y*s); }
+inline float2 operator*(float s, const float2& vec) { return float2(vec.x*s, vec.y*s); }
 inline float2 operator/(const float2& vec, float s) { return float2(vec.x/s, vec.y/s); }
 
 inline void operator+=(float2& a, const float2& b) { a.x += b.x; a.y += b.y;  }
@@ -63,6 +64,7 @@ struct float3
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
 inline float3 operator-(const float3& a, const float3& b) { return float3(a.x-b.x, a.y-b.y, a.z-b.z); }
 inline float3 operator*(const float3& vec, float s) { return float3(vec.x*s, vec.y*s, vec.z*s); }
+inline float3 operator*(float s, const float3& vec) { return float3(vec.x*s, vec.y*s, vec.z*s); }
 inline float3 operator/(const float3& vec, float s) { return float3(vec.x/s, vec.y/s, vec.z/s); }
 
 inline void operator+=(float3& a, const float3& b) { a.x += b.x; a.y += b.y; a.z += b.z; }
@@ -214,9 +216,6 @@ struct Ray
 
 };
 
-float Intersect(const Ray& ray, const Plane& plane);
-float DistanceToLineSegment(const Ray& ray, const float3& p1, const float3& p2, float* out_t1 = nullptr, float* out_t2 = nullptr);
-float2 NearestPointToLineSegment(float2 a, float2 b, float2 point);
 
 Plane operator*(const float4x4& mat, const Plane& plane);
 inline Plane operator*(const Plane& plane, const float4x4& mat) { return mat * plane; }

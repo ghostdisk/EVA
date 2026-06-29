@@ -1,4 +1,5 @@
 #include <EVA/App.hpp>
+#include <EVA/Collision.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
@@ -97,10 +98,33 @@ void GameDraw(Game* game)
 	ZoneScopedN("GameDraw");
 
 	DrawSetLayer(Layer_Main);
-	for (CSGBrush* brush : game->level_brushes)
+
+	if (0) for (CSGBrush* brush : game->level_brushes)
 	{
 		DrawMesh(brush->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
 	}
+
+	static float3 test1 = {};
+	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
+
+	for (int i = 0; i < 3; i++)
+	{
+		float3 p0 = {};
+		float3 p1 = {};
+		(&p1.x)[i] = 3;
+		float4 c = {0,0,0,1};
+		(&c.x)[i] = 1;
+
+		DrawLine(p0, p1, c);
+		float t; float3 p;
+		ClosestPtPointSegment(test1, p0, p1, &t, &p);
+		DrawPoint(p, c);
+	}
+
+
+	// DrawPoint(test1);
+	// DrawPoint(ClosestPtPlanePoint(Plane({0,0,1},1), test1));
+	// DrawGrid(100);
 
 	game->entity_manager.Iterate(
 		[](Entity* entity)
