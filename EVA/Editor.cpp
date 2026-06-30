@@ -11,6 +11,7 @@
 #include <EVA/UI.hpp>
 #include <EVA/Hashing.hpp>
 #include <cglm/quat.h>
+#include <algorithm>
 
 enum EdSelectionType
 {
@@ -28,12 +29,9 @@ struct EdSelection
 
 Camera g_editor_camera = {};
 
-static EdOp*                    root                   = nullptr;
-static std::vector<EdSelection> selection              = {};
-static char                     loaded_map_name[64]    = {};
-
-
-#define FOREACH_SELECTED(name) 
+static EdOp*                    g_root                 = nullptr;
+static std::vector<EdSelection> g_selection            = {};
+static char                     g_loaded_map_name[64]  = {};
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
@@ -96,16 +94,16 @@ EdOp* EdCreateOp()
 
 void EdDeselect()
 {
-	selection.clear();
+	g_selection.clear();
 }
 
 void EdSelectPlane(EdOp* op, int plane, bool additive = false)
 {
 	assert(op);
 	if (!additive) EdDeselect();
-	if (selection.size() && selection[0].type != EdSelectionType_BrushPlane) return;
+	if (g_selection.size() && g_selection[0].type != EdSelectionType_BrushPlane) return;
 
-	selection.push_back(EdSelection{
+	g_selection.push_back(EdSelection{
 		.type = EdSelectionType_BrushPlane,
 		.op = op,
 		.index = plane,
@@ -116,15 +114,15 @@ void EdSelectOp(EdOp* op, bool additive = false)
 {
 	assert(op);
 	if (!additive) EdDeselect();
-	if (op == root) return;
+	if (op == g_root) return;
 
-	for (const EdSelection& sel : selection)
+	for (const EdSelection& sel : g_selection)
 	{
 		if (sel.type != EdSelectionType_Node) { EdDeselect();  break; }
 		if (sel.op->parent != op->parent) { EdDeselect();  break; }
 	}
 
-	selection.push_back(EdSelection{
+	g_selection.push_back(EdSelection{
 		.type = EdSelectionType_Node,
 		.op = op,
 	});
@@ -132,7 +130,7 @@ void EdSelectOp(EdOp* op, bool additive = false)
 
 bool EdIsSelected(EdOp* op)
 {
-	for (const EdSelection& sel : selection)
+	for (const EdSelection& sel : g_selection)
 		if (sel.type == EdSelectionType_Node && sel.op == op)
 			return true;
 	return false;
@@ -162,7 +160,7 @@ void EdDestroyOp(EdOp* op)
 void EdDestroySelection()
 {
 	bool did_something = false;
-	for (const EdSelection& sel : selection)
+	for (const EdSelection& sel : g_selection)
 	{
 		if (sel.type == EdSelectionType_Node)
 		{
@@ -219,6 +217,50 @@ void EdForeach(F&& func, EdOp* op)
 	for (EdOp* child : op->children) EdForeach(func, child);
 }
 
+int EdGetSiblingIndex(EdOp* op)
+{
+	if (!op->parent) return -1;
+	for (int i = 0; i < op->parent->children.size(); i++)
+	{
+		if (op->parent->children[i] == op)
+		{
+			return i;
+		}
+	}
+	assert(0);
+	return -1;
+}
+
+void EdOrderMove(int offset)
+{
+	if (g_selection.size() == 0 || g_selection[0].type != EdSelectionType_Node) return;
+
+	std::vector<EdOp*> selection;
+
+	for (const EdSelection& sel : g_selection)
+	{
+		assert(sel.type == EdSelectionType_Node);
+		assert(!selection.size() || selection[0]->parent == sel.op->parent);
+		selection.push_back(sel.op);
+	}
+
+	if (selection.size() == 0) return;
+
+	EdOp* parent = selection[0]->parent;
+
+	std::sort(selection.begin(), selection.end(), [](EdOp* a, EdOp* b) { return EdGetSiblingIndex(a) < EdGetSiblingIndex(b); });
+
+	int idx = EdGetSiblingIndex(selection[0]) + offset;
+	if (idx < 0) idx = 0;
+	if (idx >= parent->children.size()) idx = parent->children.size() - 1;
+
+	for (EdOp* op : selection)
+	{
+		parent->children.erase(parent->children.begin() + EdGetSiblingIndex(op));
+	}
+	parent->children.insert(parent->children.begin() + idx, selection.begin(), selection.end());
+}
+
 void EdBuild(EdOp* op)
 {
 	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
@@ -267,7 +309,7 @@ void EdBuild(EdOp* op)
 		default: assert(0); break;
 	}
 
-	if (op == root)
+	if (op == g_root)
 	{
 		for (CSGBrush* b : op->built) CSGBuildBrushMesh(b);
 	}
@@ -414,7 +456,7 @@ void EdTranslationGizmo(Hash hash, float3& pos)
 
 void EdDrawSelectionOutline(float4 color)
 {
-	for (const EdSelection& sel : selection)
+	for (const EdSelection& sel : g_selection)
 	{
 		switch (sel.type)
 		{
@@ -483,7 +525,7 @@ void EdTick()
 	std::vector<EdOp*> selected_ops = {};
 	bool dirty = false;
 
-	for (const EdSelection& sel : selection)
+	for (const EdSelection& sel : g_selection)
 	{
 		if (sel.type == EdSelectionType_Node)
 		{
@@ -538,7 +580,7 @@ void EdTick()
 		EdOp* hit = nullptr;
 		int hit_plane = 0;
 
-		EdMousePickRecursive(root, mouse_ray, &min_t, &hit, &hit_plane);
+		EdMousePickRecursive(g_root, mouse_ray, &min_t, &hit, &hit_plane);
 		if (hit)
 		{
 			if (InputGetButton(SDL_SCANCODE_LCTRL))
@@ -557,7 +599,7 @@ void EdTick()
 	}
 
 	if (dirty)
-		EdBuild(root);
+		EdBuild(g_root);
 
 	DrawSetLayer(Layer_Main);
 	EdDrawSelectionOutline({1,1,1,1});
@@ -576,7 +618,7 @@ void EdTick()
 					}
 				}
 				return true;
-			}, root);
+			}, g_root);
 	}
 
 	{ // Sidebar
@@ -585,7 +627,7 @@ void EdTick()
 			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
 			->SetColor(COLOR_BUTTON);
 
-		for (EdOp* child : root->children)
+		for (EdOp* child : g_root->children)
 		{
 			EdOpGUI(child);
 		}
@@ -594,9 +636,9 @@ void EdTick()
 	}
 
 	DrawSetLayer(Layer_Main);
-	for (int i = 0; i < root->built.size(); i++)
+	for (int i = 0; i < g_root->built.size(); i++)
 	{
-		CSGBrush* b = root->built[i];
+		CSGBrush* b = g_root->built[i];
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
 		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
 	}
@@ -748,17 +790,17 @@ void EdSaveMap(const char* name)
 	DEFER(fclose(f));
 	fprintf(f, "type mpe\n");
 	fprintf(f, "version 1\n");
-	EdSaveOp(f, root, 0);
+	EdSaveOp(f, g_root, 0);
 
-	snprintf(loaded_map_name, sizeof(loaded_map_name), "%s", name);
+	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 }
 
 void EdLoadMap(const char* name)
 {
-	if (root)
+	if (g_root)
 	{
-		EdDestroyOp(root);
-		root = nullptr;
+		EdDestroyOp(g_root);
+		g_root = nullptr;
 	}
 
 	char path[256];
@@ -780,19 +822,19 @@ void EdLoadMap(const char* name)
 		return;
 	}
 
-	root = EdLoadOp(f);
-	root->global_transform = float4x4::Identity();
-	EdBuild(root);
+	g_root = EdLoadOp(f);
+	g_root->global_transform = float4x4::Identity();
+	EdBuild(g_root);
 
-	snprintf(loaded_map_name, sizeof(loaded_map_name), "%s", name);
+	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 }
 
 void EdCompileMap()
 {
 	int indent = 0;
 	char path[256];
-	assert(loaded_map_name[0]);
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, loaded_map_name);
+	assert(g_loaded_map_name[0]);
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, g_loaded_map_name);
 	FILE* f = fopen(path, "wb");
 	if (!f)
 	{
@@ -801,7 +843,7 @@ void EdCompileMap()
 	}
 	DEFER(fclose(f));
 
-	EdBuild(root);
+	EdBuild(g_root);
 
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
@@ -809,7 +851,7 @@ void EdCompileMap()
 	std::vector<MeshVertex> mesh_vertices;
 	std::vector<U32> mesh_indices;
 
-	for (CSGBrush* brush : root->built)
+	for (CSGBrush* brush : g_root->built)
 	{
 		for (const CSGPlane& plane : brush->planes)
 		{
@@ -854,9 +896,9 @@ void EdInitialize()
 			EdOp* op = EdCreateOp();
 			op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 			op->type = EdOpType_Brush;
-			EdOpAddChild(root, op);
+			EdOpAddChild(g_root, op);
 			EdSelectOp(op);
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_cylinder",
 		[](ConParser& parser)
@@ -867,45 +909,50 @@ void EdInitialize()
 			float height = parser.FloatArg(1.0f);
 			op->brush = CSGCreateCylinder(nseg, rad, height);
 			op->type = EdOpType_Brush;
-			EdOpAddChild(root, op);
+			EdOpAddChild(g_root, op);
 			EdSelectOp(op);
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: create a cylinder");
 	ConRegisterCommand("ed_move",
 		[](ConParser& parser)
 		{
 			float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
-			for (EdSelection& sel : selection)
+			for (EdSelection& sel : g_selection)
 				if (sel.type == EdSelectionType_Node)
 					sel.op->position += offset;
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: create a cube");
 	ConRegisterCommand("ed_build",
 		[](ConParser& parser)
 		{
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: rebuild csg");
 	ConRegisterCommand("ed_add",
 		[](ConParser& parser)
 		{
-			for (EdSelection& sel : selection)
+			for (EdSelection& sel : g_selection)
 				if (sel.type == EdSelectionType_Node)
 					sel.op->subtract = false;
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: set selected to add");
 	ConRegisterCommand("ed_sub",
 		[](ConParser& parser)
 		{
-			for (EdSelection& sel : selection)
+			for (EdSelection& sel : g_selection)
 				if (sel.type == EdSelectionType_Node)
 					sel.op->subtract = true;
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: set selected to subtract");
+	ConRegisterCommand("ed_order_move", [](ConParser& parser)
+		{
+			EdOrderMove(parser.IntArg(1));
+			EdBuild(g_root);
+		}, "editor: move selection up/down in stack");
 	ConRegisterCommand("ed_del",
 		[](ConParser& parser)
 		{
 			EdDestroySelection();
-			EdBuild(root);
+			EdBuild(g_root);
 		}, "editor: delete subtract");
 	ConRegisterCommand("ed_save",
 		[](ConParser& parser)
@@ -913,7 +960,7 @@ void EdInitialize()
 			const char* name = parser.StringArg();
 			if (!name || name[0] == '\0')
 			{
-				name = loaded_map_name;
+				name = g_loaded_map_name;
 			}
 			if (!name[0])
 			{
@@ -940,11 +987,11 @@ void EdInitialize()
 	ConRegisterCommand("ed", [](ConParser& parser)
 		{
 			AppSetMode(AppMode_Editor, nullptr);
-		}, "editor: compile map");
+		}, "editor: open editor");
 
-	root = EdCreateOp();
-	root->type = EdOpType_Stack;
-	root->global_transform = float4x4::Identity();
+	g_root = EdCreateOp();
+	g_root->type = EdOpType_Stack;
+	g_root->global_transform = float4x4::Identity();
 
 	CameraInit(g_editor_camera);
 	g_editor_camera.position.y = -10;

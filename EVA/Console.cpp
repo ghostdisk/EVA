@@ -135,6 +135,17 @@ float ConParser::FloatArg(float fallback)
 	else return fallback;
 }
 
+int ConParser::IntArg(int fallback)
+{
+	const char* s = StringArg();
+	if (!s) return fallback;
+
+	char* endptr = 0;
+	int f = (int)strtol(s, &endptr, 10);
+	if (*endptr == '\0' && endptr > s) return f;
+	else return fallback;
+}
+
 void ConExec(const char* script)
 {
 	ConParser parser;
