@@ -100,6 +100,7 @@ static bool ConSkipComment(ConParser& parser)
 const char* ConParser::StringArg()
 {
 	ConSkipSpace(*this);
+	if (ConSkipComment(*this)) return nullptr;
 
 	if (*head == '\n' || *head == '\r' || *head == '\r') return nullptr;
 

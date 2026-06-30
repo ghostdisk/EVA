@@ -90,6 +90,7 @@ int main()
 	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
 
 	AppSetMode(AppMode_MainMenu, nullptr);
+	ConExec("# rofl");
 	ConExec("exec autoexec.cfg");
 
 	while (!g_quit)
