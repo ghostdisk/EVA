@@ -301,17 +301,6 @@ void RenderFrame()
 	}
 }
 
-void DrawGrid(int size)
-{
-	float4 color = {1,1,1,0.2};
-	float s = size;
-	for (int i = -size; i <= size; i++)
-	{
-		DrawLine({(float)i, -s, 0}, {(float)i, (float)size, 0}, color);
-		DrawLine({-s, (float)i, 0}, {(float)size, (float)i, 0}, color);
-	}
-}
-
 void DrawMesh(Mesh* mesh, Material* material, const float4x4& matrix, float4 color)
 {
 	current_layer->meshes.push_back({ mesh, material, matrix, color });

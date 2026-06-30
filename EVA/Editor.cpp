@@ -27,11 +27,26 @@ struct EdSelection
 	int             index  = 0;
 };
 
+struct EdGrid
+{
+	float3 center;
+	float3 forward;
+	float3 right;
+	float  size;
+};
+
 Camera g_editor_camera = {};
 
 static EdOp*                    g_root                 = nullptr;
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
+
+static EdGrid g_grid = {
+	.center        = {},
+	.forward       = { 0, 1, 0 },
+	.right         = { 1, 0, 0 },
+	.size          = 0.25f,
+};
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
@@ -444,6 +459,15 @@ void EdOpGUI(EdOp* op)
 	}
 }
 
+float3 EdSnapToGrid(EdGrid& grid, float3 p)
+{
+	// TODO: make a 3x3 matrix for the grid, do a basis change, figure out which axis we're snapping on, blablabla
+	p.x = round(p.x / grid.size) * grid.size;
+	p.y = round(p.y / grid.size) * grid.size;
+	p.z = round(p.z / grid.size) * grid.size;
+	return p;
+}
+
 void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1)
 {
 	U32 id = hash_stack.Push(hash);
@@ -498,6 +522,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
+		if (!InputGetButton(SDL_SCANCODE_LSHIFT)) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -565,11 +590,33 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 	}
 }
 
+void EdDrawGrid(EdGrid& grid, float4 color)
+{
+	int S = 50;
+
+	float3 fwd = grid.forward * grid.size;
+	float3 rgh = grid.right * grid.size;
+
+	for (int i = -S; i <= S; i++)
+	{
+		DrawLine(
+			grid.center - fwd * S + rgh * i,
+			grid.center + fwd * S + rgh * i,
+			color);
+		DrawLine(
+			grid.center - rgh * S + fwd * i,
+			grid.center + rgh * S + fwd * i,
+			color);
+	}
+}
+
 void EdTick()
 {
 	CameraFly(g_editor_camera);
 	CameraUpdateMatrices(g_editor_camera);
 
+	DrawSetLayer(Layer_Main);
+	EdDrawGrid(g_grid, float4{1,1,1,0.3});
 
 	hash_stack.Reset();
 	g_new_hover_gizmo_state = {};

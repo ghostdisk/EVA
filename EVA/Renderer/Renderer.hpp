@@ -54,7 +54,6 @@ void DrawSprite(Sprite* sprite, int x, int y, float4 color);
 
 float2 MeasureText(Font* font, const char* text, int text_len = -1);
 
-void DrawGrid(int size);
 void DrawPoint(float3 point, float4 color = COLOR_WHITE);
 void DrawAABB(float3 center, float3 size, float4 color);
 
