@@ -302,9 +302,24 @@ EdOp* EdGroup(std::vector<EdOp*> ops)
 	return group;
 }
 
-void EdUngroup(EdOp* op)
+void EdUngroup(EdOp* group)
 {
+	if (group->type != EdOpType_Stack) return;
+	assert(group->parent);
 
+	EdOp* parent = group->parent;
+	int idx = EdGetSiblingIndex(group);
+
+	std::vector<EdOp*> ops = std::move(group->children);
+	group->children	 = {};
+	for (EdOp* child : ops)
+	{
+		child->parent = group->parent;
+	}
+	EdRemoveOpFromTree(group);
+
+	parent->children.insert(parent->children.begin() + idx, ops.begin(), ops.end());
+	EdDestroyOp(group);
 }
 
 void EdBuild(EdOp* op)
@@ -318,6 +333,8 @@ void EdBuild(EdOp* op)
 		{
 			op->built = { CSGCloneBrush(op->brush) };
 			op->built[0]->source = op;
+			// CSGBrushTransform()
+			CSGBrushTransform(op->built[0], op->global_transform);
 			break;
 		}
 		case EdOpType_Stack:
@@ -329,7 +346,7 @@ void EdBuild(EdOp* op)
 				// glm_rotate(m, angle, (vec3){ ax, ay, az });
 				// glm_scale(m, (vec3){ sx, sy, sz });
 
-				child->global_transform = op->global_transform * child_transform;
+				child->global_transform = child_transform * op->global_transform;
 				EdBuild(child);
 				for (CSGBrush* b : child->built)
 				{
@@ -337,14 +354,14 @@ void EdBuild(EdOp* op)
 					for (CSGBrush* a : op->built)
 					{
 						int old_size = new_set.size();
-						CSGDifference(a, b, child->global_transform, new_set);
+						CSGDifference(a, b, new_set);
 						for (int i = old_size; i < new_set.size(); i++) new_set[i]->source = a->source;
 					}
 					if (!child->subtract)
 					{
 						CSGBrush* clone = CSGCloneBrush(b);
 						clone->source = b->source;
-						CSGBrushTransform(clone, child->global_transform);
+						// CSGBrushTransform(clone, child->global_transform);
 						new_set.push_back(clone);
 					}
 					op->built = new_set;
@@ -989,7 +1006,7 @@ void EdInitialize()
 		}, "editor: move selection up/down in stack");
 	ConRegisterCommand("ed_group", [](ConParser& parser)
 		{
-			EdGroup(EdGetSelectedOps());
+			EdSelectOp(EdGroup(EdGetSelectedOps()));
 			EdBuild(g_root);
 		}, "editor: group selection into an object");
 	ConRegisterCommand("ed_ungroup", [](ConParser& parser)

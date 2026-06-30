@@ -28,7 +28,7 @@ void        CSGDestroyBrush(CSGBrush* brush);
 void        CSGBuildBrushMesh(CSGBrush* brush);
 void        CSGBuildBrush(CSGBrush* brush);
 CSGBrush*   CSGCloneBrush(CSGBrush* orig);
-void        CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::vector<CSGBrush*>& out);
+void        CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out);
 void        CSGBrushTransform(CSGBrush* brush, const float4x4& transform);
 
 CSGBrush*   CSGCreateCube(float3 size);

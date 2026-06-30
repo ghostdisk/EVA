@@ -202,23 +202,23 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 	return copy;
 }
 
-CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b, const float4x4& b_transform)
+CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b)
 {
 	CSGBrush* x = CSGCreateBrush();
 	if (a->planes.size() && b->planes.size())
 	{
 		for (CSGPlane& p : a->planes) x->planes.push_back({ .plane = p.plane });
-		for (CSGPlane& p : b->planes) x->planes.push_back({ .plane = p.plane * b_transform });
+		for (CSGPlane& p : b->planes) x->planes.push_back({ .plane = p.plane });
 	}
 	CSGBuildBrush(x);
 	return x;
 }
 
 // Takes ownership of a. b is left intact.
-void CSGDifference(CSGBrush* a, CSGBrush* b, const float4x4& b_transform, std::vector<CSGBrush*>& out)
+void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 {
 	bool fully_inside = true;
-	CSGBrush* x = CSGIntersect(a, b, b_transform);
+	CSGBrush* x = CSGIntersect(a, b);
 	DEFER(CSGDestroyBrush(x));
 
 	for (CSGPlane& csgplane : x->planes)
