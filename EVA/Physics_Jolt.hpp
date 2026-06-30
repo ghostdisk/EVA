@@ -10,6 +10,7 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
@@ -18,3 +19,6 @@ struct PhysicsWorld
 {
 	JPH::PhysicsSystem system;
 };
+
+float3    ConvertPos(const JPH::Vec3& vec);
+JPH::Vec3 ConvertPos(const float3& vec);

@@ -185,7 +185,7 @@ void GameLoadMap(Game* game, const char* name)
 	{
 		Plane plane;
 		float3 a, b, c;
-		n = fscanf(f, "t %f %f %f %f %f %f %f %f %f\n", PRINT_V3(&a), PRINT_V3(&b), PRINT_V3(&c));
+		n = fscanf(f, "t %f %f %f %f %f %f %f %f %f\n", XYZ(&a), XYZ(&b), XYZ(&c));
 		assert(n == 9);
 	}
 }

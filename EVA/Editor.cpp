@@ -611,7 +611,7 @@ void EdSaveOp(FILE* f, EdOp* op, int indent)
 	indent++;
 
 	EdIdent(f, indent); fprintf(f, "subtract %d\n", op->subtract);
-	EdIdent(f, indent); fprintf(f, "position %f %f %f\n", PRINT_V3(op->position));
+	EdIdent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(op->position));
 
 	switch (op->type)
 	{
@@ -622,7 +622,7 @@ void EdSaveOp(FILE* f, EdOp* op, int indent)
 			for (int i = 0; i < op->brush->planes.size(); i++)
 			{
 				CSGPlane& plane = op->brush->planes[i];
-				EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", PRINT_V3(plane.plane.normal), plane.plane.distance);
+				EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", XYZ(plane.plane.normal), plane.plane.distance);
 			}
 			indent--;
 			break;
@@ -676,7 +676,7 @@ EdOp* EdLoadOp(FILE* f)
 		}
 		else if (strcmp(t, "position") == 0)
 		{
-			n = fscanf(f, "%f %f %f\n", PRINT_V3(&op->position));
+			n = fscanf(f, "%f %f %f\n", XYZ(&op->position));
 			assert(n == 3);
 		}
 		else if (strcmp(t, "planes") == 0)
@@ -690,7 +690,7 @@ EdOp* EdLoadOp(FILE* f)
 			for (int i = 0; i < num_planes; i++)
 			{
 				Plane plane;
-				n = fscanf(f, "plane %f %f %f %f\n", PRINT_V3(&plane.normal), &plane.distance);
+				n = fscanf(f, "plane %f %f %f %f\n", XYZ(&plane.normal), &plane.distance);
 				assert(n == 4);
 
 				op->brush->planes.push_back({ .plane = plane });
@@ -825,9 +825,9 @@ void EdCompileMap()
 	for (Triangle t : collider)
 	{
 		EdIdent(f, indent); fprintf(f, "t %f %f %f %f %f %f %f %f %f\n",
-			PRINT_V3(t.verts[0]),
-			PRINT_V3(t.verts[1]),
-			PRINT_V3(t.verts[2]));
+			XYZ(t.verts[0]),
+			XYZ(t.verts[1]),
+			XYZ(t.verts[2]));
 	}
 	indent--;
 }

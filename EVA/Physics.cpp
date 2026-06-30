@@ -101,15 +101,23 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static JPH::TempAllocatorImpl* g_temp_allocator;
-static JPH::JobSystemThreadPool g_job_system;
-static BPLayerInterfaceImpl g_broad_phase_layer_interface;
-static ObjectVsBroadPhaseLayerFilterImpl g_object_vs_broadphase_layer_filter;
-static ObjectLayerPairFilterImpl g_object_vs_object_layer_filter;
+static JPH::TempAllocatorImpl*             g_temp_allocator;
+static JPH::JobSystemThreadPool            g_job_system;
+static BPLayerInterfaceImpl                g_broad_phase_layer_interface;
+static ObjectVsBroadPhaseLayerFilterImpl   g_object_vs_broadphase_layer_filter;
+static ObjectLayerPairFilterImpl           g_object_vs_object_layer_filter;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+float3 ConvertPos(const JPH::Vec3& vec)
+{
+	return float3(vec.mF32[0], vec.mF32[1], vec.mF32[2]);
+}
 
+JPH::Vec3 ConvertPos(const float3& vec)
+{
+	return JPH::Vec3(vec.x, vec.y, vec.z);
+}
 
 void PhysicsInitialize()
 {
@@ -120,8 +128,6 @@ void PhysicsInitialize()
 	JPH::Factory::sInstance = new JPH::Factory();
 	JPH::RegisterTypes();
 	g_job_system.Init(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
-
-
 }
 
 PhysicsWorld* PhysicsWorldCreate()
@@ -145,4 +151,42 @@ void PhysicsWorldDestroy(PhysicsWorld* world)
 void PhysicsTick(PhysicsWorld* world, double dt)
 {
 	world->system.Update(dt, 1, g_temp_allocator, &g_job_system);
+}
+
+PhysicsCollider PhysicsCreateMeshCollider(size_t num_triangles, PhysicsTriangle* triangles)
+{
+	JPH::TriangleList jph_triangles(num_triangles);
+	
+	for (size_t i = 0; i < num_triangles; i++)
+	{
+		PhysicsTriangle& t = triangles[i];
+		jph_triangles[i] = JPH::Triangle(ConvertPos(t.points[0]), ConvertPos(t.points[1]), ConvertPos(t.points[2]));
+	}
+
+	JPH::MeshShapeSettings settings(jph_triangles);
+	settings.SetEmbedded();
+
+	JPH::Shape* shape = nullptr;
+	JPH::Ref<JPH::Shape> shape_ref = settings.Create().Get();
+	shape = shape_ref.GetPtr();
+	shape->AddRef();
+	return PhysicsCollider{ .shape = shape };
+}
+
+PhysicsCollider PhysicsCreateBoxCollider(const float3& half_extents)
+{
+	JPH::BoxShapeSettings settings(JPH::Vec3(XYZ(half_extents)));
+	settings.SetEmbedded();
+
+	JPH::Shape* shape = nullptr;
+	JPH::Ref<JPH::Shape> shape_ref = settings.Create().Get();
+	shape = shape_ref.GetPtr();
+	shape->AddRef();
+	return PhysicsCollider{ .shape = shape };
+}
+
+void PhysicsDestroyCollider(PhysicsCollider& collider)
+{
+	collider.shape->Release();
+	collider.shape = nullptr;
 }
