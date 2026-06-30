@@ -22,3 +22,5 @@ struct PhysicsWorld
 
 float3    ConvertPos(const JPH::Vec3& vec);
 JPH::Vec3 ConvertPos(const float3& vec);
+float4    ConvertQuat(const JPH::Quat& quat);
+JPH::Quat ConvertQuat(const float4& quat);

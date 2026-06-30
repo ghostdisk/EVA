@@ -111,12 +111,22 @@ static ObjectLayerPairFilterImpl           g_object_vs_object_layer_filter;
 
 float3 ConvertPos(const JPH::Vec3& vec)
 {
-	return float3(vec.mF32[0], vec.mF32[1], vec.mF32[2]);
+	return float3(vec.mF32[0], -vec.mF32[2], vec.mF32[1]);
 }
 
 JPH::Vec3 ConvertPos(const float3& vec)
 {
-	return JPH::Vec3(vec.x, vec.y, vec.z);
+	return JPH::Vec3(vec.x, vec.z, -vec.y);
+}
+
+float4 ConvertQuat(const JPH::Quat& q)
+{
+    return float4(q.mValue.mF32[0], -q.mValue.mF32[2], q.mValue.mF32[1], q.mValue.mF32[3]);
+}
+
+JPH::Quat ConvertQuat(const float4& q)
+{
+    return JPH::Quat(q.x, q.z, -q.y, q.w);
 }
 
 void PhysicsInitialize()
@@ -191,13 +201,13 @@ void PhysicsDestroyCollider(PhysicsCollider& collider)
 	collider.shape = nullptr;
 }
 
-PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, bool is_static)
+PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, const float3& position, const float4& rotation, bool is_static)
 {
 	JPH::BodyCreationSettings settings(
 		collider.shape,
-		{},
-		JPH::Quat::sIdentity(),
-		JPH::EMotionType::Dynamic,
+		ConvertPos(position),
+		ConvertQuat(rotation),
+		is_static ? JPH::EMotionType::Static : JPH::EMotionType::Dynamic,
 		is_static ? Layers::NON_MOVING : Layers::MOVING);
 
 	JPH::BodyInterface& body_interface = world->system.GetBodyInterfaceNoLock();

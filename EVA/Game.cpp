@@ -18,8 +18,6 @@
 Game*    g_games[8]        = {};
 Game*    g_active_game     = nullptr;
 
-std::vector<PhysicsBody> boxes;
-
 ConVar cvar_game = {
 	.name = "game",
 	.help = "set active game (0 to 7)",
@@ -84,16 +82,21 @@ void GameInit(Game* game)
 
 	game->physics = PhysicsWorldCreate();
 
-
-	PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 32, 0.25, 32 });
-	PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, false);
-
+	PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 128, 0.25, 128 });
 	PhysicsCollider box_collider = PhysicsCreateBoxCollider({ 1, 1, 1 });
 
-	for (int i = 0; i < 1; i++)
+	PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, {0,0,-2}, {0,0,0,1}, true);
+
+	for (int i = 0; i < 10; i++)
 	{
-		PhysicsBody box = PhysicsCreateBody(game->physics, box_collider, false);
-		boxes.push_back(box);
+		Entity* entity = game->entity_manager.CreateEntity(EntityType_Rigidbody, 1);
+		entity->mesh = Library::mesh_cube;
+		entity->material = Library::mat_brush;
+		entity->position.z = i * 3;
+		entity->position.x = i;
+		entity->position.y = 0.3 * i;
+		PhysicsBody box = PhysicsCreateBody(game->physics, box_collider, entity->position, entity->rotation, false);
+		entity->body = box.body;
 	}
 }
 
@@ -102,6 +105,14 @@ void GameTick(Game* game, double dt)
 	ZoneScopedN("GameTick");
 
 	PhysicsTick(game->physics, dt);
+	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
+
+	game->entity_manager.Rigidbody.Iterate(
+		[](ERigidbody* rb)
+		{
+			rb->position = ConvertPos(rb->body->GetPosition());
+			rb->rotation = ConvertQuat(rb->body->GetRotation());
+		});
 
 	if (g_active_game == game)
 	{
@@ -111,13 +122,6 @@ void GameTick(Game* game, double dt)
 		}
 	}
 	CameraUpdateMatrices(game->camera);
-
-	for (auto box : boxes)
-	{
-		auto& bi = game->physics->system.GetBodyInterfaceNoLock();
-		auto pos = ConvertPos(bi.GetPosition(box.body->GetID()));
-		printf("%f %f %f\n", XYZ(pos));
-	}
 }
 
 void GameDraw(Game* game)

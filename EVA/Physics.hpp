@@ -33,5 +33,5 @@ PhysicsCollider PhysicsCreateBoxCollider(const float3& half_extents);
 PhysicsCollider PhysicsCreateMeshCollider(size_t num_triangles, PhysicsTriangle* triangles);
 void            PhysicsDestroyCollider(PhysicsCollider& collider);
 
-PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, bool is_static);
+PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, const float3& position, const float4& rotation, bool is_static);
 void        PhysicsDestroyBody(PhysicsWorld* world, PhysicsBody body);

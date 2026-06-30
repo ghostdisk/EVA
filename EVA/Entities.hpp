@@ -7,6 +7,11 @@ struct Mesh;
 struct Material;
 struct CharacterCollider;
 
+namespace JPH
+{
+	class Body;
+}
+
 enum EntityType : U8
 {
 	EntityType_None       = 0,
@@ -39,6 +44,7 @@ struct Entity
 
 	Mesh* mesh;
 	Material* material;
+	JPH::Body* body;
 };
 
 // @CONSTRUCTOR_NOT_CALLED
