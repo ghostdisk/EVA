@@ -599,37 +599,37 @@ void EdTick()
 	}
 }
 
-void EdIdent(FILE* f, int indent)
+void EdIndent(FILE* f, int indent)
 {
 	for (int i = 0; i < indent; i++) fprintf(f, "\t");
 }
 
 void EdSaveOp(FILE* f, EdOp* op, int indent)
 {
-	EdIdent(f, indent); fprintf(f, "op %d\n", op->type);
+	EdIndent(f, indent); fprintf(f, "op %d\n", op->type);
 
 	indent++;
 
-	EdIdent(f, indent); fprintf(f, "subtract %d\n", op->subtract);
-	EdIdent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(op->position));
+	EdIndent(f, indent); fprintf(f, "subtract %d\n", op->subtract);
+	EdIndent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(op->position));
 
 	switch (op->type)
 	{
 		case EdOpType_Brush:
 		{
-			EdIdent(f, indent); fprintf(f, "planes %d\n", (int)op->brush->planes.size());
+			EdIndent(f, indent); fprintf(f, "planes %d\n", (int)op->brush->planes.size());
 			indent++;
 			for (int i = 0; i < op->brush->planes.size(); i++)
 			{
 				CSGPlane& plane = op->brush->planes[i];
-				EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", XYZ(plane.plane.normal), plane.plane.distance);
+				EdIndent(f, indent); fprintf(f, "plane %f %f %f %f\n", XYZ(plane.plane.normal), plane.plane.distance);
 			}
 			indent--;
 			break;
 		}
 		case EdOpType_Stack:
 		{
-			EdIdent(f, indent); fprintf(f, "children %d\n", (int)op->children.size());
+			EdIndent(f, indent); fprintf(f, "children %d\n", (int)op->children.size());
 			for (int i = 0; i < op->children.size(); i++)
 			{
 				EdSaveOp(f, op->children[i], indent + 1);
@@ -640,7 +640,7 @@ void EdSaveOp(FILE* f, EdOp* op, int indent)
 	}
 
 	indent--;
-	EdIdent(f, indent); fprintf(f, "op_end\n");
+	EdIndent(f, indent); fprintf(f, "op_end\n");
 }
 
 EdOp* EdLoadOp(FILE* f)
@@ -797,39 +797,43 @@ void EdCompileMap()
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
 
-	struct Triangle
-	{
-		float3 verts[3];
-	};
-	std::vector<Triangle> collider;
+	std::vector<MeshVertex> mesh_vertices;
+	std::vector<U32> mesh_indices;
+
 	for (CSGBrush* brush : root->built)
 	{
 		for (const CSGPlane& plane : brush->planes)
 		{
+			int start = mesh_vertices.size();
+			for (int i = 0; i < plane.points.size(); i++)
+			{
+				mesh_vertices.push_back({
+					.position = plane.points[i],
+					.normal = plane.plane.normal,
+				});
+			}
 			for (int i = 2; i < plane.points.size(); i++)
 			{
-				collider.push_back(Triangle{
-					.verts = {
-						plane.points[0],
-						plane.points[i - 1],
-						plane.points[i],
-					}
-				});
+				mesh_indices.push_back(start);
+				mesh_indices.push_back(start + i - 1);
+				mesh_indices.push_back(start + i);
 			}
 		}
 	}
 
-	fprintf(f, "collider %d\n", (int)collider.size());
-
-	indent++;
-	for (Triangle t : collider)
+	EdIndent(f, indent); fprintf(f, "vertices %d\n", (int)mesh_vertices.size());
+	for (const MeshVertex& vert : mesh_vertices)
 	{
-		EdIdent(f, indent); fprintf(f, "t %f %f %f %f %f %f %f %f %f\n",
-			XYZ(t.verts[0]),
-			XYZ(t.verts[1]),
-			XYZ(t.verts[2]));
+		EdIndent(f, indent); fprintf(f, "%f %f %f %f %f %f ", XYZ(vert.position), XYZ(vert.normal));
 	}
-	indent--;
+	fprintf(f, "\n");
+
+	EdIndent(f, indent); fprintf(f, "indices %d ", (int)mesh_indices.size());
+	for (U32 idx : mesh_indices)
+	{
+		fprintf(f, "%u ", idx);
+	}
+	fprintf(f, "\n");
 }
 
 void EdInitialize()

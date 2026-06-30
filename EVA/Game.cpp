@@ -133,6 +133,11 @@ void GameDraw(Game* game)
 	static float3 test1 = {};
 	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
 
+	if (game->level_mesh)
+	{
+		DrawMesh(game->level_mesh, Library::mat_brush, float4x4::Identity());
+	}
+
 	game->entity_manager.Iterate(
 		[](Entity* entity)
 		{
@@ -194,7 +199,6 @@ void GameLoadMap(Game* game, const char* name)
 		return;
 	}
 	DEFER(fclose(f));
-
 	fscanf(f, "type map\n");
 
 	int version;
@@ -206,15 +210,30 @@ void GameLoadMap(Game* game, const char* name)
 		return;
 	}
 
-	int num_collider_triangles;
-	n = fscanf(f, "collider %d\n", &num_collider_triangles);
+
+	int num_vertices;
+	n = fscanf(f, "vertices %d", &num_vertices);
 	assert(n == 1);
 
-	for (int i = 0; i < num_collider_triangles; i++)
+	std::vector<MeshVertex> vertices(num_vertices);
+	for (int i = 0; i < num_vertices; i++)
 	{
-		Plane plane;
-		float3 a, b, c;
-		n = fscanf(f, "t %f %f %f %f %f %f %f %f %f\n", XYZ(&a), XYZ(&b), XYZ(&c));
-		assert(n == 9);
+		MeshVertex& vert = vertices[i];
+		vert.texcoord = {};
+		n = fscanf(f, "%f %f %f %f %f %f", XYZ(&vert.position), XYZ(&vert.normal));
+		assert(n == 6);
 	}
+
+	int num_indices;
+	n = fscanf(f, "\nindices %d", &num_indices);
+	assert(n == 1);
+
+	std::vector<U32> indices(num_indices);
+	for (int i = 0; i < num_indices; i++)
+	{
+		n = fscanf(f, "%u", &indices[i]);
+		assert(n == 1);
+	}
+
+	game->level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
 }

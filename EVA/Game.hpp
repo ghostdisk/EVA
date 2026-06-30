@@ -15,6 +15,7 @@ struct Game
 	Camera        camera          = {};
 	Entity*       pawn            = nullptr;
 	PhysicsWorld* physics         = nullptr;
+	Mesh*         level_mesh      = nullptr;
 };
 
 void GameInitialize();
