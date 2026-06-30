@@ -56,11 +56,21 @@ void Con_tp(ConParser& parser)
 
 void Con_map(ConParser& parser)
 {
-	if (!g_active_game)
+	const char* map_name = parser.StringArg();
+	if (g_app_mode == AppMode_Editor)
 	{
-		ConExec("game 0");
+		char ed_load_cmd_buf[64];
+		snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
+		ConExec(ed_load_cmd_buf);
 	}
-	GameLoadMap(g_active_game, parser.StringArg());
+	else
+	{
+		if (!g_active_game)
+		{
+			ConExec("game 0");
+		}
+		GameLoadMap(g_active_game, map_name);
+	}
 }
 
 void GameInitialize()
