@@ -757,7 +757,7 @@ void EdLoadMap(const char* name)
 	FILE* f = fopen(path, "rb");
 	if (!f)
 	{
-		ConLog("Failed to open %s", name);
+		ConError("Failed to open %s", name);
 		return;
 	}
 	DEFER(fclose(f));
@@ -787,7 +787,7 @@ void EdCompileMap()
 	FILE* f = fopen(path, "wb");
 	if (!f)
 	{
-		ConLog("Failed to open %s", path);
+		ConError("Failed to open %s", path);
 		return;
 	}
 	DEFER(fclose(f));

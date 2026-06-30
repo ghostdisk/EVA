@@ -93,7 +93,7 @@ static void ConSkipLine(ConParser& parser)
 static bool ConSkipComment(ConParser& parser)
 {
 	if (*parser.head != '#') return false;
-	ConSkipLine(parser);
+	while (*parser.head != '\n' && *parser.head != '\0') parser.head++;
 	return true;
 }
 
@@ -109,7 +109,7 @@ const char* ConParser::StringArg()
 	{
 		head++;
 	}
-	return ArenaInternCString(FrameArena, start, head - start);
+	return *start ? ArenaInternCString(FrameArena, start, head - start) : nullptr;
 }
 
 const char* ConParser::RestArgs()
@@ -163,26 +163,23 @@ bool ConExecSingle(ConParser& parser)
 	}
 
 	const char* value = parser.StringArg();
-	if (!value)
+	if (value)
 	{
-		ConSkipLine(parser);
-		return false;
-	}
-
-	for (ConVar* var : vars)
-	{
-		if (strcmp(var->name, cmd) == 0)
+		for (ConVar* var : vars)
 		{
-			snprintf(var->svalue, sizeof(var->svalue), "%s", value);
-			char* endptr = 0;
-			float f = strtof(var->svalue, &endptr);
-			if (*endptr == '\0')
+			if (strcmp(var->name, cmd) == 0)
 			{
-				var->fvalue = f;
+				snprintf(var->svalue, sizeof(var->svalue), "%s", value);
+				char* endptr = 0;
+				float f = strtof(var->svalue, &endptr);
+				if (*endptr == '\0')
+				{
+					var->fvalue = f;
+				}
+				ConSkipLine(parser);
+				if (var->on_change) var->on_change(var);
+				return true;
 			}
-			ConSkipLine(parser);
-			if (var->on_change) var->on_change(var);
-			return true;
 		}
 	}
 
@@ -221,7 +218,7 @@ void ConsoleDraw()
 			->SetColor(COLOR_RGB(57, 9, 23));
 		DEFER(UIEndBox());
 
-		{ // titlebar
+		if (0) { // titlebar
 			UIBeginBox()
 				->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch);
 			UILabel("Console")->SetPadding(8);
@@ -237,8 +234,8 @@ void ConsoleDraw()
 		UIBeginBox()
 			->SetFlex(UIAxis_Vertical, UIAlignment_Stretch, UIAlignment_Stretch)
 			->SetFlexGrow(1)
-			->SetGap(8)
-			->SetPadding(8);
+			->SetGap(4)
+			->SetPadding(4);
 		DEFER(UIEndBox());
 
 		{ // main content
@@ -246,8 +243,8 @@ void ConsoleDraw()
 				->SetFlexGrow(1)
 				->SetColor(COLOR_BUTTON)
 				->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
-				->SetGap(8)
-				->SetPadding(8);
+				->SetGap(4)
+				->SetPadding(4);
 
 			for (const std::string& msg : console_log)
 			{
@@ -263,7 +260,7 @@ void ConsoleDraw()
 		{ // input bar
 			UIBeginBox()
 				->SetFlex(UIAxis_Horizontal, UIAlignment_Stretch, UIAlignment_Stretch)
-				->SetGap(8);
+				->SetGap(4);
 
 			UIPushId("input");
 			text_input = UITextInput(console_input)->SetFlexGrow(1);
@@ -281,11 +278,7 @@ void ConsoleDraw()
 			if (InputGetButtonDown(SDL_SCANCODE_L) && InputGetButton(SDL_SCANCODE_LCTRL)) ConExec("clear");
 		}
 
-		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE))
-		{
-			console_open = false;
-		}
-
+		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) console_open = false;
 		if (submit)
 		{
 			ConExec(ArenaInternCString(FrameArena, console_input.data(), console_input.size()));
