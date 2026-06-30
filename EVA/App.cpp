@@ -5,6 +5,7 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Camera.hpp>
+#include <EVA/Physics.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Net.hpp>
 #include <EVA/Font.hpp>
@@ -72,6 +73,7 @@ int main()
 	NetInitialize();
 	ConsoleInitialize();
 	GLInitialize();
+	PhysicsInitialize();
 	GameInitialize();
 	RendererInitialize();
 	FontInitialize();

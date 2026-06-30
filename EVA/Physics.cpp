@@ -190,3 +190,26 @@ void PhysicsDestroyCollider(PhysicsCollider& collider)
 	collider.shape->Release();
 	collider.shape = nullptr;
 }
+
+PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, bool is_static)
+{
+	JPH::BodyCreationSettings settings(
+		collider.shape,
+		{},
+		JPH::Quat::sIdentity(),
+		JPH::EMotionType::Dynamic,
+		is_static ? Layers::NON_MOVING : Layers::MOVING);
+
+	JPH::BodyInterface& body_interface = world->system.GetBodyInterfaceNoLock();
+
+	JPH::Body* body = body_interface.CreateBody(settings);
+	body_interface.AddBody(body->GetID(), is_static ? JPH::EActivation::DontActivate : JPH::EActivation::Activate);
+	return PhysicsBody{ .body = body };
+}
+
+void PhysicsDestroyBody(PhysicsWorld* world, PhysicsBody body)
+{
+	JPH::BodyInterface& body_interface = world->system.GetBodyInterfaceNoLock();
+	body_interface.RemoveBody(body.body->GetID());
+	body_interface.DestroyBody(body.body->GetID());
+}

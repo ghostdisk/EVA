@@ -3,12 +3,13 @@
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
-#include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
+#include <EVA/Physics.hpp>
+#include <EVA/Physics_Jolt.hpp>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
@@ -16,6 +17,8 @@
 
 Game*    g_games[8]        = {};
 Game*    g_active_game     = nullptr;
+
+std::vector<PhysicsBody> boxes;
 
 ConVar cvar_game = {
 	.name = "game",
@@ -78,7 +81,20 @@ void GameInit(Game* game)
 	game->camera.position.z = 3;
 
 	EntityManagerInit(game->entity_manager);
+
 	game->physics = PhysicsWorldCreate();
+
+
+	PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 32, 0.25, 32 });
+	PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, false);
+
+	PhysicsCollider box_collider = PhysicsCreateBoxCollider({ 1, 1, 1 });
+
+	for (int i = 0; i < 1; i++)
+	{
+		PhysicsBody box = PhysicsCreateBody(game->physics, box_collider, false);
+		boxes.push_back(box);
+	}
 }
 
 void GameTick(Game* game, double dt)
@@ -95,6 +111,13 @@ void GameTick(Game* game, double dt)
 		}
 	}
 	CameraUpdateMatrices(game->camera);
+
+	for (auto box : boxes)
+	{
+		auto& bi = game->physics->system.GetBodyInterfaceNoLock();
+		auto pos = ConvertPos(bi.GetPosition(box.body->GetID()));
+		printf("%f %f %f\n", XYZ(pos));
+	}
 }
 
 void GameDraw(Game* game)
@@ -147,6 +170,8 @@ void GameTickAll(double dt)
 	{
 		if (game) GameTick(game, dt);
 	}
+
+	
 }
 
 void GameUnloadMap(Game* game)
