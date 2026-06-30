@@ -66,11 +66,11 @@ void AppSetMode(AppMode mode, Game* game)
 
 int main()
 {
+	ArenaInitialize();
+	RotateFrameArenas();
 	PlatformInitialize();
 	NetInitialize();
-	ArenaInitialize();
 	ConsoleInitialize();
-	RotateFrameArenas();
 	GLInitialize();
 	GameInitialize();
 	RendererInitialize();

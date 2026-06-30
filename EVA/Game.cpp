@@ -3,6 +3,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
+#include <EVA/Physics.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
@@ -77,11 +78,14 @@ void GameInit(Game* game)
 	game->camera.position.z = 3;
 
 	EntityManagerInit(game->entity_manager);
+	game->physics = PhysicsWorldCreate();
 }
 
 void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
+
+	PhysicsTick(game->physics, dt);
 
 	if (g_active_game == game)
 	{
@@ -98,11 +102,6 @@ void GameDraw(Game* game)
 	ZoneScopedN("GameDraw");
 
 	DrawSetLayer(Layer_Main);
-
-	for (CSGBrush* brush : game->level_brushes)
-	{
-		DrawMesh(brush->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
-	}
 
 	static float3 test1 = {};
 	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
@@ -152,11 +151,6 @@ void GameTickAll(double dt)
 
 void GameUnloadMap(Game* game)
 {
-	for (CSGBrush* b : game->level_brushes)
-	{
-		CSGDestroyBrush(b);
-	}
-	game->level_brushes.clear();
 }
 
 void GameLoadMap(Game* game, const char* name)
@@ -183,27 +177,15 @@ void GameLoadMap(Game* game, const char* name)
 		return;
 	}
 
-	int num_brushes;
-	n = fscanf(f, "brushes %d\n", &num_brushes);
+	int num_collider_triangles;
+	n = fscanf(f, "collider %d\n", &num_collider_triangles);
 	assert(n == 1);
 
-	for (int i = 0; i < num_brushes; i++)
+	for (int i = 0; i < num_collider_triangles; i++)
 	{
-		int num_planes;
-		n = fscanf(f, "planes %d\n", &num_planes);
-		assert(n == 1);
-
-		CSGBrush* b = CSGCreateBrush();
-
-		for (int j = 0; j < num_planes; j++)
-		{
-			Plane plane;
-			n = fscanf(f, "plane %f %f %f %f\n", PRINT_V3(&plane.normal), &plane.distance);
-			assert(n == 4);
-			b->planes.push_back({ .plane = plane });
-		}
-		CSGBuildBrush(b);
-		CSGBuildBrushMesh(b);
-		game->level_brushes.push_back(b);
+		Plane plane;
+		float3 a, b, c;
+		n = fscanf(f, "t %f %f %f %f %f %f %f %f %f\n", PRINT_V3(&a), PRINT_V3(&b), PRINT_V3(&c));
+		assert(n == 9);
 	}
 }

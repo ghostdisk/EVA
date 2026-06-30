@@ -5,6 +5,7 @@
 
 struct GLTFScene;
 struct CSGBrush;
+struct PhysicsWorld;
 
 struct Game
 {
@@ -13,8 +14,7 @@ struct Game
 	EntityManager entity_manager  = {};
 	Camera        camera          = {};
 	Entity*       pawn            = nullptr;
-
-	std::vector<CSGBrush*> level_brushes = {};
+	PhysicsWorld* physics         = nullptr;
 };
 
 void GameInitialize();

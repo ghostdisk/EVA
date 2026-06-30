@@ -26,6 +26,7 @@ add_executable(EVA
 	"EVA/Math.cpp"
 	"EVA/MainMenu.cpp"
 	"EVA/Net.cpp"
+	"EVA/Physics.cpp"
 	"EVA/Platform.cpp"
 	"EVA/Renderer/GL.cpp"
 	"EVA/Renderer/Renderer.cpp"

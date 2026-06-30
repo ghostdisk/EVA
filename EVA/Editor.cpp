@@ -796,20 +796,38 @@ void EdCompileMap()
 
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
-	fprintf(f, "brushes %d\n", (int)root->built.size());
+
+	struct Triangle
+	{
+		float3 verts[3];
+	};
+	std::vector<Triangle> collider;
+	for (CSGBrush* brush : root->built)
+	{
+		for (const CSGPlane& plane : brush->planes)
+		{
+			for (int i = 2; i < plane.points.size(); i++)
+			{
+				collider.push_back(Triangle{
+					.verts = {
+						plane.points[0],
+						plane.points[i - 1],
+						plane.points[i],
+					}
+				});
+			}
+		}
+	}
+
+	fprintf(f, "collider %d\n", (int)collider.size());
 
 	indent++;
-	for (int i = 0; i < root->built.size(); i++)
+	for (Triangle t : collider)
 	{
-		CSGBrush* brush = root->built[i];
-		EdIdent(f, indent); fprintf(f, "planes %d\n", (int)brush->planes.size());
-		indent++;
-		for (int i = 0; i < brush->planes.size(); i++)
-		{
-			CSGPlane& plane = brush->planes[i];
-			EdIdent(f, indent); fprintf(f, "plane %f %f %f %f\n", PRINT_V3(plane.plane.normal), plane.plane.distance);
-		}
-		indent--;
+		EdIdent(f, indent); fprintf(f, "t %f %f %f %f %f %f %f %f %f\n",
+			PRINT_V3(t.verts[0]),
+			PRINT_V3(t.verts[1]),
+			PRINT_V3(t.verts[2]));
 	}
 	indent--;
 }
