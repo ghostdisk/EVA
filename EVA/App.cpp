@@ -100,8 +100,6 @@ int main()
 		InputBeginFrame();
 		UIBeginFrame();
 
-		for (auto& cb : next_frame_callbacks) cb.callback(cb.userdata);
-		next_frame_callbacks.clear();
 
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
@@ -111,6 +109,9 @@ int main()
 			if (InputProcessSDLEvent(&event)) continue;
 		}
 		InputUpdateAxes();
+
+		for (auto& cb : next_frame_callbacks) cb.callback(cb.userdata);
+		next_frame_callbacks.clear();
 
 		GameTickAll(g_delta_time);
 

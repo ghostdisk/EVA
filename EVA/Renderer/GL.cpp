@@ -131,8 +131,8 @@ Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 
 void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
 {
-	//Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
-	printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
+	Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
+	// printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
 }
 
 Mesh* MeshCreate(

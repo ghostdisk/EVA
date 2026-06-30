@@ -8,12 +8,7 @@
 #include <vector>
 #include <tracy/Tracy.hpp>
 
-Shader* shd_lines;
-Shader* shd_main;
-Shader* shd_quad;
-Shader* shd_brush;
-
-static Mesh* mesh_quad = nullptr;
+// ------------------------------------------------------------
 
 struct LineVertex
 {
@@ -44,8 +39,27 @@ struct LayerData
 	std::vector<DrawQuadRecord> quads;
 };
 
-LayerData layers[Layer_ENUM_SIZE] = {};
-LayerData* current_layer = &layers[Layer_Main];
+struct MainConstantBuffer
+{
+	float4x4 view;
+	float4x4 view_projection;
+};
+
+// ------------------------------------------------------------
+
+Shader* shd_lines;
+Shader* shd_main;
+Shader* shd_quad;
+Shader* shd_brush;
+
+static Mesh* mesh_quad = nullptr;
+
+GLuint g_main_constant_buffer;
+
+static LayerData layers[Layer_ENUM_SIZE] = {};
+static LayerData* current_layer = &layers[Layer_Main];
+
+// ------------------------------------------------------------
 
 ConVar cvar_gl_wire = {
 	.name = "gl_wire",
@@ -76,6 +90,8 @@ void RendererInitialize()
 	}
 
 	ConRegisterVar(&cvar_gl_wire);
+
+	glGenBuffers(1, &g_main_constant_buffer);
 }
 
 void DrawLine(float3 a, float3 b, float4 color)
@@ -96,6 +112,16 @@ void DrawSetLineThickness()
 void RenderFrame()
 {
 	ZoneScopedN("RenderScene");
+
+	MainConstantBuffer cb = {};
+	if (g_current_camera)
+	{
+		cb.view = g_current_camera->view_matrix;
+		cb.view_projection = g_current_camera->view_projection_matrix;
+	}
+	glBindBuffer(GL_UNIFORM_BUFFER, g_main_constant_buffer);
+	glBufferData(GL_UNIFORM_BUFFER, sizeof(cb), &cb, GL_STATIC_DRAW);
+	glBindBufferBase(GL_UNIFORM_BUFFER, 0, g_main_constant_buffer);
 
 	glViewport(0, 0, g_window_size.x, g_window_size.y);
 	glDepthRange(0.0, 1.0);
@@ -155,8 +181,8 @@ void RenderFrame()
 				}
 
 				glUseProgram(shader->handle);
-				glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
-				glUniformMatrix4fv(4, 1, false, (float*)&g_current_camera->view_matrix);
+				// glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
+				// glUniformMatrix4fv(4, 1, false, (float*)&g_current_camera->view_matrix);
 				GL_ERROR_CHECK();
 
 				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
@@ -201,7 +227,6 @@ void RenderFrame()
 			glUseProgram(shd_lines->handle);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
 			glDrawArrays(GL_LINES, 0, current_layer->lines.size());
 			GL_ERROR_CHECK();
 

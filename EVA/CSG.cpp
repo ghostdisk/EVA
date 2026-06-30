@@ -6,13 +6,23 @@
 #include <algorithm>
 #include <tracy/Tracy.hpp>
 
+void CSGDestroyBrushMesh(CSGBrush* brush)
+{
+	if (brush->mesh)
+	{
+		QueueForNextFrame([](void* mesh) { MeshDestroy((Mesh*)mesh); }, brush->mesh);
+		brush->mesh = nullptr;
+	}
+}
+
+
 void CSGClearBrush(CSGBrush* brush)
 {
 	for (CSGPlane& p : brush->planes)
 	{
 		p.points.clear();
 	}
-	if (brush->mesh) MeshDestroy(brush->mesh);
+	CSGDestroyBrushMesh(brush);
 }
 
 bool CSGAddPlane(CSGBrush* brush, Plane plane)
@@ -33,7 +43,6 @@ bool CSGAddPlane(CSGBrush* brush, Plane plane)
 void CSGBuildBrush(CSGBrush* brush)
 {
 	ZoneScopedN("CSGBuildBrush");
-
 	CSGClearBrush(brush);
 
 	{
@@ -153,12 +162,7 @@ void CSGBuildBrush(CSGBrush* brush)
 void CSGBuildBrushMesh(CSGBrush* brush)
 {
 	ZoneScopedN("CSGBuildBrushMesh");
-
-	if (brush->mesh)
-	{
-		MeshDestroy(brush->mesh);
-		brush->mesh = nullptr;
-	}
+	CSGDestroyBrushMesh(brush);
 
 	std::vector<MeshVertex> vertices;
 	std::vector<U32> indices;
@@ -284,7 +288,7 @@ CSGBrush* CSGCreateBrush()
 
 void CSGDestroyBrush(CSGBrush* brush)
 {
-	if (brush->mesh) MeshDestroy(brush->mesh);
+	CSGDestroyBrushMesh(brush);
 	delete brush;
 }
 
