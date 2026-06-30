@@ -11,6 +11,7 @@
 #define DEG_TO_RAD (GLM_PIf / 180.0f)
 #define RAD_TO_DEG (180.0f / GLM_PI)
 
+#define XY(v) v.x, v.y
 #define XYZ(v) v.x, v.y, v.z
 
 struct float2

@@ -1,5 +1,6 @@
 #include <EVA/Physics.hpp>
 #include <EVA/Physics_Jolt.hpp>
+#include <EVA/Renderer/GL.hpp> // MeshVertex
 #include <stdio.h>
 #include <stdarg.h>
 #include <thread>
@@ -163,17 +164,22 @@ void PhysicsTick(PhysicsWorld* world, double dt)
 	world->system.Update(dt, 1, g_temp_allocator, &g_job_system);
 }
 
-PhysicsCollider PhysicsCreateMeshCollider(size_t num_triangles, PhysicsTriangle* triangles)
+PhysicsCollider PhysicsCreateMeshCollider(size_t num_vertices, MeshVertex* vertices, size_t num_indices, U32* indices)
 {
-	JPH::TriangleList jph_triangles(num_triangles);
-	
-	for (size_t i = 0; i < num_triangles; i++)
-	{
-		PhysicsTriangle& t = triangles[i];
-		jph_triangles[i] = JPH::Triangle(ConvertPos(t.points[0]), ConvertPos(t.points[1]), ConvertPos(t.points[2]));
-	}
+	JPH::Array<JPH::Float3> inVertices;
+	JPH::Array<JPH::IndexedTriangle> inTriangles;
 
-	JPH::MeshShapeSettings settings(jph_triangles);
+	for (size_t i = 0; i < num_vertices; i++)
+	{
+		const MeshVertex& vertex = vertices[i];
+		inVertices.push_back(JPH::Float3(vertex.position.x, vertex.position.z, -vertex.position.y));
+	}
+	for (size_t i = 0; i < num_indices; i += 3)
+	{
+		inTriangles.push_back(JPH::IndexedTriangle(indices[i], indices[i + 1], indices[i + 2]));
+	}
+	
+	JPH::MeshShapeSettings settings(inVertices, inTriangles);
 	settings.SetEmbedded();
 
 	JPH::Shape* shape = nullptr;

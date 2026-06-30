@@ -104,10 +104,10 @@ void CameraOrbit(Camera& camera, Entity* entity)
 	}
 }
 
-Ray CameraClipToRay(Camera& camera, float2 xy)
+Ray CameraClipToRay(Camera& camera, float2 pos)
 {
-	float4 clip0 = { xy.x, xy.y, 0, 1 };
-	float4 clip1 = { xy.x, xy.y, 1, 1 };
+	float4 clip0 = { XY(pos), 0, 1 };
+	float4 clip1 = { XY(pos), 1, 1 };
 
 	float4 world0;
 	float4 world1;

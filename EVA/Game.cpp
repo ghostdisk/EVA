@@ -82,10 +82,9 @@ void GameInit(Game* game)
 
 	game->physics = PhysicsWorldCreate();
 
-	PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 128, 0.25, 128 });
+	// PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 128, 0.25, 128 });
 	PhysicsCollider box_collider = PhysicsCreateBoxCollider({ 1, 1, 1 });
-
-	PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, {0,0,-2}, {0,0,0,1}, true);
+	// PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, {0,0,-2}, {0,0,0,1}, true);
 
 	for (int i = 0; i < 10; i++)
 	{
@@ -179,12 +178,16 @@ void GameTickAll(double dt)
 	{
 		if (game) GameTick(game, dt);
 	}
-
-	
 }
 
 void GameUnloadMap(Game* game)
 {
+	if (game->level_mesh)
+	{
+		MeshDestroy(game->level_mesh);
+		game->level_mesh = nullptr;
+	}
+	PhysicsDestroyCollider(game->level_mesh_collider);
 }
 
 void GameLoadMap(Game* game, const char* name)
@@ -209,7 +212,6 @@ void GameLoadMap(Game* game, const char* name)
 		ConError("map %s is version %d, expected %d", name, version, 1);
 		return;
 	}
-
 
 	int num_vertices;
 	n = fscanf(f, "vertices %d", &num_vertices);
@@ -236,4 +238,6 @@ void GameLoadMap(Game* game, const char* name)
 	}
 
 	game->level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
+	game->level_mesh_collider = PhysicsCreateMeshCollider(num_vertices, vertices.data(), num_indices, indices.data());
+	PhysicsCreateBody(game->physics, game->level_mesh_collider, {}, {0,0,0,1}, true);
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Entities.hpp>
 #include <EVA/Camera.hpp>
+#include <EVA/Physics.hpp>
 #include <vector>
 
 struct GLTFScene;
@@ -9,13 +10,14 @@ struct PhysicsWorld;
 
 struct Game
 {
-	int           id              = 0;
-	const char*   name            = nullptr;
-	EntityManager entity_manager  = {};
-	Camera        camera          = {};
-	Entity*       pawn            = nullptr;
-	PhysicsWorld* physics         = nullptr;
-	Mesh*         level_mesh      = nullptr;
+	int                id                     = 0;
+	const char*        name                   = nullptr;
+	EntityManager      entity_manager         = {};
+	Camera             camera                 = {};
+	Entity*            pawn                   = nullptr;
+	PhysicsWorld*      physics                = nullptr;
+	Mesh*              level_mesh             = nullptr;
+	PhysicsCollider    level_mesh_collider    = {};
 };
 
 void GameInitialize();

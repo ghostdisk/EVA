@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 
+struct MeshVertex;
 struct PhysicsWorld;
 
 namespace JPH
@@ -8,11 +9,6 @@ namespace JPH
 	class Shape;
 	class Body;
 }
-
-struct PhysicsTriangle
-{
-	float3 points[3];
-};
 
 struct PhysicsCollider
 {
@@ -30,7 +26,7 @@ void PhysicsWorldDestroy(PhysicsWorld* world);
 void PhysicsTick(PhysicsWorld* world, double dt);
 
 PhysicsCollider PhysicsCreateBoxCollider(const float3& half_extents);
-PhysicsCollider PhysicsCreateMeshCollider(size_t num_triangles, PhysicsTriangle* triangles);
+PhysicsCollider PhysicsCreateMeshCollider(size_t num_vertices, MeshVertex* vertices, size_t num_indices, U32* indices);
 void            PhysicsDestroyCollider(PhysicsCollider& collider);
 
 PhysicsBody PhysicsCreateBody(PhysicsWorld* world, PhysicsCollider collider, const float3& position, const float4& rotation, bool is_static);
