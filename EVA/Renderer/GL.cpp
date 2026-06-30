@@ -1,5 +1,5 @@
 #include <EVA/Renderer/GL.hpp>
-#include <EVA/Assets.hpp>
+#include <EVA/Assets/Asset.hpp>
 #include <EVA/Platform.hpp>
 #include <stdio.h>
 #include <SDL3/SDL.h>

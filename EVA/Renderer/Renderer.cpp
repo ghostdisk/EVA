@@ -1,4 +1,4 @@
-#include <EVA/Assets.hpp>
+#include <EVA/Assets/Asset.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Font.hpp>
@@ -111,7 +111,7 @@ void RenderFrame()
 
 		if (layer == Layer_Sky)
 		{
-			float4 clear_color = COLOR_SKY;
+			float4 clear_color = COLOR_BLACK;
 			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 			glClear(GL_COLOR_BUFFER_BIT);
 		}

@@ -15,6 +15,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Editor.hpp>
+#include <EVA/MainMenu.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
@@ -41,6 +42,10 @@ void AppSetMode(AppMode mode, Game* game)
 
 	switch (g_app_mode)
 	{
+		case AppMode_MainMenu:
+		{
+			break;
+		}
 		case AppMode_Editor:
 		{
 			assert(!game);
@@ -82,6 +87,7 @@ int main()
 	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_Q, -1.0f);
 	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
 
+	AppSetMode(AppMode_MainMenu, nullptr);
 	ConExec("exec autoexec.cfg");
 
 	while (!g_quit)
@@ -113,9 +119,15 @@ int main()
 				GameDraw(g_active_game);
 				break;
 			}
+			case AppMode_MainMenu:
+			{
+				MainMenuTick();
+				break;
+			}
 			case AppMode_Editor:
 			{
 				EdTick();
+				break;
 			}
 			default: break;
 		}
