@@ -75,9 +75,12 @@ static GLuint GLCompileShader(const char* name, GLenum type, const char* source,
 	return shader;
 }
 
-GLuint GLCompileShaderProgram(const char* name, int num_defines, const char** defines)
+Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 {
-	GLuint program = glCreateProgram();
+	Shader* shader = new Shader();
+	AssetInit(shader, AssetType_Shader, name);
+
+	shader->handle = glCreateProgram();
 
 	char* vs_src = GLLoadShaderSource(name, GL_VERTEX_SHADER);
 	char* fs_src = GLLoadShaderSource(name, GL_FRAGMENT_SHADER);
@@ -103,17 +106,17 @@ GLuint GLCompileShaderProgram(const char* name, int num_defines, const char** de
 	
 	GLuint vs = GLCompileShader(name, GL_VERTEX_SHADER, vs_src, preamble.data());
 	GLuint fs = GLCompileShader(name, GL_FRAGMENT_SHADER, fs_src, preamble.data());
-	glAttachShader(program, vs);
-	glAttachShader(program, fs);
-	glLinkProgram(program);
+	glAttachShader(shader->handle, vs);
+	glAttachShader(shader->handle, fs);
+	glLinkProgram(shader->handle);
 
 	int success = 0;
-	glGetProgramiv(program, GL_LINK_STATUS, &success);
+	glGetProgramiv(shader->handle, GL_LINK_STATUS, &success);
 	if (!success)
 	{
 		char error_buffer[2048];
 		GLsizei error_length;
-		glGetProgramInfoLog(program, sizeof(error_buffer), &error_length, error_buffer);
+		glGetProgramInfoLog(shader->handle, sizeof(error_buffer), &error_length, error_buffer);
 		Fatal("Failed to link %s:\n\n%s", name, error_buffer);
 	}
 
@@ -123,7 +126,7 @@ GLuint GLCompileShaderProgram(const char* name, int num_defines, const char** de
 	free(fs_src);
 
 	GL_ERROR_CHECK();
-	return program;
+	return shader;
 }
 
 void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
@@ -234,7 +237,7 @@ Texture* TextureLoad(const char* name, bool mips)
 	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8, mips);
 }
 
-Material* MaterialCreate(const char* name, GLuint shader, Texture* texture)
+Material* MaterialCreate(const char* name, Shader* shader, Texture* texture)
 {
 	Material* material = new Material();
 	AssetInit(material, AssetType_Material, name);

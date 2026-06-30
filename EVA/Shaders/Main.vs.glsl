@@ -13,13 +13,14 @@ layout (location = 0) uniform mat4      u_ViewProjection;
 layout (location = 1) uniform sampler2D u_Texture;
 layout (location = 2) uniform mat4      u_Model;
 layout (location = 3) uniform vec4      u_Tint;
+layout (location = 4) uniform mat4      u_View;
 
 void main()
 {
 	vec4 world_pos = u_Model * vec4(a_Position, 1);
 	gl_Position = u_ViewProjection * world_pos;
 
-	v_Normal = a_Normal;
+	v_Normal = (u_Model * vec4(a_Normal, 0)).xyz;
 	v_Texcoord = a_Texcoord;
 
 #ifdef S_BRUSH

@@ -6,6 +6,7 @@ struct Texture;
 struct Material;
 struct Texture;
 struct CSGBrush;
+struct Shader;
 
 enum AssetType
 {
@@ -16,6 +17,7 @@ enum AssetType
 	AssetType_Sprite,
 	AssetType_Font,
 	AssetType_Map,
+	AssetType_Shader,
 };
 
 struct Asset
@@ -50,7 +52,7 @@ struct Texture : Asset
 
 struct Material : Asset
 {
-	U32      shader        = 0;
+	Shader*  shader        = 0;
 	Texture* color_texture = nullptr;
 };
 
@@ -78,6 +80,11 @@ struct Font : Asset
 struct Map : Asset
 {
 	CSGBrush* brushes;
+};
+
+struct Shader : Asset
+{
+	U32 handle;
 };
 
 void    AssetInit(Asset* asset, AssetType type, const char* name);

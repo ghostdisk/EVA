@@ -8,11 +8,12 @@
 #include <vector>
 #include <tracy/Tracy.hpp>
 
-static GLuint shd_lines;
-static GLuint shd_main;
-static GLuint shd_quad;
+Shader* shd_lines;
+Shader* shd_main;
+Shader* shd_quad;
+Shader* shd_brush;
+
 static Mesh* mesh_quad = nullptr;
-GLuint shd_brush;
 
 struct LineVertex
 {
@@ -54,12 +55,12 @@ ConVar cvar_gl_wire = {
 
 void RendererInitialize()
 {
-	shd_lines   = GLCompileShaderProgram("Lines");
-	shd_main    = GLCompileShaderProgram("Main");
-	shd_quad    = GLCompileShaderProgram("DrawBox");
+	shd_lines   = GLCompileShader("Lines");
+	shd_main    = GLCompileShader("Main");
+	shd_quad    = GLCompileShader("DrawBox");
 
 	const char* brush_defines[] = { "S_BRUSH" };
-	shd_brush = GLCompileShaderProgram("Main", EVA_ARRAYSIZE(brush_defines), brush_defines);
+	shd_brush = GLCompileShader("Main", EVA_ARRAYSIZE(brush_defines), brush_defines);
 
 	{ // mesh_quad:
 		MeshVertex quad_vertices[] = {
@@ -137,7 +138,7 @@ void RenderFrame()
 			for (const DrawMeshEntry& entry : current_layer->meshes)
 			{
 				Material* material      = entry.material;
-				GLuint    shader        = shd_main;
+				Shader*   shader        = shd_main;
 				Texture*  color_texture = Library::tex_proto;
 
 				if (!material)
@@ -153,8 +154,9 @@ void RenderFrame()
 					}
 				}
 
-				glUseProgram(shader);
+				glUseProgram(shader->handle);
 				glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
+				glUniformMatrix4fv(4, 1, false, (float*)&g_current_camera->view_matrix);
 				GL_ERROR_CHECK();
 
 				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
@@ -196,7 +198,7 @@ void RenderFrame()
 			glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(LineVertex), (void*)0);
 			glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(LineVertex), (void*)12);
 
-			glUseProgram(shd_lines);
+			glUseProgram(shd_lines->handle);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
@@ -213,7 +215,7 @@ void RenderFrame()
 		{
 			glEnable(GL_CULL_FACE);
 			glCullFace(GL_FRONT);
-			glUseProgram(shd_quad);
+			glUseProgram(shd_quad->handle);
 			glBindVertexArray(mesh_quad->vao);
 			glUniform2f(0, g_window_size.x, g_window_size.y);
 			glEnable(GL_BLEND);

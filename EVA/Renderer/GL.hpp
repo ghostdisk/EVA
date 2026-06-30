@@ -6,10 +6,11 @@
 struct Mesh;
 struct Material;
 struct Texture;
+struct Shader;
 
 void GLPreInitialize();
 void GLInitialize();
-GLuint GLCompileShaderProgram(const char* name, int num_defines = 0, const char** defines = nullptr);
+Shader* GLCompileShader(const char* name, int num_defines = 0, const char** defines = nullptr);
 
 struct MeshVertex
 {

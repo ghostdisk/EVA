@@ -58,7 +58,7 @@ void DrawGrid(int size);
 void DrawPoint(float3 point, float4 color = COLOR_WHITE);
 void DrawAABB(float3 center, float3 size, float4 color);
 
-Material* MaterialCreate(const char* name, GLuint shader, Texture* texture);
+Material* MaterialCreate(const char* name, Shader* shader, Texture* texture);
 
-extern GLuint shd_main;
-extern GLuint shd_brush;
+extern Shader* shd_main;
+extern Shader* shd_brush;
