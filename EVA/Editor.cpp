@@ -136,12 +136,21 @@ bool EdIsSelected(EdOp* op)
 	return false;
 }
 
-void EdDestroyOp(EdOp* op)
+std::vector<EdOp*> EdGetSelectedOps()
 {
-	if (op->brush) CSGDestroyBrush(op->brush);
-	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
-	for (EdOp* child : op->children) EdDestroyOp(child);
+	if (g_selection.size() == 0 || g_selection[0].type != EdSelectionType_Node) return {};
+	std::vector<EdOp*> selection;
+	for (const EdSelection& sel : g_selection)
+	{
+		assert(sel.type == EdSelectionType_Node);
+		assert(!selection.size() || selection[0]->parent == sel.op->parent);
+		selection.push_back(sel.op);
+	}
+	return selection;
+}
 
+void EdRemoveOpFromTree(EdOp* op)
+{
 	if (op->parent)
 	{
 		for (int i = 0; i < op->parent->children.size(); i++)
@@ -152,23 +161,25 @@ void EdDestroyOp(EdOp* op)
 				break;
 			}
 		}
+		op->parent = nullptr;
 	}
+}
 
+void EdDestroyOp(EdOp* op)
+{
+	if (op->brush) CSGDestroyBrush(op->brush);
+	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
+	for (EdOp* child : op->children) EdDestroyOp(child);
+	EdRemoveOpFromTree(op);
 	delete op;
 }
 
 void EdDestroySelection()
 {
 	bool did_something = false;
-	for (const EdSelection& sel : g_selection)
-	{
-		if (sel.type == EdSelectionType_Node)
-		{
-			EdDestroyOp(sel.op);
-			did_something = true;
-		}
-	}
-	if (did_something) EdDeselect();
+	std::vector<EdOp*> selection = EdGetSelectedOps();
+	for (EdOp* op : selection) EdDestroyOp(op);
+	if (selection.size()) EdDeselect();
 }
 
 void EdDrawBrushPlaneOutline(CSGBrush* b, int i, const float4x4& transform, const float4& color)
@@ -233,17 +244,7 @@ int EdGetSiblingIndex(EdOp* op)
 
 void EdOrderMove(int offset)
 {
-	if (g_selection.size() == 0 || g_selection[0].type != EdSelectionType_Node) return;
-
-	std::vector<EdOp*> selection;
-
-	for (const EdSelection& sel : g_selection)
-	{
-		assert(sel.type == EdSelectionType_Node);
-		assert(!selection.size() || selection[0]->parent == sel.op->parent);
-		selection.push_back(sel.op);
-	}
-
+	std::vector<EdOp*> selection = EdGetSelectedOps();
 	if (selection.size() == 0) return;
 
 	EdOp* parent = selection[0]->parent;
@@ -259,6 +260,51 @@ void EdOrderMove(int offset)
 		parent->children.erase(parent->children.begin() + EdGetSiblingIndex(op));
 	}
 	parent->children.insert(parent->children.begin() + idx, selection.begin(), selection.end());
+}
+
+void EdOpAddChild(EdOp* parent, EdOp* child, int idx = -1)
+{
+	assert(!child->parent);
+
+	if (idx >= 0)
+	{
+		parent->children.insert(parent->children.begin() + idx, child);
+	}
+	else
+	{
+		parent->children.push_back(child);
+	}
+	child->parent = parent;
+}
+
+EdOp* EdGroup(std::vector<EdOp*> ops)
+{
+	if (ops.size() == 0) return nullptr;
+	if (ops.size() == 1) return ops[0];
+
+	EdOp* parent = ops[0]->parent;
+
+	std::sort(ops.begin(), ops.end(), [](EdOp* a, EdOp* b) { return EdGetSiblingIndex(a) < EdGetSiblingIndex(b); });
+	int idx = EdGetSiblingIndex(ops[0]);
+
+	for (EdOp* op : ops)
+	{
+		assert(op->parent == parent);
+		EdRemoveOpFromTree(op);
+	}
+
+	EdOp* group = EdCreateOp();
+	group->type = EdOpType_Stack;
+
+	for (EdOp* op : ops) EdOpAddChild(group, op);
+	EdOpAddChild(parent, group, idx);
+
+	return group;
+}
+
+void EdUngroup(EdOp* op)
+{
+
 }
 
 void EdBuild(EdOp* op)
@@ -313,13 +359,6 @@ void EdBuild(EdOp* op)
 	{
 		for (CSGBrush* b : op->built) CSGBuildBrushMesh(b);
 	}
-}
-
-void EdOpAddChild(EdOp* parent, EdOp* child)
-{
-	assert(!child->parent);
-	parent->children.push_back(child);
-	child->parent = parent;
 }
 
 void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
@@ -948,6 +987,18 @@ void EdInitialize()
 			EdOrderMove(parser.IntArg(1));
 			EdBuild(g_root);
 		}, "editor: move selection up/down in stack");
+	ConRegisterCommand("ed_group", [](ConParser& parser)
+		{
+			EdGroup(EdGetSelectedOps());
+			EdBuild(g_root);
+		}, "editor: group selection into an object");
+	ConRegisterCommand("ed_ungroup", [](ConParser& parser)
+		{
+			for (EdSelection& sel : g_selection)
+				if (sel.type == EdSelectionType_Node)
+					EdUngroup(sel.op);
+			EdBuild(g_root);
+		}, "editor: group ungroup selected objects");
 	ConRegisterCommand("ed_del",
 		[](ConParser& parser)
 		{
