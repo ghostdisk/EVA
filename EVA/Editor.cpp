@@ -1,4 +1,5 @@
 #include <EVA/App.hpp>
+#include <EVA/Platform.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Collision.hpp>
@@ -365,7 +366,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	const float screen_dist = Distance(nearest_screen, InputMousePosition);
 	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
 
-	if (screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + cone_scale * 2) && screen_dist < g_new_hover_gizmo_state.screen_dist)
+	if (screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
 	{
 		g_new_hover_gizmo_state.id = id;
 		g_new_hover_gizmo_state.screen_dist = screen_dist;
@@ -578,9 +579,17 @@ void EdTick()
 			}, root);
 	}
 
-	{
-		UIBeginBox()->SetSize(200, 0)->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
-		EdOpGUI(root);
+	{ // Sidebar
+		UIBeginBox()
+			->SetSize(200, g_window_size.y)
+			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
+			->SetColor(COLOR_BUTTON);
+
+		for (EdOp* child : root->children)
+		{
+			EdOpGUI(child);
+		}
+
 		UIEndBox();
 	}
 

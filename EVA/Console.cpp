@@ -153,7 +153,7 @@ bool ConExecSingle(ConParser& parser)
 		return false;
 	}
 
-	for (ConCommand c : commands)
+	for (const ConCommand& c : commands)
 	{
 		if (strcmp(c.name, cmd) == 0)
 		{
