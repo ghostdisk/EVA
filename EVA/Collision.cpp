@@ -1,4 +1,5 @@
 #include <EVA/Collision.hpp>
+#include <cglm/ray.h>
 
 float Intersect(const Ray& ray, const Plane& plane)
 {
@@ -8,6 +9,19 @@ float Intersect(const Ray& ray, const Plane& plane)
         return -1;
 	}
     return (plane.distance - Dot(plane.normal, ray.origin)) / denom;
+}
+
+float IntersectTriangle(const Ray& ray, const float3& p1, const float3& p2, const float3& p3)
+{
+	float d = -1.0f;
+	if (glm_ray_triangle(ray.origin, ray.direction, p1, p2, p3, &d))
+	{
+		return d;
+	}
+	else
+	{
+		return -1.0f;
+	}
 }
 
 float DistanceToLineSegment(const Ray& ray, const float3& p1, const float3& p2, float* out_t1, float* out_t2)

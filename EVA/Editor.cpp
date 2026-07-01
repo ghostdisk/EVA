@@ -488,7 +488,7 @@ float3 EdSnapToGrid(EdGrid& grid, float3 p)
 	return p;
 }
 
-void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1)
+void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1, bool hidden = false, bool force_activate = false)
 {
 	U32 id = hash_stack.Push(hash);
 	DEFER(hash_stack.Pop());
@@ -508,7 +508,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	const float screen_dist = Distance(nearest_screen, InputMousePosition);
 	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
 
-	if (screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
+	if (!hidden && screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
 	{
 		g_new_hover_gizmo_state.id = id;
 		g_new_hover_gizmo_state.screen_dist = screen_dist;
@@ -521,7 +521,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 		color.z += 0.7;
 	}
 
-	{ // draw:
+	if (!hidden) { // draw:
 		DrawSetLayer(Layer_Overlay);
 		float4 cone_rotation;
 		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
@@ -533,16 +533,16 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t);
 	float3 nearest_world = a + (b - a).Normalized() * t;
 
-	if (g_hover_gizmo_state.id == id && !g_active_gizmo_state.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+	if (force_activate || (g_hover_gizmo_state.id == id && !g_active_gizmo_state.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)))
 	{
-		g_active_gizmo_state = g_hover_gizmo_state;
-		g_active_gizmo_state.offset = nearest_world - pos;
+		g_active_gizmo_state.id = id;
+		g_active_gizmo_state.offset = force_activate ? float3() : (nearest_world - pos);
 	}
 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
-		if (!InputGetButton(SDL_SCANCODE_LCTRL)) pos = EdSnapToGrid(g_grid, pos);
+		if (!InputGetButton(SDL_SCANCODE_LSHIFT)) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -582,20 +582,62 @@ void EdDrawSelectionOutline(float4 color)
 bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 {
 	CSGPlane& plane = brush->planes[idx];
-
-	float3 center = {};
-	for (float3 p : plane.points) center += p;
-	center /= plane.points.size();
-	center += op->global_transform.column(3).xyz();
+	if (plane.points.size() == 0) return false;
 
 	hash_stack.Push(brush);
 	hash_stack.Push(EdSelectionType_BrushPlane);
 	DEFER(hash_stack.Pop());
 	DEFER(hash_stack.Pop());
 
-	float3 old_center = center;
-	EdArrowGizmo(idx, center, plane.plane.normal, {1,1,0,1}, 0.3);
-	float3 d = center - old_center;
+
+	float3 c1 = (plane.points[0] - plane.points[1]).Normalized();
+	float3 c2 = Cross(c1, plane.plane.normal).Normalized();
+
+	c1 *= 0.05f;
+	c2 *= 0.05f;
+
+	float3 com = {};
+	for (float3 p : plane.points) com += p;
+	com /= plane.points.size();
+
+	float3 p00 = op->global_transform.TransformPosition(com - c1 - c2);
+	float3 p01 = op->global_transform.TransformPosition(com - c1 + c2);
+	float3 p10 = op->global_transform.TransformPosition(com + c1 - c2);
+	float3 p11 = op->global_transform.TransformPosition(com + c1 + c2);
+
+
+	hash_stack.Push((int)EdSelectionType_BrushPlane);
+	hash_stack.Push(op);
+	U32 id = hash_stack.Push(idx);
+	DEFER(hash_stack.Pop());
+	DEFER(hash_stack.Pop());
+	DEFER(hash_stack.Pop());
+
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, InputMousePosition);
+
+	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, op->global_transform.TransformPosition(com)).xy(), InputMousePosition);
+	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f)
+	{
+		if (screen_dist < g_new_hover_gizmo_state.screen_dist)
+		{
+			g_new_hover_gizmo_state.id = id;
+			g_new_hover_gizmo_state.screen_dist = screen_dist;
+		}
+	}
+
+	float4 color = g_hover_gizmo_state.id == id ? float4(1,0,1,1) : float4(1,1,1,.5);
+
+	DrawSetLayer(Layer_Overlay);
+	DrawLine(p00, p10, color);
+	DrawLine(p00, p01, color);
+	DrawLine(p10, p11, color);
+	DrawLine(p01, p11, color);
+
+	bool activate = !g_active_gizmo_state.id && g_hover_gizmo_state.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
+
+	float3 old_com = com;
+	EdArrowGizmo(idx, com, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
+	float3 d = com - old_com;
 
 	float add = Dot(d, plane.plane.normal);
 	if (abs(add) > 0.001f)

@@ -212,7 +212,6 @@ struct Ray
 	{
 		return origin + direction * t;
 	}
-
 };
 
 

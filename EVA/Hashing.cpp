@@ -91,7 +91,7 @@ Hash::Hash(const void* bytes, size_t len)
 
 U32 HashStack::Push(Hash hash)
 {
-	stack.push_back(hash.hash ^ stack.back());
+	stack.push_back(Hash(hash.hash ^ stack.back()));
 	return stack.back();
 }
 
