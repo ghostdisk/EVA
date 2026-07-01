@@ -54,6 +54,7 @@ static const float ED_GRID_SIZES[] = {
 };
 
 int g_grid_size_idx = 3;
+bool g_snap = true;
 
 static EdGrid g_grid = {
 	.center        = {},
@@ -569,7 +570,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
-		if (!InputGetButton(SDL_SCANCODE_LALT)) pos = EdSnapToGrid(g_grid, pos);
+		if (g_snap && !InputGetButton(SDL_SCANCODE_LALT)) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -832,6 +833,14 @@ void EdTick()
 						sel.op->subtract = !sub;
 				EdBuild(g_root);
 			}
+
+			char buf[32];
+			snprintf(buf, 32, "Snap: %.2f", g_grid.size);
+			if (UIButton(buf, UIButtonFlags_Small | ((g_snap && !InputGetButton(SDL_SCANCODE_LALT)) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
+
+			if (UIButton("-", UIButtonFlags_Small)) ConExec("ed_grid_size_inc -1");
+			if (UIButton("+", UIButtonFlags_Small)) ConExec("ed_grid_size_inc +1");
+
 		}
 
 		// UIButton("1", UIButtonFlags_Small);
