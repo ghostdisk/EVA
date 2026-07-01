@@ -53,13 +53,13 @@ static const float ED_GRID_SIZES[] = {
 	8.0f,
 };
 
-int g_grid_size_idx = 4;
+int g_grid_size_idx = 3;
 
 static EdGrid g_grid = {
 	.center        = {},
 	.forward       = { 0, 1, 0 },
 	.right         = { 1, 0, 0 },
-	.size          = ED_GRID_SIZES[4],
+	.size          = ED_GRID_SIZES[g_grid_size_idx],
 };
 
 static ConVar cvar_ed_show_sub = {
@@ -536,7 +536,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	const float screen_dist = Distance(nearest_screen, InputMousePosition);
 	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
 
-	if (!hidden && screen_dist < 30 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
+	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
 	{
 		g_new_hover_gizmo_state.id = id;
 		g_new_hover_gizmo_state.screen_dist = screen_dist;
@@ -564,7 +564,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (force_activate || (g_hover_gizmo_state.id == id && !g_active_gizmo_state.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)))
 	{
 		g_active_gizmo_state.id = id;
-		g_active_gizmo_state.offset = force_activate ? float3() : (nearest_world - pos);
+		g_active_gizmo_state.offset = nearest_world - pos;
 	}
 
 	if (g_active_gizmo_state.id == id)
