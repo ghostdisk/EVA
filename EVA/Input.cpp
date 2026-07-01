@@ -1,8 +1,9 @@
 #include <EVA/Input.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Math.hpp>
+#include <EVA/Console.hpp>
 #include <SDL3/SDL.h>
 #include <EVA/Console.hpp>
+#include <EVA/Math.hpp>
 #include <vector>
 
 struct InputButtonState
@@ -13,20 +14,7 @@ struct InputButtonState
 	bool just_released = false;
 };
 
-struct InputAxisKeyBinding
-{
-	InputAxis    axis;
-	SDL_Scancode key;
-	float        value;
-};
-
-struct InputActionKeyBinding
-{
-	InputAction  action;
-	SDL_Scancode key;
-};
-
-struct CommandKeyBinding
+struct Keybind
 {
 	int          button;
 	const char*  command;
@@ -34,15 +22,28 @@ struct CommandKeyBinding
 	bool         shift;
 };
 
-struct ButtonNameMapEntry {
+struct ButtonNameMapEntry
+{
 	char name[12];
 	int  button;
 };
 
-static std::vector<InputButtonState>      button_states        = {};
-static std::vector<InputAxisKeyBinding>   axis_key_bindings    = {};
-static std::vector<InputActionKeyBinding> action_key_bindings  = {};
-static std::vector<CommandKeyBinding>     command_key_bindings = {};
+struct Hold
+{
+	ConVar* var     = nullptr;
+	int     button  = 0;
+};
+
+static std::vector<InputButtonState>   g_button_states  = {};
+static std::vector<Keybind>            g_keybinds       = {};
+static std::vector<Hold>               g_holds          = {};
+
+ConVar cvar_forward = { .name = "forward", .fvalue = 0 };
+ConVar cvar_right   = { .name = "right",   .fvalue = 0 };
+ConVar cvar_left    = { .name = "left",    .fvalue = 0 };
+ConVar cvar_back    = { .name = "back",    .fvalue = 0 };
+ConVar cvar_flyup   = { .name = "flyup",   .fvalue = 0 };
+ConVar cvar_flydown = { .name = "flydown", .fvalue = 0 };
 
 static const ButtonNameMapEntry button_names[] = {
 	{ "a",           SDL_SCANCODE_A           },
@@ -122,7 +123,32 @@ static const ButtonNameMapEntry button_names[] = {
 float2 InputMousePosition = {};
 
 static float input_axes[InputAxis_ENUM_SIZE] = {};
-static bool input_actions[InputAction_ENUM_SIZE] = {};
+
+void Con_hold(ConParser& parser)
+{
+	assert(parser.button);
+
+	const char* cvar_name = parser.StringArg();
+	if (cvar_name)
+	{
+		ConVar* cvar = ConGetVar(cvar_name);
+		if (cvar)
+		{
+			cvar->svalue[0] = '1';
+			cvar->svalue[1] = '\0';
+			cvar->fvalue = 1.0f;
+			g_holds.push_back({ cvar, parser.button });
+		}
+		else
+		{
+			ConError("hold: %s is not a cvar", cvar_name);
+		}
+	}
+	else
+	{
+		ConError("hold: missing var name");
+	}
+}
 
 void Con_bind(ConParser& parser)
 {
@@ -148,7 +174,7 @@ void Con_bind(ConParser& parser)
 	{
 		if (strcmp(entry.name, button) == 0)
 		{
-			command_key_bindings.push_back({
+			g_keybinds.push_back({
 				.button = entry.button,
 				.command = strdup(cmd),
 				.ctrl = ctrl,
@@ -163,6 +189,13 @@ void Con_bind(ConParser& parser)
 void InputInitialize()
 {
 	ConRegisterCommand("bind", Con_bind, "bind an action to a button");
+	ConRegisterCommand("hold", Con_hold, "hold an action (use like this: bind w hold forward)");
+	ConRegisterVar(&cvar_forward);
+	ConRegisterVar(&cvar_back);
+	ConRegisterVar(&cvar_left);
+	ConRegisterVar(&cvar_right);
+	ConRegisterVar(&cvar_flyup);
+	ConRegisterVar(&cvar_flydown);
 }
 
 bool TextInputConsumesKey(SDL_Scancode scancode)
@@ -173,19 +206,9 @@ bool TextInputConsumesKey(SDL_Scancode scancode)
 	return false;
 }
 
-void InputBindKey(InputAxis axis, SDL_Scancode key, float value)
-{
-	axis_key_bindings.push_back({ .axis = axis, .key = key, .value = value });
-}
-
-void InputBindKey(InputAction action, SDL_Scancode key)
-{
-	action_key_bindings.push_back({ .action = action, .key = key });
-}
-
 static InputButtonState* InputGetButtonState(int button, bool create)
 {
-	for (InputButtonState& button_state : button_states)
+	for (InputButtonState& button_state : g_button_states)
 	{
 		if (button_state.button == button)
 		{
@@ -195,8 +218,8 @@ static InputButtonState* InputGetButtonState(int button, bool create)
 
 	if (create)
 	{
-		button_states.push_back(InputButtonState{ .button = button });
-		return &button_states.back();
+		g_button_states.push_back(InputButtonState{ .button = button });
+		return &g_button_states.back();
 	}
 	else
 	{
@@ -223,23 +246,22 @@ void InputBeginFrame()
 	input_axes[InputAxis_MouseX] = 0.0f;
 	input_axes[InputAxis_MouseY] = 0.0f;
 
-	for (int i = 0; i < button_states.size(); i++)
+	for (int i = 0; i < g_button_states.size(); i++)
 	{
-		InputButtonState& state = button_states[i];
+		InputButtonState& state = g_button_states[i];
 		state.just_pressed = false;
 		state.just_released = false;
 
 		if (!state.held)
 		{
-			state = button_states.back();
-			button_states.pop_back();
+			state = g_button_states.back();
+			g_button_states.pop_back();
 			i--;
 		}
 	}
 
 	float2 old_mouse_position = InputMousePosition;
 	SDL_GetMouseState(&InputMousePosition.x, &InputMousePosition.y);
-
 }
 
 bool InputProcessSDLEvent(SDL_Event* event)
@@ -281,33 +303,6 @@ bool InputProcessSDLEvent(SDL_Event* event)
 
 void InputUpdateAxes()
 {
-	for (InputAxisKeyBinding& binding : axis_key_bindings)
-	{
-		input_axes[binding.axis] = 0.0f;
-	}
-
-	for (int i = 0; i < InputAction_ENUM_SIZE; i++)
-	{
-		input_actions[i] = false;
-	}
-
-	for (InputAxisKeyBinding& binding : axis_key_bindings)
-	{
-		InputButtonState* button_state = InputGetButtonState(binding.key, false);
-		if (button_state)
-		{
-			if (button_state->held && !TextInputConsumesKey(binding.key))  input_axes[binding.axis] += binding.value;
-		}
-	}
-
-	for (InputActionKeyBinding& binding : action_key_bindings)
-	{
-		if (InputGetButtonDown(binding.key) && !TextInputConsumesKey(binding.key))
-		{
-			input_actions[binding.action] = true;
-		}
-	}
-
 	std::vector<int> consumed_buttons = {};
 
 	auto is_consumed = [&](int key)
@@ -315,24 +310,43 @@ void InputUpdateAxes()
 			for (int k : consumed_buttons) if (key == k) return true;
 			return false;
 		};
+
 	auto process = [&](bool ctrl, bool shift)
 		{
-			for (const CommandKeyBinding& bind : command_key_bindings)
+			for (const Keybind& bind : g_keybinds)
 			{
-				if (bind.ctrl == ctrl && bind.shift == shift && !is_consumed(bind.button) && InputGetButton(SDL_SCANCODE_LCTRL) == ctrl && InputGetButton(SDL_SCANCODE_LSHIFT) == shift)
+				if (InputGetButtonDown(bind.button))
+				{
+					int t = 3;
+				}
+				if (bind.ctrl == ctrl && bind.shift == shift && !is_consumed(bind.button) && (!ctrl||InputGetButton(SDL_SCANCODE_LCTRL)) && (!shift||InputGetButton(SDL_SCANCODE_LSHIFT)))
 				{
 					if (!TextInputConsumesKey((SDL_Scancode)bind.button) && InputGetButtonDown(bind.button))
 					{
 						consumed_buttons.push_back(bind.button);
-						ConExec(bind.command);
+						ConExec(bind.command, bind.button);
 					}
 				}
 			}
 		};
-	process(true, true);
-	process(false, true);
-	process(true, false);
-	process(false, false);
+
+	for (int i = 0; i < g_holds.size(); i++)
+	{
+		if (InputGetButtonUp(g_holds[i].button))
+		{
+			g_holds[i].var->svalue[0] = '0';
+			g_holds[i].var->svalue[1] = '\0';
+			g_holds[i].var->fvalue = 0.0f;
+			g_holds[i] = g_holds.back();
+			g_holds.pop_back();
+			i--;
+		}
+	}
+
+	process(true, true);   // ctrl+shift+*
+	process(false, true);  // ctrl+*
+	process(true, false);  // shift+*
+	process(false, false); // *
 }
 
 bool InputGetButtonDown(int button)

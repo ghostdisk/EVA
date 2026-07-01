@@ -2,6 +2,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/Entities.hpp>
 #include <EVA/Input.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <cglm/euler.h>
@@ -15,8 +16,8 @@ void EntityInit(ECharacter* character)
 void CharacterControllerTick(Game* game, ECharacter* character)
 {
 	float3 input = {
-		InputGetAxis(InputAxis_Horizontal),
-		InputGetAxis(InputAxis_Vertical),
+		cvar_right.fvalue - cvar_left.fvalue,
+		cvar_forward.fvalue - cvar_back.fvalue,
 		0,
 	};
 	if (input.x || input.y)

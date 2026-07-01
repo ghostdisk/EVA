@@ -125,8 +125,8 @@ int main()
 	// InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_D,  1.0f);
 	// InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_S, -1.0f);
 	// InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_W,  1.0f);
-	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_Q, -1.0f);
-	InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
+	//InputBindKey(InputAxis_Fly,        SDL_SCANCODE_Q, -1.0f);
+	//InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
 
 	AppSetMode(AppMode_MainMenu, nullptr);
 	ConExec("exec autoexec.cfg");

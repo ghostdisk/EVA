@@ -141,9 +141,8 @@ void EdSelectPlane(EdOp* op, int plane, bool additive = false)
 
 void EdSelectOp(EdOp* op, bool additive = false)
 {
-	assert(op);
 	if (!additive) EdDeselect();
-	if (op == g_root) return;
+	if (!op || op == g_root) return;
 
 	for (const EdSelection& sel : g_selection)
 	{

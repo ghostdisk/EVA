@@ -2,6 +2,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Entities.hpp>
 #include <EVA/Input.hpp>
+#include <EVA/Console.hpp>
 #include <SDL3/SDL.h>
 #include <cglm/clipspace/persp_rh_zo.h>
 #include <cglm/clipspace/view_rh_zo.h>
@@ -42,8 +43,8 @@ void CameraUpdateBasisVectors(Camera& camera)
 void CameraFly(Camera& camera)
 {
 	float3 input = {
-		InputGetAxis(InputAxis_Horizontal),
-		InputGetAxis(InputAxis_Vertical),
+		cvar_right.fvalue - cvar_left.fvalue,
+		cvar_forward.fvalue - cvar_back.fvalue,
 		0,
 	};
 
@@ -59,7 +60,7 @@ void CameraFly(Camera& camera)
 	if (InputGetButton(SDL_SCANCODE_LCTRL)) speed = camera.fly_speed_slow;
 
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
-	input.z += InputGetAxis(InputAxis_Fly);
+	input.z += cvar_flyup.fvalue - cvar_flydown.fvalue;
 
 	camera.position += input * speed * g_delta_time;
 	camera.yaw = remainderf(camera.yaw, GLM_PIf * 2);

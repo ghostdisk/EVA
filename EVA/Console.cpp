@@ -14,19 +14,19 @@ struct ConCommand
 	const char* help;
 };
 
-static std::vector<char> console_input;
-static std::vector<std::string> console_log;
-static std::vector<ConCommand> commands;
-static std::vector<ConVar*> vars;
-static bool console_open = false;
+static std::vector<char>        g_console_input   = {};
+static std::vector<std::string> g_console_log     = {};
+static std::vector<ConCommand>  g_commands        = {};
+static std::vector<ConVar*>     g_cvars           = {};
+static bool                     console_open      = false;
 
 void Con_help(ConParser& parser)
 {
-	for (const ConCommand& cmd : commands)
+	for (const ConCommand& cmd : g_commands)
 	{
 		ConLog("- %s: %s", cmd.name, cmd.help);
 	}
-	for (const ConVar* var : vars)
+	for (const ConVar* var : g_cvars)
 	{
 		ConLog("- %s: %s", var->name, var->help);
 	}
@@ -34,7 +34,7 @@ void Con_help(ConParser& parser)
 
 void Con_clear(ConParser& parser)
 {
-	console_log.clear();
+	g_console_log.clear();
 }
 
 void Con_exec(ConParser& parser)
@@ -59,13 +59,21 @@ void ConsoleInitialize()
 	ConRegisterCommand("exec", Con_exec, "execute a script file");
 }
 
+ConVar* ConGetVar(const char* name)
+{
+	for (ConVar* cvar : g_cvars)
+		if (strcmp(cvar->name, name) == 0)
+			return cvar;
+	return nullptr;
+}
+
 void ConLog(const char* fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
 	const char* str = ArenaVprintf(FrameArena, fmt, args);
 	va_end(args);
-	console_log.push_back(str);
+	g_console_log.push_back(str);
 }
 
 void ConError(const char* fmt, ...)
@@ -74,7 +82,7 @@ void ConError(const char* fmt, ...)
 	va_start(args, fmt);
 	const char* str = ArenaVprintf(FrameArena, fmt, args);
 	va_end(args);
-	console_log.push_back(ArenaPrintf(FrameArena, "error: %s", str));
+	g_console_log.push_back(ArenaPrintf(FrameArena, "error: %s", str));
 }
 
 static bool ConSkipSpace(ConParser& parser)
@@ -146,12 +154,13 @@ int ConParser::IntArg(int fallback)
 	else return fallback;
 }
 
-void ConExec(const char* script)
+void ConExec(const char* script, int button)
 {
 	ConParser parser;
 	parser.start = script;
 	parser.end = script + strlen(script);
 	parser.head = script;
+	parser.button = button;
 	ConExec(parser);
 }
 
@@ -164,33 +173,37 @@ bool ConExecSingle(ConParser& parser)
 		return false;
 	}
 
-	for (const ConCommand& c : commands)
+	for (const ConCommand& c : g_commands)
 	{
 		if (strcmp(c.name, cmd) == 0)
 		{
 			c.proc(parser);
+			ConSkipLine(parser);
 			return true;
 		}
 	}
 
-	const char* value = parser.StringArg();
-	if (value)
+	ConVar* cvar = ConGetVar(cmd);
+	if (cvar)
 	{
-		for (ConVar* var : vars)
+		const char* value = parser.StringArg();
+		if (value)
 		{
-			if (strcmp(var->name, cmd) == 0)
+			snprintf(cvar->svalue, sizeof(cvar->svalue), "%s", value);
+			char* endptr = 0;
+			float f = strtof(cvar->svalue, &endptr);
+			if (*endptr == '\0')
 			{
-				snprintf(var->svalue, sizeof(var->svalue), "%s", value);
-				char* endptr = 0;
-				float f = strtof(var->svalue, &endptr);
-				if (*endptr == '\0')
-				{
-					var->fvalue = f;
-				}
-				ConSkipLine(parser);
-				if (var->on_change) var->on_change(var);
-				return true;
+				cvar->fvalue = f;
 			}
+			ConSkipLine(parser);
+			if (cvar->on_change) cvar->on_change(cvar);
+			return true;
+		}
+		else
+		{
+			ConLog("%s is '%s'", cvar->name, cvar->svalue);
+			return true;
 		}
 	}
 
@@ -215,7 +228,7 @@ void ConsoleDraw()
 	{
 		console_open = !console_open;
 		just_opened = true;
-		console_input.clear();
+		g_console_input.clear();
 	}
 
 	if (console_open)
@@ -257,7 +270,7 @@ void ConsoleDraw()
 				->SetGap(4)
 				->SetPadding(4);
 
-			for (const std::string& msg : console_log)
+			for (const std::string& msg : g_console_log)
 			{
 				UILabel(msg.c_str());
 			}
@@ -274,7 +287,7 @@ void ConsoleDraw()
 				->SetGap(4);
 
 			UIPushId("input");
-			text_input = UITextInput(console_input)->SetFlexGrow(1);
+			text_input = UITextInput(g_console_input)->SetFlexGrow(1);
 			if (just_opened) UIFocus(text_input);
 			UIPopId();
 
@@ -292,15 +305,15 @@ void ConsoleDraw()
 		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) console_open = false;
 		if (submit)
 		{
-			ConExec(ArenaInternCString(FrameArena, console_input.data(), console_input.size()));
-			console_input.clear();
+			ConExec(ArenaInternCString(FrameArena, g_console_input.data(), g_console_input.size()));
+			g_console_input.clear();
 		}
 	}
 }
 
 void ConRegisterCommand(const char* name, ConProc proc, const char* help)
 {
-	commands.push_back(ConCommand{
+	g_commands.push_back(ConCommand{
 		.name     = name,
 		.proc     = proc,
 		.help     = help
@@ -309,5 +322,5 @@ void ConRegisterCommand(const char* name, ConProc proc, const char* help)
 
 void ConRegisterVar(ConVar* var)
 {
-	vars.push_back(var);
+	g_cvars.push_back(var);
 }

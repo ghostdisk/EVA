@@ -7,12 +7,13 @@ struct ConParser
 	const char* end;
 	const char* head;
 
+	int button = 0; // which button triggered this action, optional
+
 	const char* StringArg();
 	float FloatArg(float fallback = 0.0f);
 	int IntArg(int fallback);
 	const char* RestArgs();
 };
-
 
 struct ConVar
 {
@@ -23,10 +24,11 @@ struct ConVar
 	void (*on_change)(ConVar* cvar) = nullptr;
 };
 
-void  ConExec(ConParser& parser);
-void  ConExec(const char* script);
-void  ConLog(const char* fmt, ...);
-void  ConError(const char* fmt, ...);
+void    ConExec(ConParser& parser);
+void    ConExec(const char* script, int button = 0);
+void    ConLog(const char* fmt, ...);
+void    ConError(const char* fmt, ...);
+ConVar* ConGetVar(const char* name);
 
 using ConProc = void (*)(ConParser& p);
 

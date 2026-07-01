@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/math.hpp>
+#include <EVA/Math.hpp>
 
 struct SDL_Window;
 typedef union SDL_Event SDL_Event;
