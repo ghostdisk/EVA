@@ -569,7 +569,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
-		if (!InputGetButton(SDL_SCANCODE_LSHIFT)) pos = EdSnapToGrid(g_grid, pos);
+		if (!InputGetButton(SDL_SCANCODE_LALT)) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -627,6 +627,8 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 	for (float3 p : plane.points) com += p;
 	com /= plane.points.size();
 
+	float3 comx = op->global_transform.TransformPosition(com);
+
 	float3 p00 = op->global_transform.TransformPosition(com - c1 - c2);
 	float3 p01 = op->global_transform.TransformPosition(com - c1 + c2);
 	float3 p10 = op->global_transform.TransformPosition(com + c1 - c2);
@@ -642,7 +644,7 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
 
-	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, op->global_transform.TransformPosition(com)).xy(), g_mouse_position);
+	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, comx).xy(), g_mouse_position);
 	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f)
 	{
 		if (screen_dist < g_new_hover_gizmo_state.screen_dist)
@@ -662,9 +664,9 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 
 	bool activate = !g_active_gizmo_state.id && g_hover_gizmo_state.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
 
-	float3 old_com = com;
-	EdArrowGizmo(idx, com, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
-	float3 d = com - old_com;
+	float3 new_comx = comx;
+	EdArrowGizmo(idx, new_comx, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
+	float3 d = new_comx - comx;
 
 	float add = Dot(d, plane.plane.normal);
 	if (abs(add) > 0.001f)

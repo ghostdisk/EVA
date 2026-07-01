@@ -125,7 +125,11 @@ static const ButtonNameMapEntry button_names[] = {
 
 void Con_hold(ConParser& parser)
 {
-	assert(parser.button);
+	if (!parser.button)
+	{
+		ConError("hold can only be called from a response to bind (e.g. bind w hold forward)");
+		return;
+	}
 
 	const char* cvar_name = parser.StringArg();
 	if (cvar_name)
@@ -314,18 +318,16 @@ void InputUpdateAxes()
 		{
 			for (const Keybind& bind : g_keybinds)
 			{
-				if (InputGetButtonDown(bind.button))
-				{
-					int t = 3;
-				}
-				if (bind.ctrl == ctrl && bind.shift == shift && !is_consumed(bind.button) && (!ctrl||InputGetButton(SDL_SCANCODE_LCTRL)) && (!shift||InputGetButton(SDL_SCANCODE_LSHIFT)))
-				{
-					if (!TextInputConsumesKey((SDL_Scancode)bind.button) && InputGetButtonDown(bind.button))
-					{
-						consumed_buttons.push_back(bind.button);
-						ConExec(bind.command, bind.button);
-					}
-				}
+				if (bind.ctrl != ctrl)                               continue;
+				if (bind.shift != shift)                             continue;
+				if (is_consumed(bind.button))                        continue;
+				if (ctrl && !InputGetButton(SDL_SCANCODE_LCTRL))     continue;
+				if (shift && !InputGetButton(SDL_SCANCODE_LSHIFT))   continue;
+				if (TextInputConsumesKey((SDL_Scancode)bind.button)) continue;
+				if (!InputGetButtonDown(bind.button))                continue;
+
+				consumed_buttons.push_back(bind.button);
+				ConExec(bind.command, bind.button);
 			}
 		};
 

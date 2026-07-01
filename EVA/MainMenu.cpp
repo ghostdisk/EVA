@@ -11,7 +11,7 @@ void MainMenuTick()
 		->SetFlex(UIAxis_Vertical, UIAlignment_Center, UIAlignment_Center)
 		->SetGap(24);
 
-	UILabel("EVA Engine Test");
+	UILabel("gaming");
 
 
 	UIBeginBox()
