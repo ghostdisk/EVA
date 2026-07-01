@@ -1094,8 +1094,9 @@ void EdInitialize()
 		{
 			g_grid_size_idx += parser.IntArg(1);
 			if (g_grid_size_idx < 0) g_grid_size_idx = 0;
-			if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES);
+			if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES) - 1;
 			g_grid.size = ED_GRID_SIZES[g_grid_size_idx];
+			ScreenLog("Grid Size: %g", g_grid.size);
 			EdBuild(g_root);
 		}, "editor: increase/decrease grid size");
 	ConRegisterCommand("ed_save",
