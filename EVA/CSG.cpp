@@ -361,11 +361,11 @@ CSGBrush* CSGCreateCube(float3 size)
 {
 	CSGBrush* brush = CSGCreateBrush();
 	brush->planes.push_back({ Plane(float3(0, 0,  1), size.z) });
-	brush->planes.push_back({ Plane(float3(0, 0,  -1), size.z) });
+	brush->planes.push_back({ Plane(float3(0, 0,  -1), 0) });
 	brush->planes.push_back({ Plane(float3( 1, 0, 0), size.x) });
-	brush->planes.push_back({ Plane(float3( -1, 0, 0), size.x) });
+	brush->planes.push_back({ Plane(float3( -1, 0, 0), 0) });
 	brush->planes.push_back({ Plane(float3(0,  1, 0), size.y) });
-	brush->planes.push_back({ Plane(float3(0,  -1, 0), size.y) });
+	brush->planes.push_back({ Plane(float3(0,  -1, 0), 0) });
 	CSGBuildBrush(brush);
 	return brush;
 }

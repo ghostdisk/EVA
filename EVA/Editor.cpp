@@ -413,6 +413,34 @@ void EdBuild(EdOp* op)
 	}
 }
 
+EdOp* EdCloneOp(EdOp* orig)
+{
+	EdOp* clone = EdCreateOp();
+	clone->type = orig->type;
+	clone->subtract = orig->subtract;
+	clone->position = orig->position;
+
+	switch (orig->type)
+	{
+		case EdOpType_Brush:
+		{
+			clone->brush = CSGCloneBrush(orig->brush);
+			CSGBuildBrush(clone->brush);
+			break;
+		}
+		case EdOpType_Stack:
+		{
+			for (EdOp* orig_child : orig->children)
+			{
+				EdOpAddChild(clone, EdCloneOp(orig_child));
+			}
+			break;
+		}
+		default: assert(0);
+	}
+	return clone;
+}
+
 void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
 {
 	switch (op->type)
@@ -919,7 +947,9 @@ EdOp* EdLoadOp(FILE* f)
 			assert(num_children >= 0 && num_children < 1000);
 			for (int i = 0; i < num_children; i++)
 			{
-				op->children.push_back(EdLoadOp(f));
+				EdOp* child = EdLoadOp(f);
+				op->children.push_back(child);
+				child->parent = op;
 			}
 		}
 		else if (strcmp(t, "op_end") == 0)
@@ -1126,6 +1156,18 @@ void EdInitialize()
 					EdUngroup(sel.op);
 			EdBuild(g_root);
 		}, "editor: group ungroup selected objects");
+	ConRegisterCommand("ed_clone", [](ConParser& parser)
+		{
+			std::vector<EdOp*> selection = EdGetSelectedOps();
+			EdDeselect();
+			for (EdOp* orig : selection)
+			{
+				EdOp* clone = EdCloneOp(orig);
+				EdOpAddChild(orig->parent, clone, EdGetSiblingIndex(orig) + 1);
+				EdSelectOp(clone, true);
+			}
+			EdBuild(g_root);
+		}, "editor: clone selection");
 	ConRegisterCommand("ed_del",
 		[](ConParser& parser)
 		{
