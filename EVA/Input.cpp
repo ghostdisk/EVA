@@ -115,6 +115,8 @@ static const ButtonNameMapEntry button_names[] = {
 	{ "right",       SDL_SCANCODE_RIGHT       },
 	{ "kpplus",      SDL_SCANCODE_KP_PLUS     },
 	{ "kpminus",     SDL_SCANCODE_KP_MINUS    },
+	{ "equals",      SDL_SCANCODE_EQUALS      },
+	{ "minus",       SDL_SCANCODE_MINUS       },
 };
 
 float2 InputMousePosition = {};

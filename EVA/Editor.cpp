@@ -41,11 +41,25 @@ static EdOp*                    g_root                 = nullptr;
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
 
+static const float ED_GRID_SIZES[] = {
+	0.03125f,
+	0.0625f,
+	0.125f,
+	0.25f,
+	0.5f,
+	1.0f,
+	2.0f,
+	4.0f,
+	8.0f,
+};
+
+int g_grid_size_idx = 4;
+
 static EdGrid g_grid = {
 	.center        = {},
 	.forward       = { 0, 1, 0 },
 	.right         = { 1, 0, 0 },
-	.size          = 0.25f,
+	.size          = ED_GRID_SIZES[4],
 };
 
 static ConVar cvar_ed_show_sub = {
@@ -184,7 +198,13 @@ void EdDestroyOp(EdOp* op)
 {
 	if (op->brush) CSGDestroyBrush(op->brush);
 	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
-	for (EdOp* child : op->children) EdDestroyOp(child);
+
+	for (EdOp* child : op->children)
+	{
+		child->parent = nullptr; // zero this out so the child doesn't try to remove itself from op->children while we're iterating it
+		EdDestroyOp(child);
+	}
+
 	EdRemoveOpFromTree(op);
 	delete op;
 }
@@ -522,7 +542,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
-		if (!InputGetButton(SDL_SCANCODE_LSHIFT)) pos = EdSnapToGrid(g_grid, pos);
+		if (!InputGetButton(SDL_SCANCODE_LCTRL)) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -742,8 +762,8 @@ void EdTick()
 	for (int i = 0; i < g_root->built.size(); i++)
 	{
 		CSGBrush* b = g_root->built[i];
-		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
-		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[1]);
+		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
+		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
 	}
 
 	g_hover_gizmo_state = g_new_hover_gizmo_state;
@@ -900,11 +920,6 @@ void EdSaveMap(const char* name)
 
 void EdLoadMap(const char* name)
 {
-	if (g_root)
-	{
-		EdDestroyOp(g_root);
-		g_root = nullptr;
-	}
 
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
@@ -915,6 +930,12 @@ void EdLoadMap(const char* name)
 		return;
 	}
 	DEFER(fclose(f));
+
+	if (g_root)
+	{
+		EdDestroyOp(g_root);
+		g_root = nullptr;
+	}
 
 	int version = 0;
 	fscanf(f, "type mpe\n");
@@ -1069,6 +1090,14 @@ void EdInitialize()
 			EdDestroySelection();
 			EdBuild(g_root);
 		}, "editor: delete subtract");
+	ConRegisterCommand("ed_grid_size_inc", [](ConParser& parser)
+		{
+			g_grid_size_idx += parser.IntArg(1);
+			if (g_grid_size_idx < 0) g_grid_size_idx = 0;
+			if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES);
+			g_grid.size = ED_GRID_SIZES[g_grid_size_idx];
+			EdBuild(g_root);
+		}, "editor: increase/decrease grid size");
 	ConRegisterCommand("ed_save",
 		[](ConParser& parser)
 		{
