@@ -14,7 +14,7 @@ static void TraceImpl(const char *fmt, ...)
 	vsnprintf(buffer, sizeof(buffer), fmt, args);
 	va_end(args);
 
-	printf("Jolt trace: %s\n", args);
+	printf("Jolt trace: %s\n", buffer);
 }
 
 #ifdef JPH_ENABLE_ASSERTS

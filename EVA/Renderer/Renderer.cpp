@@ -185,8 +185,8 @@ void RenderFrame()
 				// glUniformMatrix4fv(4, 1, false, (float*)&g_current_camera->view_matrix);
 				GL_ERROR_CHECK();
 
-				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
 				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
 				glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
 				glUniform4fv(3, 1, &entry.color.x);
 				glBindVertexArray(entry.mesh->vao);
@@ -282,8 +282,8 @@ void RenderFrame()
 
 				if (texture)
 				{
-					glBindTexture(GL_TEXTURE_2D, texture->handle);
 					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, texture->handle);
 					glUniform1i(1, 0);
 					GL_ERROR_CHECK();
 				}
