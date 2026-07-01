@@ -29,12 +29,14 @@ UIBox* UISprite(Sprite* sprite, U32 id)
 	return box;
 }
 
-bool UIButton(const char* text)
+bool UIButton(const char* text, UIButtonFlags flags)
 {
 	UIPushId(text);
 	UIBox* button = UIBeginBox(1)->SetPadding(8, 16);
 
-	if      (button->Pressed()) button->color = COLOR_BUTTON_PRESSED;
+	if (flags & UIButtonFlags_Small) button->SetPadding(4, 8);
+
+	if      (button->Pressed() || (flags & UIButtonFlags_Toggle)) button->color = COLOR_BUTTON_ACTIVE;
 	else if (button->Hovered()) button->color = COLOR_BUTTON_HOVER;
 	else                        button->color = COLOR_BUTTON;
 

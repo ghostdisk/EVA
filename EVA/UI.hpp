@@ -155,7 +155,15 @@ extern UILayoutMode UILayoutMode_Fixed;
 // Widgets
 ////////////////////////////////////////////////////////////
 
-bool UIButton(const char* text);
+enum UIButtonFlagBits : U32
+{
+	UIButtonFlags_None = 0,
+	UIButtonFlags_Small = 0x01,
+	UIButtonFlags_Toggle = 0x02,
+};
+typedef U32 UIButtonFlags;
+
+bool UIButton(const char* text, UIButtonFlags flags = 0);
 UIBox* UILabel(const char* text, int text_len = -1);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
 

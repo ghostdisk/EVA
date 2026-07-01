@@ -815,11 +815,42 @@ void EdTick()
 			}, g_root);
 	}
 
+	{ // Toolbar
+		UIBeginBox()
+			->SetSize(g_window_size.x, 32)
+			->SetFlex(UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center)
+			->SetColor(COLOR_BUTTON_PRESSED)
+			->SetGap(4)
+			->SetPadding(2);
+
+		{
+			bool sub = selected_ops.size() && selected_ops[0]->subtract;
+			if (UIButton("Sub", UIButtonFlags_Small | (sub ? UIButtonFlags_Toggle : 0u)))
+			{
+				for (EdSelection& sel : g_selection)
+					if (sel.type == EdSelectionType_Node)
+						sel.op->subtract = !sub;
+				EdBuild(g_root);
+			}
+		}
+
+		// UIButton("1", UIButtonFlags_Small);
+		// UIButton("2", UIButtonFlags_Small);
+		// UIButton("3", UIButtonFlags_Small);
+		// UIButton("4", UIButtonFlags_Small);
+		// UIButton("5", UIButtonFlags_Small);
+		// UIButton("6", UIButtonFlags_Small);
+		// UIButton("7", UIButtonFlags_Small);
+		// UIButton("8", UIButtonFlags_Small);
+		UIEndBox();
+	}
+
 	{ // Sidebar
 		UIBeginBox()
+			->SetPosition(0, 32)
 			->SetSize(200, g_window_size.y)
 			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
-			->SetColor(COLOR_BUTTON);
+			->SetColor(COLOR_BUTTON_PRESSED);
 
 		for (EdOp* child : g_root->children)
 		{
