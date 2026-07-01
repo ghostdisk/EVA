@@ -57,7 +57,7 @@ void CameraFly(Camera& camera)
 	}
 
 	float speed = InputGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
-	if (InputGetButton(SDL_SCANCODE_LCTRL)) speed = camera.fly_speed_slow;
+	if (InputGetButton(SDL_SCANCODE_LALT)) speed = camera.fly_speed_slow;
 
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
 	input.z += cvar_flyup.fvalue - cvar_flydown.fvalue;

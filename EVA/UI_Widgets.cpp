@@ -59,7 +59,7 @@ bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
 
 		UIBox* box = UIBeginBox(1, 1, &default_data)
 			->SetFlex(UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center)
-			->SetPadding(2, 8);
+			->SetPadding(0, 4);
 
 		open = (bool*)box->GetData();
 
@@ -76,7 +76,7 @@ bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
 
 
 		U32 arrow_id = 1337;
-		UIBox* arrow_box = UIBeginBox(arrow_id)->SetPadding(6);
+		UIBox* arrow_box = UIBeginBox(arrow_id)->SetPadding(4);
 		UIBox* arrow = UISprite(*open ? Library::spr_ui_arrow_down : Library::spr_ui_arrow_right);
 		if (flags & UITreeNodeFlags_Leaf)
 		{
