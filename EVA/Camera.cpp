@@ -52,8 +52,8 @@ void CameraFly(Camera& camera)
 
 	if (InputGetButton(INPUT_BUTTON_MOUSE_RIGHT))
 	{
-		camera.yaw   -= InputGetAxis(InputAxis_MouseX) * camera.mouse_sensitivity.x;
-		camera.pitch -= InputGetAxis(InputAxis_MouseY) * camera.mouse_sensitivity.y;
+		camera.yaw   -= g_mouse_delta.x * camera.mouse_sensitivity.x;
+		camera.pitch -= g_mouse_delta.y * camera.mouse_sensitivity.y;
 	}
 
 	float speed = InputGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
@@ -82,8 +82,8 @@ void CameraOrbit(Camera& camera, Entity* entity)
 
 	if (!InMenu)
 	{
-		camera.yaw   -= InputGetAxis(InputAxis_MouseX) * camera.mouse_sensitivity.x;
-		camera.pitch -= InputGetAxis(InputAxis_MouseY) * camera.mouse_sensitivity.y;
+		camera.yaw   -= g_mouse_delta.x * camera.mouse_sensitivity.x;
+		camera.pitch -= g_mouse_delta.y * camera.mouse_sensitivity.y;
 
 		if (camera.pitch < -90 * DEG_TO_RAD)
 		{

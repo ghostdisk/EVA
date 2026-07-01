@@ -5,10 +5,10 @@
 
 #define FRAME_TIME_HISTORY_SIZE 50
 
-float2 g_window_size = { 1600, 900 };
-float  g_fps         = 0;
-bool   g_quit        = false;
-double g_delta_time  = 0.01;
+float2 g_window_size    = { 1600, 900 };
+float  g_fps            = 0;
+bool   g_quit           = false;
+double g_delta_time     = 0.01;
 
 static U64   g_frame_start_ns = 0;
 static float g_frame_time_history[FRAME_TIME_HISTORY_SIZE] = {};

@@ -28,6 +28,9 @@ struct ButtonNameMapEntry
 	int  button;
 };
 
+float2 g_mouse_position = {};
+float2 g_mouse_delta    = {};
+
 struct Hold
 {
 	ConVar* var     = nullptr;
@@ -119,10 +122,6 @@ static const ButtonNameMapEntry button_names[] = {
 	{ "equals",      SDL_SCANCODE_EQUALS      },
 	{ "minus",       SDL_SCANCODE_MINUS       },
 };
-
-float2 InputMousePosition = {};
-
-static float input_axes[InputAxis_ENUM_SIZE] = {};
 
 void Con_hold(ConParser& parser)
 {
@@ -243,8 +242,8 @@ static void InputReleaseButton(int button)
 
 void InputBeginFrame()
 {
-	input_axes[InputAxis_MouseX] = 0.0f;
-	input_axes[InputAxis_MouseY] = 0.0f;
+	g_mouse_position = {};
+	g_mouse_delta = {};
 
 	for (int i = 0; i < g_button_states.size(); i++)
 	{
@@ -260,8 +259,8 @@ void InputBeginFrame()
 		}
 	}
 
-	float2 old_mouse_position = InputMousePosition;
-	SDL_GetMouseState(&InputMousePosition.x, &InputMousePosition.y);
+	float2 old_mouse_position = g_mouse_position;
+	SDL_GetMouseState(&g_mouse_position.x, &g_mouse_position.y);
 }
 
 bool InputProcessSDLEvent(SDL_Event* event)
@@ -290,8 +289,8 @@ bool InputProcessSDLEvent(SDL_Event* event)
 		}
 		case SDL_EVENT_MOUSE_MOTION:
 		{
-			input_axes[InputAxis_MouseX] += event->motion.xrel;
-			input_axes[InputAxis_MouseY] += event->motion.yrel;
+			g_mouse_delta.x += event->motion.xrel;
+			g_mouse_delta.y += event->motion.yrel;
 			return true;
 		}
 		default:
@@ -365,9 +364,4 @@ bool InputGetButtonUp(int button)
 {
 	InputButtonState* state = InputGetButtonState(button, false);
 	return state ? state->just_released : false;
-}
-
-float InputGetAxis(InputAxis axis)
-{
-	return input_axes[axis];
 }

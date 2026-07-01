@@ -528,11 +528,11 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 
 	const float3 a_screen = CameraWorldToScreen(g_editor_camera, a);
 	const float3 b_screen = CameraWorldToScreen(g_editor_camera, b);
-	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), InputMousePosition);
+	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), g_mouse_position);
 
 	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
 
-	const float screen_dist = Distance(nearest_screen, InputMousePosition);
+	const float screen_dist = Distance(nearest_screen, g_mouse_position);
 	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
 
 	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist)
@@ -640,9 +640,9 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx)
 	DEFER(hash_stack.Pop());
 	DEFER(hash_stack.Pop());
 
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, InputMousePosition);
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
 
-	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, op->global_transform.TransformPosition(com)).xy(), InputMousePosition);
+	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, op->global_transform.TransformPosition(com)).xy(), g_mouse_position);
 	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f)
 	{
 		if (screen_dist < g_new_hover_gizmo_state.screen_dist)
@@ -712,7 +712,7 @@ void EdTick()
 	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, InputMousePosition);
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
 
 	std::vector<EdOp*> selected_ops = {};
 	bool dirty = false;

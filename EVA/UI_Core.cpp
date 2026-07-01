@@ -165,10 +165,10 @@ void UIBeginFrame()
 
 bool UIIsBoxHovered(UIBox* box)
 {
-	return box->position.x <= InputMousePosition.x &&
-		box->position.y <= InputMousePosition.y &&
-		(box->position.x + box->size.x) > InputMousePosition.x &&
-		(box->position.y + box->size.y) > InputMousePosition.y;
+	return box->position.x <= g_mouse_position.x &&
+		box->position.y <= g_mouse_position.y &&
+		(box->position.x + box->size.x) > g_mouse_position.x &&
+		(box->position.y + box->size.y) > g_mouse_position.y;
 }
 
 UIBox* UIFindHoveredChild(UIBox* box)

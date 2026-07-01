@@ -5,15 +5,6 @@ struct float2;
 struct ConVar;
 union SDL_Event;
 
-enum InputAxis
-{
-	InputAxis_None = 0,
-	InputAxis_MouseX,
-	InputAxis_MouseY,
-
-	InputAxis_ENUM_SIZE,
-};
-
 #define INPUT_BUTTON_MOUSE_START  1'000'000
 #define INPUT_BUTTON_MOUSE_LEFT   1'000'001
 #define INPUT_BUTTON_MOUSE_MIDDLE 1'000'002
@@ -30,9 +21,9 @@ bool InputProcessSDLEvent(SDL_Event* event);
 bool InputGetButtonDown(int button);
 bool InputGetButton(int button);
 bool InputGetButtonUp(int button);
-float InputGetAxis(InputAxis axis);
 
-extern float2 InputMousePosition;
+extern float2 g_mouse_position;
+extern float2 g_mouse_delta;
 
 extern ConVar cvar_forward;
 extern ConVar cvar_right;
