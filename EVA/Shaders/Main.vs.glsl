@@ -26,6 +26,7 @@ layout (std140, binding = 0) uniform MainConstantBuffer
 layout (location = 1) uniform sampler2D u_Texture;
 layout (location = 2) uniform mat4      u_Model;
 layout (location = 3) uniform vec4      u_Tint;
+layout (location = 4) uniform float     u_TextureScale;
 
 // ------------------------------------------------------------
 

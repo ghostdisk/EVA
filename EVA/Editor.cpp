@@ -1,3 +1,4 @@
+#include <EVA/Assets/Asset.hpp>
 #include <EVA/App.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Editor.hpp>
@@ -17,12 +18,13 @@ enum EdTool
 {
 	EdTool_None = 0,
 	EdTool_Select = 1,
-	EdTool_Brush = 2,
+	EdTool_Entity = 2,
+	EdTool_Brush = 3,
 
 	EdTool_ENUM_SIZE,
 };
 
-static const char* ED_TOOL_NAMES[] = { "None", "Select", "Brush" };
+static const char* ED_TOOL_NAMES[] = { "None", "Select", "Entity", "Brush" };
 
 enum EdSelectionType
 {
@@ -1015,47 +1017,47 @@ void EdTick()
 			->SetColor(COLOR_BG)
 			->SetGap(4)
 			->SetPadding(4);
+		DEFER(UIEndBox());
 
-		{
-			auto spacer = []()
-				{
-					UIBeginBox()->SetSize(9, 0)->SetFlex(UIAxis_Horizontal, UIAlignment_Center, UIAlignment_Center);
-					UIBeginBox()->SetSize(3, 3)->SetColor(COLOR_BUTTON);
-					UIEndBox();
-					UIEndBox();
-				};
-
-			char buf[32];
-			snprintf(buf, 32, "Snap: %.3f", g_grid.size);
-			if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap()) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
-
-			if (UIButton("-", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
-			if (UIButton("+", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
-
-			spacer();
-
-			// UILabel("Tools");
-			if (UIButton("Sel", UIButtonFlags_Small | (g_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(EdTool_Select);
-			if (UIButton("Bsh", UIButtonFlags_Small | (g_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Brush);
-
-
-			spacer();
-
-			EdOp* first_sel = (g_selection.size() && g_selection[0].type == EdSelectionType_Node) ? g_selection[0].op : nullptr;
-			bool sub = first_sel && first_sel->subtract;
-
-			if (UIButton("Sub", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled) | (sub ? UIButtonFlags_Toggle : 0u)))
+		auto spacer = []()
 			{
-				for (EdSelection& sel : g_selection)
-					if (sel.type == EdSelectionType_Node)
-						sel.op->subtract = !sub;
-				EdBuild(g_root);
-			}
+				UIBeginBox()->SetSize(9, 0)->SetFlex(UIAxis_Horizontal, UIAlignment_Center, UIAlignment_Center);
+				UIBeginBox()->SetSize(3, 3)->SetColor(COLOR_BUTTON);
+				UIEndBox();
+				UIEndBox();
+			};
 
-			if (UIButton("X", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled))) ConExec("ed_del");
+		char buf[32];
+		snprintf(buf, 32, "Snap: %.3f", g_grid.size);
+		if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap()) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
+
+		if (UIButton("-", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
+		if (UIButton("+", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
+
+		spacer();
+
+		// UILabel("Tools");
+		if (UIButton("SEL", UIButtonFlags_Small | (g_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(EdTool_Select);
+		if (UIButton("ENT", UIButtonFlags_Small | (g_tool == EdTool_Entity ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Entity);
+		if (UIButton("BSH", UIButtonFlags_Small | (g_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Brush);
+
+		spacer();
+
+		EdOp* first_sel = (g_selection.size() && g_selection[0].type == EdSelectionType_Node) ? g_selection[0].op : nullptr;
+		bool sub = first_sel && first_sel->subtract;
+
+		if (UIButton("Sub", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled) | (sub ? UIButtonFlags_Toggle : 0u)))
+		{
+			for (EdSelection& sel : g_selection)
+				if (sel.type == EdSelectionType_Node)
+					sel.op->subtract = !sub;
+			EdBuild(g_root);
 		}
 
-		UIEndBox();
+		if (UIButton("X", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled)))
+		{
+			ConExec("ed_del");
+		}
 	}
 
 	{ // Sidebar
@@ -1064,13 +1066,13 @@ void EdTick()
 			->SetSize(200, g_window_size.y)
 			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
 			->SetColor(COLOR_BG);
+		DEFER(UIEndBox());
 
 		for (EdOp* child : g_root->children)
 		{
 			EdOpGUI(child);
 		}
 
-		UIEndBox();
 	}
 
 	DrawSetLayer(Layer_Main);
@@ -1425,6 +1427,7 @@ void EdInitialize()
 			if (g_grid_size_idx < 0) g_grid_size_idx = 0;
 			if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES) - 1;
 			g_grid.size = ED_GRID_SIZES[g_grid_size_idx];
+			Library::mat_brush->texture_scale = 1.0f / g_grid.size / 4.0f;
 			ScreenLog("Grid Size: %g", g_grid.size);
 			EdBuild(g_root);
 		}, "editor: increase/decrease grid size");

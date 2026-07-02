@@ -181,8 +181,7 @@ void RenderFrame()
 				}
 
 				glUseProgram(shader->handle);
-				// glUniformMatrix4fv(0, 1, false, (float*)&g_current_camera->view_projection_matrix);
-				// glUniformMatrix4fv(4, 1, false, (float*)&g_current_camera->view_matrix);
+				glUniform1f(4, material ? material->texture_scale : 1.0f);
 				GL_ERROR_CHECK();
 
 				glActiveTexture(GL_TEXTURE0);

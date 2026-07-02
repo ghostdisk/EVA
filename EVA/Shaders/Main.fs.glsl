@@ -16,6 +16,7 @@ layout (location = 2) in vec3 v_WorldPos;
 layout (location = 1) uniform sampler2D u_Texture;
 layout (location = 2) uniform mat4      u_Model;
 layout (location = 3) uniform vec4      u_Tint;
+layout (location = 4) uniform float     u_TextureScale;
 
 // ------------------------------------------------------------
 
@@ -31,16 +32,16 @@ void main()
 	vec3 albedo;
 
 #ifdef S_BRUSH
-	vec3 tx = texture(u_Texture, v_WorldPos.yz).xyz;
-	vec3 ty = texture(u_Texture, v_WorldPos.xz).xyz;
-	vec3 tz = texture(u_Texture, v_WorldPos.xy).xyz;
+	vec3 tx = texture(u_Texture, v_WorldPos.yz * u_TextureScale).xyz;
+	vec3 ty = texture(u_Texture, v_WorldPos.xz * u_TextureScale).xyz;
+	vec3 tz = texture(u_Texture, v_WorldPos.xy * u_TextureScale).xyz;
 
 	vec3 blend = abs(normalize(normal));
 	blend /= (blend.x + blend.y + blend.z);
 
 	albedo = tx * blend.x + ty * blend.y + tz * blend.z;
 #else
-	albedo = texture(u_Texture, v_Texcoord).xyz;
+	albedo = texture(u_Texture, v_Texcoord * u_TextureScale).xyz;
 #endif
 
 	albedo *= u_Tint.xyz;

@@ -206,6 +206,7 @@ bool TextInputConsumesKey(SDL_Scancode scancode)
 	if (!SDL_TextInputActive(g_game_window)) return false;
 	if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) return true;
 	if (scancode >= SDL_SCANCODE_0 && scancode <= SDL_SCANCODE_9) return true;
+	if (scancode == SDL_SCANCODE_MINUS || scancode == SDL_SCANCODE_EQUALS) return true;
 	return false;
 }
 
