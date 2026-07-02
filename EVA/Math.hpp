@@ -5,6 +5,7 @@
 #include <math.h>
 
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
+#define COLOR_RGBA(r, g, b, a) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, float(a) / 255.0f }
 #define COLOR_WHITE (float4{1,1,1,1})
 #define COLOR_BLACK (float4{0,0,0,1})
 

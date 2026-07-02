@@ -13,6 +13,17 @@
 #include <cglm/quat.h>
 #include <algorithm>
 
+enum EdTool
+{
+	EdTool_None = 0,
+	EdTool_Select = 1,
+	EdTool_Brush = 2,
+
+	EdTool_ENUM_SIZE,
+};
+
+static const char* ED_TOOL_NAMES[] = { "None", "Select", "Brush" };
+
 enum EdSelectionType
 {
 	EdSelectionType_None,
@@ -35,11 +46,25 @@ struct EdGrid
 	float  size;
 };
 
+enum EdBrushToolPhase
+{
+	EdBrushToolPhase_Inactive    = 0,
+	EdBrushToolPhase_InitialDraw = 1,
+	EdBrushToolPhase_X           = 2,
+	EdBrushToolPhase_Y           = 3,
+	EdBrushToolPhase_Z           = 4,
+	EdBrushToolPhase_Finalize    = 5,
+};
+
 Camera g_editor_camera = {};
 
 static EdOp*                    g_root                 = nullptr;
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
+static EdTool                   g_tool                 = EdTool_Select;
+static float3                   g_brush_tool_start     = {};
+static float3                   g_brush_tool_end       = {};
+static EdBrushToolPhase         g_brush_tool_phase     = EdBrushToolPhase_Inactive;
 
 static const float ED_GRID_SIZES[] = {
 	0.03125f,
@@ -120,6 +145,11 @@ EdOp* EdCreateOp()
 {
 	EdOp* op = new EdOp();
 	return op;
+}
+
+bool EdShouldSnap()
+{
+	return g_snap && !InputGetButton(SDL_SCANCODE_LALT);
 }
 
 void EdDeselect()
@@ -570,7 +600,7 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	if (g_active_gizmo_state.id == id)
 	{
 		pos = nearest_world - g_active_gizmo_state.offset;
-		if (g_snap && !InputGetButton(SDL_SCANCODE_LALT)) pos = EdSnapToGrid(g_grid, pos);
+		if (EdShouldSnap()) pos = EdSnapToGrid(g_grid, pos);
 	}
 }
 
@@ -702,29 +732,16 @@ void EdDrawGrid(EdGrid& grid, float4 color)
 	}
 }
 
-void EdTick()
+void EdTickSelectTool()
 {
-	CameraFly(g_editor_camera);
-	CameraUpdateMatrices(g_editor_camera);
-
-	DrawSetLayer(Layer_Main);
-	EdDrawGrid(g_grid, float4{1,1,1,0.3});
-
-	hash_stack.Reset();
-	g_new_hover_gizmo_state = {};
-	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
-	g_new_hover_gizmo_state.world_dist = FLT_MAX;
-
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
-
-	std::vector<EdOp*> selected_ops = {};
 	bool dirty = false;
 
+	std::vector<EdOp*> selected_ops = {};
 	for (const EdSelection& sel : g_selection)
 	{
 		if (sel.type == EdSelectionType_Node)
 		{
-
 			if (sel.op->type == EdOpType_Brush)
 			{
 				for (int i = 0; i < sel.op->brush->planes.size(); i++)
@@ -795,6 +812,181 @@ void EdTick()
 
 	if (dirty)
 		EdBuild(g_root);
+}
+
+void EdTickBrushTool()
+{
+	static bool just_entered_phase = false;
+	static float3 ref_a, ref_b, x;
+
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+
+	float min_t = FLT_MAX;
+	for (CSGBrush* brush : g_root->built)
+	{
+		int plane_hit;
+		float t = Intersect(mouse_ray, brush, float4x4::Identity(), &plane_hit);
+		if (t < min_t && t >= 0) min_t = t;
+	}
+
+	float3 p = {};
+	if (min_t < FLT_MAX)
+	{
+		p = mouse_ray.Evaluate(min_t);
+		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
+	}
+
+	if (InputGetButton(SDL_SCANCODE_ESCAPE))
+	{
+		g_brush_tool_phase = EdBrushToolPhase_Inactive;
+	}
+
+	if (min_t < FLT_MAX)
+	{
+		DrawSetLayer(Layer_Overlay);
+		DrawPoint(g_brush_tool_start, {0,0,1,0.1});
+		DrawSetLayer(Layer_Main);
+		DrawPoint(g_brush_tool_start, {0,0,1,1});
+	}
+
+	Step:
+	switch (g_brush_tool_phase)
+	{
+		case EdBrushToolPhase_Inactive:
+		{
+			if (min_t < FLT_MAX)
+			{
+				g_brush_tool_start = p;
+				if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+				{
+					g_brush_tool_phase = EdBrushToolPhase_InitialDraw;
+				}
+			}
+
+			break;
+		}
+		case EdBrushToolPhase_InitialDraw:
+		{
+			g_brush_tool_end = p;
+			if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
+			{
+				if (min_t < FLT_MAX)
+				{
+					just_entered_phase = false;
+					g_brush_tool_phase = EdBrushToolPhase_X;
+				}
+				else
+				{
+					g_brush_tool_phase = EdBrushToolPhase_Inactive;
+				}
+				goto Step;
+			}
+			break;
+		}
+		case EdBrushToolPhase_X:
+		case EdBrushToolPhase_Y:
+		case EdBrushToolPhase_Z:
+		{
+			float3 dir = {};
+			dir[g_brush_tool_phase - EdBrushToolPhase_X] = 1.0f;
+
+			if (!just_entered_phase)
+			{
+				just_entered_phase = true;
+				float len = Dot(dir, g_brush_tool_end - g_brush_tool_start);
+				if (len != 0)
+				{
+					just_entered_phase = false;
+					g_brush_tool_phase = (EdBrushToolPhase)(g_brush_tool_phase + 1);
+					goto Step;
+				}
+
+				ref_a = g_brush_tool_end;
+				ref_b = ref_a + dir;
+				x = g_brush_tool_end;
+			}
+
+			float t1, t2;
+			DistanceToLineSegment(mouse_ray, ref_a, ref_b, &t1, &t2);
+
+			g_brush_tool_end = x + t2 * dir;
+			if (EdShouldSnap()) g_brush_tool_end = EdSnapToGrid(g_grid, g_brush_tool_end);
+			if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+			{
+				just_entered_phase = false;
+				g_brush_tool_phase = (EdBrushToolPhase)(g_brush_tool_phase + 1);
+			}
+			break;
+		}
+		case EdBrushToolPhase_Finalize:
+		{
+			if (g_brush_tool_end.x < g_brush_tool_start.x) std::swap(g_brush_tool_start.x, g_brush_tool_end.x);
+			if (g_brush_tool_end.y < g_brush_tool_start.y) std::swap(g_brush_tool_start.y, g_brush_tool_end.y);
+			if (g_brush_tool_end.z < g_brush_tool_start.z) std::swap(g_brush_tool_start.z, g_brush_tool_end.z);
+
+
+			CSGBrush* cube = CSGCreateCube(g_brush_tool_end - g_brush_tool_start);
+			CSGBuildBrush(cube);
+			EdOp* op = EdCreateOp();
+			op->type = EdOpType_Brush;
+			op->brush = cube;
+			op->position = g_brush_tool_start;
+			EdOpAddChild(g_root, op);
+			EdBuild(g_root);
+			EdSelectOp(op);
+			g_brush_tool_phase = EdBrushToolPhase_Inactive;
+			break;
+		}
+	}
+
+	if (g_brush_tool_phase != EdBrushToolPhase_Inactive)
+	{
+		if (!(g_brush_tool_phase == EdBrushToolPhase_InitialDraw && min_t == FLT_MAX))
+		{
+			DrawSetLayer(Layer_Overlay);
+			DrawBox(g_brush_tool_start, g_brush_tool_end, {0, 0, 1, 0.1 });
+			DrawSetLayer(Layer_Main);
+			DrawBox(g_brush_tool_start, g_brush_tool_end, {0, 0, 1, 1 });
+		}
+	}
+}
+
+void EdSetTool(EdTool tool)
+{
+	if (tool < 0 || tool >= EdTool_ENUM_SIZE) tool = (EdTool)0;
+	if (g_tool == tool) return;
+	g_tool = tool;
+	g_brush_tool_phase = EdBrushToolPhase_Inactive;
+	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
+}
+
+void EdTick()
+{
+	CameraFly(g_editor_camera);
+	CameraUpdateMatrices(g_editor_camera);
+
+	DrawSetLayer(Layer_Main);
+	// EdDrawGrid(g_grid, float4{1,1,1,0.3});
+
+	hash_stack.Reset();
+	g_new_hover_gizmo_state = {};
+	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
+	g_new_hover_gizmo_state.world_dist = FLT_MAX;
+
+	switch (g_tool)
+	{
+		case EdTool_Select:
+		{
+			EdTickSelectTool();
+			break;
+		}
+		case EdTool_Brush:
+		{
+			EdTickBrushTool();
+			break;
+		}
+		default: break;
+	}
 
 	DrawSetLayer(Layer_Main);
 	EdDrawSelectionOutline({1,1,1,1});
@@ -818,15 +1010,41 @@ void EdTick()
 
 	{ // Toolbar
 		UIBeginBox()
-			->SetSize(g_window_size.x, 32)
+			->SetSize(g_window_size.x, 0)
 			->SetFlex(UIAxis_Horizontal, UIAlignment_Start, UIAlignment_Center)
-			->SetColor(COLOR_BUTTON_PRESSED)
+			->SetColor(COLOR_BG)
 			->SetGap(4)
-			->SetPadding(2);
+			->SetPadding(4);
 
 		{
-			bool sub = selected_ops.size() && selected_ops[0]->subtract;
-			if (UIButton("Sub", UIButtonFlags_Small | (sub ? UIButtonFlags_Toggle : 0u)))
+			auto spacer = []()
+				{
+					UIBeginBox()->SetSize(9, 0)->SetFlex(UIAxis_Horizontal, UIAlignment_Center, UIAlignment_Center);
+					UIBeginBox()->SetSize(3, 3)->SetColor(COLOR_BUTTON);
+					UIEndBox();
+					UIEndBox();
+				};
+
+			char buf[32];
+			snprintf(buf, 32, "Snap: %.3f", g_grid.size);
+			if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap()) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
+
+			if (UIButton("-", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
+			if (UIButton("+", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
+
+			spacer();
+
+			// UILabel("Tools");
+			if (UIButton("Sel", UIButtonFlags_Small | (g_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(EdTool_Select);
+			if (UIButton("Bsh", UIButtonFlags_Small | (g_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Brush);
+
+
+			spacer();
+
+			EdOp* first_sel = (g_selection.size() && g_selection[0].type == EdSelectionType_Node) ? g_selection[0].op : nullptr;
+			bool sub = first_sel && first_sel->subtract;
+
+			if (UIButton("Sub", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled) | (sub ? UIButtonFlags_Toggle : 0u)))
 			{
 				for (EdSelection& sel : g_selection)
 					if (sel.type == EdSelectionType_Node)
@@ -834,32 +1052,18 @@ void EdTick()
 				EdBuild(g_root);
 			}
 
-			char buf[32];
-			snprintf(buf, 32, "Snap: %.2f", g_grid.size);
-			if (UIButton(buf, UIButtonFlags_Small | ((g_snap && !InputGetButton(SDL_SCANCODE_LALT)) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
-
-			if (UIButton("-", UIButtonFlags_Small)) ConExec("ed_grid_size_inc -1");
-			if (UIButton("+", UIButtonFlags_Small)) ConExec("ed_grid_size_inc +1");
-
+			if (UIButton("X", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled))) ConExec("ed_del");
 		}
 
-		// UIButton("1", UIButtonFlags_Small);
-		// UIButton("2", UIButtonFlags_Small);
-		// UIButton("3", UIButtonFlags_Small);
-		// UIButton("4", UIButtonFlags_Small);
-		// UIButton("5", UIButtonFlags_Small);
-		// UIButton("6", UIButtonFlags_Small);
-		// UIButton("7", UIButtonFlags_Small);
-		// UIButton("8", UIButtonFlags_Small);
 		UIEndBox();
 	}
 
 	{ // Sidebar
 		UIBeginBox()
-			->SetPosition(0, 32)
+			->SetPosition(0, 30)
 			->SetSize(200, g_window_size.y)
 			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
-			->SetColor(COLOR_BUTTON_PRESSED);
+			->SetColor(COLOR_BG);
 
 		for (EdOp* child : g_root->children)
 		{
@@ -1258,6 +1462,10 @@ void EdInitialize()
 		{
 			AppSetMode(AppMode_Editor, nullptr);
 		}, "editor: open editor");
+	ConRegisterCommand("ed_tool", [](ConParser& parser)
+		{
+			EdSetTool((EdTool)parser.IntArg(0));
+		}, "editor: set tool");
 
 	g_root = EdCreateOp();
 	g_root->type = EdOpType_Stack;

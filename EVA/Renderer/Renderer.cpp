@@ -325,6 +325,11 @@ void DrawAABB(float3 center, float3 size, float4 color)
 	DrawLine(center + float3( hsize.x,  hsize.y, -hsize.z), center + float3( hsize.x,  hsize.y,  hsize.z), color);
 }
 
+void DrawBox(float3 c1, float3 c2, float4 color)
+{
+	DrawAABB((c2 + c1) / 2, c2 - c1, color);
+}
+
 void DrawPoint(float3 point, float4 color)
 {
 	DrawLine(point - float3(0.1, 0, 0), point + float3(0.1, 0, 0), color);

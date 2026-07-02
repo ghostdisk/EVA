@@ -10,6 +10,7 @@ struct Font;
 struct Sprite;
 typedef union SDL_Event SDL_Event;
 
+#define COLOR_BG                COLOR_RGBA(55, 6, 21, 220)
 #define COLOR_BUTTON            COLOR_RGB(115, 18, 47)
 #define COLOR_BUTTON_PRESSED    COLOR_RGB(87, 7, 31)
 #define COLOR_BUTTON_HOVER      COLOR_RGB(142, 27, 62)
@@ -160,6 +161,7 @@ enum UIButtonFlagBits : U32
 	UIButtonFlags_None = 0,
 	UIButtonFlags_Small = 0x01,
 	UIButtonFlags_Toggle = 0x02,
+	UIButtonFlags_Disabled = 0x04,
 };
 typedef U32 UIButtonFlags;
 

@@ -37,14 +37,27 @@ bool UIButton(const char* text, UIButtonFlags flags)
 	if (flags & UIButtonFlags_Small) button->SetPadding(4, 8);
 
 	if      (button->Pressed() || (flags & UIButtonFlags_Toggle)) button->color = COLOR_BUTTON_ACTIVE;
-	else if (button->Hovered()) button->color = COLOR_BUTTON_HOVER;
-	else                        button->color = COLOR_BUTTON;
+	else if (button->Hovered())                                   button->color = COLOR_BUTTON_HOVER;
+	else                                                          button->color = COLOR_BUTTON;
 
-	UILabel(text);
+	UIBox* label = UILabel(text);
+
 	UIEndBox();
 	UIPopId();
 
-	return button->Clicked();
+	if (!(flags & UIButtonFlags_Disabled))
+	{
+		return button->Clicked();
+	}
+	else
+	{
+		button->color = COLOR_BUTTON;
+		button->color.w = 0.5f;
+		label->color.w = 0.2f;
+		return false;
+	}
+
+
 }
 
 bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
