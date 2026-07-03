@@ -12,14 +12,34 @@ namespace JPH
 	class Body;
 }
 
+struct EntityTypeMeta
+{
+	char        name[32]          = "";
+	float3      editor_box_offset = float3(0,0,0);
+	float3      editor_box_size   = float3(0.5f,0.5f,0.5f);
+};
+
+#define X_FOREACH_ENTITY() \
+    /* type          type id        limit*/ \
+	X(StaticMesh,    1,             512) \
+	X(Rigidbody,     2,             512) \
+	X(Character,     3,             512) \
+	X(Marker,        4,             512) \
+
 enum EntityType : U8
 {
 	EntityType_None       = 0,
-	EntityType_StaticMesh = 1,
-	EntityType_Rigidbody  = 2,
-	EntityType_Character  = 3,
-
+	#define X(name, id, lim) EntityType_ ## name = id,
+	X_FOREACH_ENTITY()
+	#undef X
 	EntityType_ENUM_SIZE,
+};
+extern EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE];
+
+enum EMarkerType
+{
+	EMarkerType_None = 0,
+	EMarkerType_PlayerSpawn = 1,
 };
 
 // @CONSTRUCTOR_NOT_CALLED
@@ -55,6 +75,13 @@ struct EStaticMesh : Entity
 // @CONSTRUCTOR_NOT_CALLED
 struct ERigidbody : Entity
 {
+};
+
+// @CONSTRUCTOR_NOT_CALLED
+struct EMarker : Entity
+{
+	EMarkerType marker_type = {};
+	int         team_index  = 0;
 };
 
 struct CharacterController;
@@ -141,25 +168,25 @@ struct EntityPool
 
 struct EntityManager
 {
-	EntityPool<EStaticMesh> StaticMesh;
-	EntityPool<ERigidbody>  Rigidbody;
-	EntityPool<ECharacter>  Character;
+#define X(name, id, lim) EntityPool<E ## name> pool_ ## name;
+X_FOREACH_ENTITY()
+#undef X
 
 	template <typename F>
 	void Iterate(F&& callback)
 	{
-		StaticMesh.Iterate(callback);
-		Rigidbody.Iterate(callback);
-		Character.Iterate(callback);
+		#define X(name, id, lim) pool_ ## name.Iterate(callback);
+		X_FOREACH_ENTITY()
+		#undef X
 	}
 
 	Entity* CreateEntity(EntityType type, EID eid)
 	{
 		switch (type)
 		{
-			case EntityType_StaticMesh: return StaticMesh.CreateEntity(eid);
-			case EntityType_Rigidbody:  return Rigidbody.CreateEntity(eid);
-			case EntityType_Character:  return Character.CreateEntity(eid);
+			#define X(name, id, lim) case EntityType_ ## name: return pool_ ## name.CreateEntity(eid);
+			X_FOREACH_ENTITY()
+			#undef X
 			default: assert(0); return nullptr;
 		}
 	}

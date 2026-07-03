@@ -116,7 +116,7 @@ void GameTick(Game* game, double dt)
 	PhysicsTick(game->physics, dt);
 	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
 
-	game->entity_manager.Rigidbody.Iterate(
+	game->entity_manager.pool_Rigidbody.Iterate(
 		[](ERigidbody* rb)
 		{
 			rb->position = ConvertPos(rb->body->GetPosition());
@@ -169,7 +169,7 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 	{
 		if (node.mesh)
 		{
-			EStaticMesh* entity = game->entity_manager.StaticMesh.CreateEntity(eid++);
+			EStaticMesh* entity = game->entity_manager.pool_StaticMesh.CreateEntity(eid++);
 			entity->mesh     = node.mesh;
 			entity->material = node.material;
 			entity->position = node.position;

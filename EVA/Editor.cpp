@@ -48,6 +48,12 @@ struct EdGrid
 	float  size;
 };
 
+struct EdEntity
+{
+	EntityType type       = EntityType_None;
+	float3     position   = {};
+};
+
 enum EdBrushToolPhase
 {
 	EdBrushToolPhase_Inactive    = 0,
@@ -61,12 +67,14 @@ enum EdBrushToolPhase
 Camera g_editor_camera = {};
 
 static EdOp*                    g_root                 = nullptr;
+static std::vector<EdEntity>    g_entities             = {};
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
 static EdTool                   g_tool                 = EdTool_Select;
 static float3                   g_brush_tool_start     = {};
 static float3                   g_brush_tool_end       = {};
 static EdBrushToolPhase         g_brush_tool_phase     = EdBrushToolPhase_Inactive;
+static EntityType               g_entity_tool_type     = EntityType_Marker;
 
 static const float ED_GRID_SIZES[] = {
 	0.03125f,
@@ -734,7 +742,7 @@ void EdDrawGrid(EdGrid& grid, float4 color)
 	}
 }
 
-void EdTickSelectTool()
+void EdTickTool_Select()
 {
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
 	bool dirty = false;
@@ -816,13 +824,12 @@ void EdTickSelectTool()
 		EdBuild(g_root);
 }
 
-void EdTickBrushTool()
+void EdTickTool_Brush()
 {
 	static bool just_entered_phase = false;
 	static float3 ref_a, ref_b, x;
 
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
-
 	float min_t = FLT_MAX;
 	for (CSGBrush* brush : g_root->built)
 	{
@@ -953,6 +960,36 @@ void EdTickBrushTool()
 	}
 }
 
+void EdTickTool_Entity()
+{
+
+	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+	float min_t = FLT_MAX;
+	for (CSGBrush* brush : g_root->built)
+	{
+		int plane_hit;
+		float t = Intersect(mouse_ray, brush, float4x4::Identity(), &plane_hit);
+		if (t < min_t && t >= 0) min_t = t;
+	}
+
+	float3 p = {};
+	if (min_t < FLT_MAX)
+	{
+		p = mouse_ray.Evaluate(min_t);
+		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
+	}
+
+	DrawPoint(p, {0,1,0,1});
+
+	if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+	{
+		g_entities.push_back({
+			.type = g_entity_tool_type,
+			.position = p,
+		});
+	}
+}
+
 void EdSetTool(EdTool tool)
 {
 	if (tool < 0 || tool >= EdTool_ENUM_SIZE) tool = (EdTool)0;
@@ -977,16 +1014,9 @@ void EdTick()
 
 	switch (g_tool)
 	{
-		case EdTool_Select:
-		{
-			EdTickSelectTool();
-			break;
-		}
-		case EdTool_Brush:
-		{
-			EdTickBrushTool();
-			break;
-		}
+		case EdTool_Select: { EdTickTool_Select(); break; }
+		case EdTool_Brush:  { EdTickTool_Brush(); break; }
+		case EdTool_Entity: { EdTickTool_Entity(); break; }
 		default: break;
 	}
 
@@ -1068,9 +1098,53 @@ void EdTick()
 			->SetColor(COLOR_BG);
 		DEFER(UIEndBox());
 
-		for (EdOp* child : g_root->children)
+
+		switch (g_tool)
 		{
-			EdOpGUI(child);
+			case EdTool_Entity:
+			{
+				if (UIBeginTreeNode("Entity Type", nullptr, UITreeNodeFlags_DefaultOpen))
+				{
+					for (int i = 1; i < EntityType_ENUM_SIZE; i++)
+					{
+						UIButtonFlags flags = UIButtonFlags_Small;
+						if (g_entity_tool_type == i) flags |= UIButtonFlags_Toggle;
+						if (UIButton(ENTITY_TYPE_META[i]->name, flags))
+						{
+							g_entity_tool_type = (EntityType)i;
+						}
+					}
+					UIEndTreeNode();
+				}
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+
+		if (UIBeginTreeNode("Brushes"))
+		{
+			for (EdOp* child : g_root->children)
+			{
+				EdOpGUI(child);
+			}
+			UIEndTreeNode();
+		}
+
+		if (UIBeginTreeNode("Entities"))
+		{
+			for (const EdEntity& ent : g_entities)
+			{
+				UIPushId(&ent);
+				DEFER(UIPopId());
+				if (UIBeginTreeNode("Entity", nullptr, UITreeNodeFlags_Leaf))
+				{
+					UIEndTreeNode();
+				}
+			}
+			UIEndTreeNode();
 		}
 
 	}
@@ -1081,6 +1155,11 @@ void EdTick()
 		CSGBrush* b = g_root->built[i];
 		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
+	}
+
+	for (const EdEntity& ent : g_entities)
+	{
+		DrawPoint(ent.position, {0,1,0,1});
 	}
 
 	g_hover_gizmo_state = g_new_hover_gizmo_state;
