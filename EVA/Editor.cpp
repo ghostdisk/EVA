@@ -31,13 +31,21 @@ enum EdSelectionType
 	EdSelectionType_None,
 	EdSelectionType_Node,
 	EdSelectionType_BrushPlane,
+	EdSelectionType_Entity,
+};
+
+struct EdEntity
+{
+	EntityType type       = EntityType_None;
+	float3     position   = {};
 };
 
 struct EdSelection
 {
 	EdSelectionType type   = EdSelectionType_None;
-	EdOp*           op     = 0;
-	int             index  = 0;
+	EdOp*           op     = nullptr;
+	EdEntity*       entity = nullptr;
+	int             index  = 0; // used by BrushPlane selection, face index
 };
 
 struct EdGrid
@@ -46,12 +54,6 @@ struct EdGrid
 	float3 forward;
 	float3 right;
 	float  size;
-};
-
-struct EdEntity
-{
-	EntityType type       = EntityType_None;
-	float3     position   = {};
 };
 
 enum EdBrushToolPhase
@@ -67,7 +69,7 @@ enum EdBrushToolPhase
 Camera g_editor_camera = {};
 
 static EdOp*                    g_root                 = nullptr;
-static std::vector<EdEntity>    g_entities             = {};
+static std::vector<EdEntity*>   g_entities             = {};
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
 static EdTool                   g_tool                 = EdTool_Select;
@@ -197,10 +199,33 @@ void EdSelectOp(EdOp* op, bool additive = false)
 	});
 }
 
+void EdSelectEntity(EdEntity* entity, bool additive = false)
+{
+	if (!additive) EdDeselect();
+
+	for (const EdSelection& sel : g_selection)
+	{
+		if (sel.type != EdSelectionType_Entity) { EdDeselect();  break; }
+	}
+
+	g_selection.push_back(EdSelection{
+		.type = EdSelectionType_Entity,
+		.entity = entity,
+	});
+}
+
 bool EdIsSelected(EdOp* op)
 {
 	for (const EdSelection& sel : g_selection)
 		if (sel.type == EdSelectionType_Node && sel.op == op)
+			return true;
+	return false;
+}
+
+bool EdIsSelected(EdEntity* entity)
+{
+	for (const EdSelection& sel : g_selection)
+		if (sel.type == EdSelectionType_Entity && sel.entity == entity)
 			return true;
 	return false;
 }
@@ -234,6 +259,28 @@ void EdRemoveOpFromTree(EdOp* op)
 	}
 }
 
+EdEntity* EdCreateEntity(EntityType type, float3 pos)
+{
+	EdEntity* entity = new EdEntity();
+	entity->type = type;
+	entity->position = pos;
+	g_entities.push_back(entity);
+	return entity;
+}
+
+void EdDestroyEntity(EdEntity* entity)
+{
+	for (int i = 0; i < g_entities.size(); i++)
+	{
+		if (g_entities[i] == entity)
+		{
+			g_entities.erase(g_entities.begin() + i);
+			break;
+		}
+	}
+	delete entity;
+}
+
 void EdDestroyOp(EdOp* op)
 {
 	if (op->brush) CSGDestroyBrush(op->brush);
@@ -251,10 +298,28 @@ void EdDestroyOp(EdOp* op)
 
 void EdDestroySelection()
 {
-	bool did_something = false;
-	std::vector<EdOp*> selection = EdGetSelectedOps();
-	for (EdOp* op : selection) EdDestroyOp(op);
-	if (selection.size()) EdDeselect();
+	bool changed_geometry = false;
+
+	for (EdSelection& sel : g_selection)
+	{
+		switch (sel.type)
+		{
+			case EdSelectionType_Entity:
+			{
+				EdDestroyEntity(sel.entity);
+				break;
+			}
+			case EdSelectionType_Node:
+			{
+				changed_geometry = true;
+				EdDestroyOp(sel.op);
+				break;
+			}
+			default: break;
+		}
+	}
+
+	EdDeselect();
 }
 
 void EdDrawBrushPlaneOutline(CSGBrush* b, int i, const float4x4& transform, const float4& color)
@@ -866,7 +931,7 @@ void EdTickTool_Brush()
 			if (min_t < FLT_MAX)
 			{
 				g_brush_tool_start = p;
-				if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+				if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 				{
 					g_brush_tool_phase = EdBrushToolPhase_InitialDraw;
 				}
@@ -920,7 +985,7 @@ void EdTickTool_Brush()
 
 			g_brush_tool_end = x + t2 * dir;
 			if (EdShouldSnap()) g_brush_tool_end = EdSnapToGrid(g_grid, g_brush_tool_end);
-			if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+			if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 			{
 				just_entered_phase = false;
 				g_brush_tool_phase = (EdBrushToolPhase)(g_brush_tool_phase + 1);
@@ -981,12 +1046,10 @@ void EdTickTool_Entity()
 
 	DrawPoint(p, {0,1,0,1});
 
-	if (InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
 	{
-		g_entities.push_back({
-			.type = g_entity_tool_type,
-			.position = p,
-		});
+		EdCreateEntity(g_entity_tool_type, p);
+		EdDeselect();
 	}
 }
 
@@ -1135,13 +1198,20 @@ void EdTick()
 
 		if (UIBeginTreeNode("Entities"))
 		{
-			for (const EdEntity& ent : g_entities)
+			for (EdEntity* entity : g_entities)
 			{
-				UIPushId(&ent);
+				UIPushId(entity);
 				DEFER(UIPopId());
-				if (UIBeginTreeNode("Entity", nullptr, UITreeNodeFlags_Leaf))
+
+				UITreeNodeFlags flags = UITreeNodeFlags_Leaf;
+				if (EdIsSelected(entity)) flags |= UITreeNodeFlags_Selected;
+
+				UIBox* tree_node = nullptr;
+				if (UIBeginTreeNode("Entity", &tree_node, flags)) UIEndTreeNode();
+
+				if (tree_node->Clicked())
 				{
-					UIEndTreeNode();
+					EdSelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
 				}
 			}
 			UIEndTreeNode();
@@ -1157,9 +1227,9 @@ void EdTick()
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
 	}
 
-	for (const EdEntity& ent : g_entities)
+	for (EdEntity* ent : g_entities)
 	{
-		DrawPoint(ent.position, {0,1,0,1});
+		DrawPoint(ent->position, {0,1,0,1});
 	}
 
 	g_hover_gizmo_state = g_new_hover_gizmo_state;
