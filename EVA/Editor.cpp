@@ -546,6 +546,37 @@ EdOp* EdCloneOp(EdOp* orig)
 	return clone;
 }
 
+bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit)
+{
+	float min_t = FLT_MAX;
+	CSGBrush* hit = nullptr;
+	for (CSGBrush* brush : g_root->built)
+	{
+		int plane_hit;
+		float t = Intersect(ray, brush, float4x4::Identity(), &plane_hit);
+		if (t < min_t && t >= 0)
+		{
+			hit = brush;
+			min_t = t;
+		}
+	}
+
+	if (min_t < FLT_MAX)
+	{
+		if (out_t) *out_t = min_t;
+		if (out_op_hit) *out_op_hit = hit->source;
+		if (out_built_brush_hit) *out_built_brush_hit = hit;
+		return true;
+	}
+	else
+	{
+		if (out_t) *out_t = FLT_MAX;
+		if (out_op_hit) *out_op_hit = nullptr;
+		if (out_built_brush_hit) *out_built_brush_hit = nullptr;
+		return false;
+	}
+}
+
 void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
 {
 	switch (op->type)
@@ -895,16 +926,11 @@ void EdTickTool_Brush()
 	static float3 ref_a, ref_b, x;
 
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
-	float min_t = FLT_MAX;
-	for (CSGBrush* brush : g_root->built)
-	{
-		int plane_hit;
-		float t = Intersect(mouse_ray, brush, float4x4::Identity(), &plane_hit);
-		if (t < min_t && t >= 0) min_t = t;
-	}
 
+	float min_t = FLT_MAX;
+	bool hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr);
 	float3 p = {};
-	if (min_t < FLT_MAX)
+	if (hit)
 	{
 		p = mouse_ray.Evaluate(min_t);
 		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
@@ -915,7 +941,7 @@ void EdTickTool_Brush()
 		g_brush_tool_phase = EdBrushToolPhase_Inactive;
 	}
 
-	if (min_t < FLT_MAX)
+	if (hit)
 	{
 		DrawSetLayer(Layer_Overlay);
 		DrawPoint(g_brush_tool_start, {0,0,1,0.1});
@@ -928,7 +954,7 @@ void EdTickTool_Brush()
 	{
 		case EdBrushToolPhase_Inactive:
 		{
-			if (min_t < FLT_MAX)
+			if (hit)
 			{
 				g_brush_tool_start = p;
 				if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
@@ -944,7 +970,7 @@ void EdTickTool_Brush()
 			g_brush_tool_end = p;
 			if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
 			{
-				if (min_t < FLT_MAX)
+				if (hit)
 				{
 					just_entered_phase = false;
 					g_brush_tool_phase = EdBrushToolPhase_X;
@@ -1015,7 +1041,7 @@ void EdTickTool_Brush()
 
 	if (g_brush_tool_phase != EdBrushToolPhase_Inactive)
 	{
-		if (!(g_brush_tool_phase == EdBrushToolPhase_InitialDraw && min_t == FLT_MAX))
+		if (!(g_brush_tool_phase == EdBrushToolPhase_InitialDraw && !hit))
 		{
 			DrawSetLayer(Layer_Overlay);
 			DrawBox(g_brush_tool_start, g_brush_tool_end, {0, 0, 1, 0.1 });
@@ -1027,29 +1053,21 @@ void EdTickTool_Brush()
 
 void EdTickTool_Entity()
 {
-
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
-	float min_t = FLT_MAX;
-	for (CSGBrush* brush : g_root->built)
-	{
-		int plane_hit;
-		float t = Intersect(mouse_ray, brush, float4x4::Identity(), &plane_hit);
-		if (t < min_t && t >= 0) min_t = t;
-	}
 
-	float3 p = {};
-	if (min_t < FLT_MAX)
+	float min_t = FLT_MAX;
+	if (EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr))
 	{
+		float3 p = {};
 		p = mouse_ray.Evaluate(min_t);
 		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
-	}
+		DrawPoint(p, {0,1,0,1});
 
-	DrawPoint(p, {0,1,0,1});
-
-	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
-	{
-		EdCreateEntity(g_entity_tool_type, p);
-		EdDeselect();
+		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+		{
+			EdCreateEntity(g_entity_tool_type, p);
+			EdDeselect();
+		}
 	}
 }
 
