@@ -71,3 +71,18 @@ float Unlerp(float2 a, float2 m, float2 b)
 		return (m.y - a.y) / (b.y - a.y);
 	}
 }
+
+inline bool IntersectAxis(float a_min, float a_max, float b_min, float b_max)
+{
+	if (b_min >= a_min && b_min < a_max) return true;
+	if (a_min >= b_min && a_min < b_max) return true;
+	return false;
+}
+
+bool Intersect(const AABB& a, const AABB& b)
+{
+	if (!IntersectAxis(a.min.x, a.max.x, b.min.x, b.max.x)) return false;
+	if (!IntersectAxis(a.min.y, a.max.y, b.min.y, b.max.y)) return false;
+	if (!IntersectAxis(a.min.z, a.max.z, b.min.z, b.max.z)) return false;
+	return true;
+}

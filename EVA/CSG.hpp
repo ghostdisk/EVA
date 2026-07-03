@@ -18,6 +18,7 @@ struct CSGBrush
 {
 	std::vector<CSGPlane> planes  = {};
 	Mesh*                 mesh    = nullptr;
+	AABB                  aabb    = {};
 
 	// userdata
 	EdOp* source = nullptr;

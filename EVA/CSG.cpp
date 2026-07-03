@@ -45,6 +45,9 @@ void CSGBuildBrush(CSGBrush* brush)
 	ZoneScopedN("CSGBuildBrush");
 	CSGClearBrush(brush);
 
+	bool has_points_already = false;
+	brush->aabb = {};
+
 	{
 		// ZoneScopedN("Calculate Corners");
 
@@ -84,6 +87,16 @@ void CSGBuildBrush(CSGBrush* brush)
 							a.points.push_back(p);
 							b.points.push_back(p);
 							c.points.push_back(p);
+
+							if (has_points_already)
+							{
+								brush->aabb.AddPoint(p);
+							}
+							else
+							{
+								has_points_already = true;
+								brush->aabb.Init(p);
+							}
 						}
 					}
 				}
@@ -199,6 +212,7 @@ CSGBrush* CSGCloneBrush(CSGBrush* orig)
 {
 	CSGBrush* copy = CSGCreateBrush();
 	copy->planes = orig->planes;
+	copy->aabb = orig->aabb;
 	return copy;
 }
 
@@ -217,6 +231,12 @@ CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b)
 // Takes ownership of a. b is left intact.
 void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 {
+	if (!Intersect(a->aabb, b->aabb))
+	{
+		out.push_back(a);
+		return;
+	}
+
 	bool fully_inside = true;
 	CSGBrush* x = CSGIntersect(a, b);
 	DEFER(CSGDestroyBrush(x));

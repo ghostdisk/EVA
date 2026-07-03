@@ -204,6 +204,28 @@ struct Plane
 	}
 };
 
+struct AABB
+{
+	float3 min;
+	float3 max;
+
+	void Init(float3 p)
+	{
+		min = p;
+		max = p;
+	}
+
+	void AddPoint(float3 p)
+	{
+		if (p.x < min.x) min.x = p.x;
+		if (p.y < min.y) min.y = p.y;
+		if (p.z < min.z) min.z = p.z;
+		if (p.x > max.x) max.x = p.x;
+		if (p.y > max.y) max.y = p.y;
+		if (p.z > max.z) max.z = p.z;
+	}
+};
+
 struct Ray
 {
 	float3 origin     = {};
@@ -218,3 +240,4 @@ struct Ray
 
 Plane operator*(const float4x4& mat, const Plane& plane);
 inline Plane operator*(const Plane& plane, const float4x4& mat) { return mat * plane; }
+bool Intersect(const AABB& a, const AABB& b);
