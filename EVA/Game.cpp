@@ -1,5 +1,4 @@
 #include <EVA/App.hpp>
-#include <EVA/Collision.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>

@@ -12,7 +12,6 @@ add_executable(EVA
 	"EVA/Camera.cpp"
 	"EVA/Character.cpp"
 	"EVA/ClientGame.cpp"
-	"EVA/Collision.cpp"
 	"EVA/Console.cpp"
 	"EVA/CSG.cpp"
 	"EVA/Editor.cpp"
