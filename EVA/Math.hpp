@@ -243,6 +243,7 @@ inline Plane operator*(const Plane& plane, const float4x4& mat) { return mat * p
 bool Intersect(const AABB& a, const AABB& b);
 
 float Intersect(const Ray& ray, const Plane& plane);
+float Intersect(const Ray& ray, const AABB& aabb);
 float IntersectTriangle(const Ray& ray, const float3& p1, const float3& p2, const float3& p3);
 float DistanceToLineSegment(const Ray& ray, const float3& p1, const float3& p2, float* out_t1 = nullptr, float* out_t2 = nullptr);
 float DistanceRayToLine(const Ray& ray, const float3& a, const float3& b, float* out_t1, float* out_t2);

@@ -16,13 +16,13 @@ EntityTypeMeta ERigidbodyMeta = {
 EntityTypeMeta ECharacterMeta = {
 	.name = "ECharacter",
 	.editor_box_offset = {0,1,0},
-	.editor_box_size = {0.5, 2, 0.5},
+	.editor_box_size = {0.5, 0.5, 2},
 };
 
 EntityTypeMeta EMarkerMeta = {
 	.name = "EMarker",
-	.editor_box_offset = {0,.5,0},
-	.editor_box_size = {.5, .5, .5},
+	.editor_box_offset = {0,0,.25},
+	.editor_box_size = {.25, .25, .25},
 };
 
 EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE]

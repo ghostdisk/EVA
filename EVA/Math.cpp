@@ -1,5 +1,6 @@
 #include <EVA/Math.hpp>
 #include <math.h>
+#include <float.h>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
@@ -86,6 +87,31 @@ bool Intersect(const AABB& a, const AABB& b)
 	if (!IntersectAxis(a.min.y, a.max.y, b.min.y, b.max.y)) return false;
 	if (!IntersectAxis(a.min.z, a.max.z, b.min.z, b.max.z)) return false;
 	return true;
+}
+
+float Intersect(const Ray& ray, const AABB& aabb)
+{
+	float tmin = -FLT_MAX;
+	float tmax = FLT_MAX;
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (fabsf(ray.direction[i]) < 1e-8f)
+		{
+			if (ray.origin[i] < aabb.min[i] || ray.origin[i] > aabb.max[i]) return -1;
+		}
+		else
+		{
+			float t1 = (aabb.min[i] - ray.origin[i]) / ray.direction[i];
+			float t2 = (aabb.max[i] - ray.origin[i]) / ray.direction[i];
+			if (t1 > t2) { float tmp = t1; t1 = t2; t2 = tmp; }
+			if (t1 > tmin) tmin = t1;
+			if (t2 < tmax) tmax = t2;
+		}
+	}
+
+	if (tmin > tmax || tmax < 0) return -1;
+	return tmin >= 0 ? tmin : tmax;
 }
 
 float Intersect(const Ray& ray, const Plane& plane)

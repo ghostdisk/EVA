@@ -635,6 +635,44 @@ bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hi
 	}
 }
 
+AABB EdGetEntityAABB(EdEntity* entity)
+{
+	const EntityTypeMeta* meta = ENTITY_TYPE_META[entity->type];
+	float3 center = entity->position + meta->editor_box_offset;
+	AABB aabb;
+	aabb.min = center - meta->editor_box_size / 2.0f;
+	aabb.max = center + meta->editor_box_size / 2.0f;
+	return aabb;
+}
+
+bool EdRaycastAgainstEntities(const Ray& ray, float* out_t, EdEntity** out_hit)
+{
+	float min_t = FLT_MAX;
+	EdEntity* hit = nullptr;
+	for (EdEntity* entity : g_entities)
+	{
+		float t = Intersect(ray, EdGetEntityAABB(entity));
+		if (t >= 0 && t < min_t)
+		{
+			min_t = t;
+			hit = entity;
+		}
+	}
+
+	if (hit)
+	{
+		if (out_t) *out_t = min_t;
+		if (out_hit) *out_hit = hit;
+		return true;
+	}
+	else
+	{
+		if (out_t) *out_t = FLT_MAX;
+		if (out_hit) *out_hit = nullptr;
+		return false;
+	}
+}
+
 void EdOpGUI(EdOp* op)
 {
 	UIPushId(op);
@@ -760,6 +798,12 @@ void EdDrawSelectionOutline(float4 color)
 			case EdSelectionType_BrushPlane:
 			{
 				EdDrawBrushPlaneOutline(sel.op->brush, sel.index, sel.op->global_transform, color);
+				break;
+			}
+			case EdSelectionType_Entity:
+			{
+				const EntityTypeMeta* meta = ENTITY_TYPE_META[sel.entity->type];
+				DrawAABB(sel.entity->position + meta->editor_box_offset, meta->editor_box_size, color);
 				break;
 			}
 			default:
@@ -935,7 +979,15 @@ void EdTickTool_Select()
 			hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
 		}
 
-		if (hit)
+		float entity_t = FLT_MAX;
+		EdEntity* hit_entity = nullptr;
+		bool hit_ent = EdRaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
+
+		if (hit_ent && (!hit || entity_t < min_t))
+		{
+			EdSelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
+		}
+		else if (hit)
 		{
 			EdSelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
 		}
@@ -1083,6 +1135,16 @@ void EdTickTool_Brush()
 void EdTickTool_Entity()
 {
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+
+	EdEntity* hit_entity = nullptr;
+	if (EdRaycastAgainstEntities(mouse_ray, nullptr, &hit_entity))
+	{
+		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
+		{
+			EdSelectEntity(hit_entity);
+		}
+		return;
+	}
 
 	float min_t = FLT_MAX;
 	if (EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr))
@@ -1276,6 +1338,8 @@ void EdTick()
 
 	for (EdEntity* ent : g_entities)
 	{
+		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
+		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
 		DrawPoint(ent->position, {0,1,0,1});
 	}
 
@@ -1426,6 +1490,43 @@ void EdSaveEntity(FILE* f, EdEntity* entity, int indent)
 	EdIndent(f, indent); fprintf(f, "entity_end\n");
 }
 
+EdEntity* EdLoadEntity(FILE* f)
+{
+	int n;
+	char t[32] = {};
+	n = fscanf(f, "%s", t);
+	assert(n == 1 && strcmp(t, "entity") == 0);
+
+	EdEntity* entity = EdCreateEntity(EntityType_None, {});
+
+	for (;;)
+	{
+		n = fscanf(f, "%s", t);
+		assert(n == 1);
+
+		if (strcmp(t, "type") == 0)
+		{
+			int type;
+			n = fscanf(f, "%d\n", &type);
+			assert(n == 1);
+			assert(type > EntityType_None && type < EntityType_ENUM_SIZE);
+			entity->type = (EntityType)type;
+		}
+		else if (strcmp(t, "position") == 0)
+		{
+			n = fscanf(f, "%f %f %f\n", XYZ(&entity->position));
+			assert(n == 3);
+		}
+		else if (strcmp(t, "entity_end") == 0)
+		{
+			fscanf(f, "\n");
+			break;
+		}
+	}
+
+	return entity;
+}
+
 void EdSaveMap(const char* name)
 {
 	char path[256];
@@ -1494,7 +1595,12 @@ void EdLoadMap(const char* name)
 	int num_entities;
 	int n = fscanf(f, "entities %d", &num_entities);
 	if (n != 1) { ConError("failed to load map"); return; }
+	assert(num_entities >= 0 && num_entities < 1000);
 
+	for (int i = 0; i < num_entities; i++)
+	{
+		EdLoadEntity(f);
+	}
 
 	EdBuild(g_root);
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
