@@ -3,7 +3,7 @@ version 1
 op 2
 	subtract 0
 	position 0.000000 0.000000 0.000000
-	children 21
+	children 22
 		op 1
 			subtract 0
 			position 2.500000 0.000000 0.500000
@@ -391,7 +391,7 @@ op 2
 		op_end
 		op 1
 			subtract 0
-			position 0.000000 0.000000 0.000000
+			position 0.000000 0.157844 0.000000
 			planes 6
 				plane 0.000000 0.000000 1.000000 1.000000
 				plane 0.000000 0.000000 -1.000000 0.000000
@@ -402,38 +402,41 @@ op 2
 		op_end
 		op 1
 			subtract 1
-			position -0.540129 -0.224872 0.429833
+			position -0.540129 -0.353842 0.429833
 			planes 6
-				plane 0.000000 0.000000 1.000000 1.000000
+				plane 0.000000 0.000000 1.000000 1.009255
 				plane 0.000000 0.000000 -1.000000 0.000000
 				plane 1.000000 0.000000 0.000000 1.000000
-				plane -1.000000 0.000000 0.000000 0.000000
+				plane -1.000000 0.000000 0.000000 -0.347346
 				plane 0.000000 1.000000 0.000000 1.000000
+				plane 0.000000 -1.000000 0.000000 -0.418633
+		op_end
+		op 1
+			subtract 0
+			position 6.500000 -6.500000 0.500000
+			planes 6
+				plane 0.000000 0.000000 1.000000 1.500000
+				plane 0.000000 0.000000 -1.000000 0.000000
+				plane 1.000000 0.000000 0.000000 1.500000
+				plane -1.000000 0.000000 0.000000 0.000000
+				plane 0.000000 1.000000 0.000000 1.500000
 				plane 0.000000 -1.000000 0.000000 0.000000
 		op_end
 op_end
-entities 6
+entities 4
 	entity
 		type 4
-		position -1.000000 -5.750000 0.000000
+		position 3.750000 -3.750000 0.000000
 	entity_end
 	entity
 		type 4
-		position 0.750000 -5.250000 0.000000
+		position 5.000000 -3.500000 0.000000
 	entity_end
 	entity
 		type 4
-		position 1.750000 -7.250000 0.000000
+		position 5.500000 -4.750000 0.000000
 	entity_end
 	entity
 		type 4
-		position 0.250000 -8.000000 0.000000
-	entity_end
-	entity
-		type 4
-		position -0.500000 -7.000000 0.000000
-	entity_end
-	entity
-		type 4
-		position 0.500000 -6.500000 0.000000
+		position 4.250000 -5.000000 0.000000
 	entity_end

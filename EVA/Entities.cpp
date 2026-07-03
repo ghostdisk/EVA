@@ -15,7 +15,7 @@ EntityTypeMeta ERigidbodyMeta = {
 
 EntityTypeMeta ECharacterMeta = {
 	.name = "ECharacter",
-	.editor_box_offset = {0,1,0},
+	.editor_box_offset = {0,0,1},
 	.editor_box_size = {0.5, 0.5, 2},
 };
 

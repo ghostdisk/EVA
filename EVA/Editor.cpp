@@ -1192,6 +1192,13 @@ void EdTick()
 		default: break;
 	}
 
+	for (EdEntity* ent : g_entities)
+	{
+		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
+		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
+		DrawPoint(ent->position, {0,1,0,1});
+	}
+
 	DrawSetLayer(Layer_Main);
 	EdDrawSelectionOutline({1,1,1,1});
 	DrawSetLayer(Layer_Overlay);
@@ -1334,13 +1341,6 @@ void EdTick()
 		CSGBrush* b = g_root->built[i];
 		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
-	}
-
-	for (EdEntity* ent : g_entities)
-	{
-		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
-		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
-		DrawPoint(ent->position, {0,1,0,1});
 	}
 
 	g_hover_gizmo_state = g_new_hover_gizmo_state;
