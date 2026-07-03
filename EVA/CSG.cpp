@@ -253,6 +253,8 @@ void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out)
 		if (cut2->planes.size())
 		{
 			fully_inside = false;
+			cut2->sources[0] = a->sources[0];
+			cut2->sources[1] = b->sources[0];
 			out.push_back(cut2);
 		}
 		else

@@ -21,7 +21,7 @@ struct CSGBrush
 	AABB                  aabb    = {};
 
 	// userdata
-	EdOp* source = nullptr;
+	EdOp* sources[2] = {};
 };
 
 CSGBrush*   CSGCreateBrush();

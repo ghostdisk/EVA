@@ -471,8 +471,7 @@ void EdBuild(EdOp* op)
 		case EdOpType_Brush:
 		{
 			op->built = { CSGCloneBrush(op->brush) };
-			op->built[0]->source = op;
-			// CSGBrushTransform()
+			op->built[0]->sources[0] = op;
 			CSGBrushTransform(op->built[0], op->global_transform);
 			break;
 		}
@@ -494,13 +493,11 @@ void EdBuild(EdOp* op)
 					{
 						int old_size = new_set.size();
 						CSGDifference(a, b, new_set);
-						for (int i = old_size; i < new_set.size(); i++) new_set[i]->source = a->source;
 					}
 					if (!child->subtract)
 					{
 						CSGBrush* clone = CSGCloneBrush(b);
-						clone->source = b->source;
-						// CSGBrushTransform(clone, child->global_transform);
+						clone->sources[0] = child;
 						new_set.push_back(clone);
 					}
 					op->built = new_set;
@@ -545,6 +542,68 @@ EdOp* EdCloneOp(EdOp* orig)
 	return clone;
 }
 
+struct Res2
+{
+	EdOp* op       = nullptr;
+	float t        = FLT_MAX;
+	bool  sub      = false;
+};
+
+Res2 EdRaycastAgainstSubtractOpsImpl(const Ray& ray, EdOp* current)
+{
+	switch (current->type)
+	{
+		case EdOpType_Brush:
+		{
+			int plane;
+			float t = Intersect(ray, current->brush, current->global_transform, &plane);
+			if (t >= 0.0f) return { current, t, current->subtract };
+			else return {};
+		}
+		case EdOpType_Stack:
+		{
+			Res2 best_match = {};
+
+			if (current->subtract)
+			{
+				for (EdOp* child : current->children)
+				{
+					Res2 candidate = EdRaycastAgainstSubtractOpsImpl(ray, child);
+					if (candidate.t < best_match.t)
+						best_match = candidate;
+				}
+				best_match.op = current;
+				best_match.sub = true;
+			}
+			else
+			{
+				for (EdOp* child : current->children)
+				{
+					Res2 candidate = EdRaycastAgainstSubtractOpsImpl(ray, child);
+					if (candidate.t < best_match.t && (candidate.sub || !best_match.sub))
+						best_match = candidate;
+				}
+			}
+			return best_match;
+		}
+		default: break;
+	}
+	assert(0);
+	return {};
+}
+
+bool EdRaycastAgainstSubtractOps(const Ray& ray, float* out_t, EdOp** out_hit)
+{
+	auto res = EdRaycastAgainstSubtractOpsImpl(ray, g_root);
+	if (res.op)
+	{
+		*out_hit = res.op;
+		*out_t = res.t;
+		return true;
+	}
+	else return false;
+}
+
 bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit)
 {
 	float min_t = FLT_MAX;
@@ -563,7 +622,7 @@ bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hi
 	if (min_t < FLT_MAX)
 	{
 		if (out_t) *out_t = min_t;
-		if (out_op_hit) *out_op_hit = hit->source;
+		if (out_op_hit) *out_op_hit = hit->sources[0];
 		if (out_built_brush_hit) *out_built_brush_hit = hit;
 		return true;
 	}
@@ -573,37 +632,6 @@ bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hi
 		if (out_op_hit) *out_op_hit = nullptr;
 		if (out_built_brush_hit) *out_built_brush_hit = nullptr;
 		return false;
-	}
-}
-
-void EdMousePickRecursive(EdOp* op, const Ray& mouse_ray, float* min_t, EdOp** out_op, int* out_plane)
-{
-	switch (op->type)
-	{
-		case EdOpType_Brush:
-		{
-			int plane_hit = -1;
-			float t = Intersect(mouse_ray, op->brush, op->global_transform, &plane_hit);
-			if (t < *min_t && t >= 0.0f)
-			{
-				*min_t = t;
-				*out_op = op;
-				*out_plane = plane_hit;
-				break;
-			}
-			else
-			{
-				break;
-			}
-		}
-		case EdOpType_Stack:
-		{
-			EdOp* picked = nullptr;
-			for (EdOp* child : op->children)
-				EdMousePickRecursive(child, mouse_ray, min_t, out_op, out_plane);
-			break;
-		}
-		default: assert(0);
 	}
 }
 
@@ -894,24 +922,26 @@ void EdTickTool_Select()
 	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT) && !g_active_gizmo_state.id)
 	{
 		float min_t = FLT_MAX;
-		EdOp* hit = nullptr;
-		int hit_plane = 0;
+		EdOp* hit_op = nullptr;
+		CSGBrush* hit_brush = nullptr;
 
-		EdMousePickRecursive(g_root, mouse_ray, &min_t, &hit, &hit_plane);
-		if (hit)
+		bool hit = false;
+		if (InputGetButton(SDL_SCANCODE_LALT))
 		{
-			if (InputGetButton(SDL_SCANCODE_LCTRL))
-			{
-				EdSelectPlane(hit, hit_plane, InputGetButton(SDL_SCANCODE_LSHIFT));
-			}
-			else
-			{
-				EdSelectOp(hit, InputGetButton(SDL_SCANCODE_LSHIFT));
-			}
+			hit = EdRaycastAgainstSubtractOps(mouse_ray, &min_t, &hit_op);
 		}
 		else
 		{
-			if (!InputGetButton(SDL_SCANCODE_LSHIFT)) EdDeselect();
+			hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
+		}
+
+		if (hit)
+		{
+			EdSelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
+		}
+		else if (!InputGetButton(SDL_SCANCODE_LSHIFT))
+		{
+			EdDeselect();
 		}
 	}
 
@@ -1385,6 +1415,17 @@ EdOp* EdLoadOp(FILE* f)
 	return op;
 }
 
+void EdSaveEntity(FILE* f, EdEntity* entity, int indent)
+{
+	EdIndent(f, indent); fprintf(f, "entity\n");
+	indent++;
+	EdIndent(f, indent); fprintf(f, "type %d\n", entity->type);
+	EdIndent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(entity->position));
+
+	indent--;
+	EdIndent(f, indent); fprintf(f, "entity_end\n");
+}
+
 void EdSaveMap(const char* name)
 {
 	char path[256];
@@ -1400,12 +1441,31 @@ void EdSaveMap(const char* name)
 	fprintf(f, "version 1\n");
 	EdSaveOp(f, g_root, 0);
 
+	fprintf(f, "entities %d\n", (int)g_entities.size());
+	for (EdEntity* entity : g_entities)
+	{
+		EdSaveEntity(f, entity, 1);
+	}
+
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
+}
+
+void EdUnloadMap()
+{
+	if (g_root)
+	{
+		EdDestroyOp(g_root);
+		g_root = nullptr;
+	}
+	for (EdEntity* entity : g_entities)
+	{
+		EdDestroyEntity(entity);
+	}
+	g_entities.clear();
 }
 
 void EdLoadMap(const char* name)
 {
-
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
@@ -1416,11 +1476,7 @@ void EdLoadMap(const char* name)
 	}
 	DEFER(fclose(f));
 
-	if (g_root)
-	{
-		EdDestroyOp(g_root);
-		g_root = nullptr;
-	}
+	EdUnloadMap();
 
 	int version = 0;
 	fscanf(f, "type mpe\n");
@@ -1433,8 +1489,14 @@ void EdLoadMap(const char* name)
 
 	g_root = EdLoadOp(f);
 	g_root->global_transform = float4x4::Identity();
-	EdBuild(g_root);
 
+
+	int num_entities;
+	int n = fscanf(f, "entities %d", &num_entities);
+	if (n != 1) { ConError("failed to load map"); return; }
+
+
+	EdBuild(g_root);
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 }
 
