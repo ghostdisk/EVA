@@ -1,5 +1,5 @@
-/*
-#include <EVA/ServerGame.hpp>
+#include <EVA/GameServer.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Binary.hpp>
 #include <EVA/Wire.hpp>
@@ -10,17 +10,37 @@
 #include <enet/enet.h>
 #include <stdio.h>
 
-static EID NewEID(ServerGame* server)
+
+void Con_host(ConParser& parser)
+{
+	int port = parser.IntArg(27015);
+	ConLog("Hosting at %d", port);
+
+}
+
+
+void GameServerInitialize()
+{
+}
+
+static EID NewEID(GameServer* server)
 {
 	return server->next_eid++;
 }
 
-void ServerGameInit(ServerGame* server, const char* name)
+void GameServerInit(GameServer* server, const char* ip, int port)
 {
-	GameInit(server, name);
+	ENetAddress address = {};
+	address.host = ENET_HOST_ANY;
+	address.port = port;
+	server->host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
+	if (!server->host)
+	{
+		Fatal("enet_host_create failed");
+	}
 }
 
-static void OnPlayerDisconnected(ServerGame* server, ServerPlayer* player)
+static void OnPlayerDisconnected(GameServer* server, ServerPlayer* player)
 {
 }
 
@@ -38,7 +58,7 @@ static bool Send(ServerPlayer* player, const U8* message, size_t message_size)
 	}
 }
 
-static void Broadcast(ServerGame* server, const U8* message, size_t message_size)
+static void Broadcast(GameServer* server, const U8* message, size_t message_size)
 {
 	for (ServerPlayer* player : server->players)
 	{
@@ -57,7 +77,7 @@ static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity)
 	WriteBinT<U32>(writer, entity->mesh ? entity->mesh->id : 0);
 }
 
-static void SendHello(ServerGame* server, ServerPlayer* player)
+static void SendHello(GameServer* server, ServerPlayer* player)
 {
 	BinaryWriter writer;
 	BinaryWriterInit(writer);
@@ -73,7 +93,7 @@ static void SendHello(ServerGame* server, ServerPlayer* player)
 }
 
 
-void ServerGameTick(ServerGame* server, double dt)
+void ServerGameTick(GameServer* server, double dt)
 {
 	if (server->host)
 	{
@@ -128,15 +148,6 @@ void ServerGameTick(ServerGame* server, double dt)
 	}
 }
 
-void ServerListen(ServerGame* server, int port)
+void ServerListen(GameServer* server, int port)
 {
-	ENetAddress address = {};
-	address.host = ENET_HOST_ANY;
-	address.port = port;
-	server->host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
-	if (!server->host)
-	{
-		Fatal("enet_host_create failed");
-	}
 }
-*/

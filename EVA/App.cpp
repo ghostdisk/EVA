@@ -14,6 +14,8 @@
 #include <EVA/Entities.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Game.hpp>
+#include <EVA/GameClient.hpp>
+#include <EVA/GameServer.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/MainMenu.hpp>
@@ -120,6 +122,8 @@ int main()
 	InputInitialize();
 	UIInitialize();
 	EdInitialize();
+	GameClientInitialize();
+	GameServerInitialize();
 
 	// InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_A, -1.0f);
 	// InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_D,  1.0f);

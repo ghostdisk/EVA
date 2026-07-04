@@ -7,6 +7,8 @@
 struct GLTFScene;
 struct CSGBrush;
 struct PhysicsWorld;
+struct GameServer;
+struct GameClient;
 
 struct Game
 {
@@ -18,6 +20,8 @@ struct Game
 	PhysicsWorld*      physics                = nullptr;
 	Mesh*              level_mesh             = nullptr;
 	PhysicsCollider    level_mesh_collider    = {};
+	GameServer*        server                 = nullptr;
+	GameClient*        client                 = nullptr;
 };
 
 void GameInitialize();
@@ -29,3 +33,5 @@ void GameTickAll(double dt);
 void GameLoadMap(Game* game, const char* map);
 
 EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);
+
+extern Game*   g_active_game;

@@ -14,8 +14,8 @@
 #include <cglm/quat.h>
 #include <tracy/Tracy.hpp>
 
-Game*    g_games[8]        = {};
-Game*    g_active_game     = nullptr;
+Game* g_games[8]        = {};
+Game* g_active_game     = nullptr;
 
 ConVar cvar_game = {
 	.name = "game",
