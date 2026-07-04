@@ -91,10 +91,8 @@ void GameInit(Game* game)
 
 	game->physics = PhysicsWorldCreate();
 
-	// PhysicsCollider ground_collider = PhysicsCreateBoxCollider({ 128, 0.25, 128 });
-	PhysicsCollider box_collider = PhysicsCreateBoxCollider({ 1, 1, 1 });
-	// PhysicsBody ground = PhysicsCreateBody(game->physics, ground_collider, {0,0,-2}, {0,0,0,1}, true);
 
+#if 0
 	for (int i = 0; i < 10; i++)
 	{
 		Entity* entity = game->entity_manager.CreateEntity(EntityType_Rigidbody, 1);
@@ -106,6 +104,7 @@ void GameInit(Game* game)
 		PhysicsBody box = PhysicsCreateBody(game->physics, box_collider, entity->position, entity->rotation, false);
 		entity->body = box.body;
 	}
+#endif
 }
 
 void GameTick(Game* game, double dt)
@@ -115,8 +114,7 @@ void GameTick(Game* game, double dt)
 	PhysicsTick(game->physics, dt);
 	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
 
-	game->entity_manager.pool_Rigidbody.Iterate(
-		[](ERigidbody* rb)
+	game->entity_manager.pool_Rigidbody.Iterate( [](ERigidbody* rb)
 		{
 			rb->position = ConvertPos(rb->body->GetPosition());
 			rb->rotation = ConvertQuat(rb->body->GetRotation());
@@ -246,8 +244,19 @@ void GameLoadMap(Game* game, const char* name)
 		n = fscanf(f, "%u", &indices[i]);
 		assert(n == 1);
 	}
+	fscanf(f, "\n");
 
 	game->level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
 	game->level_mesh_collider = PhysicsCreateMeshCollider(num_vertices, vertices.data(), num_indices, indices.data());
 	PhysicsCreateBody(game->physics, game->level_mesh_collider, {}, {0,0,0,1}, true);
+
+	int num_entities;
+	n = fscanf(f, "entities %d\n", &num_entities);
+	if (n != 1) { ConError("failed to load map"); return; }
+	assert(num_entities >= 0 && num_entities < 1000);
+
+	for (int i = 0; i < num_entities; i++)
+	{
+		Entity* entity = EntityLoad(&game->entity_manager, f);
+	}
 }
