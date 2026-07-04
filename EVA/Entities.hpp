@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
+#include <stdio.h> // FILE
 
 typedef U32 EID;
 struct Mesh;
@@ -213,3 +214,5 @@ X_FOREACH_ENTITY()
 void EntityManagerInit(EntityManager& entity_manager);
 void EntityManagerDeinit(EntityManager& entity_manager);
 void EntitySetName(Entity* entity, const char* name);
+Entity* EntityLoad(EntityManager* entity_manager, FILE* f);
+void EntitySave(FILE* f, Entity* entity, int indent);

@@ -1464,56 +1464,6 @@ EdOp* EdLoadOp(FILE* f)
 	return op;
 }
 
-void EdSaveEntity(FILE* f, Entity* entity, int indent)
-{
-	EdIndent(f, indent); fprintf(f, "entity %d %d\n", (int)entity->type, (int)entity->eid);
-	indent++;
-	EdIndent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(entity->position));
-
-	indent--;
-	EdIndent(f, indent); fprintf(f, "entity_end\n");
-}
-
-Entity* EdLoadEntity(FILE* f)
-{
-	int n;
-	char buf[32] = {};
-
-	int eid, type;
-	n = fscanf(f, "entity %d %d\n", &type, &eid);
-	assert(n == 2);
-
-	Entity* entity = g_entity_manager.CreateEntity((EntityType)type, eid);
-	if (eid <= g_next_eid) g_next_eid = eid + 1;
-
-	for (;;)
-	{
-		n = fscanf(f, "%s", buf);
-		assert(n == 1);
-
-		if (strcmp(buf, "type") == 0)
-		{
-			int type;
-			n = fscanf(f, "%d\n", &type);
-			assert(n == 1);
-			assert(type > EntityType_None && type < EntityType_ENUM_SIZE);
-			entity->type = (EntityType)type;
-		}
-		else if (strcmp(buf, "position") == 0)
-		{
-			n = fscanf(f, "%f %f %f\n", XYZ(&entity->position));
-			assert(n == 3);
-		}
-		else if (strcmp(buf, "entity_end") == 0)
-		{
-			fscanf(f, "\n");
-			break;
-		}
-	}
-
-	return entity;
-}
-
 void EdSaveMap(const char* name)
 {
 	char path[256];
@@ -1531,12 +1481,8 @@ void EdSaveMap(const char* name)
 
 	int num_entities = 0;
 	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
-
 	fprintf(f, "entities %d\n", num_entities);
-	g_entity_manager.Iterate([&](Entity* entity)
-		{
-			EdSaveEntity(f, entity, 1);
-		});
+	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 }
@@ -1586,7 +1532,8 @@ void EdLoadMap(const char* name)
 
 	for (int i = 0; i < num_entities; i++)
 	{
-		EdLoadEntity(f);
+		Entity* ent = EntityLoad(&g_entity_manager, f);
+		if (ent->eid >= g_next_eid) g_next_eid = ent->eid + 1;
 	}
 
 	EdBuild(g_root);
@@ -1652,10 +1599,8 @@ void EdCompileMap()
 
 	int num_entities = 0;
 	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
-	g_entity_manager.Iterate([&](Entity* entity)
-		{
-			EdSaveEntity(f, entity, 1);
-		});
+	fprintf(f, "entities %d\n", num_entities);
+	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 }
 
 void EdInitialize()
