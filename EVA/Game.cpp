@@ -1,5 +1,7 @@
 #include <EVA/App.hpp>
 #include <EVA/Game.hpp>
+#include <EVA/GameServer.hpp>
+#include <EVA/GameClient.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Library.hpp>
@@ -110,6 +112,9 @@ void GameInit(Game* game)
 void GameTick(Game* game, double dt)
 {
 	ZoneScopedN("GameTick");
+
+	if (game->server) GameServerTick(game->server, dt);
+	if (game->client) GameClientTick(game->client, dt);
 
 	PhysicsTick(game->physics, dt);
 	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
