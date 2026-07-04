@@ -33,17 +33,11 @@ enum EdSelectionType
 	EdSelectionType_Entity,
 };
 
-struct EdEntity
-{
-	EntityType type       = EntityType_None;
-	float3     position   = {};
-};
-
 struct EdSelection
 {
 	EdSelectionType type   = EdSelectionType_None;
 	EdOp*           op     = nullptr;
-	EdEntity*       entity = nullptr;
+	Entity*         entity = nullptr;
 	int             index  = 0; // used by BrushPlane selection, face index
 };
 
@@ -67,8 +61,9 @@ enum EdBrushToolPhase
 
 Camera g_editor_camera = {};
 
+static EID                      g_next_eid             = 1;
+static EntityManager            g_entity_manager       = {};
 static EdOp*                    g_root                 = nullptr;
-static std::vector<EdEntity*>   g_entities             = {};
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
 static EdTool                   g_tool                 = EdTool_Select;
@@ -198,7 +193,7 @@ void EdSelectOp(EdOp* op, bool additive = false)
 	});
 }
 
-void EdSelectEntity(EdEntity* entity, bool additive = false)
+void EdSelectEntity(Entity* entity, bool additive = false)
 {
 	if (!additive) EdDeselect();
 
@@ -221,7 +216,7 @@ bool EdIsSelected(EdOp* op)
 	return false;
 }
 
-bool EdIsSelected(EdEntity* entity)
+bool EdIsSelected(Entity* entity)
 {
 	for (const EdSelection& sel : g_selection)
 		if (sel.type == EdSelectionType_Entity && sel.entity == entity)
@@ -258,26 +253,16 @@ void EdRemoveOpFromTree(EdOp* op)
 	}
 }
 
-EdEntity* EdCreateEntity(EntityType type, float3 pos)
+Entity* EdCreateEntity(EntityType type, float3 pos)
 {
-	EdEntity* entity = new EdEntity();
-	entity->type = type;
+	Entity* entity = g_entity_manager.CreateEntity(type, g_next_eid++);
 	entity->position = pos;
-	g_entities.push_back(entity);
 	return entity;
 }
 
-void EdDestroyEntity(EdEntity* entity)
+void EdDestroyEntity(Entity* entity)
 {
-	for (int i = 0; i < g_entities.size(); i++)
-	{
-		if (g_entities[i] == entity)
-		{
-			g_entities.erase(g_entities.begin() + i);
-			break;
-		}
-	}
-	delete entity;
+	g_entity_manager.DestroyEntity(entity);
 }
 
 void EdDestroyOp(EdOp* op)
@@ -635,7 +620,7 @@ bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hi
 	}
 }
 
-AABB EdGetEntityAABB(EdEntity* entity)
+AABB EdGetEntityAABB(Entity* entity)
 {
 	const EntityTypeMeta* meta = ENTITY_TYPE_META[entity->type];
 	float3 center = entity->position + meta->editor_box_offset;
@@ -645,19 +630,19 @@ AABB EdGetEntityAABB(EdEntity* entity)
 	return aabb;
 }
 
-bool EdRaycastAgainstEntities(const Ray& ray, float* out_t, EdEntity** out_hit)
+bool EdRaycastAgainstEntities(const Ray& ray, float* out_t, Entity** out_hit)
 {
 	float min_t = FLT_MAX;
-	EdEntity* hit = nullptr;
-	for (EdEntity* entity : g_entities)
-	{
-		float t = Intersect(ray, EdGetEntityAABB(entity));
-		if (t >= 0 && t < min_t)
+	Entity* hit = nullptr;
+	g_entity_manager.Iterate([&](Entity* entity)
 		{
-			min_t = t;
-			hit = entity;
-		}
-	}
+			float t = Intersect(ray, EdGetEntityAABB(entity));
+			if (t >= 0 && t < min_t)
+			{
+				min_t = t;
+				hit = entity;
+			}
+		});
 
 	if (hit)
 	{
@@ -980,7 +965,7 @@ void EdTickTool_Select()
 		}
 
 		float entity_t = FLT_MAX;
-		EdEntity* hit_entity = nullptr;
+		Entity* hit_entity = nullptr;
 		bool hit_ent = EdRaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
 
 		if (hit_ent && (!hit || entity_t < min_t))
@@ -1136,7 +1121,7 @@ void EdTickTool_Entity()
 {
 	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
 
-	EdEntity* hit_entity = nullptr;
+	Entity* hit_entity = nullptr;
 	if (EdRaycastAgainstEntities(mouse_ray, nullptr, &hit_entity))
 	{
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))
@@ -1192,12 +1177,12 @@ void EdTick()
 		default: break;
 	}
 
-	for (EdEntity* ent : g_entities)
-	{
-		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
-		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
-		DrawPoint(ent->position, {0,1,0,1});
-	}
+	g_entity_manager.Iterate([&](Entity* ent)
+		{
+			const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
+			DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
+			DrawPoint(ent->position, {0,1,0,1});
+		});
 
 	DrawSetLayer(Layer_Main);
 	EdDrawSelectionOutline({1,1,1,1});
@@ -1314,22 +1299,22 @@ void EdTick()
 
 		if (UIBeginTreeNode("Entities"))
 		{
-			for (EdEntity* entity : g_entities)
-			{
-				UIPushId(entity);
-				DEFER(UIPopId());
-
-				UITreeNodeFlags flags = UITreeNodeFlags_Leaf;
-				if (EdIsSelected(entity)) flags |= UITreeNodeFlags_Selected;
-
-				UIBox* tree_node = nullptr;
-				if (UIBeginTreeNode("Entity", &tree_node, flags)) UIEndTreeNode();
-
-				if (tree_node->Clicked())
+			g_entity_manager.Iterate([&](Entity* entity)
 				{
-					EdSelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
-				}
-			}
+					UIPushId(entity);
+					DEFER(UIPopId());
+
+					UITreeNodeFlags flags = UITreeNodeFlags_Leaf;
+					if (EdIsSelected(entity)) flags |= UITreeNodeFlags_Selected;
+
+					UIBox* tree_node = nullptr;
+					if (UIBeginTreeNode("Entity", &tree_node, flags)) UIEndTreeNode();
+
+					if (tree_node->Clicked())
+					{
+						EdSelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
+					}
+				});
 			UIEndTreeNode();
 		}
 
@@ -1479,32 +1464,34 @@ EdOp* EdLoadOp(FILE* f)
 	return op;
 }
 
-void EdSaveEntity(FILE* f, EdEntity* entity, int indent)
+void EdSaveEntity(FILE* f, Entity* entity, int indent)
 {
-	EdIndent(f, indent); fprintf(f, "entity\n");
+	EdIndent(f, indent); fprintf(f, "entity %d %d\n", (int)entity->type, (int)entity->eid);
 	indent++;
-	EdIndent(f, indent); fprintf(f, "type %d\n", entity->type);
 	EdIndent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(entity->position));
 
 	indent--;
 	EdIndent(f, indent); fprintf(f, "entity_end\n");
 }
 
-EdEntity* EdLoadEntity(FILE* f)
+Entity* EdLoadEntity(FILE* f)
 {
 	int n;
-	char t[32] = {};
-	n = fscanf(f, "%s", t);
-	assert(n == 1 && strcmp(t, "entity") == 0);
+	char buf[32] = {};
 
-	EdEntity* entity = EdCreateEntity(EntityType_None, {});
+	int eid, type;
+	n = fscanf(f, "entity %d %d\n", &type, &eid);
+	assert(n == 2);
+
+	Entity* entity = g_entity_manager.CreateEntity((EntityType)type, eid);
+	if (eid <= g_next_eid) g_next_eid = eid + 1;
 
 	for (;;)
 	{
-		n = fscanf(f, "%s", t);
+		n = fscanf(f, "%s", buf);
 		assert(n == 1);
 
-		if (strcmp(t, "type") == 0)
+		if (strcmp(buf, "type") == 0)
 		{
 			int type;
 			n = fscanf(f, "%d\n", &type);
@@ -1512,12 +1499,12 @@ EdEntity* EdLoadEntity(FILE* f)
 			assert(type > EntityType_None && type < EntityType_ENUM_SIZE);
 			entity->type = (EntityType)type;
 		}
-		else if (strcmp(t, "position") == 0)
+		else if (strcmp(buf, "position") == 0)
 		{
 			n = fscanf(f, "%f %f %f\n", XYZ(&entity->position));
 			assert(n == 3);
 		}
-		else if (strcmp(t, "entity_end") == 0)
+		else if (strcmp(buf, "entity_end") == 0)
 		{
 			fscanf(f, "\n");
 			break;
@@ -1542,11 +1529,14 @@ void EdSaveMap(const char* name)
 	fprintf(f, "version 1\n");
 	EdSaveOp(f, g_root, 0);
 
-	fprintf(f, "entities %d\n", (int)g_entities.size());
-	for (EdEntity* entity : g_entities)
-	{
-		EdSaveEntity(f, entity, 1);
-	}
+	int num_entities = 0;
+	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
+
+	fprintf(f, "entities %d\n", num_entities);
+	g_entity_manager.Iterate([&](Entity* entity)
+		{
+			EdSaveEntity(f, entity, 1);
+		});
 
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 }
@@ -1558,11 +1548,8 @@ void EdUnloadMap()
 		EdDestroyOp(g_root);
 		g_root = nullptr;
 	}
-	for (EdEntity* entity : g_entities)
-	{
-		EdDestroyEntity(entity);
-	}
-	g_entities.clear();
+	EntityManagerDeinit(g_entity_manager);
+	EntityManagerInit(g_entity_manager);
 }
 
 void EdLoadMap(const char* name)
@@ -1593,7 +1580,7 @@ void EdLoadMap(const char* name)
 
 
 	int num_entities;
-	int n = fscanf(f, "entities %d", &num_entities);
+	int n = fscanf(f, "entities %d\n", &num_entities);
 	if (n != 1) { ConError("failed to load map"); return; }
 	assert(num_entities >= 0 && num_entities < 1000);
 
@@ -1663,11 +1650,12 @@ void EdCompileMap()
 	}
 	fprintf(f, "\n");
 
-	fprintf(f, "entities %d\n", (int)g_entities.size());
-	for (EdEntity* entity : g_entities)
-	{
-		EdSaveEntity(f, entity, 1);
-	}
+	int num_entities = 0;
+	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
+	g_entity_manager.Iterate([&](Entity* entity)
+		{
+			EdSaveEntity(f, entity, 1);
+		});
 }
 
 void EdInitialize()
@@ -1813,6 +1801,8 @@ void EdInitialize()
 	g_root = EdCreateOp();
 	g_root->type = EdOpType_Stack;
 	g_root->global_transform = float4x4::Identity();
+
+	EntityManagerInit(g_entity_manager);
 
 	CameraInit(g_editor_camera);
 	g_editor_camera.position.y = -10;

@@ -120,6 +120,12 @@ struct EntityPool
 		this->type = type;
 	}
 
+	void Deinit()
+	{
+		free(begin);
+		*this = {};
+	}
+
 	TEntity* CreateEntity(EID eid)
 	{
 		TEntity* entity = nullptr;
@@ -190,8 +196,20 @@ X_FOREACH_ENTITY()
 			default: assert(0); return nullptr;
 		}
 	}
+
+	void DestroyEntity(Entity* entity)
+	{
+		switch (entity->type)
+		{
+			#define X(name, id, lim) case EntityType_ ## name: pool_ ## name.DestroyEntity((E ## name*)entity); return;
+			X_FOREACH_ENTITY()
+			#undef X
+			default: assert(0); return;
+		}
+	}
 };
 
 
 void EntityManagerInit(EntityManager& entity_manager);
+void EntityManagerDeinit(EntityManager& entity_manager);
 void EntitySetName(Entity* entity, const char* name);

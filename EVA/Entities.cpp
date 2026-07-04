@@ -36,8 +36,14 @@ EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE]
 
 void EntityManagerInit(EntityManager& entity_manager)
 {
+	#define X(name, id, lim) entity_manager.pool_ ## name.Init(lim,   EntityType_ ## name);
+	X_FOREACH_ENTITY()
+	#undef X
+}
 
-	#define X(name, id, lim) entity_manager.pool_ ## name.Init    (lim,   EntityType_ ## name);
+void EntityManagerDeinit(EntityManager& entity_manager)
+{
+	#define X(name, id, lim) entity_manager.pool_ ## name.Deinit();
 	X_FOREACH_ENTITY()
 	#undef X
 }

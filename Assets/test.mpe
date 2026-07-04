@@ -423,20 +423,13 @@ op 2
 				plane 0.000000 -1.000000 0.000000 0.000000
 		op_end
 op_end
-entities 4
-	entity
-		type 4
-		position 3.750000 -3.750000 0.000000
+entities 3
+	entity 4 1
+		position -1.000000 -6.250000 0.000000
 	entity_end
-	entity
-		type 4
-		position 5.000000 -3.500000 0.000000
+	entity 4 2
+		position 0.500000 -5.500000 0.000000
 	entity_end
-	entity
-		type 4
-		position 5.500000 -4.750000 0.000000
-	entity_end
-	entity
-		type 4
-		position 4.250000 -5.000000 0.000000
+	entity 4 3
+		position 1.000000 -7.250000 0.000000
 	entity_end
