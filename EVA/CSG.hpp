@@ -8,14 +8,12 @@ struct CSGBrush;
 struct UIContext;
 struct EdOp;
 
-struct CSGPlane
-{
+struct CSGPlane {
 	Plane               plane   = {};
 	std::vector<float3> points  = {};
 };
 
-struct CSGBrush
-{
+struct CSGBrush {
 	std::vector<CSGPlane> planes  = {};
 	Mesh*                 mesh    = nullptr;
 	AABB                  aabb    = {};

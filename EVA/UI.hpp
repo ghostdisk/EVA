@@ -16,22 +16,19 @@ typedef union SDL_Event SDL_Event;
 #define COLOR_BUTTON_HOVER      COLOR_RGB(142, 27, 62)
 #define COLOR_BUTTON_ACTIVE     COLOR_RGB(255, 66, 110)
 
-struct UILayoutMode
-{
+struct UILayoutMode {
 	void (*Pass1)(UIBox* box) = nullptr;
 	void (*Pass2)(UIBox* box) = nullptr;
 };
 
-enum UIAlignment : U8
-{
+enum UIAlignment : U8 {
 	UIAlignment_Start   = 0,
 	UIAlignment_Center  = 1,
 	UIAlignment_End     = 2,
 	UIAlignment_Stretch = 3,
 };
 
-enum UIBoxFlagBits : U32
-{
+enum UIBoxFlagBits : U32 {
 	UIBoxFlags_None          = 0,
 	UIBoxFlags_UsedThisFrame = 0x01,
 	UIBoxFlags_Hover         = 0x02,
@@ -42,14 +39,12 @@ enum UIBoxFlagBits : U32
 };
 typedef U32 UIBoxFlags; 
 
-enum UIAxis : U8
-{
+enum UIAxis : U8 {
 	UIAxis_Horizontal = 0,
 	UIAxis_Vertical = 1,
 };
 
-enum UIEventType
-{
+enum UIEventType {
 	UIEventType_None = 0,
 	UIEventType_Focus,
 	UIEventType_Unfocus,
@@ -57,22 +52,18 @@ enum UIEventType
 	UIEventType_Draw,
 };
 
-struct UIEvent
-{
+struct UIEvent {
 	UIEventType type = UIEventType_None;
 
-	union
-	{
-		struct
-		{
+	union {
+		struct {
 			const char* text;
 		} text;
 		int dummy = 0;
 	};
 };
 
-struct UIBox
-{
+struct UIBox {
 	U32        id              = 0; 
 	UIBoxFlags flags           = UIBoxFlags_None;
 	UIBox*     parent          = nullptr;
@@ -123,8 +114,7 @@ struct UIBox
 	bool Focused() { return flags & UIBoxFlags_Focus; }
 };
 
-struct UIContext
-{
+struct UIContext {
 	Font*               default_font     = nullptr;
 	std::vector<UIBox*> all_boxes        = {};
 	std::vector<U32>    id_stack         = {};
@@ -134,7 +124,6 @@ struct UIContext
 	UIBox*              focus_box        = nullptr;
 	bool                captures_mouse   = false;
 };
-
 
 void UIInitialize();
 void UIContextInit(UIContext& ui, Font* default_font);
@@ -156,8 +145,7 @@ extern UILayoutMode UILayoutMode_Fixed;
 // Widgets
 ////////////////////////////////////////////////////////////
 
-enum UIButtonFlagBits : U32
-{
+enum UIButtonFlagBits : U32 {
 	UIButtonFlags_None = 0,
 	UIButtonFlags_Small = 0x01,
 	UIButtonFlags_Toggle = 0x02,
@@ -169,8 +157,7 @@ bool UIButton(const char* text, UIButtonFlags flags = 0);
 UIBox* UILabel(const char* text, int text_len = -1);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
 
-enum UITreeNodeFlagBits : U32
-{
+enum UITreeNodeFlagBits : U32 {
 	UITreeNodeFlags_None        = 0x00,
 	UITreeNodeFlags_Leaf        = 0x01,
 	UITreeNodeFlags_DefaultOpen = 0x02,

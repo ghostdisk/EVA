@@ -2,8 +2,7 @@
 #include <EVA/Common.hpp>
 #include <vector>
 
-struct Hash
-{
+struct Hash {
 	U32 hash = 0;
 
 	Hash() {}
@@ -15,8 +14,7 @@ struct Hash
 	inline operator U32() const { return hash; }
 };
 
-struct HashStack
-{
+struct HashStack {
 	std::vector<U32> stack;
 
 	void Reset();

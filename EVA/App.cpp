@@ -30,14 +30,12 @@
 #define SCREEN_LOG_Y         400
 #define SCREEN_LOG_SHIFT_AMT 0.075f
 
-struct ScreenLogEntry
-{
+struct ScreenLogEntry {
 	char* text;
 	float t;
 };
 
-struct NextFrameCallback
-{
+struct NextFrameCallback {
 	void (*callback)(void* userdata);
 	void* userdata;
 };
@@ -52,8 +50,7 @@ float  g_screen_log_stagger = 0.0f;
 
 // ------------------------------------------------------------
 
-void ScreenLog(const char* fmt, ...)
-{
+void ScreenLog(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char* copy = ArenaVprintf(FrameArena, fmt, args);
@@ -62,8 +59,7 @@ void ScreenLog(const char* fmt, ...)
 
 	bool inc = false;
 	for (ScreenLogEntry& existing : g_screen_logs) if (existing.t < SCREEN_LOG_SHIFT_AMT) { inc = true; break; }
-	if (inc) for (ScreenLogEntry& existing : g_screen_logs)
-	{
+	if (inc) for (ScreenLogEntry& existing : g_screen_logs) {
 		existing.t = roundf(existing.t / SCREEN_LOG_SHIFT_AMT + 1) * SCREEN_LOG_SHIFT_AMT;
 	}
 
@@ -73,30 +69,24 @@ void ScreenLog(const char* fmt, ...)
 	});
 }
 
-void QueueForNextFrame(void (*callback)(void* userdata), void* userdata)
-{
+void QueueForNextFrame(void (*callback)(void* userdata), void* userdata) {
 	g_next_frame_callbacks.push_back({ callback, userdata });
 }
 
-void AppSetMode(AppMode mode, Game* game)
-{
+void AppSetMode(AppMode mode, Game* game) {
 	g_app_mode = mode;
 
-	switch (g_app_mode)
-	{
-		case AppMode_MainMenu:
-		{
+	switch (g_app_mode) {
+		case AppMode_MainMenu: {
 			break;
 		}
-		case AppMode_Editor:
-		{
+		case AppMode_Editor: {
 			assert(!game);
 			g_active_game = nullptr;
 			g_current_camera = &g_editor_camera;
 			break;
 		}
-		case AppMode_Game:
-		{
+		case AppMode_Game: {
 			assert(game);
 			g_active_game = game;
 			g_current_camera = &game->camera;
@@ -106,8 +96,7 @@ void AppSetMode(AppMode mode, Game* game)
 	}
 }
 
-int main()
-{
+int main() {
 	ArenaInitialize();
 	RotateFrameArenas();
 	PlatformInitialize();
@@ -125,18 +114,10 @@ int main()
 	GameClientInitialize();
 	GameServerInitialize();
 
-	// InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_A, -1.0f);
-	// InputBindKey(InputAxis_Horizontal, SDL_SCANCODE_D,  1.0f);
-	// InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_S, -1.0f);
-	// InputBindKey(InputAxis_Vertical,   SDL_SCANCODE_W,  1.0f);
-	//InputBindKey(InputAxis_Fly,        SDL_SCANCODE_Q, -1.0f);
-	//InputBindKey(InputAxis_Fly,        SDL_SCANCODE_E,  1.0f);
-
 	AppSetMode(AppMode_MainMenu, nullptr);
 	ConExec("exec autoexec.cfg");
 
-	while (!g_quit)
-	{
+	while (!g_quit) {
 		RotateFrameArenas();
 		PlatformBeginFrame();
 
@@ -144,8 +125,7 @@ int main()
 		UIBeginFrame();
 
 		SDL_Event event;
-		while (SDL_PollEvent(&event))
-		{
+		while (SDL_PollEvent(&event)) {
 			if (PlatformProcessSDLEvent(&event)) continue;
 			if (UIProcessSDLEvent(&event)) continue;
 			if (InputProcessSDLEvent(&event)) continue;
@@ -157,20 +137,16 @@ int main()
 
 		GameTickAll(g_delta_time);
 
-		switch (g_app_mode)
-		{
-			case AppMode_Game:
-			{
+		switch (g_app_mode) {
+			case AppMode_Game: {
 				GameDraw(g_active_game);
 				break;
 			}
-			case AppMode_MainMenu:
-			{
+			case AppMode_MainMenu: {
 				MainMenuTick();
 				break;
 			}
-			case AppMode_Editor:
-			{
+			case AppMode_Editor: {
 				EdTick();
 				break;
 			}
@@ -182,16 +158,14 @@ int main()
 		UIDraw();
 
 		// --- screen logs --------------------------------------------
-		for (int i = 0; i < g_screen_logs.size(); i++)
-		{
+		for (int i = 0; i < g_screen_logs.size(); i++) {
 			ScreenLogEntry& entry = g_screen_logs[i];
 			float2 size = MeasureText(Library::fnt_arial, entry.text);
 			DrawText(Library::fnt_arial, entry.text, -1, g_window_size.x / 2 - size.x/2, SCREEN_LOG_Y - entry.t * 300.0f, float4(1,1,1, 1.0f - entry.t * entry.t));
 			g_screen_log_stagger -= 2 * g_delta_time;
 			if (g_screen_log_stagger < 0) g_screen_log_stagger = 0;
 			if (g_screen_log_stagger < 1) entry.t += (1.0f - g_screen_log_stagger) * g_delta_time / SCREEN_LOG_DURATION;
-			if (entry.t > 1)
-			{
+			if (entry.t > 1) {
 				free(entry.text);
 				g_screen_logs[i] = g_screen_logs.back();
 				g_screen_logs.pop_back();

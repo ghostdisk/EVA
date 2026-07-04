@@ -6,8 +6,7 @@ layout (location = 2)      out vec4 v_Tint;
 
 layout (location = 0) uniform vec2 u_Framebuffer;
 
-struct DrawQuad
-{
+struct DrawQuad {
 	int mode;
 	int pad0;
 	int pad1;
@@ -17,13 +16,11 @@ struct DrawQuad
 	vec4 tint;
 };
 
-layout (std430, binding = 0) buffer Quads
-{
+layout (std430, binding = 0) buffer Quads {
 	DrawQuad quads[];
 };
 
-void main()
-{
+void main() {
 	DrawQuad quad = quads[gl_InstanceID];
 	vec2 mask = a_Position.xy;
 

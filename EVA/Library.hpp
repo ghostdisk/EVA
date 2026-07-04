@@ -10,8 +10,7 @@ struct Font;
 
 void LibraryInitialize();
 
-namespace Library
-{
+namespace Library {
 
 extern Mesh* mesh_cube;
 extern Mesh* mesh_cone;

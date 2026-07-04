@@ -11,15 +11,13 @@
 
 Camera* g_current_camera = nullptr;
 
-void CameraInit(Camera& camera)
-{
+void CameraInit(Camera& camera) {
 	camera.position = {};
 	camera.forward = {0, 1, 0};
 	camera.up = {0, 0, 1};
 }
 
-void CameraUpdateMatrices(Camera& camera)
-{
+void CameraUpdateMatrices(Camera& camera) {
 	CameraUpdateBasisVectors(camera);
 
 	glm_look_rh_zo(camera.position, camera.forward, camera.up, camera.view_matrix);
@@ -29,8 +27,7 @@ void CameraUpdateMatrices(Camera& camera)
 	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);
 }
 
-void CameraUpdateBasisVectors(Camera& camera)
-{
+void CameraUpdateBasisVectors(Camera& camera) {
 	float4x4 mat;
 	float euler_angles[3] = {camera.pitch, 0, camera.yaw};
 
@@ -40,8 +37,7 @@ void CameraUpdateBasisVectors(Camera& camera)
 	camera.forward = float3(mat.data[1][0], mat.data[1][1], mat.data[1][2]);
 }
 
-void CameraFly(Camera& camera)
-{
+void CameraFly(Camera& camera) {
 	float3 input = {
 		cvar_right.fvalue - cvar_left.fvalue,
 		cvar_forward.fvalue - cvar_back.fvalue,
@@ -50,8 +46,7 @@ void CameraFly(Camera& camera)
 
 	if (input.x || input.y) input = input.Normalized();
 
-	if (InputGetButton(INPUT_BUTTON_MOUSE_RIGHT))
-	{
+	if (InputGetButton(INPUT_BUTTON_MOUSE_RIGHT)) {
 		camera.yaw   -= g_mouse_delta.x * camera.mouse_sensitivity.x;
 		camera.pitch -= g_mouse_delta.y * camera.mouse_sensitivity.y;
 	}
@@ -75,22 +70,18 @@ void CameraFly(Camera& camera)
 	// LogToScreen("Cam %.1f %.1f %.1f Facing %.1f (%s)", camera.position.x, camera.position.y, camera.position.z, yaw_deg, axis);
 }
 
-void CameraOrbit(Camera& camera, Entity* entity)
-{
+void CameraOrbit(Camera& camera, Entity* entity) {
 	bool InMenu = false; // TODO
 	SDL_SetWindowRelativeMouseMode(g_game_window, !InMenu);
 
-	if (!InMenu)
-	{
+	if (!InMenu) {
 		camera.yaw   -= g_mouse_delta.x * camera.mouse_sensitivity.x;
 		camera.pitch -= g_mouse_delta.y * camera.mouse_sensitivity.y;
 
-		if (camera.pitch < -90 * DEG_TO_RAD)
-		{
+		if (camera.pitch < -90 * DEG_TO_RAD) {
 			camera.pitch = -90 * DEG_TO_RAD;
 		}
-		if (camera.pitch > 45 * DEG_TO_RAD)
-		{
+		if (camera.pitch > 45 * DEG_TO_RAD) {
 			camera.pitch = 45 * DEG_TO_RAD;
 		}
 
@@ -105,8 +96,7 @@ void CameraOrbit(Camera& camera, Entity* entity)
 	}
 }
 
-Ray CameraClipToRay(Camera& camera, float2 pos)
-{
+Ray CameraClipToRay(Camera& camera, float2 pos) {
 	float4 clip0 = { XY(pos), 0, 1 };
 	float4 clip1 = { XY(pos), 1, 1 };
 
@@ -122,16 +112,14 @@ Ray CameraClipToRay(Camera& camera, float2 pos)
 	return Ray(camera.position, (world1.xyz() - world0.xyz()).Normalized());
 }
 
-Ray CameraScreenToRay(Camera& camera, float2 screen)
-{
+Ray CameraScreenToRay(Camera& camera, float2 screen) {
 	return CameraClipToRay(camera, float2(
 		(screen.x / g_window_size.x) * 2.0f - 1.0f,
 		-((screen.y / g_window_size.y) * 2.0f - 1.0f)));
 }
 
 
-float3 CameraWorldToScreen(Camera& camera, float3 world)
-{
+float3 CameraWorldToScreen(Camera& camera, float3 world) {
 	float4 clip = camera.view_projection_matrix * float4(world, 1);
 	clip.xyz() /= clip.w;
 

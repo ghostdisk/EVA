@@ -6,22 +6,18 @@ layout (location = 2)      in vec4 v_Tint;
 
 layout (location = 1) uniform sampler2D u_Texture;
 
-void main()
-{
+void main() {
 	vec4 tex = texture(u_Texture, v_Texcoord);
 	vec4 color;
 
-	if (v_Mode == 0) // solid color
-	{
+	if (v_Mode == 0) { // solid color
 		color = v_Tint;
 	}
-	else if (v_Mode == 1) // text
-	{
+	else if (v_Mode == 1) { // text
 		float alpha = tex.r;
 		color = vec4(v_Tint.rgb , v_Tint.a * alpha);
 	}
-	else // sprite
-	{
+	else { // sprite
 		color = tex * v_Tint;
 	}
 

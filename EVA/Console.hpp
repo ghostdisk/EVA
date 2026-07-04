@@ -1,8 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 
-struct ConParser
-{
+struct ConParser {
 	const char* start;
 	const char* end;
 	const char* head;
@@ -15,8 +14,7 @@ struct ConParser
 	const char* RestArgs();
 };
 
-struct ConVar
-{
+struct ConVar {
 	const char* name           = nullptr;
 	const char* help           = nullptr;
 	char        svalue[16]     = {};

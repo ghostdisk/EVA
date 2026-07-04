@@ -4,19 +4,16 @@
 struct MeshVertex;
 struct PhysicsWorld;
 
-namespace JPH
-{
+namespace JPH {
 	class Shape;
 	class Body;
 }
 
-struct PhysicsCollider
-{
+struct PhysicsCollider {
 	JPH::Shape* shape = nullptr;
 };
 
-struct PhysicsBody
-{
+struct PhysicsBody {
 	JPH::Body* body = nullptr;
 };
 

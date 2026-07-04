@@ -8,13 +8,11 @@ struct Mesh;
 struct Material;
 struct CharacterCollider;
 
-namespace JPH
-{
+namespace JPH {
 	class Body;
 }
 
-struct EntityTypeMeta
-{
+struct EntityTypeMeta {
 	char        name[32]          = "";
 	float3      editor_box_offset = float3(0,0,0);
 	float3      editor_box_size   = float3(0.5f,0.5f,0.5f);
@@ -27,8 +25,7 @@ struct EntityTypeMeta
 	X(Character,     3,             512) \
 	X(Marker,        4,             512) \
 
-enum EntityType : U8
-{
+enum EntityType : U8 {
 	EntityType_None       = 0,
 	#define X(name, id, lim) EntityType_ ## name = id,
 	X_FOREACH_ENTITY()
@@ -37,25 +34,21 @@ enum EntityType : U8
 };
 extern EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE];
 
-enum EMarkerType
-{
+enum EMarkerType {
 	EMarkerType_None = 0,
 	EMarkerType_PlayerSpawn = 1,
 };
 
 // @CONSTRUCTOR_NOT_CALLED
-struct Entity
-{
+struct Entity {
 	char        name[16];
 	EID         eid;
 	EntityType  type;
 	bool        alive;
 	// 2 bytes of waste here
 
-	union
-	{
-		struct
-		{
+	union {
+		struct {
 			float3 position;
 			float4 rotation;
 			float3 scale;
@@ -69,18 +62,15 @@ struct Entity
 };
 
 // @CONSTRUCTOR_NOT_CALLED
-struct EStaticMesh : Entity
-{
+struct EStaticMesh : Entity {
 };
 
 // @CONSTRUCTOR_NOT_CALLED
-struct ERigidbody : Entity
-{
+struct ERigidbody : Entity {
 };
 
 // @CONSTRUCTOR_NOT_CALLED
-struct EMarker : Entity
-{
+struct EMarker : Entity {
 	EMarkerType marker_type = {};
 	int         team_index  = 0;
 };
@@ -88,32 +78,28 @@ struct EMarker : Entity
 struct CharacterController;
 
 // @CONSTRUCTOR_NOT_CALLED
-struct ECharacter : Entity
-{
+struct ECharacter : Entity {
 	float3 velocity = {};
 	CharacterController* controller = nullptr;
 	CharacterCollider* collider = nullptr;
 };
 
 template <typename T>
-inline void EntityInit(T* entity)
-{
+inline void EntityInit(T* entity) {
 }
 
 template <>
 void EntityInit(ECharacter* character);
 
 template <typename TEntity>
-struct EntityPool
-{
+struct EntityPool {
 	TEntity*   begin     = nullptr;
 	TEntity*   end       = nullptr;
 	TEntity*   head      = nullptr;
 	TEntity*   free_list = nullptr;
 	EntityType type      = {};
 
-	void Init(int capacity, EntityType type)
-	{
+	void Init(int capacity, EntityType type) {
 		begin     = (TEntity*)malloc(capacity * sizeof(TEntity));
 		end       = begin + capacity;
 		head      = begin;
@@ -121,22 +107,17 @@ struct EntityPool
 		this->type = type;
 	}
 
-	void Deinit()
-	{
+	void Deinit() {
 		free(begin);
 		*this = {};
 	}
 
-	TEntity* CreateEntity(EID eid)
-	{
+	TEntity* CreateEntity(EID eid) {
 		TEntity* entity = nullptr;
-		if (free_list)
-		{
+		if (free_list) {
 			entity = free_list;
 			free_list = (TEntity*)entity->next_free;
-		}
-		else
-		{
+		} else {
 			assert(head < end);
 			entity = head;
 			head++;
@@ -153,19 +134,15 @@ struct EntityPool
 	}
 
 	template <typename F>
-	void Iterate(F&& callback)
-	{
-		for (TEntity* ptr = begin; ptr < head; ptr++)
-		{
-			if (ptr->alive)
-			{
+	void Iterate(F&& callback) {
+		for (TEntity* ptr = begin; ptr < head; ptr++) {
+			if (ptr->alive) {
 				callback(ptr);
 			}
 		}
 	}
 
-	void DestroyEntity(TEntity* entity)
-	{
+	void DestroyEntity(TEntity* entity) {
 		entity->eid = 0;
 		entity->alive = false;
 		entity->next_free = free_list;
@@ -173,24 +150,21 @@ struct EntityPool
 	}
 };
 
-struct EntityManager
-{
+struct EntityManager {
+
 #define X(name, id, lim) EntityPool<E ## name> pool_ ## name;
 X_FOREACH_ENTITY()
 #undef X
 
 	template <typename F>
-	void Iterate(F&& callback)
-	{
+	void Iterate(F&& callback) {
 		#define X(name, id, lim) pool_ ## name.Iterate(callback);
 		X_FOREACH_ENTITY()
 		#undef X
 	}
 
-	Entity* CreateEntity(EntityType type, EID eid)
-	{
-		switch (type)
-		{
+	Entity* CreateEntity(EntityType type, EID eid) {
+		switch (type) {
 			#define X(name, id, lim) case EntityType_ ## name: return pool_ ## name.CreateEntity(eid);
 			X_FOREACH_ENTITY()
 			#undef X
@@ -198,10 +172,8 @@ X_FOREACH_ENTITY()
 		}
 	}
 
-	void DestroyEntity(Entity* entity)
-	{
-		switch (entity->type)
-		{
+	void DestroyEntity(Entity* entity) {
+		switch (entity->type) {
 			#define X(name, id, lim) case EntityType_ ## name: pool_ ## name.DestroyEntity((E ## name*)entity); return;
 			X_FOREACH_ENTITY()
 			#undef X
@@ -209,7 +181,6 @@ X_FOREACH_ENTITY()
 		}
 	}
 };
-
 
 void EntityManagerInit(EntityManager& entity_manager);
 void EntityManagerDeinit(EntityManager& entity_manager);

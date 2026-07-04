@@ -3,8 +3,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/UI.hpp>
 
-void MainMenuTick()
-{
+void MainMenuTick() {
 	UIBeginBox()
 		->SetPosition(0, 0)
 		->SetSize(g_window_size.x, g_window_size.y)

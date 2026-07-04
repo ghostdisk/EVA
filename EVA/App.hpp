@@ -2,8 +2,7 @@
 
 struct Game;
 
-enum AppMode
-{
+enum AppMode {
 	AppMode_None     = 0,
 	AppMode_MainMenu = 1,
 	AppMode_Editor   = 2,

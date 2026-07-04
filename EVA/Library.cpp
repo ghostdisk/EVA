@@ -4,8 +4,7 @@
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Font.hpp>
 
-namespace Library
-{
+namespace Library {
 
 Mesh* mesh_cube = nullptr;
 Mesh* mesh_cone = nullptr;
@@ -28,8 +27,7 @@ Font* fnt_arial = 0;
 
 }
 
-void LibraryInitialize()
-{
+void LibraryInitialize() {
 	// @VOLATILE - The order these are loaded in defines their asset ids, which
 	//             are shared over the network.
 

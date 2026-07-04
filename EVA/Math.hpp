@@ -15,8 +15,7 @@
 #define XY(v) v.x, v.y
 #define XYZ(v) v.x, v.y, v.z
 
-struct float2
-{
+struct float2 {
 	float x = 0.0f;
 	float y = 0.0f;
 
@@ -41,8 +40,7 @@ inline void operator/=(float2& vec, float s) { vec.x /= s; vec.y /= s;  }
 
 inline float2 operator-(const float2& vec) { return float2(-vec.x, -vec.y); }
 
-struct float3
-{
+struct float3 {
 	float x = 0.0f;
 	float y = 0.0f;
 	float z = 0.0f;
@@ -74,8 +72,7 @@ inline void operator/=(float3& vec, float s) { vec.x /= s; vec.y /= s; vec.z /= 
 
 inline float3 operator-(const float3& vec) { return float3(-vec.x, -vec.y, -vec.z); }
 
-struct float4
-{
+struct float4 {
 	float x = 0.0f;
 	float y = 0.0f;
 	float z = 0.0f;
@@ -91,31 +88,23 @@ struct float4
 	inline const float3& xyz() const { return *(float3*)this; }
 };
 
-struct __declspec(align(16)) float4x4
-{
+struct __declspec(align(16)) float4x4 {
 	float data[4][4]; // column major, indexed as [col][row]
 	inline operator vec4*() const { return (vec4*)&data[0]; } // needed so we can pss it to cglm conveniently
 
-	float4& column(int c)
-	{
+	float4& column(int c) {
 		return *(float4*)&data[c];
 	}
 
-	static constexpr float4x4 Zero()
-	{
+	static constexpr float4x4 Zero() {
 		float4x4 mat;
-		for (int i = 0; i < 4; i++)
-		{
-			for (int j = 0; j < 4; j++)
-			{
+		for (int i = 0; i < 4; i++) 
+			for (int j = 0; j < 4; j++) 
 				mat.data[i][j] = 0.0f;
-			}
-		}
 		return mat;
 	}
 
-	static constexpr float4x4 Identity()
-	{
+	static constexpr float4x4 Identity() {
 		float4x4 mat = float4x4::Zero();
 		mat.data[0][0] = 1.0f;
 		mat.data[1][1] = 1.0f;
@@ -134,15 +123,11 @@ struct __declspec(align(16)) float4x4
 float4 operator*(const float4x4& mat, const float4& p);
 float4x4 operator*(const float4x4& mat, const float4x4& p);
 
-inline float3 float3::Normalized()
-{
+inline float3 float3::Normalized() {
 	float len = Length();
-	if (len < 0.00001f)
-	{
+	if (len < 0.00001f) {
 		return float3(0, 0, 0);
-	}
-	else
-	{
+	} else {
 		return (*this) / len;
 	}
 }
@@ -150,13 +135,11 @@ inline float3 float3::Normalized()
 
 inline float4 operator-(const float4& vec) { return float4(-vec.x, -vec.y, -vec.z, -vec.w); }
 
-inline void zero(float4x4& mat)
-{
+inline void zero(float4x4& mat) {
 	memset(mat.data, 0, sizeof(mat));
 }
 
-inline void identity(float4x4& mat)
-{
+inline void identity(float4x4& mat) {
 	memset(mat.data, 0, sizeof(mat));
 	mat.data[0][0] = 1.0f;
 	mat.data[1][1] = 1.0f;
@@ -170,53 +153,45 @@ inline float Dot(const float4& a, const float4& b) { return a.x*b.x + a.y*b.y + 
 
 float Unlerp(float2 a, float2 mid, float2 b);
 
-inline float Distance(const float2& a, const float2& b)
-{
+inline float Distance(const float2& a, const float2& b) {
 	float dx = a.x - b.x;
 	float dy = a.y - b.y;
 	return sqrt(dx*dx + dy*dy);
 }
 
-inline float Distance(const float3& a, const float3& b)
-{
+inline float Distance(const float3& a, const float3& b) {
 	float dx = a.x - b.x;
 	float dy = a.y - b.y;
 	float dz = a.z - b.z;
 	return sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-inline float3 Cross(const float3& a, const float3 b)
-{
+inline float3 Cross(const float3& a, const float3 b) {
 	return float3(
 		a.y * b.z - a.z * b.y,
 		a.z * b.x - a.x * b.z,
 		a.x * b.y - a.y * b.x);
 }
 
-struct Plane
-{
+struct Plane {
 	float3 normal   = {};
 	float  distance = 0;
 
-	Plane Invert()
-	{
+	Plane Invert() {
 		return Plane(-normal, -distance);
 	}
 };
 
-struct AABB
-{
+struct AABB {
 	float3 min;
 	float3 max;
 
-	void Init(float3 p)
-	{
+	void Init(float3 p) {
 		min = p;
 		max = p;
 	}
 
-	void AddPoint(float3 p)
-	{
+	void AddPoint(float3 p) {
 		if (p.x < min.x) min.x = p.x;
 		if (p.y < min.y) min.y = p.y;
 		if (p.z < min.z) min.z = p.z;
@@ -226,13 +201,11 @@ struct AABB
 	}
 };
 
-struct Ray
-{
+struct Ray {
 	float3 origin     = {};
 	float3 direction  = {};
 
-	float3 Evaluate(float t)
-	{
+	float3 Evaluate(float t) {
 		return origin + direction * t;
 	}
 };

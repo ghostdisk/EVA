@@ -7,8 +7,7 @@
 #include <vector>
 #include <stdarg.h>
 
-struct ConCommand
-{
+struct ConCommand {
 	const char* name;
 	ConProc proc;
 	const char* help;
@@ -20,55 +19,44 @@ static std::vector<ConCommand>  g_commands        = {};
 static std::vector<ConVar*>     g_cvars           = {};
 static bool                     console_open      = false;
 
-void Con_help(ConParser& parser)
-{
+void Con_help(ConParser& parser) {
 	for (const ConCommand& cmd : g_commands)
-	{
 		ConLog("- %s: %s", cmd.name, cmd.help);
-	}
-	for (const ConVar* var : g_cvars)
-	{
+	for (const ConVar* var : g_cvars) 
 		ConLog("- %s: %s", var->name, var->help);
-	}
 }
 
-void Con_clear(ConParser& parser)
-{
+void Con_clear(ConParser& parser) {
 	g_console_log.clear();
 }
 
-void Con_exec(ConParser& parser)
-{
+void Con_exec(ConParser& parser) {
 	char path[256];
 	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, parser.StringArg());
 
 	char* data = nullptr;
 	ReadEntireFile(path, (void**)&data, nullptr);
-	if (!data)
-	{
+	if (!data) {
 		return ConError("failed to open %s", path);
 	}
 	ConExec(data);
 	free(data);
 }
 
-void ConsoleInitialize()
-{
+void ConsoleInitialize() {
 	ConRegisterCommand("clear", Con_clear, "clear the console");
 	ConRegisterCommand("help", Con_help, "list commands");
 	ConRegisterCommand("exec", Con_exec, "execute a script file");
 }
 
-ConVar* ConGetVar(const char* name)
-{
+ConVar* ConGetVar(const char* name) {
 	for (ConVar* cvar : g_cvars)
 		if (strcmp(cvar->name, name) == 0)
 			return cvar;
 	return nullptr;
 }
 
-void ConLog(const char* fmt, ...)
-{
+void ConLog(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	const char* str = ArenaVprintf(FrameArena, fmt, args);
@@ -76,8 +64,7 @@ void ConLog(const char* fmt, ...)
 	g_console_log.push_back(str);
 }
 
-void ConError(const char* fmt, ...)
-{
+void ConError(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	const char* str = ArenaVprintf(FrameArena, fmt, args);
@@ -85,55 +72,47 @@ void ConError(const char* fmt, ...)
 	g_console_log.push_back(ArenaPrintf(FrameArena, "error: %s", str));
 }
 
-static bool ConSkipSpace(ConParser& parser)
-{
+static bool ConSkipSpace(ConParser& parser) {
 	if (*parser.head != ' ' && *parser.head != '\t') return false;
 	while (*parser.head == ' ' || *parser.head == '\t') parser.head++;
 	return true;
 }
 
-static void ConSkipLine(ConParser& parser)
-{
+static void ConSkipLine(ConParser& parser) {
 	while (*parser.head != '\n' && *parser.head != '\0') parser.head++;
 	if (*parser.head == '\n') parser.head++;
 }
 
-static bool ConSkipComment(ConParser& parser)
-{
+static bool ConSkipComment(ConParser& parser) {
 	if (*parser.head != '#') return false;
 	while (*parser.head != '\n' && *parser.head != '\0') parser.head++;
 	return true;
 }
 
-const char* ConParser::StringArg()
-{
+const char* ConParser::StringArg() {
 	ConSkipSpace(*this);
 	if (ConSkipComment(*this)) return nullptr;
 
 	if (*head == '\n' || *head == '\r' || *head == '\r') return nullptr;
 
 	const char* start = head;
-	while ((*head > ' ' && *head <= '~'))
-	{
+	while ((*head > ' ' && *head <= '~')) {
 		head++;
 	}
 	return *start ? ArenaInternCString(FrameArena, start, head - start) : nullptr;
 }
 
-const char* ConParser::RestArgs()
-{
+const char* ConParser::RestArgs() {
 	ConSkipSpace(*this);
 
 	const char* start = head;
-	while (*head != '#' && *head != '\n' && *head != '\r' && *head != '\0')
-	{
+	while (*head != '#' && *head != '\n' && *head != '\r' && *head != '\0') {
 		head++;
 	}
 	return ArenaInternCString(FrameArena, start, head - start);
 }
 
-float ConParser::FloatArg(float fallback)
-{
+float ConParser::FloatArg(float fallback) {
 	const char* s = StringArg();
 	if (!s) return fallback;
 
@@ -143,8 +122,7 @@ float ConParser::FloatArg(float fallback)
 	else return fallback;
 }
 
-int ConParser::IntArg(int fallback)
-{
+int ConParser::IntArg(int fallback) {
 	const char* s = StringArg();
 	if (!s) return fallback;
 
@@ -154,8 +132,7 @@ int ConParser::IntArg(int fallback)
 	else return fallback;
 }
 
-void ConExec(const char* script, int button)
-{
+void ConExec(const char* script, int button) {
 	ConParser parser;
 	parser.start = script;
 	parser.end = script + strlen(script);
@@ -164,19 +141,15 @@ void ConExec(const char* script, int button)
 	ConExec(parser);
 }
 
-bool ConExecSingle(ConParser& parser)
-{
+bool ConExecSingle(ConParser& parser) {
 	const char* cmd = parser.StringArg();
-	if (!cmd)
-	{
+	if (!cmd) {
 		ConSkipLine(parser);
 		return false;
 	}
 
-	for (const ConCommand& c : g_commands)
-	{
-		if (strcmp(c.name, cmd) == 0)
-		{
+	for (const ConCommand& c : g_commands) {
+		if (strcmp(c.name, cmd) == 0) {
 			c.proc(parser);
 			ConSkipLine(parser);
 			return true;
@@ -184,24 +157,19 @@ bool ConExecSingle(ConParser& parser)
 	}
 
 	ConVar* cvar = ConGetVar(cmd);
-	if (cvar)
-	{
+	if (cvar) {
 		const char* value = parser.StringArg();
-		if (value)
-		{
+		if (value) {
 			snprintf(cvar->svalue, sizeof(cvar->svalue), "%s", value);
 			char* endptr = 0;
 			float f = strtof(cvar->svalue, &endptr);
-			if (*endptr == '\0')
-			{
+			if (*endptr == '\0') {
 				cvar->fvalue = f;
 			}
 			ConSkipLine(parser);
 			if (cvar->on_change) cvar->on_change(cvar);
 			return true;
-		}
-		else
-		{
+		} else {
 			ConLog("%s is '%s'", cvar->name, cvar->svalue);
 			return true;
 		}
@@ -212,27 +180,22 @@ bool ConExecSingle(ConParser& parser)
 	return false;
 }
 
-void ConExec(ConParser& parser)
-{
-	while (parser.head < parser.end)
-	{
+void ConExec(ConParser& parser) {
+	while (parser.head < parser.end) {
 		ConExecSingle(parser);
 	}
 }
 
-void ConsoleDraw()
-{
+void ConsoleDraw() {
 	bool just_opened = false;
 
-	if (InputGetButtonDown(SDL_SCANCODE_GRAVE))
-	{
+	if (InputGetButtonDown(SDL_SCANCODE_GRAVE)) {
 		console_open = !console_open;
 		just_opened = true;
 		g_console_input.clear();
 	}
 
-	if (console_open)
-	{
+	if (console_open) {
 		UIPushId("console");
 		DEFER(UIPopId());
 
@@ -270,8 +233,7 @@ void ConsoleDraw()
 				->SetGap(4)
 				->SetPadding(4);
 
-			for (const std::string& msg : g_console_log)
-			{
+			for (const std::string& msg : g_console_log) {
 				UILabel(msg.c_str());
 			}
 
@@ -296,23 +258,20 @@ void ConsoleDraw()
 			UIEndBox();
 		}
 
-		if (text_input->flags & UIBoxFlags_Focus) 
-		{
+		if (text_input->flags & UIBoxFlags_Focus) {
 			if (InputGetButtonDown(SDL_SCANCODE_RETURN) || InputGetButtonDown(SDL_SCANCODE_KP_ENTER)) submit = true;
 			if (InputGetButtonDown(SDL_SCANCODE_L) && InputGetButton(SDL_SCANCODE_LCTRL)) ConExec("clear");
 		}
 
 		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) console_open = false;
-		if (submit)
-		{
+		if (submit) {
 			ConExec(ArenaInternCString(FrameArena, g_console_input.data(), g_console_input.size()));
 			g_console_input.clear();
 		}
 	}
 }
 
-void ConRegisterCommand(const char* name, ConProc proc, const char* help)
-{
+void ConRegisterCommand(const char* name, ConProc proc, const char* help) {
 	g_commands.push_back(ConCommand{
 		.name     = name,
 		.proc     = proc,
@@ -320,7 +279,6 @@ void ConRegisterCommand(const char* name, ConProc proc, const char* help)
 	});
 }
 
-void ConRegisterVar(ConVar* var)
-{
+void ConRegisterVar(ConVar* var) {
 	g_cvars.push_back(var);
 }

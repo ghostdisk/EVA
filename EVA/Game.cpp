@@ -48,34 +48,26 @@ ConVar cvar_show_fps = {
 	.fvalue = 0,
 };
 
-void Con_tp(ConParser& parser)
-{
+void Con_tp(ConParser& parser) {
 	g_current_camera->position.x = parser.FloatArg(g_current_camera->position.x);
 	g_current_camera->position.y = parser.FloatArg(g_current_camera->position.y);
 	g_current_camera->position.z = parser.FloatArg(g_current_camera->position.z);
 }
 
-void Con_map(ConParser& parser)
-{
+void Con_map(ConParser& parser) {
 	const char* map_name = parser.StringArg();
-	if (g_app_mode == AppMode_Editor)
-	{
+	if (g_app_mode == AppMode_Editor) {
 		char ed_load_cmd_buf[64];
 		snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
 		ConExec(ed_load_cmd_buf);
-	}
-	else
-	{
+	} else {
 		if (!g_active_game)
-		{
 			ConExec("game 0");
-		}
 		GameLoadMap(g_active_game, map_name);
 	}
 }
 
-void GameInitialize()
-{
+void GameInitialize() {
 	ConRegisterVar(&cvar_game);
 	ConRegisterVar(&cvar_show_fps);
 
@@ -83,8 +75,7 @@ void GameInitialize()
 	ConRegisterCommand("map", Con_map, "load a map");
 }
 
-void GameInit(Game* game)
-{
+void GameInit(Game* game) {
 	CameraInit(game->camera);
 	game->camera.position.y = -10;
 	game->camera.position.z = 3;
@@ -95,8 +86,7 @@ void GameInit(Game* game)
 
 
 #if 0
-	for (int i = 0; i < 10; i++)
-	{
+	for (int i = 0; i < 10; i++) {
 		Entity* entity = game->entity_manager.CreateEntity(EntityType_Rigidbody, 1);
 		entity->mesh = Library::mesh_cube;
 		entity->material = Library::mat_brush;
@@ -109,8 +99,7 @@ void GameInit(Game* game)
 #endif
 }
 
-void GameTick(Game* game, double dt)
-{
+void GameTick(Game* game, double dt) {
 	ZoneScopedN("GameTick");
 
 	if (game->server) GameServerTick(game->server, dt);
@@ -119,24 +108,20 @@ void GameTick(Game* game, double dt)
 	PhysicsTick(game->physics, dt);
 	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
 
-	game->entity_manager.pool_Rigidbody.Iterate( [](ERigidbody* rb)
-		{
-			rb->position = ConvertPos(rb->body->GetPosition());
-			rb->rotation = ConvertQuat(rb->body->GetRotation());
-		});
+	game->entity_manager.pool_Rigidbody.Iterate( [](ERigidbody* rb) {
+		rb->position = ConvertPos(rb->body->GetPosition());
+		rb->rotation = ConvertQuat(rb->body->GetRotation());
+	});
 
-	if (g_active_game == game)
-	{
-		if (!game->pawn)
-		{
+	if (g_active_game == game) {
+		if (!game->pawn) {
 			CameraFly(game->camera);
 		}
 	}
 	CameraUpdateMatrices(game->camera);
 }
 
-void GameDraw(Game* game)
-{
+void GameDraw(Game* game) {
 	ZoneScopedN("GameDraw");
 
 	DrawSetLayer(Layer_Main);
@@ -144,33 +129,26 @@ void GameDraw(Game* game)
 	static float3 test1 = {};
 	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
 
-	if (game->level_mesh)
-	{
+	if (game->level_mesh) {
 		DrawMesh(game->level_mesh, Library::mat_brush, float4x4::Identity());
 	}
 
-	game->entity_manager.Iterate(
-		[](Entity* entity)
-		{
-			if (entity->mesh)
-			{
-				float4x4 model_matrix;
-				glm_translate_make(model_matrix, &entity->position.x);
-				glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
-				glm_scale(model_matrix, &entity->scale.x);
-				DrawMesh(entity->mesh, entity->material, model_matrix, {1,1,1,1});
-			}
-		});
+	game->entity_manager.Iterate([](Entity* entity) {
+		if (entity->mesh) {
+			float4x4 model_matrix;
+			glm_translate_make(model_matrix, &entity->position.x);
+			glm_quat_rotate(model_matrix, &entity->rotation.x, model_matrix);
+			glm_scale(model_matrix, &entity->scale.x);
+			DrawMesh(entity->mesh, entity->material, model_matrix, {1,1,1,1});
+		}
+	});
 }
 
-EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
-{
+EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid) {
 	EID eid = start_eid;
 
-	for (const GLTFSceneNode& node : scene->nodes)
-	{
-		if (node.mesh)
-		{
+	for (const GLTFSceneNode& node : scene->nodes) {
+		if (node.mesh) {
 			EStaticMesh* entity = game->entity_manager.pool_StaticMesh.CreateEntity(eid++);
 			entity->mesh     = node.mesh;
 			entity->material = node.material;
@@ -184,18 +162,14 @@ EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid)
 	return eid;
 }
 
-void GameTickAll(double dt)
-{
-	for (Game* game : g_games)
-	{
+void GameTickAll(double dt) {
+	for (Game* game : g_games) {
 		if (game) GameTick(game, dt);
 	}
 }
 
-void GameUnloadMap(Game* game)
-{
-	if (game->level_mesh)
-	{
+void GameUnloadMap(Game* game) {
+	if (game->level_mesh) {
 		MeshDestroy(game->level_mesh);
 		game->level_mesh = nullptr;
 	}
@@ -203,14 +177,12 @@ void GameUnloadMap(Game* game)
 	PhysicsDestroyCollider(game->level_mesh_collider);
 }
 
-void GameLoadMap(Game* game, const char* name)
-{
+void GameLoadMap(Game* game, const char* name) {
 	int n;
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
-	if (!f)
-	{
+	if (!f) {
 		ConLog("Failed to open %s", path);
 		return;
 	}
@@ -220,8 +192,7 @@ void GameLoadMap(Game* game, const char* name)
 	int version;
 	n = fscanf(f, "version %d\n", &version);
 	assert(n == 1);
-	if (version != 1)
-	{
+	if (version != 1) {
 		ConError("map %s is version %d, expected %d", name, version, 1);
 		return;
 	}
@@ -231,8 +202,7 @@ void GameLoadMap(Game* game, const char* name)
 	assert(n == 1);
 
 	std::vector<MeshVertex> vertices(num_vertices);
-	for (int i = 0; i < num_vertices; i++)
-	{
+	for (int i = 0; i < num_vertices; i++) {
 		MeshVertex& vert = vertices[i];
 		vert.texcoord = {};
 		n = fscanf(f, "%f %f %f %f %f %f", XYZ(&vert.position), XYZ(&vert.normal));
@@ -244,8 +214,7 @@ void GameLoadMap(Game* game, const char* name)
 	assert(n == 1);
 
 	std::vector<U32> indices(num_indices);
-	for (int i = 0; i < num_indices; i++)
-	{
+	for (int i = 0; i < num_indices; i++) {
 		n = fscanf(f, "%u", &indices[i]);
 		assert(n == 1);
 	}
@@ -260,8 +229,7 @@ void GameLoadMap(Game* game, const char* name)
 	if (n != 1) { ConError("failed to load map"); return; }
 	assert(num_entities >= 0 && num_entities < 1000);
 
-	for (int i = 0; i < num_entities; i++)
-	{
+	for (int i = 0; i < num_entities; i++) {
 		Entity* entity = EntityLoad(&game->entity_manager, f);
 	}
 }

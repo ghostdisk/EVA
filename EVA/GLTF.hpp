@@ -5,8 +5,7 @@
 
 struct EntityManager;
 
-struct GLTFSceneNode
-{
+struct GLTFSceneNode {
 	char      name[16]  = {};
 	float3    position  = {};
 	float4    rotation  = {0,0,0,1};
@@ -15,13 +14,11 @@ struct GLTFSceneNode
 	Material* material  = nullptr;
 };
 
-struct GLTFScene
-{
+struct GLTFScene {
 	std::vector<GLTFSceneNode> nodes;
 };
 
-struct GLTF
-{
+struct GLTF {
 	std::vector<Mesh*>      meshes     = {};
 	std::vector<Material*>  materials  = {};
 	std::vector<GLTFScene*> scenes     = {};

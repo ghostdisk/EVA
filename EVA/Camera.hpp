@@ -3,8 +3,7 @@
 
 struct Entity;
 
-struct Camera
-{
+struct Camera {
 	float fov = 60 * GLM_PI / 180.0f;
 
 	float3 position  = {};

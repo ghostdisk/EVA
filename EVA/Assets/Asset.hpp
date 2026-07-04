@@ -8,8 +8,7 @@ struct Texture;
 struct CSGBrush;
 struct Shader;
 
-enum AssetType
-{
+enum AssetType {
 	AssetType_None = 0,
 	AssetType_Mesh,
 	AssetType_Texture,
@@ -20,21 +19,18 @@ enum AssetType
 	AssetType_Shader,
 };
 
-struct Asset
-{
+struct Asset {
 	AssetType type     = AssetType_None;
 	U32       id       = 0;
 	char      name[64] = {};
 };
 
-struct Sprite : Asset
-{
+struct Sprite : Asset {
 	Texture* texture;
 	int x, y, w, h;
 };
 
-struct Mesh : Asset
-{
+struct Mesh : Asset {
 	U32           vao             = 0;
 	U32           vbo             = 0;
 	U32           ibo             = 0;
@@ -43,22 +39,19 @@ struct Mesh : Asset
 	Material*     default_maerial = nullptr;
 };
 
-struct Texture : Asset
-{
+struct Texture : Asset {
 	U32    handle = 0;
 	size_t width  = 0;
 	size_t height = 0;
 };
 
-struct Material : Asset
-{
+struct Material : Asset {
 	Shader*  shader        = 0;
 	Texture* color_texture = nullptr;
 	float    texture_scale = 1.0f;
 };
 
-struct FontGlyph
-{
+struct FontGlyph {
 	int x       = 0;
 	int y       = 0;
 	int width   = 0;
@@ -68,8 +61,7 @@ struct FontGlyph
 	int yoffs   = 0;
 };
 
-struct Font : Asset
-{
+struct Font : Asset {
 	FT_Face  face        = {};
 	Texture* atlas       = 0;
 	int      pixel_size  = 0;
@@ -78,13 +70,11 @@ struct Font : Asset
 	FontGlyph glyphs[256];
 };
 
-struct Map : Asset
-{
+struct Map : Asset {
 	CSGBrush* brushes;
 };
 
-struct Shader : Asset
-{
+struct Shader : Asset {
 	U32 handle;
 };
 

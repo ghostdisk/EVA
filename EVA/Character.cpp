@@ -9,12 +9,10 @@
 #include <cglm/quat.h>
 
 template <>
-void EntityInit(ECharacter* character)
-{
+void EntityInit(ECharacter* character) {
 }
 
-void CharacterControllerTick(Game* game, ECharacter* character)
-{
+void CharacterControllerTick(Game* game, ECharacter* character) {
 	float3 input = {
 		cvar_right.fvalue - cvar_left.fvalue,
 		cvar_forward.fvalue - cvar_back.fvalue,
@@ -36,8 +34,7 @@ void CharacterControllerTick(Game* game, ECharacter* character)
 	character->velocity = input * speed;
 }
 
-void CharacterDoMovement(Game* game, ECharacter* character, double dt)
-{
+void CharacterDoMovement(Game* game, ECharacter* character, double dt) {
 	CharacterControllerTick(game, character);
 
 	float3 pos = character->position;

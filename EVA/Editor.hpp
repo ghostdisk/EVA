@@ -6,8 +6,7 @@
 struct CSGBrush;
 struct Camera;
 
-enum EdOpType
-{
+enum EdOpType {
 	EdOpType_None   = 0,
 	EdOpType_Brush  = 1,
 	EdOpType_Stack  = 2,
@@ -15,8 +14,7 @@ enum EdOpType
 	EdOpType_ENUM_SIZE,
 };
 
-struct EdOp
-{
+struct EdOp {
 	EdOp*                  parent           = nullptr;
 	EdOpType               type             = EdOpType_None;
 	std::vector<CSGBrush*> built            = {};

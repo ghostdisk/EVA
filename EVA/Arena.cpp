@@ -8,16 +8,13 @@
 Arena* FrameArenas[NUM_FRAME_ARENAS] = {};
 Arena* FrameArena = nullptr;
 
-void ArenaInitialize()
-{
-	for (int i = 0; i < NUM_FRAME_ARENAS; i++)
-	{
+void ArenaInitialize() {
+	for (int i = 0; i < NUM_FRAME_ARENAS; i++) {
 		FrameArenas[i] = ArenaCreate();
 	}
 }
 
-void RotateFrameArenas()
-{
+void RotateFrameArenas() {
 	static int k = 0;
 	k++;
 	if (k >= NUM_FRAME_ARENAS) k = 0;
@@ -26,8 +23,7 @@ void RotateFrameArenas()
 	ArenaReset(FrameArena);
 }
 
-Arena* ArenaCreate()
-{
+Arena* ArenaCreate() {
 	Arena* arena = new Arena();
 	arena->begin = (U8*)malloc(ARENA_SIZE);
 	arena->head = arena->begin;
@@ -35,17 +31,14 @@ Arena* ArenaCreate()
 	return arena;
 }
 
-void ArenaDestroy(Arena* arena)
-{
+void ArenaDestroy(Arena* arena) {
 	free(arena->begin);
 	delete arena;
 }
 
-void* ArenaAllocate(Arena* arena, size_t size)
-{
+void* ArenaAllocate(Arena* arena, size_t size) {
 	U8* ptr = arena->head;
-	if (size > (arena->end - arena->head))
-	{
+	if (size > (arena->end - arena->head)) {
 		Fatal("ArenaAllocate: out of memory");
 	}
 	arena->head += size;
@@ -53,22 +46,19 @@ void* ArenaAllocate(Arena* arena, size_t size)
 
 }
 
-void* ArenaAllocate(Arena* arena, size_t size, size_t alignment)
-{
+void* ArenaAllocate(Arena* arena, size_t size, size_t alignment) {
 	ArenaAlignHead(arena, alignment);
 	return ArenaAllocate(arena, size);
 }
 
-void ArenaAlignHead(Arena* arena, size_t alignment)
-{
+void ArenaAlignHead(Arena* arena, size_t alignment) {
 	uintptr_t head = (uintptr_t)arena->head;
 	uintptr_t mask = (uintptr_t)alignment - 1;
 	head = (head + mask) & (~mask);
 	arena->head = (U8*)head;
 }
 
-char* ArenaInternCString(Arena* arena, const char* cstring, int len)
-{
+char* ArenaInternCString(Arena* arena, const char* cstring, int len) {
 	if (len < 0) len = strlen(cstring);
 
 	char* copy = (char*)ArenaAllocate(arena, len + 1);
@@ -77,22 +67,19 @@ char* ArenaInternCString(Arena* arena, const char* cstring, int len)
 	return copy;
 }
 
-char* ArenaVprintf(Arena* arena, const char* fmt, va_list args)
-{
+char* ArenaVprintf(Arena* arena, const char* fmt, va_list args) {
 	va_list measure_args;
 	va_copy(measure_args, args);
 	char dummy_buffer[1];
 	int needed = vsnprintf(dummy_buffer, 0, fmt, measure_args);
 	va_end(measure_args);
 
-	if (needed < 0)
-	{
+	if (needed < 0) {
 		return NULL;
 	}
 
 	char* buffer = (char*)ArenaAllocate(arena, needed + 1);
-	if (buffer)
-	{
+	if (buffer) {
 		va_list write_args;
 		va_copy(write_args, args);
 		vsnprintf(buffer, needed + 1, fmt, write_args);
@@ -102,8 +89,7 @@ char* ArenaVprintf(Arena* arena, const char* fmt, va_list args)
 	return buffer;
 }
 
-char* ArenaPrintf(Arena* arena, const char* fmt, ...)
-{
+char* ArenaPrintf(Arena* arena, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	char* result = ArenaVprintf(arena, fmt, args);
@@ -111,7 +97,6 @@ char* ArenaPrintf(Arena* arena, const char* fmt, ...)
 	return result;
 }
 
-void ArenaReset(Arena* arena)
-{
+void ArenaReset(Arena* arena) {
 	arena->head = arena->begin;
 }

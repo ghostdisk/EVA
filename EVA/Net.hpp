@@ -7,8 +7,7 @@
 typedef struct _ENetHost ENetHost;
 typedef struct _ENetPeer ENetPeer;
 
-struct IPAddress
-{
+struct IPAddress {
 	U8 octets[4] = {0,0,0,0};
 };
 

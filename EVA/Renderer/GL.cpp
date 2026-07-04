@@ -11,8 +11,7 @@ SDL_GLContext GL = nullptr;
 #define STB_IMAGE_IMPLEMENTATION
 #include <Vendor/stb_image.h>
 
-void GLPreInitialize()
-{
+void GLPreInitialize() {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -21,41 +20,30 @@ void GLPreInitialize()
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
 }
 
-void GLInitialize()
-{
+void GLInitialize() {
 	GL = SDL_GL_CreateContext(g_game_window);
 	if (!GL)
-	{
 		Fatal("SDL_GL_CreateContext: %s", SDL_GetError());
-	}
 
 	if (!SDL_GL_MakeCurrent(g_game_window, GL))
-	{
 		Fatal("SDL_GL_MakeCurrent: %s", SDL_GetError());
-	}
 
 	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
-	{
 		Fatal("gladLoadGLLoader failed");
-	}
 }
 
-static char* GLLoadShaderSource(const char* name, GLenum stage)
-{
+static char* GLLoadShaderSource(const char* name, GLenum stage) {
 	char path[256];
 	snprintf(path, sizeof(path), "%s/EVA/Shaders/%s.%s.glsl", EVA_BASE_DIR, name, (stage == GL_VERTEX_SHADER ? "vs" : "fs"));
 	
 	void* data;
 	if (!ReadEntireFile(path, &data, nullptr))
-	{
 		Fatal("GLLoadShaderSource: Failed to read %s\n", path);
-	}
 
 	return (char*)data;
 }
 
-static GLuint GLCompileShader(const char* name, GLenum type, const char* source, const char* preamble)
-{
+static GLuint GLCompileShader(const char* name, GLenum type, const char* source, const char* preamble) {
 	GLuint shader = glCreateShader(type);
 	const char* sources[] = { preamble, source };
 	glShaderSource(shader, EVA_ARRAYSIZE(sources), sources, nullptr);
@@ -63,8 +51,7 @@ static GLuint GLCompileShader(const char* name, GLenum type, const char* source,
 
 	int success = 0;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
+	if (!success) {
 		char error_buffer[2048];
 		GLsizei error_length;
 		glGetShaderInfoLog(shader, sizeof(error_buffer), &error_length, error_buffer);
@@ -75,8 +62,7 @@ static GLuint GLCompileShader(const char* name, GLenum type, const char* source,
 	return shader;
 }
 
-Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
-{
+Shader* GLCompileShader(const char* name, int num_defines, const char** defines) {
 	Shader* shader = new Shader();
 	AssetInit(shader, AssetType_Shader, name);
 
@@ -87,8 +73,7 @@ Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 
 	std::vector<char> preamble;
 
-	auto PushString = [&](const char* str)
-	{
+	auto PushString = [&](const char* str) {
 		int len = strlen(str);
 		int head = preamble.size();
 		preamble.resize(head + len);
@@ -96,8 +81,7 @@ Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 	};
 
 	PushString("#version 430 core\n\n");
-	for (int i = 0; i < num_defines; i++)
-	{
+	for (int i = 0; i < num_defines; i++) {
 		PushString("#define ");
 		PushString(defines[i]);
 		PushString("\n");
@@ -112,8 +96,7 @@ Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 
 	int success = 0;
 	glGetProgramiv(shader->handle, GL_LINK_STATUS, &success);
-	if (!success)
-	{
+	if (!success) {
 		char error_buffer[2048];
 		GLsizei error_length;
 		glGetProgramInfoLog(shader->handle, sizeof(error_buffer), &error_length, error_buffer);
@@ -129,17 +112,12 @@ Shader* GLCompileShader(const char* name, int num_defines, const char** defines)
 	return shader;
 }
 
-void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error)
-{
+void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error) {
 	//Fatal("GL_ERROR_CHECK(%s:%d) - Error 0x%x", file, line, error);
 	printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
 }
 
-Mesh* MeshCreate(
-	const char* name,
-	size_t num_vertices, const MeshVertex* vertices,
-	size_t num_indices, const U32* indices)
-{
+Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices) {
 	Mesh* mesh = new Mesh();
 	AssetInit(mesh, AssetType_Mesh, name);
 
@@ -153,8 +131,7 @@ Mesh* MeshCreate(
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * num_vertices, vertices, GL_STATIC_DRAW);
 
-	if (indices)
-	{
+	if (indices) {
 		glGenBuffers(1, &mesh->ibo);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * num_indices, indices, GL_STATIC_DRAW);
@@ -171,8 +148,7 @@ Mesh* MeshCreate(
 	return mesh;
 }
 
-void MeshDestroy(Mesh* mesh)
-{
+void MeshDestroy(Mesh* mesh) {
 	if (mesh->vbo) glDeleteBuffers(1, &mesh->vbo);
 	if (mesh->ibo) glDeleteBuffers(1, &mesh->ibo);
 	if (mesh->vao) glDeleteVertexArrays(1, &mesh->vao);
@@ -180,8 +156,7 @@ void MeshDestroy(Mesh* mesh)
 	delete mesh;
 }
 
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format, bool mips)
-{
+Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format, bool mips) {
 	Texture* texture = new Texture();
 	texture->width = width;
 	texture->height = height;
@@ -191,8 +166,7 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 	glBindTexture(GL_TEXTURE_2D, texture->handle);
 
 	GLenum baseformat, type;
-	switch (format)
-	{
+	switch (format) {
 		case GL_RGBA8: baseformat = GL_RGBA; type = GL_UNSIGNED_BYTE; break;
 		case GL_R8:    baseformat = GL_RED;  type = GL_UNSIGNED_BYTE; break;
 		default: Fatal("TextureCreate: Invalid format");
@@ -200,14 +174,11 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, baseformat, type, pixels);
 
-	if (mips)
-	{
+	if (mips) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
+	} else {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
@@ -217,15 +188,13 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 	return texture;
 }
 
-Texture* TextureLoad(const char* name, bool mips)
-{
+Texture* TextureLoad(const char* name, bool mips) {
 	char path[256];
 	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
 
 	int width, height, channels_in_file;
 	U8* pixels = stbi_load(path, &width, &height, &channels_in_file, 4);
-	if (!pixels)
-	{
+	if (!pixels) {
 		Fatal("Failed to load %s", path);
 	}
 	DEFER(free(pixels));
@@ -237,8 +206,7 @@ Texture* TextureLoad(const char* name, bool mips)
 	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8, mips);
 }
 
-Material* MaterialCreate(const char* name, Shader* shader, Texture* texture)
-{
+Material* MaterialCreate(const char* name, Shader* shader, Texture* texture) {
 	Material* material = new Material();
 	AssetInit(material, AssetType_Material, name);
 

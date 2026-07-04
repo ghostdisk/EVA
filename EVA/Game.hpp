@@ -10,8 +10,7 @@ struct PhysicsWorld;
 struct GameServer;
 struct GameClient;
 
-struct Game
-{
+struct Game {
 	int                id                     = 0;
 	const char*        name                   = nullptr;
 	EntityManager      entity_manager         = {};

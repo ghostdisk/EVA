@@ -14,27 +14,21 @@ FT_Library FT;
 		if (err != 0) Fatal("FT_Init_FreeType: %d", err); \
 	} while (0)
 
-void FontInitialize()
-{
+void FontInitialize() {
 	FT_CHECK(FT_Init_FreeType(&FT));
 }
 
-static void Blit(
-	U8* dst, int dst_width, int dst_x, int dst_y,
-	U8* src, int src_width, int rows, int src_pitch)
-{
+static void Blit( U8* dst, int dst_width, int dst_x, int dst_y, U8* src, int src_width, int rows, int src_pitch) {
 	dst = dst + dst_x + dst_width * dst_y;
 	
-	for (int i = 0; i < rows; i++)
-	{
+	for (int i = 0; i < rows; i++) {
 		memcpy(dst, src, src_width);
 		dst += dst_width;
 		src += src_pitch;
 	}
 }
 
-Font* FontLoad(const char* name, int size, int atlas_size)
-{
+Font* FontLoad(const char* name, int size, int atlas_size) {
 	Font* font = new Font();
 	AssetInit(font, AssetType_Font, name);
 
@@ -52,8 +46,7 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 	int atlas_y = 0;
 	int row_size = 0;
 
-	for (int charcode = ' '; charcode <= '~'; charcode++)
-	{
+	for (int charcode = ' '; charcode <= '~'; charcode++) {
 		int glyph_index = FT_Get_Char_Index(font->face, charcode);
 		FT_CHECK(FT_Load_Glyph(font->face, glyph_index, FT_LOAD_DEFAULT));
 		FT_CHECK(FT_Render_Glyph(font->face->glyph, FT_RENDER_MODE_NORMAL));
@@ -63,8 +56,7 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 		int width = bitmap.width;
 		int height = bitmap.rows;
 
-		if (atlas_x + width > atlas_size)
-		{
+		if (atlas_x + width > atlas_size) {
 			atlas_x = 0;
 			atlas_y += row_size;
 			row_size = 0;
@@ -78,9 +70,7 @@ Font* FontLoad(const char* name, int size, int atlas_size)
 
 		if (y + row_size > atlas_size) Fatal("FontLoad: atlas too small\n");
 
-		Blit(
-			atlas_buffer, atlas_size, x, y,
-			bitmap.buffer, width, height, bitmap.pitch);
+		Blit(atlas_buffer, atlas_size, x, y, bitmap.buffer, width, height, bitmap.pitch);
 
 		font->glyphs[charcode].x = x;
 		font->glyphs[charcode].y = y;

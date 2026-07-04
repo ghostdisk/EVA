@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <Windows.h>
 
-[[noreturn]] void Fatal(const char* fmt, ...)
-{
+[[noreturn]] void Fatal(const char* fmt, ...) {
 	char message_buffer[2048];
 	va_list args;
 	va_start(args, fmt);
@@ -14,15 +13,12 @@
 	exit(1);
 }
 
-bool ReadEntireFile(const char* path, void** out_data, size_t* out_size)
-{
-
+bool ReadEntireFile(const char* path, void** out_data, size_t* out_size) {
 	*out_data = nullptr;
 	if (out_size) *out_size = 0;
 
 	FILE* f = fopen(path, "rb");
-	if (!f)
-	{
+	if (!f) {
 		fprintf(stderr, "ReadEntireFile: failed to open %s\n", path);
 		return false;
 	}
@@ -32,21 +28,18 @@ bool ReadEntireFile(const char* path, void** out_data, size_t* out_size)
 	long length = ftell(f);
 	rewind(f);
 
-	if (length < 0)
-	{
+	if (length < 0) {
 		fprintf(stderr, "ReadEntireFile: I/O error on %s\n", path);
 		return false;
 	}
 
 	U8* buffer = (U8*)malloc(length + 1);
-	if (!buffer)
-	{
+	if (!buffer) {
 		fprintf(stderr, "ReadEntireFile: out of memory\n");
 		return false;
 	}
 
-	if (length > 0 && fread(buffer, length, 1, f) != 1)
-	{
+	if (length > 0 && fread(buffer, length, 1, f) != 1) {
 		fprintf(stderr, "ReadEntireFile: I/O error on %s\n", path);
 		free(buffer);
 		return false;
@@ -60,22 +53,16 @@ bool ReadEntireFile(const char* path, void** out_data, size_t* out_size)
 	return true;
 }
 
-
-
-void ReplaceFileExtension(char* buffer, size_t buflen, const char* new_ext)
-{
+void ReplaceFileExtension(char* buffer, size_t buflen, const char* new_ext) {
 	size_t len = strlen(buffer);
 	char* candidate = buffer + len;
 
-	for (int i = len - 1; i >= 0; i--)
-	{
-		if (buffer[i] == '.')
-		{
+	for (int i = len - 1; i >= 0; i--) {
+		if (buffer[i] == '.') {
 			candidate = buffer + i;
 			break;
 		}
-		if (buffer[i] == '/' || buffer[i] == '\'')
-		{
+		if (buffer[i] == '/' || buffer[i] == '\'') {
 			break;
 		}
 	}

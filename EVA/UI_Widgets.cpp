@@ -8,8 +8,7 @@
 #include <EVA/Renderer/Renderer.hpp>
 #include <SDL3/SDL_events.h>
 
-UIBox* UILabel(const char* text, int text_len)
-{
+UIBox* UILabel(const char* text, int text_len) {
 	UIBox* box = UIBeginBox(0);
 	box->layout = &UILayoutMode_Text;
 	box->text = ArenaInternCString(FrameArena, text, text_len);
@@ -19,8 +18,7 @@ UIBox* UILabel(const char* text, int text_len)
 	return box;
 }
 
-UIBox* UISprite(Sprite* sprite, U32 id)
-{
+UIBox* UISprite(Sprite* sprite, U32 id) {
 	UIBox* box = UIBeginBox(id)
 		->SetBackgroundSprite(sprite)
 		->SetSize(sprite->w, sprite->h);
@@ -29,8 +27,7 @@ UIBox* UISprite(Sprite* sprite, U32 id)
 	return box;
 }
 
-bool UIButton(const char* text, UIButtonFlags flags)
-{
+bool UIButton(const char* text, UIButtonFlags flags) {
 	UIPushId(text);
 	UIBox* button = UIBeginBox(1)->SetPadding(8, 16);
 
@@ -45,23 +42,17 @@ bool UIButton(const char* text, UIButtonFlags flags)
 	UIEndBox();
 	UIPopId();
 
-	if (!(flags & UIButtonFlags_Disabled))
-	{
+	if (!(flags & UIButtonFlags_Disabled)) {
 		return button->Clicked();
-	}
-	else
-	{
+	} else {
 		button->color = COLOR_BUTTON;
 		button->color.w = 0.5f;
 		label->color.w = 0.2f;
 		return false;
 	}
-
-
 }
 
-bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
-{
+bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags) {
 	UIBox* outer_contents = UIBeginBox()
 		->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
 
@@ -78,29 +69,23 @@ bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
 
 		open = (bool*)box->GetData();
 
-		if (flags & UITreeNodeFlags_Selected)
-		{
+		if (flags & UITreeNodeFlags_Selected) {
 			box->color = COLOR_BUTTON_ACTIVE;
-		}
-		else
-		{
+		} else {
 			if      (box->Pressed())   box->color = COLOR_BUTTON_PRESSED;
 			else if (box->Hovered())   box->color = COLOR_BUTTON_HOVER;
 			else                       box->color = COLOR_BUTTON;
 		}
 
-
 		U32 arrow_id = 1337;
 		UIBox* arrow_box = UIBeginBox(arrow_id)->SetPadding(4);
 		UIBox* arrow = UISprite(*open ? Library::spr_ui_arrow_down : Library::spr_ui_arrow_right);
-		if (flags & UITreeNodeFlags_Leaf)
-		{
+		if (flags & UITreeNodeFlags_Leaf) {
 			arrow->color.w = 0;
 		}
 		UIEndBox();
 
-		if (arrow_box->Clicked())
-		{
+		if (arrow_box->Clicked()) {
 			*open = !*open;
 		}
 
@@ -112,51 +97,42 @@ bool UIBeginTreeNode(const char* text,  UIBox** out_box, UITreeNodeFlags flags)
 		if (out_box) *out_box = box;
 	}
 
-	if (*open)
-	{
+	if (*open) {
 		UIBox* inner_contents = UIBeginBox()
 			->SetPadding(0, 0, 0, 20)
 			->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch);
-	}
-	else
-	{
+	} else {
 		UIEndBox();
 	}
 	return *open;
 }
 
-void UIEndTreeNode()
-{
+void UIEndTreeNode() {
 	UIEndBox();
 	UIEndBox();
 }
 
-void UIBeginTreeList()
-{
+void UIBeginTreeList() {
 	UIBox* box = UIBeginBox()
 		->SetFlex(UIAxis_Vertical, UIAlignment_Start, UIAlignment_Stretch)
 		->SetSize(300, 0);
 }
 
-void UIEndTreeList()
-{
+void UIEndTreeList() {
 	UIEndBox();
 }
 
 // @CONSTRUCTOR_NOT_CALLED
-struct TextEdit
-{
+struct TextEdit {
 	std::vector<char>* buffer;
 	int    cursor;
 
-	void FixCursor()
-	{
+	void FixCursor() {
 		if (cursor > buffer->size()) cursor = buffer->size() - 1;
 		if (cursor < 0) cursor = 0;
 	}
 
-	void Backspace()
-	{
+	void Backspace() {
 		int erase_size = 1;
 		if (erase_size > cursor) erase_size = cursor;
 
@@ -169,14 +145,12 @@ struct TextEdit
 		cursor -= erase_size;
 	}
 
-	void Move(int delta)
-	{
+	void Move(int delta) {
 		cursor += delta;
 		FixCursor();
 	}
 
-	void Insert(const char* chunk)
-	{
+	void Insert(const char* chunk) {
 		int chunk_len = strlen(chunk);
 		int old_text_len = buffer->size();
 		buffer->resize(buffer->size() + chunk_len);
@@ -187,8 +161,7 @@ struct TextEdit
 	}
 };
 
-UIBox* UITextInput(std::vector<char>& buffer)
-{
+UIBox* UITextInput(std::vector<char>& buffer) {
 	UIBox* box = UIBeginBox(1, sizeof(TextEdit))
 		->SetPadding(4);
 
@@ -197,64 +170,52 @@ UIBox* UITextInput(std::vector<char>& buffer)
 	if (box->flags & UIBoxFlags_JustCreated) text_edit->cursor = buffer.size();
 	text_edit->FixCursor();
 
-	if (box->Focused())
-	{
+	if (box->Focused()) {
 		box->SetColor(COLOR_BUTTON_ACTIVE);
 		if (InputGetButtonDown(SDL_SCANCODE_BACKSPACE)) text_edit->Backspace();
 		if (InputGetButtonDown(SDL_SCANCODE_LEFT)) text_edit->Move(-1);
 		if (InputGetButtonDown(SDL_SCANCODE_RIGHT)) text_edit->Move(1);
-	}
-	else
-	{
+	} else {
 		box->SetColor(COLOR_BUTTON);
 	}
 
-	box->event_handler = 
-		[](UIBox* box, const UIEvent& event)
-		{
-			TextEdit* text_edit = (TextEdit*)box->GetData();
+	box->event_handler = [](UIBox* box, const UIEvent& event) {
+		TextEdit* text_edit = (TextEdit*)box->GetData();
 
-			switch (event.type)
-			{
-				case UIEventType_Focus:
-				{
-					SDL_StartTextInput(g_game_window);
-					return true;
-				}
-				case UIEventType_Unfocus:
-				{
-					SDL_StopTextInput(g_game_window);
-					return true;
-				}
-				case UIEventType_Text:
-				{
-					text_edit->Insert(event.text.text);
-					return true;
-				}
-				case UIEventType_Draw:
-				{
-					Font* font = UI->default_font;
-
-					float x = box->position.x + 4;
-					float y = box->position.y + (box->size.y - (float)font->pixel_size) / 2.0f;
-
-					DrawText(font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
-
-					if (box->Focused())
-					{
-						float2 cursor_pos = MeasureText(font, text_edit->buffer->data(), text_edit->cursor);
-						float cursor_offset = -(font->line_height - font->pixel_size) / 2.0f;
-						DrawRectangle(COLOR_WHITE, x + cursor_pos.x, y + cursor_offset, 2, font->line_height);
-					}
-
-					return true;
-				}
-				default: return false;
+		switch (event.type) {
+			case UIEventType_Focus: {
+				SDL_StartTextInput(g_game_window);
+				return true;
 			}
-			return false;
-		};
+			case UIEventType_Unfocus: {
+				SDL_StopTextInput(g_game_window);
+				return true;
+			}
+			case UIEventType_Text: {
+				text_edit->Insert(event.text.text);
+				return true;
+			}
+			case UIEventType_Draw: {
+				Font* font = UI->default_font;
+
+				float x = box->position.x + 4;
+				float y = box->position.y + (box->size.y - (float)font->pixel_size) / 2.0f;
+
+				DrawText(font, text_edit->buffer->data(), text_edit->buffer->size(), x, y, COLOR_WHITE);
+
+				if (box->Focused())
+				{
+					float2 cursor_pos = MeasureText(font, text_edit->buffer->data(), text_edit->cursor);
+					float cursor_offset = -(font->line_height - font->pixel_size) / 2.0f;
+					DrawRectangle(COLOR_WHITE, x + cursor_pos.x, y + cursor_offset, 2, font->line_height);
+				}
+				return true;
+			}
+			default: return false;
+		}
+		return false;
+	};
 
 	UIEndBox();
-
 	return box;
 }

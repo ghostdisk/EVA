@@ -18,16 +18,13 @@ ConVar cvar_vsync = {
 	.name = "vsync",
 	.help = "0 - no vsync, 1 - every vblank, 2 - every 2nd vblank",
 	.fvalue = 0,
-	.on_change = [](ConVar*)
-		{
-			SDL_GL_SetSwapInterval((int)cvar_vsync.fvalue);
-		},
+	.on_change = [](ConVar*) {
+		SDL_GL_SetSwapInterval((int)cvar_vsync.fvalue);
+	},
 };
 
-void PlatformInitialize()
-{
-	if (!SDL_Init(SDL_INIT_VIDEO))
-	{
+void PlatformInitialize() {
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
 		Fatal("SDL_Init: %s", SDL_GetError());
 	}
 
@@ -42,8 +39,7 @@ void PlatformInitialize()
 	ConRegisterVar(&cvar_vsync);
 }
 
-void PlatformBeginFrame()
-{
+void PlatformBeginFrame() {
 	{ // Update delta time:
 
 		U64 new_time = SDL_GetTicksNS();
@@ -75,12 +71,9 @@ void PlatformBeginFrame()
 	}
 }
 
-bool PlatformProcessSDLEvent(SDL_Event* event)
-{
-	switch (event->type)
-	{
-		case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-		{
+bool PlatformProcessSDLEvent(SDL_Event* event) {
+	switch (event->type) {
+		case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
 			g_quit = true;
 			return true;
 		}

@@ -20,8 +20,7 @@ layout (location = 4) uniform float     u_TextureScale;
 
 // ------------------------------------------------------------
 
-void main()
-{
+void main() {
 	vec3 normal = normalize(v_Normal);
 
 	float light1 = dot(v_Normal, normalize(vec3(-1, -.5, .7)));

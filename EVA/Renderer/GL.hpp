@@ -12,19 +12,16 @@ void GLPreInitialize();
 void GLInitialize();
 Shader* GLCompileShader(const char* name, int num_defines = 0, const char** defines = nullptr);
 
-struct MeshVertex
-{
+struct MeshVertex {
 	float3 position;
 	float3 normal;
 	float2 texcoord;
 };
 
 #define GL_ERROR_CHECK() \
-	do \
-	{ \
+	do { \
 		GLenum err = glGetError(); \
-		if (err != GL_NO_ERROR) \
-		{ \
+		if (err != GL_NO_ERROR) { \
  			GL_ERROR_CHECK_Impl(__FILE__, __LINE__, err); \
 		} \
 	} while (0)

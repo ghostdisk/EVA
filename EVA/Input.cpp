@@ -6,36 +6,33 @@
 #include <EVA/Math.hpp>
 #include <vector>
 
-struct InputButtonState
-{
+struct InputButtonState {
 	int  button        = 0;
 	bool just_pressed  = false;
 	bool held          = false;
 	bool just_released = false;
 };
 
-struct Keybind
-{
+struct Keybind {
 	int          button;
 	const char*  command;
 	bool         ctrl;
 	bool         shift;
 };
 
-struct ButtonNameMapEntry
-{
+struct ButtonNameMapEntry {
 	char name[12];
 	int  button;
 };
 
-float2 g_mouse_position = {};
-float2 g_mouse_delta    = {};
-
-struct Hold
-{
+struct Hold {
 	ConVar* var     = nullptr;
 	int     button  = 0;
 };
+
+
+float2 g_mouse_position = {};
+float2 g_mouse_delta    = {};
 
 static std::vector<InputButtonState>   g_button_states  = {};
 static std::vector<Keybind>            g_keybinds       = {};
@@ -123,49 +120,37 @@ static const ButtonNameMapEntry button_names[] = {
 	{ "minus",       SDL_SCANCODE_MINUS       },
 };
 
-void Con_hold(ConParser& parser)
-{
-	if (!parser.button)
-	{
+void Con_hold(ConParser& parser) {
+	if (!parser.button) {
 		ConError("hold can only be called from a response to bind (e.g. bind w hold forward)");
 		return;
 	}
 
 	const char* cvar_name = parser.StringArg();
-	if (cvar_name)
-	{
+	if (cvar_name) {
 		ConVar* cvar = ConGetVar(cvar_name);
-		if (cvar)
-		{
+		if (cvar) {
 			cvar->svalue[0] = '1';
 			cvar->svalue[1] = '\0';
 			cvar->fvalue = 1.0f;
 			g_holds.push_back({ cvar, parser.button });
-		}
-		else
-		{
+		} else {
 			ConError("hold: %s is not a cvar", cvar_name);
 		}
-	}
-	else
-	{
+	} else {
 		ConError("hold: missing var name");
 	}
 }
 
-void Con_bind(ConParser& parser)
-{
+void Con_bind(ConParser& parser) {
 	const char* button = parser.StringArg();
 	const char* cmd = parser.RestArgs();
 
 	bool ctrl = false;
 	bool shift = false;
-	for (const char* c = button; *c; c++)
-	{
-		if (*c == '-')
-		{
-			for (const char* f = button; f < c; f++)
-			{
+	for (const char* c = button; *c; c++) {
+		if (*c == '-') {
+			for (const char* f = button; f < c; f++) {
 				if (*f == 's') shift = true;
 				if (*f == 'c') ctrl = true;
 			}
@@ -173,10 +158,8 @@ void Con_bind(ConParser& parser)
 			break;
 		}
 	}
-	for (const ButtonNameMapEntry& entry : button_names)
-	{
-		if (strcmp(entry.name, button) == 0)
-		{
+	for (const ButtonNameMapEntry& entry : button_names) {
+		if (strcmp(entry.name, button) == 0) {
 			g_keybinds.push_back({
 				.button = entry.button,
 				.command = strdup(cmd),
@@ -189,8 +172,7 @@ void Con_bind(ConParser& parser)
 	ConError("%s is not a real button", button);
 }
 
-void InputInitialize()
-{
+void InputInitialize() {
 	ConRegisterCommand("bind", Con_bind, "bind an action to a button");
 	ConRegisterCommand("hold", Con_hold, "hold an action (use like this: bind w hold forward)");
 	ConRegisterVar(&cvar_forward);
@@ -201,8 +183,7 @@ void InputInitialize()
 	ConRegisterVar(&cvar_flydown);
 }
 
-bool TextInputConsumesKey(SDL_Scancode scancode)
-{
+bool TextInputConsumesKey(SDL_Scancode scancode) {
 	if (!SDL_TextInputActive(g_game_window)) return false;
 	if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) return true;
 	if (scancode >= SDL_SCANCODE_0 && scancode <= SDL_SCANCODE_9) return true;
@@ -210,54 +191,43 @@ bool TextInputConsumesKey(SDL_Scancode scancode)
 	return false;
 }
 
-static InputButtonState* InputGetButtonState(int button, bool create)
-{
-	for (InputButtonState& button_state : g_button_states)
-	{
-		if (button_state.button == button)
-		{
+static InputButtonState* InputGetButtonState(int button, bool create) {
+	for (InputButtonState& button_state : g_button_states) {
+		if (button_state.button == button) {
 			return &button_state;
 		}
 	}
 
-	if (create)
-	{
+	if (create) {
 		g_button_states.push_back(InputButtonState{ .button = button });
 		return &g_button_states.back();
-	}
-	else
-	{
+	} else {
 		return nullptr;
 	}
 }
 
-static void InputPressButton(int button)
-{
+static void InputPressButton(int button) {
 	InputButtonState* state = InputGetButtonState(button, true);
 	state->just_pressed = true;
 	state->held = true;
 }
 
-static void InputReleaseButton(int button)
-{
+static void InputReleaseButton(int button) {
 	InputButtonState* state = InputGetButtonState(button, true);
 	state->just_released = true;
 	state->held = false;
 }
 
-void InputBeginFrame()
-{
+void InputBeginFrame() {
 	g_mouse_position = {};
 	g_mouse_delta = {};
 
-	for (int i = 0; i < g_button_states.size(); i++)
-	{
+	for (int i = 0; i < g_button_states.size(); i++) {
 		InputButtonState& state = g_button_states[i];
 		state.just_pressed = false;
 		state.just_released = false;
 
-		if (!state.held)
-		{
+		if (!state.held) {
 			state = g_button_states.back();
 			g_button_states.pop_back();
 			i--;
@@ -268,74 +238,59 @@ void InputBeginFrame()
 	SDL_GetMouseState(&g_mouse_position.x, &g_mouse_position.y);
 }
 
-bool InputProcessSDLEvent(SDL_Event* event)
-{
-	switch (event->type)
-	{
-		case SDL_EVENT_KEY_DOWN:
-		{
+bool InputProcessSDLEvent(SDL_Event* event) {
+	switch (event->type) {
+		case SDL_EVENT_KEY_DOWN: {
 			InputPressButton(event->key.scancode);
 			return true;
 		}
-		case SDL_EVENT_KEY_UP:
-		{
+		case SDL_EVENT_KEY_UP: {
 			InputReleaseButton(event->key.scancode);
 			return true;
 		}
-		case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		{
+		case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 			InputPressButton(INPUT_BUTTON_MOUSE_START + event->button.button);
 			return true;
 		}
-		case SDL_EVENT_MOUSE_BUTTON_UP:
-		{
+		case SDL_EVENT_MOUSE_BUTTON_UP: {
 			InputReleaseButton(INPUT_BUTTON_MOUSE_START + event->button.button);
 			return true;
 		}
-		case SDL_EVENT_MOUSE_MOTION:
-		{
+		case SDL_EVENT_MOUSE_MOTION: {
 			g_mouse_delta.x += event->motion.xrel;
 			g_mouse_delta.y += event->motion.yrel;
 			return true;
 		}
-		default:
-		{
-			return false;
-		}
+		default: return false; 
 	}
 }
 
-void InputUpdateAxes()
-{
+void InputUpdateAxes() {
 	std::vector<int> consumed_buttons = {};
 
-	auto is_consumed = [&](int key)
-		{
-			for (int k : consumed_buttons) if (key == k) return true;
-			return false;
-		};
+	auto is_consumed = [&](int key) {
+		for (int k : consumed_buttons) if (key == k) return true;
+		return false;
+	};
 
-	auto process = [&](bool ctrl, bool shift)
+	auto process = [&](bool ctrl, bool shift) {
+		for (const Keybind& bind : g_keybinds)
 		{
-			for (const Keybind& bind : g_keybinds)
-			{
-				if (bind.ctrl != ctrl)                               continue;
-				if (bind.shift != shift)                             continue;
-				if (is_consumed(bind.button))                        continue;
-				if (ctrl && !InputGetButton(SDL_SCANCODE_LCTRL))     continue;
-				if (shift && !InputGetButton(SDL_SCANCODE_LSHIFT))   continue;
-				if (TextInputConsumesKey((SDL_Scancode)bind.button)) continue;
-				if (!InputGetButtonDown(bind.button))                continue;
+			if (bind.ctrl != ctrl)                               continue;
+			if (bind.shift != shift)                             continue;
+			if (is_consumed(bind.button))                        continue;
+			if (ctrl && !InputGetButton(SDL_SCANCODE_LCTRL))     continue;
+			if (shift && !InputGetButton(SDL_SCANCODE_LSHIFT))   continue;
+			if (TextInputConsumesKey((SDL_Scancode)bind.button)) continue;
+			if (!InputGetButtonDown(bind.button))                continue;
 
-				consumed_buttons.push_back(bind.button);
-				ConExec(bind.command, bind.button);
-			}
-		};
+			consumed_buttons.push_back(bind.button);
+			ConExec(bind.command, bind.button);
+		}
+	};
 
-	for (int i = 0; i < g_holds.size(); i++)
-	{
-		if (InputGetButtonUp(g_holds[i].button))
-		{
+	for (int i = 0; i < g_holds.size(); i++) {
+		if (InputGetButtonUp(g_holds[i].button)) {
 			g_holds[i].var->svalue[0] = '0';
 			g_holds[i].var->svalue[1] = '\0';
 			g_holds[i].var->fvalue = 0.0f;
@@ -351,20 +306,17 @@ void InputUpdateAxes()
 	process(false, false); // *
 }
 
-bool InputGetButtonDown(int button)
-{
+bool InputGetButtonDown(int button) {
 	InputButtonState* state = InputGetButtonState(button, false);
 	return state ? state->just_pressed : false;
 }
 
-bool InputGetButton(int button)
-{
+bool InputGetButton(int button) {
 	InputButtonState* state = InputGetButtonState(button, false);
 	return state ? state->held : false;
 }
 
-bool InputGetButtonUp(int button)
-{
+bool InputGetButtonUp(int button) {
 	InputButtonState* state = InputGetButtonState(button, false);
 	return state ? state->just_released : false;
 }

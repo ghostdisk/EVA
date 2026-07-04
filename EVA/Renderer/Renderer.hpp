@@ -5,8 +5,7 @@
 struct Sprite;
 struct Font;
 
-enum Layer
-{
+enum Layer {
 	Layer_Sky     = 0,
 	Layer_Main    = 1,
 	Layer_Overlay = 2,
@@ -15,15 +14,13 @@ enum Layer
 	Layer_ENUM_SIZE,
 };
 
-enum DrawQuadMode
-{
+enum DrawQuadMode {
 	DrawQuadMode_SolidColor,
 	DrawQuadMode_Text,
 	DrawQuadMode_Sprite,
 };
 
-struct DrawQuad
-{
+struct DrawQuad {
 	int mode;
 	int pad0;
 	int pad1;
@@ -33,8 +30,7 @@ struct DrawQuad
 	float4 tint;
 };
 
-struct DrawQuadRecord
-{
+struct DrawQuadRecord {
 	DrawQuadMode mode          = DrawQuadMode_SolidColor;
 	Texture*     texture       = nullptr;
 	float4       position_rect = {};

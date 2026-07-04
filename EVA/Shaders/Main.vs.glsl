@@ -15,8 +15,7 @@ layout (location = 2) out vec3 v_WorldPos;
 
 // --- uniform buffers ----------------------------------------
 
-layout (std140, binding = 0) uniform MainConstantBuffer
-{
+layout (std140, binding = 0) uniform MainConstantBuffer {
 	mat4 view;
 	mat4 view_projection;
 } u_main;
@@ -30,8 +29,7 @@ layout (location = 4) uniform float     u_TextureScale;
 
 // ------------------------------------------------------------
 
-void main()
-{
+void main() {
 	vec4 world_pos = u_Model * vec4(a_Position, 1);
 	gl_Position = u_main.view_projection * world_pos;
 

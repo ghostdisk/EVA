@@ -3,8 +3,7 @@
 
 #define NUM_FRAME_ARENAS 3
 
-struct Arena
-{
+struct Arena {
 	U8* begin = nullptr;
 	U8* end   = nullptr;
 	U8* head  = nullptr;

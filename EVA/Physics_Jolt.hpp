@@ -15,8 +15,7 @@
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
 
-struct PhysicsWorld
-{
+struct PhysicsWorld {
 	JPH::PhysicsSystem system;
 };
 
