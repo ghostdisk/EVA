@@ -1662,6 +1662,12 @@ void EdCompileMap()
 		fprintf(f, "%u ", idx);
 	}
 	fprintf(f, "\n");
+
+	fprintf(f, "entities %d\n", (int)g_entities.size());
+	for (EdEntity* entity : g_entities)
+	{
+		EdSaveEntity(f, entity, 1);
+	}
 }
 
 void EdInitialize()

@@ -196,6 +196,7 @@ void GameUnloadMap(Game* game)
 		MeshDestroy(game->level_mesh);
 		game->level_mesh = nullptr;
 	}
+
 	PhysicsDestroyCollider(game->level_mesh_collider);
 }
 
