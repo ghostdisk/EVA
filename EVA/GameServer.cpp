@@ -17,7 +17,7 @@ void Con_host(ConParser& parser) {
 	int port = parser.IntArg(27015);
 
 	g_active_game->server = new GameServer();
-	GameServerInit(g_active_game->server, g_active_game, nullptr, port);
+	g_active_game->server->Init(g_active_game, nullptr, port);
 	ConLog("[game %d] Hosting at %d", g_active_game->id, port);
 }
 
@@ -25,53 +25,75 @@ void GameServerInitialize() {
 	ConRegisterCommand("host", Con_host, "host a server on a port");
 }
 
-static EID NewEID(GameServer* server) {
-	return server->next_eid++;
+EID GameServer::NewEID() {
+	return next_eid++;
 }
 
-void GameServerInit(GameServer* server, Game* game, const char* ip, int port) {
-	server->game = game;
+void GameServer::Init(Game* game, const char* ip, int port) {
+	this->game = game;
 
 	ENetAddress address = {};
 	address.host = ENET_HOST_ANY;
 	if (ip) enet_address_set_host_ip(&address, ip);
 	address.port = port;
-	server->host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
+	host = enet_host_create(&address, MAX_CLIENTS, NUM_CHANNELS, 0, 0);
 
-	if (!server->host) Fatal("enet_host_create failed");
+	if (!host) Fatal("enet_host_create failed");
 }
 
-static void OnPlayerDisconnected(GameServer* server, GameServerPlayer* player) {
+void GameServer::HandlePlayerDisconnected(GameServerPlayer* player) {
 }
 
-void GameServerTick(GameServer* server, double dt) {
-	if (!server->host) return;
+bool GameServer::Send(GameServerPlayer* player, const U8* message, size_t message_size) {
+	ENetPacket* packet = enet_packet_create(message, message_size, ENET_PACKET_FLAG_RELIABLE);
+	if (enet_peer_send(player->peer, 0, packet) == 0) {
+		return true;
+	} else {
+		enet_packet_destroy(packet);
+		return false;
+	}
+}
+
+void GameServer::Broadcast(const U8* message, size_t message_size) {
+	for (GameServerPlayer* player : players) {
+		Send(player, message, message_size);
+	}
+}
+
+static void SendHello(GameServer* server, GameServerPlayer* player) {
+	// BinaryWriter writer;
+	// BinaryWriterInit(writer);
+	// Send(player, writer.data.data(), writer.data.size());
+}
+
+void GameServer::Tick(double dt) {
+	if (!host) return;
 
 	ENetEvent event;
-	while (enet_host_service(server->host, &event, 0) > 0) {
+	while (enet_host_service(host, &event, 0) > 0) {
 		switch (event.type) {
 			case ENET_EVENT_TYPE_CONNECT: {
 				GameServerPlayer* player = new GameServerPlayer();
 				player->peer = event.peer;
 				event.peer->userdata = player;
-				server->players.push_back(player);
-				ConLog("[game %d] player connected", server->game->id);
+				players.push_back(player);
+				ConLog("[game %d] player connected", game->id);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {
 				GameServerPlayer* player = (GameServerPlayer*)event.peer->userdata;
-				OnPlayerDisconnected(server, player);
+				this->HandlePlayerDisconnected(player);
 
-				for (int i = 0; i < server->players.size(); i++) {
-					if (server->players[i] == player) {
-						server->players[i] = server->players.back();
-						server->players.pop_back();
+				for (int i = 0; i < players.size(); i++) {
+					if (players[i] == player) {
+						players[i] = players.back();
+						players.pop_back();
 						break;
 					}
 				}
 				event.peer->userdata = nullptr;
 				delete player;
-				ConLog("[game %d] player disconnected", server->game->id);
+				ConLog("[game %d] player disconnected", game->id);
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {
@@ -82,42 +104,4 @@ void GameServerTick(GameServer* server, double dt) {
 			default: break;
 		}
 	}
-}
-
-static bool Send(GameServerPlayer* player, const U8* message, size_t message_size) {
-	ENetPacket* packet = enet_packet_create(message, message_size, ENET_PACKET_FLAG_RELIABLE);
-	if (enet_peer_send(player->peer, 0, packet) == 0) {
-		return true;
-	} else {
-		enet_packet_destroy(packet);
-		return false;
-	}
-}
-
-static void Broadcast(GameServer* server, const U8* message, size_t message_size) {
-	for (GameServerPlayer* player : server->players) {
-		Send(player, message, message_size);
-	}
-}
-
-static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity) {
-	WriteBinT<U8>(writer, S2CMessageType_EntityCreate);
-	WriteBinT<U8>(writer, entity->type);
-	WriteBinT<U32>(writer, entity->eid);
-	WriteBinT<float3>(writer, entity->position);
-	WriteBinT<float4>(writer, entity->rotation);
-	WriteBinT<float3>(writer, entity->scale);
-	WriteBinT<U32>(writer, entity->mesh ? entity->mesh->id : 0);
-}
-
-static void SendHello(GameServer* server, GameServerPlayer* player) {
-	BinaryWriter writer;
-	BinaryWriterInit(writer);
-
-	server->game->entity_manager.Iterate([&](Entity* entity) {
-		FillOutEntityCreateMessage(writer, entity);
-	});
-
-	printf("[server] Sending %d bytes hello\n", (int)writer.data.size());
-	Send(player, writer.data.data(), writer.data.size());
 }
