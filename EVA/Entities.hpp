@@ -6,7 +6,6 @@
 typedef U32 EID;
 struct Mesh;
 struct Material;
-struct CharacterCollider;
 
 namespace JPH {
 	class Body;
@@ -75,21 +74,15 @@ struct EMarker : Entity {
 	int         team_index  = 0;
 };
 
-struct CharacterController;
 
 // @CONSTRUCTOR_NOT_CALLED
 struct ECharacter : Entity {
 	float3 velocity = {};
-	CharacterController* controller = nullptr;
-	CharacterCollider* collider = nullptr;
 };
 
 template <typename T>
 inline void EntityInit(T* entity) {
 }
-
-template <>
-void EntityInit(ECharacter* character);
 
 template <typename TEntity>
 struct EntityPool {

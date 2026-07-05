@@ -4,7 +4,6 @@
 #include <EVA/Binary.hpp>
 #include <EVA/Wire.hpp>
 #include <EVA/GLTF.hpp>
-#include <EVA/Character.hpp>
 #include <EVA/Renderer/GL.hpp> // Mesh
 #include <EVA/CSG.hpp> // Mesh
 #include <enet/enet.h>

@@ -177,6 +177,7 @@ void GameUnloadMap(Game* game) {
 	PhysicsDestroyCollider(game->level_mesh_collider);
 }
 
+
 void GameLoadMap(Game* game, const char* name) {
 	int n;
 	char path[256];

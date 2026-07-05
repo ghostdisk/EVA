@@ -10,7 +10,6 @@ add_executable(EVA
 	"EVA/Arena.cpp"
 	"EVA/Assets/Asset.cpp"
 	"EVA/Camera.cpp"
-	"EVA/Character.cpp"
 	"EVA/Console.cpp"
 	"EVA/CSG.cpp"
 	"EVA/Editor.cpp"
