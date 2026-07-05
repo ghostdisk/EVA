@@ -48,23 +48,25 @@ ConVar cvar_show_fps = {
 	.fvalue = 0,
 };
 
-void Con_tp(ConParser& parser) {
+Result Con_tp(ConParser& parser) {
 	g_current_camera->position.x = parser.FloatArg(g_current_camera->position.x);
 	g_current_camera->position.y = parser.FloatArg(g_current_camera->position.y);
 	g_current_camera->position.z = parser.FloatArg(g_current_camera->position.z);
+	return Success();
 }
 
-void Con_map(ConParser& parser) {
+Result Con_map(ConParser& parser) {
 	const char* map_name = parser.StringArg();
 	if (g_app_mode == AppMode_Editor) {
 		char ed_load_cmd_buf[64];
 		snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
-		ConExec(ed_load_cmd_buf);
+		return ConExec(ed_load_cmd_buf);
 	} else {
 		if (!g_active_game)
 			ConExec("game 0");
 		g_active_game->LoadMap(map_name);
 	}
+	return Success();
 }
 
 void GameInitialize() {
@@ -134,25 +136,19 @@ void Game::UnloadMap() {
 	}
 }
 
-bool Game::LoadMap(const char* name) {
+Result Game::LoadMap(const char* name) {
 	int n;
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
-	if (!f) {
-		ConLog("Failed to open %s", path);
-		return false;
-	}
+	if (!f) return Err("Failed to open %s", path);
 	DEFER(fclose(f));
 	fscanf(f, "type map\n");
 
 	int version;
 	n = fscanf(f, "version %d\n", &version);
 	assert(n == 1);
-	if (version != 1) {
-		ConError("map %s is version %d, expected %d", name, version, 1);
-		return false;
-	}
+	if (version != 1) return Err("map %s is version %d, expected %d", name, version, 1);
 
 	int num_vertices;
 	n = fscanf(f, "vertices %d", &num_vertices);
@@ -181,11 +177,11 @@ bool Game::LoadMap(const char* name) {
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);
-	if (n != 1) { ConError("failed to load map"); return false; }
+	if (n != 1) return Err("failed to load map");
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
 		Entity* entity = EntityLoad(&entity_manager, f);
 	}
-	return true;
+	return Success();
 }

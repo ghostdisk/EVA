@@ -120,11 +120,8 @@ static const ButtonNameMapEntry button_names[] = {
 	{ "minus",       SDL_SCANCODE_MINUS       },
 };
 
-void Con_hold(ConParser& parser) {
-	if (!parser.button) {
-		ConError("hold can only be called from a response to bind (e.g. bind w hold forward)");
-		return;
-	}
+Result Con_hold(ConParser& parser) {
+	if (!parser.button) return Err("hold can only be called from a response to bind (e.g. bind w hold forward)");
 
 	const char* cvar_name = parser.StringArg();
 	if (cvar_name) {
@@ -135,14 +132,15 @@ void Con_hold(ConParser& parser) {
 			cvar->fvalue = 1.0f;
 			g_holds.push_back({ cvar, parser.button });
 		} else {
-			ConError("hold: %s is not a cvar", cvar_name);
+			return Err("hold: %s is not a cvar", cvar_name);
 		}
 	} else {
-		ConError("hold: missing var name");
+		return Err("hold: missing var name");
 	}
+	return Success();
 }
 
-void Con_bind(ConParser& parser) {
+Result Con_bind(ConParser& parser) {
 	const char* button = parser.StringArg();
 	const char* cmd = parser.RestArgs();
 
@@ -166,10 +164,10 @@ void Con_bind(ConParser& parser) {
 				.ctrl = ctrl,
 				.shift = shift,
 			});
-			return;
+			return Success();
 		}
 	}
-	ConError("%s is not a real button", button);
+	return Err("%s is not a real button", button);
 }
 
 void InputInitialize() {

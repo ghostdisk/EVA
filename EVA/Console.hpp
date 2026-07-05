@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Math.hpp>
+#include <EVA/Result.hpp>
 
 struct ConParser {
 	const char* start;
@@ -22,13 +23,13 @@ struct ConVar {
 	void (*on_change)(ConVar* cvar) = nullptr;
 };
 
-void    ConExec(ConParser& parser);
-void    ConExec(const char* script, int button = 0);
+Result  ConExec(ConParser& parser);
+Result  ConExec(const char* script, int button = 0);
 void    ConLog(const char* fmt, ...);
-void    ConError(const char* fmt, ...);
+void    ConError(Result res);
 ConVar* ConGetVar(const char* name);
 
-using ConProc = void (*)(ConParser& p);
+using ConProc = Result (*)(ConParser& p);
 
 void ConRegisterVar(ConVar* cvar);
 void ConRegisterCommand(const char* name, ConProc proc, const char* help = "");

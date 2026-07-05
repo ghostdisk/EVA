@@ -1,5 +1,6 @@
 #include <EVA/Arena.hpp>
 #include <EVA/String.hpp>
+#include <EVA/Result.hpp>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -100,4 +101,15 @@ ZTString Fmt(Arena* arena, const char* fmt, ...) {
 
 void ArenaReset(Arena* arena) {
 	arena->head = arena->begin;
+}
+
+Result Err(const char* fmt, ...) {
+	Arena* arena = FrameArena;
+
+	va_list args;
+	va_start(args, fmt);
+
+	ZTString* error_string = (ZTString*)ArenaAllocate(arena, sizeof(ZTString), alignof(ZTString));
+	*error_string = Vfmt(arena, fmt, args);
+	return Result{ .error = error_string };
 }

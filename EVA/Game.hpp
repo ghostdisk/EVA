@@ -3,8 +3,7 @@
 #include <EVA/Camera.hpp>
 #include <box3d/box3d.h>
 
-struct GLTFScene;
-struct CSGBrush;
+struct Result;
 struct GameServer;
 struct GameClient;
 
@@ -23,15 +22,12 @@ struct Game {
 	void Tick(double dt);
 	void Draw();
 
-	bool LoadMap(const char* map);
+	Result LoadMap(const char* map);
 	void UnloadMap();
 
 	static void TickAll(double dt);
 };
 
 void GameInitialize();
-
-
-EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);
 
 extern Game*   g_active_game;

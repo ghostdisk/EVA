@@ -20,28 +20,32 @@ static std::vector<ConCommand>  g_commands        = {};
 static std::vector<ConVar*>     g_cvars           = {};
 static bool                     console_open      = false;
 
-void Con_help(ConParser& parser) {
+Result Con_help(ConParser& parser) {
 	for (const ConCommand& cmd : g_commands)
 		ConLog("- %s: %s", cmd.name, cmd.help);
 	for (const ConVar* var : g_cvars) 
 		ConLog("- %s: %s", var->name, var->help);
+	return Success();
 }
 
-void Con_clear(ConParser& parser) {
+Result Con_clear(ConParser& parser) {
 	g_console_log.clear();
+	return Success();
 }
 
-void Con_exec(ConParser& parser) {
+Result Con_exec(ConParser& parser) {
 	char path[256];
 	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, parser.StringArg());
 
 	char* data = nullptr;
 	ReadEntireFile(path, (void**)&data, nullptr);
 	if (!data) {
-		return ConError("failed to open %s", path);
+		return Err("failed to open %s", path);
 	}
 	ConExec(data);
 	free(data);
+
+	return Success();
 }
 
 void ConsoleInitialize() {
@@ -65,12 +69,9 @@ void ConLog(const char* fmt, ...) {
 	g_console_log.push_back(str.c_str());
 }
 
-void ConError(const char* fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	ZTString str = Vfmt(FrameArena, fmt, args);
-	va_end(args);
-	g_console_log.push_back(Fmt(FrameArena, "error: %s", str.c_str()).c_str());
+void ConError(Result err) {
+	assert(!err);
+	g_console_log.push_back(Fmt(FrameArena, "error: %s", err.error->c_str()).c_str());
 }
 
 static bool ConSkipSpace(ConParser& parser) {
@@ -133,27 +134,27 @@ int ConParser::IntArg(int fallback) {
 	else return fallback;
 }
 
-void ConExec(const char* script, int button) {
+Result ConExec(const char* script, int button) {
 	ConParser parser;
 	parser.start = script;
 	parser.end = script + strlen(script);
 	parser.head = script;
 	parser.button = button;
-	ConExec(parser);
+	return ConExec(parser);
 }
 
-bool ConExecSingle(ConParser& parser) {
+Result ConExecSingle(ConParser& parser) {
 	const char* cmd = parser.StringArg();
 	if (!cmd) {
 		ConSkipLine(parser);
-		return false;
+		return Success();
 	}
 
 	for (const ConCommand& c : g_commands) {
 		if (strcmp(c.name, cmd) == 0) {
-			c.proc(parser);
+			Result res = c.proc(parser);
 			ConSkipLine(parser);
-			return true;
+			return res;
 		}
 	}
 
@@ -169,22 +170,29 @@ bool ConExecSingle(ConParser& parser) {
 			}
 			ConSkipLine(parser);
 			if (cvar->on_change) cvar->on_change(cvar);
-			return true;
+			return Success();
 		} else {
 			ConLog("%s is '%s'", cvar->name, cvar->svalue);
-			return true;
+			return Success();
 		}
 	}
 
-	ConError("%s means nothing to me", cmd);
 	ConSkipLine(parser);
-	return false;
+	return Err("%s means nothing to me", cmd);
 }
 
-void ConExec(ConParser& parser) {
+Result ConExec(ConParser& parser) {
+	Result res = Success();
+
 	while (parser.head < parser.end) {
-		ConExecSingle(parser);
+		Result r = ConExecSingle(parser);
+		if (!r) {
+			res = r;
+			ConError(r);
+		}
 	}
+
+	return res;
 }
 
 void ConsoleDraw() {

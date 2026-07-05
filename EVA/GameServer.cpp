@@ -9,16 +9,17 @@
 #include <enet/enet.h>
 #include <stdio.h>
 
-void Con_host(ConParser& parser) {
-	if (!g_active_game)        return ConError("no active game");
-	if (g_active_game->server) return ConError("[game %d] already hosting", g_active_game->id);
-	if (g_active_game->client) return ConError("[game %d] connected as a client, disconnect first", g_active_game->id);
+Result Con_host(ConParser& parser) {
+	if (!g_active_game)        return Err("no active game");
+	if (g_active_game->server) return Err("[game %d] already hosting", g_active_game->id);
+	if (g_active_game->client) return Err("[game %d] connected as a client, disconnect first", g_active_game->id);
 
 	int port = parser.IntArg(27015);
 
 	g_active_game->server = new GameServer();
 	g_active_game->server->Init(g_active_game, nullptr, port);
 	ConLog("[game %d] Hosting at %d", g_active_game->id, port);
+	return Success();
 }
 
 void GameServerInitialize() {

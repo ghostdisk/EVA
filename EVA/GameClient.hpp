@@ -2,6 +2,7 @@
 #include <EVA/Net.hpp>
 
 struct Game;
+struct Result;
 
 enum GameClientState {
 	GameClientState_Disconnected,
@@ -16,8 +17,8 @@ struct GameClient {
 	ENetPeer*       server = nullptr;
 
 	void Init(Game* game);
-	void Connect(IPAddress ip, U16 port);
-	void Disconnect(const char* reason);
+	Result Connect(IPAddress ip, U16 port);
+	Result Disconnect(const char* reason);
 	void Tick(double dt);
 };
 

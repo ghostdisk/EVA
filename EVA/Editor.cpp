@@ -1253,12 +1253,13 @@ EdOp* EdLoadOp(FILE* f) {
 	return op;
 }
 
-void EdSaveMap(const char* name) {
+Result EdSaveMap(const char* name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "wb");
-	if (!f) return ConError("Failed to open %s", name);
+	if (!f) return Err("Failed to open %s", name);
 	DEFER(fclose(f));
+
 	fprintf(f, "type mpe\n");
 	fprintf(f, "version 1\n");
 	EdSaveOp(f, g_root, 0);
@@ -1269,6 +1270,7 @@ void EdSaveMap(const char* name) {
 	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
+	return Success();
 }
 
 void EdUnloadMap() {
@@ -1280,14 +1282,11 @@ void EdUnloadMap() {
 	EntityManagerInit(g_entity_manager);
 }
 
-void EdLoadMap(const char* name) {
+Result EdLoadMap(const char* name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
-	if (!f) {
-		ConError("Failed to open %s", name);
-		return;
-	}
+	if (!f) return Err("Failed to open %s", name);
 	DEFER(fclose(f));
 
 	EdUnloadMap();
@@ -1296,8 +1295,7 @@ void EdLoadMap(const char* name) {
 	fscanf(f, "type mpe\n");
 	fscanf(f, "version %d\n", &version);
 	if (version != 1) {
-		ConError("map %s is version %d, expected %d", name, version, 1);
-		return;
+		return Err("map %s is version %d, expected %d", name, version, 1);
 	}
 
 	g_root = EdLoadOp(f);
@@ -1305,7 +1303,7 @@ void EdLoadMap(const char* name) {
 
 	int num_entities;
 	int n = fscanf(f, "entities %d\n", &num_entities);
-	if (n != 1) { ConError("failed to load map"); return; }
+	if (n != 1) return Err("failed to load map");
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
@@ -1315,18 +1313,18 @@ void EdLoadMap(const char* name) {
 
 	EdBuild(g_root);
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
+
+	return Success();
 }
 
-void EdCompileMap() {
+Result EdCompileMap() {
 	int indent = 0;
+
 	char path[256];
 	assert(g_loaded_map_name[0]);
 	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, g_loaded_map_name);
 	FILE* f = fopen(path, "wb");
-	if (!f) {
-		ConError("Failed to open %s", path);
-		return;
-	}
+	if (!f) return Err("Failed to open %s", path);
 	DEFER(fclose(f));
 
 	EdBuild(g_root);
@@ -1370,11 +1368,13 @@ void EdCompileMap() {
 	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
 	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
+
+	return Success();
 }
 
-void EdInitialize()
-{
+void EdInitialize() {
 	ConRegisterVar(&cvar_ed_show_sub);
+
 	ConRegisterCommand("ed_cube", [](ConParser& parser) {
 		EdOp* op = EdCreateOp();
 		op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
@@ -1382,7 +1382,9 @@ void EdInitialize()
 		EdOpAddChild(g_root, op);
 		EdSelectOp(op);
 		EdBuild(g_root);
+		return Success();
 	}, "editor: create a cube");
+
 	ConRegisterCommand("ed_cylinder", [](ConParser& parser) {
 		EdOp* op = EdCreateOp();
 		int nseg = parser.FloatArg(12.0f);
@@ -1393,43 +1395,59 @@ void EdInitialize()
 		EdOpAddChild(g_root, op);
 		EdSelectOp(op);
 		EdBuild(g_root);
+		return Success();
 	}, "editor: create a cylinder");
+
 	ConRegisterCommand("ed_move", [](ConParser& parser) {
 		float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
 		for (EdSelection& sel : g_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->position += offset;
 		EdBuild(g_root);
+		return Success();
 	}, "editor: create a cube");
+
 	ConRegisterCommand("ed_build", [](ConParser& parser) {
 		EdBuild(g_root);
+		return Success();
 	}, "editor: rebuild csg");
+
 	ConRegisterCommand("ed_add", [](ConParser& parser) {
 		for (EdSelection& sel : g_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = false;
 		EdBuild(g_root);
+		return Success();
 	}, "editor: set selected to add");
+
 	ConRegisterCommand("ed_sub", [](ConParser& parser) {
 		for (EdSelection& sel : g_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = true;
 		EdBuild(g_root);
+		return Success();
 	}, "editor: set selected to subtract");
+
 	ConRegisterCommand("ed_order_move", [](ConParser& parser) {
 		EdOrderMove(parser.IntArg(1));
 		EdBuild(g_root);
+		return Success();
 	}, "editor: move selection up/down in stack");
+
 	ConRegisterCommand("ed_group", [](ConParser& parser) {
 		EdSelectOp(EdGroup(EdGetSelectedOps()));
 		EdBuild(g_root);
+		return Success();
 	}, "editor: group selection into an object");
+
 	ConRegisterCommand("ed_ungroup", [](ConParser& parser) {
 		for (EdSelection& sel : g_selection)
 			if (sel.type == EdSelectionType_Node)
 				EdUngroup(sel.op);
 		EdBuild(g_root);
+		return Success();
 	}, "editor: group ungroup selected objects");
+
 	ConRegisterCommand("ed_clone", [](ConParser& parser) {
 		std::vector<EdOp*> selection = EdGetSelectedOps();
 		EdDeselect();
@@ -1440,11 +1458,15 @@ void EdInitialize()
 			EdSelectOp(clone, true);
 		}
 		EdBuild(g_root);
+		return Success();
 	}, "editor: clone selection");
+
 	ConRegisterCommand("ed_del", [](ConParser& parser) {
 		EdDestroySelection();
 		EdBuild(g_root);
+		return Success();
 	}, "editor: delete subtract");
+
 	ConRegisterCommand("ed_grid_size_inc", [](ConParser& parser) {
 		g_grid_size_idx += parser.IntArg(1);
 		if (g_grid_size_idx < 0) g_grid_size_idx = 0;
@@ -1453,38 +1475,37 @@ void EdInitialize()
 		Library::mat_brush->texture_scale = 1.0f / g_grid.size / 4.0f;
 		ScreenLog("Grid Size: %g", g_grid.size);
 		EdBuild(g_root);
+		return Success();
 	}, "editor: increase/decrease grid size");
+
 	ConRegisterCommand("ed_save", [](ConParser& parser) {
 		const char* name = parser.StringArg();
-		if (!name || name[0] == '\0')
-		{
-			name = g_loaded_map_name;
-		}
-		if (!name[0])
-		{
-			ConError("no map opened");
-			return;
-		}
-		EdSaveMap(name);
+		if (!name) name = g_loaded_map_name;
+		if (!name[0]) return Err("no map opened");
+		return EdSaveMap(name);
 	}, "editor: save map .mpe");
+
 	ConRegisterCommand("ed_load", [](ConParser& parser) {
 		const char* name = parser.StringArg();
-		if (!name || name[0] == '\0')
-		{
-			ConError("required arg missing");
-			return;
-		}
-		EdLoadMap(name);
+		if (!name || name[0] == '\0') return Err("required arg missing");
+
+		return EdLoadMap(name);
 	}, "editor: load a map .mpe");
+
 	ConRegisterCommand("ed_compile", [](ConParser& parser) {
-		EdCompileMap();
+		return EdCompileMap();
 	}, "editor: compile map");
+
 	ConRegisterCommand("ed", [](ConParser& parser) {
 		AppSetMode(AppMode_Editor, nullptr);
+		return Success();
 	}, "editor: open editor");
+
 	ConRegisterCommand("ed_tool", [](ConParser& parser) {
 		EdSetTool((EdTool)parser.IntArg(0));
+		return Success();
 	}, "editor: set tool");
+
 
 	g_root = EdCreateOp();
 	g_root->type = EdOpType_Stack;
