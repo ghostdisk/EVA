@@ -1,12 +1,14 @@
 #pragma once
-#include <EVA/Entities.hpp>
 #include <EVA/Camera.hpp>
+#include <EVA/Entities/EntityManager.hpp>
 #include <box3d/box3d.h>
 
+struct Mesh;
 struct String;
 struct Result;
 struct GameServer;
 struct GameClient;
+struct EntityManager;
 
 struct Game {
 	int                id                     = 0;

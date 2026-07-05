@@ -11,7 +11,7 @@
 #include <EVA/Font.hpp>
 #include <EVA/Camera.hpp>
 #include <EVA/Arena.hpp>
-#include <EVA/Entities.hpp>
+#include <EVA/Entities/Entity.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/GameClient.hpp>

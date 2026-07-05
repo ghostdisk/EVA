@@ -1,10 +1,9 @@
 #pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
-#include <stdio.h> // FILE
-#include <vector>
 
 typedef U32 EID;
+struct Entity;
 struct Mesh;
 struct Material;
 struct Game;
@@ -20,6 +19,7 @@ struct EntityTypeMeta {
 	char        name[32]          = "";
 	float3      editor_box_offset = float3(0,0,0);
 	float3      editor_box_size   = float3(0.5f,0.5f,0.5f);
+	Entity*     (*CreateEntity)() = nullptr;
 };
 
 #define X_FOREACH_ENTITY() \
@@ -71,63 +71,6 @@ struct Entity {
 	virtual void OnDeactivate(const EntityCallbackInfo& ci) {}
 	virtual void OnUpdate(const EntityCallbackInfo& ci) {}
 	virtual void OnFixedUpdate(const EntityCallbackInfo& ci) {}
+
+	virtual ~Entity() {}
 };
-
-struct EStaticMesh : Entity {
-};
-
-struct ERigidbody : Entity {
-};
-
-// @CONSTRUCTOR_NOT_CALLED
-struct EMarker : Entity {
-	EMarkerType marker_type = {};
-	int         team_index  = 0;
-};
-
-// @CONSTRUCTOR_NOT_CALLED
-struct ECharacter : Entity {
-	PlayerController controller;
-};
-
-struct EntityManager {
-	std::vector<Entity*> entities = {};
-	std::vector<Entity*> update_list = {};
-	std::vector<Entity*> fixed_update_list = {};
-
-	template <typename F> // TODO: remove this
-	void Iterate(F&& callback) {
-		for (Entity* entity : entities) {
-			callback(entity);
-		}
-	}
-
-	Entity* CreateEntity(EntityType type, EID eid) {
-		Entity* entity = nullptr;
-		switch (type) {
-			#define X(name, id, lim) case EntityType_ ## name: entity = new E ## name(); break;
-			X_FOREACH_ENTITY()
-			#undef X
-			default: assert(0); return nullptr;
-		}
-		entities.push_back(entity);
-		return entity;
-	}
-
-	void DestroyEntity(Entity* entity) {
-		for (int i = 0; i < entities.size(); i++) {
-			if (entities[i] == entity) {
-				entities[i] = entities.back();
-				entities.pop_back();
-				break;
-			}
-		}
-		delete entity;
-	}
-};
-
-void EntityManagerInit(EntityManager& entity_manager);
-void EntityManagerDeinit(EntityManager& entity_manager);
-void EntitySetName(Entity* entity, const char* name);
-Entity* EntityLoad(EntityManager* entity_manager, FILE* f);
-void EntitySave(FILE* f, Entity* entity, int indent);

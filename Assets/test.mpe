@@ -424,12 +424,12 @@ op 2
 		op_end
 op_end
 entities 3
-	entity 4 1
-		position -1.000000 -6.250000 0.000000
+	entity 4 0
+		position -0.250000 -3.750000 0.000000
 	entity_end
-	entity 4 2
-		position 0.500000 -5.500000 0.000000
+	entity 4 0
+		position 1.250000 -6.500000 0.000000
 	entity_end
-	entity 4 3
-		position 1.000000 -7.250000 0.000000
+	entity 4 0
+		position 3.250000 -5.250000 0.000000
 	entity_end

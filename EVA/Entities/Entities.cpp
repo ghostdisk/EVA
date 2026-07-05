@@ -1,4 +1,7 @@
-#include <EVA/Entities.hpp>
+#include <EVA/Game.hpp>
+#include <EVA/Entities/Entity.hpp>
+#include <EVA/Entities/EntityManager.hpp>
+#include <EVA/Entities/ECharacter.hpp>
 #include <stdio.h>
 
 EntityTypeMeta ENoneMeta = {
@@ -7,6 +10,7 @@ EntityTypeMeta ENoneMeta = {
 
 EntityTypeMeta EStaticMeshMeta = {
 	.name = "EStaticMesh",
+	.CreateEntity = []() { return new Entity(); }
 };
 
 EntityTypeMeta ERigidbodyMeta = {
@@ -17,12 +21,14 @@ EntityTypeMeta ECharacterMeta = {
 	.name = "ECharacter",
 	.editor_box_offset = {0,0,1},
 	.editor_box_size = {0.5, 0.5, 2},
+	.CreateEntity = []() -> Entity* { return new ECharacter(); }
 };
 
 EntityTypeMeta EMarkerMeta = {
 	.name = "EMarker",
 	.editor_box_offset = {0,0,.25},
 	.editor_box_size = {.25, .25, .25},
+	.CreateEntity = []() -> Entity* { return new Entity(); }
 };
 
 EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE] {
@@ -36,10 +42,10 @@ void EntityManagerInit(EntityManager& entity_manager) {
 }
 
 void EntityManagerDeinit(EntityManager& entity_manager) {
-	for (Entity* entity : entity_manager.entities) {
-		delete entity;
-	}
+	for (Entity* entity : entity_manager.entities) delete entity;
 	entity_manager.entities.clear();
+	entity_manager.update_list.clear();
+	entity_manager.fixed_update_list.clear();
 }
 
 void EntitySetName(Entity* entity, const char* name) {
@@ -54,7 +60,9 @@ Entity* EntityLoad(EntityManager* entity_manager, FILE* f) {
 	n = fscanf(f, "entity %d %d\n", &type, &eid);
 	assert(n == 2);
 
-	Entity* entity = entity_manager->CreateEntity((EntityType)type, eid);
+	Entity* entity = ENTITY_TYPE_META[type]->CreateEntity();
+	entity->type = (EntityType)type;
+	entity_manager->RegisterEntity(entity, eid);
 
 	for (;;) {
 		n = fscanf(f, "%s", buf);
@@ -93,3 +101,10 @@ void EntitySave(FILE* f, Entity* entity, int indent) {
 	Indent(f, indent); fprintf(f, "entity_end\n");
 }
 
+void Entity::RequestUpdateCallback(const EntityCallbackInfo& ci) {
+	ci.game->entity_manager.update_list.push_back(this);
+}
+
+void Entity::RequestFixedUpdateCallback(const EntityCallbackInfo& ci) {
+	ci.game->entity_manager.fixed_update_list.push_back(this);
+}

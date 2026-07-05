@@ -1,6 +1,6 @@
 #include <EVA/Camera.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Entities.hpp>
+#include <EVA/Entities/Entity.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Console.hpp>
 #include <SDL3/SDL.h>

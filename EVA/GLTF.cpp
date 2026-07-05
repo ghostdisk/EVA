@@ -1,5 +1,5 @@
 #include <EVA/GLTF.hpp>
-#include <EVA/Entities.hpp>
+#include <EVA/Entities/Entity.hpp>
 #include <EVA/Assets/Asset.hpp>
 
 #define CGLTF_IMPLEMENTATION

@@ -3,6 +3,8 @@
 #include <EVA/Game.hpp>
 #include <vector>
 
+struct ECharacter;
+
 struct GameServerPlayer {
 	ECharacter*      pawn       = nullptr;
 	ENetPeer*        peer       = nullptr;

@@ -234,8 +234,10 @@ void EdRemoveOpFromTree(EdOp* op) {
 }
 
 Entity* EdCreateEntity(EntityType type, float3 pos) {
-	Entity* entity = g_entity_manager.CreateEntity(type, g_next_eid++);
+	Entity* entity = ENTITY_TYPE_META[type]->CreateEntity();
+	entity->type = type;
 	entity->position = pos;
+	g_entity_manager.RegisterEntity(entity, g_next_eid++);
 	return entity;
 }
 
