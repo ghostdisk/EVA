@@ -61,10 +61,14 @@ void GameServer::Broadcast(const U8* message, size_t message_size) {
 	}
 }
 
-static void SendHello(GameServer* server, GameServerPlayer* player) {
-	// BinaryWriter writer;
-	// BinaryWriterInit(writer);
-	// Send(player, writer.data.data(), writer.data.size());
+void GameServer::SendHello(GameServerPlayer* player) {
+	BinaryWriter writer;
+	BinaryWriterInit(writer);
+
+	WriteBinT<U8>(writer, S2CMessageType_Hello);
+	WriteBinString(writer, game->map_name);
+
+	Send(player, writer.data.data(), writer.data.size());
 }
 
 void GameServer::Tick(double dt) {
@@ -79,6 +83,7 @@ void GameServer::Tick(double dt) {
 				event.peer->userdata = player;
 				players.push_back(player);
 				ConLog("[game %d] player connected", game->id);
+				SendHello(player);
 				break;
 			}
 			case ENET_EVENT_TYPE_DISCONNECT: {

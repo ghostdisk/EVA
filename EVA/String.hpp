@@ -2,6 +2,8 @@
 #include <EVA/Common.hpp>
 #include <string.h>
 
+#define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
+
 /**
  ** A non-owning string view.
  **/

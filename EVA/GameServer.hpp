@@ -19,6 +19,8 @@ struct GameServer {
 	void HandlePlayerDisconnected(GameServerPlayer* player);
 	bool Send(GameServerPlayer* player, const U8* message, size_t message_size);
 	void Broadcast(const U8* message, size_t message_size);
+
+	void SendHello(GameServerPlayer* player);
 };
 
 void GameServerInitialize();

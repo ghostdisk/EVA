@@ -3,6 +3,7 @@
 #include <EVA/Camera.hpp>
 #include <box3d/box3d.h>
 
+struct String;
 struct Result;
 struct GameServer;
 struct GameClient;
@@ -17,12 +18,13 @@ struct Game {
 	GameServer*        server                 = nullptr;
 	GameClient*        client                 = nullptr;
 	b3WorldId          physics                = {};
+	char               map_name[32]           = {};
 
 	void Init();
 	void Tick(double dt);
 	void Draw();
 
-	Result LoadMap(const char* map);
+	Result LoadMap(String name);
 	void UnloadMap();
 
 	static void TickAll(double dt);

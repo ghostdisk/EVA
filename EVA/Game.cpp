@@ -136,10 +136,10 @@ void Game::UnloadMap() {
 	}
 }
 
-Result Game::LoadMap(const char* name) {
+Result Game::LoadMap(String name) {
 	int n;
 	char path[256];
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
+	snprintf(path, 256, "%s/Assets/%.*s.map", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
 	FILE* f = fopen(path, "rb");
 	if (!f) return Err("Failed to open %s", path);
 	DEFER(fclose(f));
@@ -183,5 +183,7 @@ Result Game::LoadMap(const char* name) {
 	for (int i = 0; i < num_entities; i++) {
 		Entity* entity = EntityLoad(&entity_manager, f);
 	}
+
+	snprintf(map_name, sizeof(map_name), "%.*s", STRING_PRINTF_ARGS(name));
 	return Success();
 }

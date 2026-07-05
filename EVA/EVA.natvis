@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="String">
+    <DisplayString>{data,[size]s8}</DisplayString>
+    <StringView>data,[size]s8</StringView>
+    <Expand>
+      <Item Name="[size]">size</Item>
+      <Item Name="[data]">data</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="ZTString">
+    <DisplayString>{string.data,[string.size]s8}</DisplayString>
+    <StringView>string.data,[string.size]s8</StringView>
+    <Expand>
+      <Item Name="[size]">string.size</Item>
+      <Item Name="[data]">string.data</Item>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>

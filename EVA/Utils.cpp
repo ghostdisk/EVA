@@ -1,4 +1,7 @@
 #include <EVA/Common.hpp>
+#include <EVA/Binary.hpp>
+#include <EVA/String.hpp>
+#include <EVA/Arena.hpp>
 #include <stdarg.h>
 #include <stdio.h>
 #include <Windows.h>
@@ -68,4 +71,25 @@ void ReplaceFileExtension(char* buffer, size_t buflen, const char* new_ext) {
 	}
 
 	snprintf(candidate, buflen - (candidate - buffer), "%s", new_ext);
+}
+
+void WriteBinString(BinaryWriter& writer, String str) {
+	WriteBinT<U32>(writer, str.size);
+	WriteBinBytes(writer, str.data, str.size);
+}
+
+ZTString ReadBinString(BinaryReader& reader, Arena* arena, int max_size) {
+	ZTString str;
+	str.string.size = ReadBinT<U32>(reader);
+	if (str.string.size > max_size) {
+		reader.ok = false;
+		return {};
+	}
+	str.string.data = (U8*)ArenaAllocate(arena, str.string.size + 1);
+	ReadBinBytes(reader, str.string.data, str.string.size);
+	if (!reader.ok) {
+		return {};
+	}
+	str.string.data[str.string.size] = '\0';
+	return str;
 }

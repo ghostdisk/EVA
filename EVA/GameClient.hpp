@@ -3,6 +3,8 @@
 
 struct Game;
 struct Result;
+struct BinaryReader;
+struct String;
 
 enum GameClientState {
 	GameClientState_Disconnected,
@@ -15,11 +17,17 @@ struct GameClient {
 	GameClientState state  = GameClientState_Disconnected;
 	ENetHost*       host   = 0;
 	ENetPeer*       server = nullptr;
+	bool            hello_received = false;
 
 	void Init(Game* game);
 	Result Connect(IPAddress ip, U16 port);
-	Result Disconnect(const char* reason);
+	void Disconnect(String reason, bool error);
+	void Disconnect(Result error);
 	void Tick(double dt);
+
+	Result HandlePacket(BinaryReader& reader);
+	Result HandleMessage(S2CMessageType mt, BinaryReader& reader);
+	Result HandleS2CHello(BinaryReader& reader);
 };
 
 void GameClientInitialize();

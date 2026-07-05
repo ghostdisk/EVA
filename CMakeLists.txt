@@ -32,6 +32,7 @@ add_executable(EVA
 	"EVA/UI_Utils.cpp"
 	"EVA/UI_Widgets.cpp"
 	"EVA/Utils.cpp"
+	"EVA/EVA.natvis"
 )
 
 

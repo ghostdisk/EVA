@@ -2,6 +2,10 @@
 #include <EVA/Common.hpp>
 #include <vector>
 
+struct Arena;
+struct String;
+struct ZTString;
+
 struct BinaryReader {
 	const U8*   begin = nullptr;
 	const U8*   end   = nullptr;
@@ -51,3 +55,6 @@ template <typename T>
 inline void WriteBinT(BinaryWriter& writer, const T& value) {
 	WriteBinBytes(writer, &value, sizeof(value));
 }
+
+void WriteBinString(BinaryWriter& writer, String str);
+ZTString ReadBinString(BinaryReader& reader, Arena* arena, int max_size = -1);

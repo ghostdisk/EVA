@@ -1,3 +1,4 @@
+#include <EVA/Arena.hpp>
 #include <EVA/GameClient.hpp>
 #include <EVA/Result.hpp>
 #include <EVA/Assets/Asset.hpp>
@@ -35,7 +36,9 @@ Result Con_connect(ConParser& parser) {
 Result Con_disconnect(ConParser& parser) {
 	if (!g_active_game) return Err("no active game");
 	if (!g_active_game->client) return Err("not connected");
-	return g_active_game->client->Disconnect("Disconnected from console");
+
+	g_active_game->client->Disconnect(Err("Disconnected from console"));
+	return Success();
 }
 
 void GameClientInitialize() {
@@ -48,11 +51,17 @@ void GameClient::Init(Game* game) {
 	this->game = game;
 }
 
-Result GameClient::Disconnect(const char* reason) {
-	if (state == GameClientState_Disconnected) return Success();
+void GameClient::Disconnect(Result error) {
+	assert(!error);
+	Disconnect(*error.error, true);
+}
 
-	ConLog("[game %d] Disconnected: %s", game->id, reason);
-
+void GameClient::Disconnect(String reason, bool error) {
+	if (error) {
+		ConError(Err("disconnected from server: %.*s", STRING_PRINTF_ARGS(reason)));
+	} else {
+		ConLog("disconnected from server: %.*s", STRING_PRINTF_ARGS(reason));
+	}
 	if (server) {
 		enet_peer_disconnect_now(server, 0);
 		server = nullptr;
@@ -62,7 +71,6 @@ Result GameClient::Disconnect(const char* reason) {
 		host = nullptr;
 	}
 	state = GameClientState_Disconnected;
-	return Success();
 }
 
 void GameClient::Tick(double dt) {
@@ -74,29 +82,20 @@ void GameClient::Tick(double dt) {
 			switch (event.type) {
 				case ENET_EVENT_TYPE_CONNECT: {
 					state = GameClientState_Connected;
+					hello_received = false;
 					ConLog("[game %d] Connected to server", game->id);
 					break;
 				}
 				case ENET_EVENT_TYPE_DISCONNECT: {
-					Disconnect("enet dc");
+					Disconnect("lost connection", true);
 					break;
 				}
 				case ENET_EVENT_TYPE_RECEIVE: {
-					printf("[client] received %d bytes!\n", (int)event.packet->dataLength);
-
 					BinaryReader reader;
 					BinaryReaderInit(reader, event.packet->data, event.packet->dataLength);
 
-					while (reader.ok) {
-						S2CMessageType message = (S2CMessageType)ReadBinT<U8>(reader);
-						switch (message) {
-							default: {
-								assert(message == 0); // we get 0 if the message is over. if this blows, we have a serialization issue.
-								reader.ok = false;
-								break;
-							}
-						}
-					}
+					Result res = HandlePacket(reader);
+					if (!res) Disconnect(res);
 
 					enet_packet_destroy(event.packet);
 					break;
@@ -108,7 +107,6 @@ void GameClient::Tick(double dt) {
 }
 
 Result GameClient::Connect(IPAddress ip, U16 port) {
-
 	switch (state) {
 		case GameClientState_Disconnected: break;
 		case GameClientState_Connecting: return Err("already connecting to a server");
@@ -132,5 +130,43 @@ Result GameClient::Connect(IPAddress ip, U16 port) {
 
 	state = GameClientState_Connecting;
 	ConLog("[game %d] Connecting to %d.%d.%d.%d:%d", game->id, ip.octets[0], ip.octets[1], ip.octets[2], ip.octets[3], (int)port);
+	return Success();
+}
+
+Result GameClient::HandleS2CHello(BinaryReader& reader) {
+	if (hello_received) return Err("received hello multiple times");
+	hello_received = true;
+
+	String map_name = ReadBinString(reader, FrameArena, 32);
+	TRY(game->LoadMap(map_name));
+
+	return Success();
+}
+
+Result GameClient::HandleMessage(S2CMessageType mt, BinaryReader& reader) {
+	switch (mt) {
+		case S2CMessageType_Hello: return HandleS2CHello(reader);
+		default: {
+			return Err("received invalid message %d from server", mt);
+		}
+	}
+}
+
+Result GameClient::HandlePacket(BinaryReader& reader) {
+	while (reader.ok) {
+		S2CMessageType message = (S2CMessageType)ReadBinT<U8>(reader);
+
+		if (message == 0) {
+			if (reader.head == reader.end) {
+				return Success();
+			} else {
+				return Err("received invalid message from server");
+			}
+		} else {
+			TRY(HandleMessage(message, reader));
+			if (!reader.ok) return Err("received invalid message from server");
+		}
+
+	}
 	return Success();
 }
