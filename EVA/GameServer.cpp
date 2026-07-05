@@ -1,8 +1,8 @@
 #include <EVA/GameServer.hpp>
+#include <EVA/Assets/Asset.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Binary.hpp>
-#include <EVA/Wire.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Renderer/GL.hpp> // Mesh
 #include <EVA/CSG.hpp> // Mesh
@@ -84,31 +84,23 @@ void GameServerTick(GameServer* server, double dt) {
 	}
 }
 
-/*
-static bool Send(GameServerPlayer* player, const U8* message, size_t message_size)
-{
+static bool Send(GameServerPlayer* player, const U8* message, size_t message_size) {
 	ENetPacket* packet = enet_packet_create(message, message_size, ENET_PACKET_FLAG_RELIABLE);
-	if (enet_peer_send(player->peer, 0, packet) == 0)
-	{
+	if (enet_peer_send(player->peer, 0, packet) == 0) {
 		return true;
-	}
-	else
-	{
+	} else {
 		enet_packet_destroy(packet);
 		return false;
 	}
 }
 
-static void Broadcast(GameServer* server, const U8* message, size_t message_size)
-{
-	for (GameServerPlayer* player : server->players)
-	{
+static void Broadcast(GameServer* server, const U8* message, size_t message_size) {
+	for (GameServerPlayer* player : server->players) {
 		Send(player, message, message_size);
 	}
 }
 
-static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity)
-{
+static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity) {
 	WriteBinT<U8>(writer, S2CMessageType_EntityCreate);
 	WriteBinT<U8>(writer, entity->type);
 	WriteBinT<U32>(writer, entity->eid);
@@ -118,18 +110,14 @@ static void FillOutEntityCreateMessage(BinaryWriter& writer, Entity* entity)
 	WriteBinT<U32>(writer, entity->mesh ? entity->mesh->id : 0);
 }
 
-static void SendHello(GameServer* server, GameServerPlayer* player)
-{
+static void SendHello(GameServer* server, GameServerPlayer* player) {
 	BinaryWriter writer;
 	BinaryWriterInit(writer);
 
-	server->game->entity_manager.Iterate(
-		[&](Entity* entity)
-		{
-			FillOutEntityCreateMessage(writer, entity);
-		});
+	server->game->entity_manager.Iterate([&](Entity* entity) {
+		FillOutEntityCreateMessage(writer, entity);
+	});
 
 	printf("[server] Sending %d bytes hello\n", (int)writer.data.size());
 	Send(player, writer.data.data(), writer.data.size());
 }
-*/
