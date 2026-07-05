@@ -34,7 +34,7 @@ ConVar cvar_game = {
 			if (!g_games[id])
 			{
 				g_games[id] = new Game();
-				GameInit(g_games[id]);
+				g_games[id]->Init();
 				g_games[id]->id = id;
 			}
 			
@@ -63,7 +63,7 @@ void Con_map(ConParser& parser) {
 	} else {
 		if (!g_active_game)
 			ConExec("game 0");
-		GameLoadMap(g_active_game, map_name);
+		g_active_game->LoadMap(map_name);
 	}
 }
 
@@ -75,40 +75,42 @@ void GameInitialize() {
 	ConRegisterCommand("map", Con_map, "load a map");
 }
 
-void GameInit(Game* game) {
-	CameraInit(game->camera);
-	game->camera.position.y = -10;
-	game->camera.position.z = 3;
-	EntityManagerInit(game->entity_manager);
+void Game::Init() {
+	CameraInit(camera);
+	camera.position.y = -10;
+	camera.position.z = 3;
+	EntityManagerInit(entity_manager);
+
+	b3WorldDef world_def = b3DefaultWorldDef();
+	world_def.gravity = b3Vec3{ 0, 0, -10 };
+	physics = b3CreateWorld(&world_def);
 }
 
-void GameTick(Game* game, double dt) {
+void Game::Tick(double dt) {
 	ZoneScopedN("GameTick");
 
-	if (game->server) game->server->Tick(dt);
-	if (game->client) game->client->Tick(dt);
+	if (server) server->Tick(dt);
+	if (client) client->Tick(dt);
 
-	if (g_active_game == game) {
-		if (!game->pawn) {
-			CameraFly(game->camera);
-		}
+	if (g_active_game == this && !pawn) {
+		CameraFly(camera);
 	}
-	CameraUpdateMatrices(game->camera);
+	CameraUpdateMatrices(camera);
 }
 
-void GameDraw(Game* game) {
-	ZoneScopedN("GameDraw");
+void Game::Draw() {
+	ZoneScopedN("Game::Draw");
 
 	DrawSetLayer(Layer_Main);
 
 	static float3 test1 = {};
 	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
 
-	if (game->level_mesh) {
-		DrawMesh(game->level_mesh, Library::mat_brush, float4x4::Identity());
+	if (level_mesh) {
+		DrawMesh(level_mesh, Library::mat_brush, float4x4::Identity());
 	}
 
-	game->entity_manager.Iterate([](Entity* entity) {
+	entity_manager.Iterate([](Entity* entity) {
 		if (entity->mesh) {
 			float4x4 model_matrix;
 			glm_translate_make(model_matrix, &entity->position.x);
@@ -119,46 +121,27 @@ void GameDraw(Game* game) {
 	});
 }
 
-EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid) {
-	EID eid = start_eid;
-
-	for (const GLTFSceneNode& node : scene->nodes) {
-		if (node.mesh) {
-			EStaticMesh* entity = game->entity_manager.pool_StaticMesh.CreateEntity(eid++);
-			entity->mesh     = node.mesh;
-			entity->material = node.material;
-			entity->position = node.position;
-			entity->rotation = node.rotation;
-			entity->scale    = node.scale;
-			EntitySetName(entity, node.name);
-		}
-	}
-
-	return eid;
+void Game::TickAll(double dt) {
+	for (Game* game : g_games) 
+		if (game)
+			game->Tick(dt);
 }
 
-void GameTickAll(double dt) {
-	for (Game* game : g_games) {
-		if (game) GameTick(game, dt);
+void Game::UnloadMap() {
+	if (level_mesh) {
+		MeshDestroy(level_mesh);
+		level_mesh = nullptr;
 	}
 }
 
-void GameUnloadMap(Game* game) {
-	if (game->level_mesh) {
-		MeshDestroy(game->level_mesh);
-		game->level_mesh = nullptr;
-	}
-}
-
-
-void GameLoadMap(Game* game, const char* name) {
+bool Game::LoadMap(const char* name) {
 	int n;
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "rb");
 	if (!f) {
 		ConLog("Failed to open %s", path);
-		return;
+		return false;
 	}
 	DEFER(fclose(f));
 	fscanf(f, "type map\n");
@@ -168,7 +151,7 @@ void GameLoadMap(Game* game, const char* name) {
 	assert(n == 1);
 	if (version != 1) {
 		ConError("map %s is version %d, expected %d", name, version, 1);
-		return;
+		return false;
 	}
 
 	int num_vertices;
@@ -194,14 +177,15 @@ void GameLoadMap(Game* game, const char* name) {
 	}
 	fscanf(f, "\n");
 
-	game->level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
+	level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);
-	if (n != 1) { ConError("failed to load map"); return; }
+	if (n != 1) { ConError("failed to load map"); return false; }
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
-		Entity* entity = EntityLoad(&game->entity_manager, f);
+		Entity* entity = EntityLoad(&entity_manager, f);
 	}
+	return true;
 }

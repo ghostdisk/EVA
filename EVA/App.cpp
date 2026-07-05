@@ -133,11 +133,11 @@ int main() {
 		for (auto& cb : g_next_frame_callbacks) cb.callback(cb.userdata);
 		g_next_frame_callbacks.clear();
 
-		GameTickAll(g_delta_time);
+		Game::TickAll(g_delta_time);
 
 		switch (g_app_mode) {
 			case AppMode_Game: {
-				GameDraw(g_active_game);
+				g_active_game->Draw();
 				break;
 			}
 			case AppMode_MainMenu: {

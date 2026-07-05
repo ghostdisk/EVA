@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Entities.hpp>
 #include <EVA/Camera.hpp>
+#include <box3d/box3d.h>
 
 struct GLTFScene;
 struct CSGBrush;
@@ -16,15 +17,20 @@ struct Game {
 	Mesh*              level_mesh             = nullptr;
 	GameServer*        server                 = nullptr;
 	GameClient*        client                 = nullptr;
+	b3WorldId          physics                = {};
+
+	void Init();
+	void Tick(double dt);
+	void Draw();
+
+	bool LoadMap(const char* map);
+	void UnloadMap();
+
+	static void TickAll(double dt);
 };
 
 void GameInitialize();
 
-void GameInit(Game* game);
-void GameTick(Game* game, double dt);
-void GameDraw(Game* game);
-void GameTickAll(double dt);
-void GameLoadMap(Game* game, const char* map);
 
 EID InstantiateScene(Game* game, GLTFScene* scene, EID start_eid);
 
