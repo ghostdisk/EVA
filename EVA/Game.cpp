@@ -100,8 +100,6 @@ void Game::Init() {
 void Game::Tick(double dt) {
 	ZoneScopedN("GameTick");
 
-	entity_manager.pool_Character.Iterate([&](ECharacter* entity) { entity->Tick(dt); });
-
 	if (server) server->Tick(dt);
 	if (client) client->Tick(dt);
 

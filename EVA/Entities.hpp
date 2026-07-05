@@ -2,6 +2,7 @@
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
 #include <stdio.h> // FILE
+#include <vector>
 
 typedef U32 EID;
 struct Mesh;
@@ -13,10 +14,6 @@ struct PlayerController {
 
 	void Tick(double dt);
 };
-
-namespace JPH {
-	class Body;
-}
 
 struct EntityTypeMeta {
 	char        name[32]          = "";
@@ -45,33 +42,34 @@ enum EMarkerType {
 	EMarkerType_PlayerSpawn = 1,
 };
 
-// @CONSTRUCTOR_NOT_CALLED
+enum EntityFlagBits : U32 {
+	EntityFlags_None = 0,
+};
+typedef U32 EntityFlags;
+
 struct Entity {
-	char        name[16];
-	EID         eid;
-	EntityType  type;
-	bool        alive;
-	// 2 bytes of waste here
+	char        name[16]     = "";
+	EID         eid          = 0;
+	EntityType  type         = EntityType_None;
+	U32         entity_flags = EntityFlags_None;
+	float3      position     = {0,0,0};
+	float4      rotation     = {0,0,0,1};
+	float3      scale        = {1,1,1};
+	Mesh*       mesh         = nullptr;
+	Material*   material     = nullptr;
 
-	union {
-		struct {
-			float3 position;
-			float4 rotation;
-			float3 scale;
-		};
-		Entity* next_free;
-	};
+	void RequestUpdateCallback();
+	void RequestFixedUpdateCallback();
 
-	Mesh* mesh;
-	Material* material;
-	JPH::Body* body;
+	virtual void OnActivate() {}
+	virtual void OnDeactivate() {}
+	virtual void OnUpdate() {}
+	virtual void OnFixedUpdate() {}
 };
 
-// @CONSTRUCTOR_NOT_CALLED
 struct EStaticMesh : Entity {
 };
 
-// @CONSTRUCTOR_NOT_CALLED
 struct ERigidbody : Entity {
 };
 
@@ -92,94 +90,39 @@ template <typename T>
 inline void EntityInit(T* entity) {
 }
 
-template <typename TEntity>
-struct EntityPool {
-	TEntity*   begin     = nullptr;
-	TEntity*   end       = nullptr;
-	TEntity*   head      = nullptr;
-	TEntity*   free_list = nullptr;
-	EntityType type      = {};
-
-	void Init(int capacity, EntityType type) {
-		begin     = (TEntity*)malloc(capacity * sizeof(TEntity));
-		end       = begin + capacity;
-		head      = begin;
-		free_list = nullptr;
-		this->type = type;
-	}
-
-	void Deinit() {
-		free(begin);
-		*this = {};
-	}
-
-	TEntity* CreateEntity(EID eid) {
-		TEntity* entity = nullptr;
-		if (free_list) {
-			entity = free_list;
-			free_list = (TEntity*)entity->next_free;
-		} else {
-			assert(head < end);
-			entity = head;
-			head++;
-		}
-
-		memset(entity, 0, sizeof(TEntity));
-		entity->eid      = eid;
-		entity->type     = type;
-		entity->alive    = true;
-		entity->rotation = {0,0,0,1};
-		entity->scale    = {1,1,1};
-		EntityInit(entity);
-		return entity;
-	}
-
-	template <typename F>
-	void Iterate(F&& callback) {
-		for (TEntity* ptr = begin; ptr < head; ptr++) {
-			if (ptr->alive) {
-				callback(ptr);
-			}
-		}
-	}
-
-	void DestroyEntity(TEntity* entity) {
-		entity->eid = 0;
-		entity->alive = false;
-		entity->next_free = free_list;
-		free_list = entity;
-	}
-};
-
 struct EntityManager {
+	std::vector<Entity*> entities = {};
+	std::vector<Entity*> update_list = {};
+	std::vector<Entity*> fixed_update_list = {};
 
-#define X(name, id, lim) EntityPool<E ## name> pool_ ## name;
-X_FOREACH_ENTITY()
-#undef X
-
-	template <typename F>
+	template <typename F> // TODO: remove this
 	void Iterate(F&& callback) {
-		#define X(name, id, lim) pool_ ## name.Iterate(callback);
-		X_FOREACH_ENTITY()
-		#undef X
+		for (Entity* entity : entities) {
+			callback(entity);
+		}
 	}
 
 	Entity* CreateEntity(EntityType type, EID eid) {
+		Entity* entity = nullptr;
 		switch (type) {
-			#define X(name, id, lim) case EntityType_ ## name: return pool_ ## name.CreateEntity(eid);
+			#define X(name, id, lim) case EntityType_ ## name: entity = new E ## name(); break;
 			X_FOREACH_ENTITY()
 			#undef X
 			default: assert(0); return nullptr;
 		}
+		entities.push_back(entity);
+		return entity;
 	}
 
 	void DestroyEntity(Entity* entity) {
-		switch (entity->type) {
-			#define X(name, id, lim) case EntityType_ ## name: pool_ ## name.DestroyEntity((E ## name*)entity); return;
-			X_FOREACH_ENTITY()
-			#undef X
-			default: assert(0); return;
+		for (int i = 0; i < entities.size(); i++) {
+			if (entities[i] == entity) {
+				entities[i] = entities.back();
+				entities.pop_back();
+				break;
+			}
 		}
+		delete entity;
 	}
 };
 

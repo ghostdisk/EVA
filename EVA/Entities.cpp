@@ -33,15 +33,13 @@ EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE] {
 };
 
 void EntityManagerInit(EntityManager& entity_manager) {
-	#define X(name, id, lim) entity_manager.pool_ ## name.Init(lim,   EntityType_ ## name);
-	X_FOREACH_ENTITY()
-	#undef X
 }
 
 void EntityManagerDeinit(EntityManager& entity_manager) {
-	#define X(name, id, lim) entity_manager.pool_ ## name.Deinit();
-	X_FOREACH_ENTITY()
-	#undef X
+	for (Entity* entity : entity_manager.entities) {
+		delete entity;
+	}
+	entity_manager.entities.clear();
 }
 
 void EntitySetName(Entity* entity, const char* name) {
