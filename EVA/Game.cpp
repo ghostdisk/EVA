@@ -38,6 +38,7 @@ ConVar cvar_game = {
 				g_games[id]->id = id;
 			}
 			
+			ScreenLog("Game %d", id);
 			AppSetMode(AppMode_Game, g_games[id]);
 		},
 };
