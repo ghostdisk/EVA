@@ -7,6 +7,13 @@ typedef U32 EID;
 struct Mesh;
 struct Material;
 
+struct PlayerController {
+	float2 input     = {};
+	float  input_yaw = {};
+
+	void Tick(double dt);
+};
+
 namespace JPH {
 	class Body;
 }
@@ -74,10 +81,11 @@ struct EMarker : Entity {
 	int         team_index  = 0;
 };
 
-
 // @CONSTRUCTOR_NOT_CALLED
 struct ECharacter : Entity {
-	float3 velocity = {};
+	PlayerController controller;
+
+	void Tick(double dt);
 };
 
 template <typename T>

@@ -14,6 +14,7 @@ add_executable(EVA
 	"EVA/CSG.cpp"
 	"EVA/Editor.cpp"
 	"EVA/Entities.cpp"
+	"EVA/ECharacter.cpp"
 	"EVA/Font.cpp"
 	"EVA/Game.cpp"
 	"EVA/GameClient.cpp"

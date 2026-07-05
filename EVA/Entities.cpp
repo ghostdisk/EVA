@@ -94,3 +94,4 @@ void EntitySave(FILE* f, Entity* entity, int indent) {
 	indent--;
 	Indent(f, indent); fprintf(f, "entity_end\n");
 }
+

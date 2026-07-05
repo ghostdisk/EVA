@@ -4,7 +4,8 @@
 #include <vector>
 
 struct GameServerPlayer {
-	ENetPeer* peer = nullptr;
+	ECharacter*      pawn       = nullptr;
+	ENetPeer*        peer       = nullptr;
 };
 
 struct GameServer {

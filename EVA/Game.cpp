@@ -87,10 +87,20 @@ void Game::Init() {
 	b3WorldDef world_def = b3DefaultWorldDef();
 	world_def.gravity = b3Vec3{ 0, 0, -10 };
 	physics = b3CreateWorld(&world_def);
+
+	{ // ground:
+		b3BodyDef ground_body_def = b3DefaultBodyDef();
+		b3BodyId ground_body = b3CreateBody(physics, &ground_body_def);
+		b3BoxHull ground_hull = b3MakeBoxHull(10, 10, 1);
+		b3ShapeDef ground_shape_def = b3DefaultShapeDef();
+		b3ShapeId ground_shape = b3CreateHullShape(ground_body, &ground_shape_def, &ground_hull.base);
+	}
 }
 
 void Game::Tick(double dt) {
 	ZoneScopedN("GameTick");
+
+	entity_manager.pool_Character.Iterate([&](ECharacter* entity) { entity->Tick(dt); });
 
 	if (server) server->Tick(dt);
 	if (client) client->Tick(dt);
@@ -125,9 +135,10 @@ void Game::Draw() {
 }
 
 void Game::TickAll(double dt) {
-	for (Game* game : g_games) 
-		if (game)
-			game->Tick(dt);
+	for (Game* game : g_games) {
+		if (!game) continue;
+		game->Tick(dt);
+	}
 }
 
 void Game::UnloadMap() {
