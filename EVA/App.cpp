@@ -1,4 +1,5 @@
 #include <EVA/App.hpp>
+#include <EVA/String.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
@@ -52,7 +53,7 @@ float  g_screen_log_stagger = 0.0f;
 void ScreenLog(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char* copy = ArenaVprintf(FrameArena, fmt, args);
+	char* copy = strdup(Vfmt(FrameArena, fmt, args).c_str());
 	va_end(args);
 	g_screen_log_stagger = 2.0f;
 

@@ -1,4 +1,5 @@
 #include <EVA/Arena.hpp>
+#include <EVA/String.hpp>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -67,32 +68,32 @@ char* ArenaInternCString(Arena* arena, const char* cstring, int len) {
 	return copy;
 }
 
-char* ArenaVprintf(Arena* arena, const char* fmt, va_list args) {
+ZTString Vfmt(Arena* arena, const char* fmt, va_list args) {
 	va_list measure_args;
 	va_copy(measure_args, args);
 	char dummy_buffer[1];
-	int needed = vsnprintf(dummy_buffer, 0, fmt, measure_args);
+	int length = vsnprintf(dummy_buffer, 0, fmt, measure_args);
 	va_end(measure_args);
 
-	if (needed < 0) {
-		return NULL;
+	if (length < 0) {
+		return {};
 	}
 
-	char* buffer = (char*)ArenaAllocate(arena, needed + 1);
+	U8* buffer = (U8*)ArenaAllocate(arena, length + 1);
 	if (buffer) {
 		va_list write_args;
 		va_copy(write_args, args);
-		vsnprintf(buffer, needed + 1, fmt, write_args);
+		vsnprintf((char*)buffer, length + 1, fmt, write_args);
 		va_end(write_args);
 	}
 
-	return buffer;
+	return ZTString(String(buffer, length));
 }
 
-char* ArenaPrintf(Arena* arena, const char* fmt, ...) {
+ZTString Fmt(Arena* arena, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char* result = ArenaVprintf(arena, fmt, args);
+	ZTString result = Vfmt(arena, fmt, args);
 	va_end(args);
 	return result;
 }

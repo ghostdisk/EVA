@@ -1,4 +1,5 @@
 #include <EVA/Arena.hpp>
+#include <EVA/String.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
@@ -59,17 +60,17 @@ ConVar* ConGetVar(const char* name) {
 void ConLog(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	const char* str = ArenaVprintf(FrameArena, fmt, args);
+	ZTString str = Vfmt(FrameArena, fmt, args);
 	va_end(args);
-	g_console_log.push_back(str);
+	g_console_log.push_back(str.c_str());
 }
 
 void ConError(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	const char* str = ArenaVprintf(FrameArena, fmt, args);
+	ZTString str = Vfmt(FrameArena, fmt, args);
 	va_end(args);
-	g_console_log.push_back(ArenaPrintf(FrameArena, "error: %s", str));
+	g_console_log.push_back(Fmt(FrameArena, "error: %s", str.c_str()).c_str());
 }
 
 static bool ConSkipSpace(ConParser& parser) {
