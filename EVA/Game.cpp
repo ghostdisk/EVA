@@ -2,6 +2,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/GameServer.hpp>
 #include <EVA/GameClient.hpp>
+#include <EVA/Renderer/GL.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Library.hpp>
@@ -9,12 +10,11 @@
 #include <EVA/CSG.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
-#include <EVA/Physics.hpp>
-#include <EVA/Physics_Jolt.hpp>
 #include <cglm/mat4.h>
 #include <cglm/affine.h>
 #include <cglm/quat.h>
 #include <tracy/Tracy.hpp>
+#include <vector>
 
 Game* g_games[8]        = {};
 Game* g_active_game     = nullptr;
@@ -79,24 +79,7 @@ void GameInit(Game* game) {
 	CameraInit(game->camera);
 	game->camera.position.y = -10;
 	game->camera.position.z = 3;
-
 	EntityManagerInit(game->entity_manager);
-
-	game->physics = PhysicsWorldCreate();
-
-
-#if 0
-	for (int i = 0; i < 10; i++) {
-		Entity* entity = game->entity_manager.CreateEntity(EntityType_Rigidbody, 1);
-		entity->mesh = Library::mesh_cube;
-		entity->material = Library::mat_brush;
-		entity->position.z = i * 3;
-		entity->position.x = i;
-		entity->position.y = 0.3 * i;
-		PhysicsBody box = PhysicsCreateBody(game->physics, box_collider, entity->position, entity->rotation, false);
-		entity->body = box.body;
-	}
-#endif
 }
 
 void GameTick(Game* game, double dt) {
@@ -104,14 +87,6 @@ void GameTick(Game* game, double dt) {
 
 	if (game->server) game->server->Tick(dt);
 	if (game->client) game->client->Tick(dt);
-
-	PhysicsTick(game->physics, dt);
-	// JPH::BodyInterface& body_interface = game->physics->system.GetBodyInterfaceNoLock();
-
-	game->entity_manager.pool_Rigidbody.Iterate( [](ERigidbody* rb) {
-		rb->position = ConvertPos(rb->body->GetPosition());
-		rb->rotation = ConvertQuat(rb->body->GetRotation());
-	});
 
 	if (g_active_game == game) {
 		if (!game->pawn) {
@@ -173,8 +148,6 @@ void GameUnloadMap(Game* game) {
 		MeshDestroy(game->level_mesh);
 		game->level_mesh = nullptr;
 	}
-
-	PhysicsDestroyCollider(game->level_mesh_collider);
 }
 
 
@@ -222,8 +195,6 @@ void GameLoadMap(Game* game, const char* name) {
 	fscanf(f, "\n");
 
 	game->level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
-	game->level_mesh_collider = PhysicsCreateMeshCollider(num_vertices, vertices.data(), num_indices, indices.data());
-	PhysicsCreateBody(game->physics, game->level_mesh_collider, {}, {0,0,0,1}, true);
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);

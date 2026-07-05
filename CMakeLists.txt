@@ -25,7 +25,6 @@ add_executable(EVA
 	"EVA/MainMenu.cpp"
 	"EVA/Math.cpp"
 	"EVA/Net.cpp"
-	"EVA/Physics.cpp"
 	"EVA/Platform.cpp"
 	"EVA/Renderer/GL.cpp"
 	"EVA/Renderer/Renderer.cpp"
@@ -94,7 +93,7 @@ target_include_directories(EVA PRIVATE "Vendor/tracy-0.13.1/public")
 # add_definitions(-DTRACY_ENABLE)
 
 #
-# Jolt
+# Box3D
 #
-add_subdirectory(Vendor/joltphysics/Build)
-target_link_libraries(EVA Jolt)
+add_subdirectory(Vendor/box3d)
+target_link_libraries(EVA box3d)
