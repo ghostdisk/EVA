@@ -24,7 +24,6 @@ struct Game {
 
 	void Init();
 	void Tick(double dt);
-	void TickFixed(double dt);
 	void Draw();
 
 	Result LoadMap(String name);

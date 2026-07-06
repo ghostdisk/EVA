@@ -80,6 +80,7 @@ void GameInitialize() {
 
 void Game::Init() {
 	camera = new ECamera();
+	camera->eid = EID_DefaultCamera;
 	CameraInit(*camera);
 	camera->position.y = -10;
 	camera->position.z = 3;

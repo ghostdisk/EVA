@@ -102,9 +102,9 @@ void EntitySave(FILE* f, Entity* entity, int indent) {
 }
 
 void Entity::RequestUpdateCallback(const EntityCallbackInfo& ci) {
-	ci.game->entity_manager.update_list.push_back(this);
+	ci.entity_manager->update_list.push_back(this);
 }
 
 void Entity::RequestFixedUpdateCallback(const EntityCallbackInfo& ci) {
-	ci.game->entity_manager.fixed_update_list.push_back(this);
+	ci.entity_manager->fixed_update_list.push_back(this);
 }

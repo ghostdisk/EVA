@@ -14,7 +14,7 @@ struct GameServer {
 	Game*                          game        = nullptr;
 	ENetHost*                      host        = 0;
 	std::vector<GameServerPlayer*> players     = {};
-	EID                            next_eid    = 1;
+	EID                            next_eid    = EID_SyncedStart;
 
 	EID NewEID();
 	void Init(Game* game, const char* ip, int port);

@@ -56,7 +56,7 @@ enum EdBrushToolPhase {
 
 ECamera* g_editor_camera = {};
 
-static EID                      g_next_eid             = 1;
+static EID                      g_next_eid             = EID_MapStart;
 static EntityManager            g_entity_manager       = {};
 static EdOp*                    g_root                 = nullptr;
 static std::vector<EdSelection> g_selection            = {};
@@ -1300,6 +1300,8 @@ Result EdLoadMap(const char* name) {
 		return Err("map %s is version %d, expected %d", name, version, 1);
 	}
 
+	g_next_eid = EID_MapStart;
+
 	g_root = EdLoadOp(f);
 	g_root->global_transform = float4x4::Identity();
 
@@ -1516,6 +1518,7 @@ void EdInitialize() {
 	EntityManagerInit(g_entity_manager);
 
 	g_editor_camera = new ECamera();
+	g_editor_camera->eid = EID_DefaultCamera;
 	CameraInit(*g_editor_camera);
 	g_editor_camera->position.y = -10;
 	g_editor_camera->position.z = 3;

@@ -7,6 +7,16 @@ struct Entity;
 struct Mesh;
 struct Material;
 struct Game;
+struct EntityManager;
+
+enum EIDs : U32 {
+	EID_None = 0,
+	EID_DefaultCamera = 1,
+
+	EID_MapStart    = 0x00001000,
+	EID_SyncedStart = 0x00100000,
+	EID_LocalStart  = 0x80000000,
+};
 
 struct PlayerController {
 	float2 input     = {};
@@ -49,8 +59,9 @@ enum EntityFlagBits : U32 {
 typedef U32 EntityFlags;
 
 struct EntityCallbackInfo {
-	Game*  game = nullptr;
-	double dt   = 0.0;
+	Game*          game           = nullptr;
+	EntityManager* entity_manager = nullptr;
+	double         dt             = 0.0;
 };
 
 struct Entity {

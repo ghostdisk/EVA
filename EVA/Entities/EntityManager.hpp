@@ -20,6 +20,7 @@ struct EntityManager {
 		entities.push_back(entity);
 		entity->OnActivate(EntityCallbackInfo{
 			.game = game,
+			.entity_manager = this,
 		});
 	}
 
