@@ -1,7 +1,7 @@
 #include <EVA/Library.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
-#include <EVA/GLTF.hpp>
+#include <EVA/Assets/GLTF.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Assets/Font.hpp>
 

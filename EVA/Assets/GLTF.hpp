@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eva/Assets/Asset.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <vector>
 
@@ -18,7 +19,10 @@ struct GLTFScene {
 	std::vector<GLTFSceneNode> nodes;
 };
 
-struct GLTF {
+class ECLASS() GLTF : public Asset {
+public:
+	ECLASS_COMMON();
+
 	std::vector<Mesh*>      meshes     = {};
 	std::vector<Material*>  materials  = {};
 	std::vector<GLTFScene*> scenes     = {};

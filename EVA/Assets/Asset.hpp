@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Object.hpp>
 
-class ECLASS() Asset : Object {
+class ECLASS() Asset : public Object {
 public:
 	ECLASS_COMMON();
 
@@ -11,6 +11,7 @@ public:
 
 void    AssetInit(Asset* asset, const char* name);
 void    AssetDeinit(Asset* asset);
-Asset*  AssetGet(U32 id, const Type& expected_type);
-Asset*  AssetGetByName(const char* name, const Type& expected_type);
+Asset*  AssetGet(U32 id, Type* expected_type);
+Asset*  AssetGetByName(const char* name, Type* expected_type);
 void    AssetsSkipToId(U32 id);
+void    AssetsInitialize();

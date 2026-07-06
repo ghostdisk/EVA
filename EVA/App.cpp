@@ -3,7 +3,6 @@
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Net.hpp>
@@ -98,6 +97,7 @@ void AppSetMode(AppMode mode, Game* game) {
 int main() {
 	ArenaInitialize();
 	RotateFrameArenas();
+	AssetsInitialize();
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();

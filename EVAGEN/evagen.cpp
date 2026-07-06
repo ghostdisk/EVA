@@ -230,15 +230,20 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 
 	for (const EClass* ec : ordered) {
 		std::string parent_ref = is_eclass(ec->parent)
-			? "&" + ec->parent + "::g_type"
+			? "&g_type_" + ec->parent
 			: "nullptr";
-		fprintf(f, "Type %s::g_type = { %s, \"%s\" };\n",
-		        ec->name.c_str(), parent_ref.c_str(), ec->name.c_str());
+		fprintf(f, "static Type g_type_%s = {\n", ec->name.c_str());
+		fprintf(f, "\t.parent_type = %s,\n", parent_ref.c_str());
+		fprintf(f, "\t.name = \"%s\",\n", ec->name.c_str());
+		fprintf(f, "\t.Instantiate = []() -> Object* { return new %s(); },\n", ec->name.c_str());
+		fprintf(f, "};\n");
 	}
 	fprintf(f, "\n");
 
 	for (const EClass* ec : ordered) {
-		fprintf(f, "const Type& %s::GetType() { return %s::g_type; }\n",
+		fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
+		        ec->name.c_str(), ec->name.c_str());
+		fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
 		        ec->name.c_str(), ec->name.c_str());
 	}
 

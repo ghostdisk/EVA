@@ -1,10 +1,13 @@
 #pragma once
 #include <EVA/Common.hpp>
 
+class Object;
+
 class Type {
 public:
 	Type*       parent_type = nullptr;
 	const char* name        = {};
+	Object* (*Instantiate)()   = nullptr;
 };
 
 #ifdef EVAGEN
@@ -15,12 +18,12 @@ public:
 #define EPROPERTY(...)
 
 #define ECLASS_COMMON() \
-	static Type g_type; \
-	virtual const Type& GetType() override;
+	static Type* StaticClass(); \
+	virtual Type* GetClass() override;
 
 class ECLASS() Object {
 public:
-	static Type g_type;
-	virtual const Type& GetType();
+	static Type* StaticClass();
+	virtual Type* GetClass();
 	virtual ~Object() {}
 };

@@ -4,7 +4,7 @@
 #include <EVA/GameClient.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Renderer/Renderer.hpp>
-#include <EVA/GLTF.hpp>
+#include <EVA/Assets/GLTF.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>

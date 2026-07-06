@@ -3,7 +3,6 @@
 #include <EVA/Console.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Binary.hpp>
-#include <EVA/GLTF.hpp>
 #include <EVA/Renderer/GL.hpp> // Mesh
 #include <EVA/CSG.hpp> // Mesh
 #include <enet/enet.h>

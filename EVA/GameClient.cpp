@@ -4,7 +4,6 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/GLTF.hpp>
 #include <EVA/Binary.hpp>
 #include <enet/enet.h>
 
