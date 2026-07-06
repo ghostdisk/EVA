@@ -3,7 +3,7 @@
 #include <EVA/Entities/EntityManager.hpp>
 #include <box3d/box3d.h>
 
-struct Mesh;
+class Mesh;
 struct String;
 struct Result;
 struct GameServer;

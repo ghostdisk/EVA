@@ -2,8 +2,8 @@
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Math.hpp>
 
-struct Sprite;
-struct Font;
+class Sprite;
+class Font;
 
 enum Layer {
 	Layer_Sky     = 0,

@@ -4,8 +4,8 @@
 
 typedef U32 EID;
 struct Entity;
-struct Mesh;
-struct Material;
+class Mesh;
+class Material;
 struct Game;
 struct EntityManager;
 

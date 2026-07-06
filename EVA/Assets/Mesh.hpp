@@ -1,8 +1,10 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-struct ECLASS() Mesh : Asset {
+class Material;
 
+class ECLASS() Mesh : public Asset {
+public:
 	ECLASS_COMMON();
 
 	U32           vao             = 0;

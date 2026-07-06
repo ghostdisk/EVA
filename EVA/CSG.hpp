@@ -3,7 +3,7 @@
 #include <EVA/Math.hpp>
 #include <vector>
 
-struct Mesh;
+class Mesh;
 struct CSGPlane;
 struct CSGBrush;
 struct UIContext;

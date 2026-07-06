@@ -2,11 +2,11 @@
 
 struct GLTF;
 struct Game;
-struct Texture;
-struct Mesh;
-struct Sprite;
-struct Material;
-struct Font;
+class Texture;
+class Mesh;
+class Sprite;
+class Material;
+class Font;
 
 void LibraryInitialize();
 

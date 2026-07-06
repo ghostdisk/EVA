@@ -1,10 +1,10 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-struct Shader;
-struct Texture;
+class Shader;
+class Texture;
 
-struct ECLASS() Material : Asset {
+class ECLASS() Material : public Asset {
 public:
 ECLASS_COMMON()
 

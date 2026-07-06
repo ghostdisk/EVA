@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-struct ECLASS() Texture : Asset {
+class ECLASS() Texture : public Asset {
 public:
 ECLASS_COMMON();
 	U32    handle = 0;

@@ -1,7 +1,8 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-struct ECLASS() Shader : Asset {
+class ECLASS() Shader : public Asset {
+public:
 	ECLASS_COMMON();
 
 	U32 handle;

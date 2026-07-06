@@ -2,7 +2,7 @@
 #include <EVA/Assets/Asset.hpp>
 
 typedef struct FT_FaceRec_*  FT_Face;
-struct Texture;
+class Texture;
 
 struct FontGlyph {
 	int x       = 0;
@@ -14,7 +14,7 @@ struct FontGlyph {
 	int yoffs   = 0;
 };
 
-struct ECLASS() Font : Asset {
+class ECLASS() Font : public Asset {
 public:
 	ECLASS_COMMON();
 	FT_Face  face        = {};

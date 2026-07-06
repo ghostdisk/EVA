@@ -6,8 +6,8 @@
 struct UIContext;
 struct UIBox;
 struct DrawContext;
-struct Font;
-struct Sprite;
+class Font;
+class Sprite;
 typedef union SDL_Event SDL_Event;
 
 #define COLOR_BG                COLOR_RGBA(55, 6, 21, 220)

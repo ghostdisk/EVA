@@ -3,10 +3,10 @@
 #include <EVA/Math.hpp>
 #include <glad/glad.h>
 
-struct Mesh;
-struct Material;
-struct Texture;
-struct Shader;
+class Mesh;
+class Material;
+class Texture;
+class Shader;
 
 void GLPreInitialize();
 void GLInitialize();
