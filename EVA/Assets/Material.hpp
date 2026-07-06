@@ -1,6 +1,8 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
+struct Shader;
+struct Texture;
 
 struct ECLASS() Material : Asset {
 public:

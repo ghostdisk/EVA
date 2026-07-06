@@ -1,15 +1,6 @@
 #pragma once
 #include <EVA/Object.hpp>
 
-typedef struct FT_FaceRec_*  FT_Face;
-struct Sprite;
-struct Mesh;
-struct Texture;
-struct Material;
-struct Texture;
-struct CSGBrush;
-struct Shader;
-
 class ECLASS() Asset : Object {
 public:
 	ECLASS_COMMON();

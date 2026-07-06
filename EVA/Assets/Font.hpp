@@ -1,6 +1,9 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
+typedef struct FT_FaceRec_*  FT_Face;
+struct Texture;
+
 struct FontGlyph {
 	int x       = 0;
 	int y       = 0;
