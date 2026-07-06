@@ -1,6 +1,8 @@
 #include <EVA/GLTF.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/Material.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>

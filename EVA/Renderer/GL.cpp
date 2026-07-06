@@ -1,5 +1,8 @@
 #include <EVA/Renderer/GL.hpp>
-#include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Material.hpp>
+#include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/Shader.hpp>
 #include <EVA/Platform.hpp>
 #include <stdio.h>
 #include <SDL3/SDL.h>

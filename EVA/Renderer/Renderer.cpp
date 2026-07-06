@@ -1,7 +1,12 @@
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Sprite.hpp>
+#include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Font.hpp>
+#include <EVA/Assets/Shader.hpp>
+#include <EVA/Assets/Material.hpp>
+#include <EVA/Assets/Mesh.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Renderer/Renderer.hpp>
-#include <EVA/Font.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>

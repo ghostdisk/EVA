@@ -1,4 +1,5 @@
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Sprite.hpp>
 #include <stdio.h>
 #include <vector>
 
@@ -54,15 +55,4 @@ Asset* AssetGetByName(const char* name, AssetType expected_type) {
 void AssetDeinit(Asset* asset) {
 	free_ids.push_back(asset->id);
 	assets[asset->id] = nullptr;
-}
-
-Sprite* SpriteCreate(const char* name, Texture* texture, int x, int y, int w, int h) {
-	Sprite* sprite = new Sprite();
-	AssetInit(sprite, AssetType_Sprite, name);
-	sprite->texture = texture;
-	sprite->x = x;
-	sprite->y = y;
-	sprite->w = w;
-	sprite->h = h;
-	return sprite;
 }

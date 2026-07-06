@@ -105,7 +105,7 @@ void Game::Tick(double dt) {
 	if (server) server->Tick(dt);
 	if (client) client->Tick(dt);
 
-	if (g_active_game == this && !pawn) {
+	if (g_active_game == this) {
 		CameraFly(*camera);
 	}
 	CameraUpdateMatrices(*camera);

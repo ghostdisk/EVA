@@ -7,7 +7,7 @@
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Net.hpp>
-#include <EVA/Font.hpp>
+#include <EVA/Assets/Font.hpp>
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Entities/Entity.hpp>

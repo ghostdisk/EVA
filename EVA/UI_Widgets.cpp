@@ -2,8 +2,9 @@
 #include <EVA/Arena.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Sprite.hpp>
+#include <EVA/Assets/Font.hpp>
 #include <EVA/Library.hpp>
-#include <EVA/Font.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <SDL3/SDL_events.h>
