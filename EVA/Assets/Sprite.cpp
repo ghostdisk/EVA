@@ -2,7 +2,7 @@
 
 Sprite* SpriteCreate(const char* name, Texture* texture, int x, int y, int w, int h) {
 	Sprite* sprite = new Sprite();
-	AssetInit(sprite, AssetType_Sprite, name);
+	AssetInit(sprite, name);
 	sprite->texture = texture;
 	sprite->x = x;
 	sprite->y = y;

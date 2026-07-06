@@ -11,9 +11,7 @@ void AssetsSkipToId(U32 id) {
 	assets.resize(id);
 }
 
-void AssetInit(Asset* asset, AssetType type, const char* name) {
-	asset->type = type;
-
+void AssetInit(Asset* asset, const char* name) {
 	snprintf(asset->name, sizeof(asset->name), "%s", name);
 
 	if (free_ids.size()) {
@@ -26,10 +24,10 @@ void AssetInit(Asset* asset, AssetType type, const char* name) {
 	}
 }
 
-Asset* AssetGet(U32 id, AssetType expected_type) {
+Asset* AssetGet(U32 id, const Type& expected_type) {
 	if (id < assets.size()) {
 		Asset* asset = assets[id];
-		if (asset->type == expected_type) {
+		if (&asset->GetType() == &expected_type) {
 			return asset;
 		} else {
 			return nullptr;
@@ -39,12 +37,12 @@ Asset* AssetGet(U32 id, AssetType expected_type) {
 	}
 }
 
-Asset* AssetGetByName(const char* name, AssetType expected_type) {
+Asset* AssetGetByName(const char* name, const Type& expected_type) {
 	// TODO: This is even slower than what you may expect looking at this code, as there's a bunch of holes
 	//       in the assets vector.
 	for (Asset* asset : assets) {
 		if (asset && strcmp(asset->name, name) == 0) {
-			if (asset->type == expected_type)
+			if (&asset->GetType() == &expected_type)
 				return asset;
 		}
 	}

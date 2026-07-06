@@ -3,6 +3,7 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Assets/Material.hpp>
+#include <EVA/Assets/Texture.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>
@@ -34,7 +35,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 		cgltf_texture* in_texture = gltf_material.pbr_metallic_roughness.base_color_texture.texture;
 		if (in_texture) {
 			if (in_texture->image) {
-				material->color_texture = (Texture*)AssetGetByName(in_texture->image->name, AssetType_Texture);
+				material->color_texture = (Texture*)AssetGetByName(in_texture->image->name, Texture::g_type);
 				if (!material->color_texture)
 				{
 					fprintf(stderr, "[warn] missing texture %s\n", in_texture->image->name);

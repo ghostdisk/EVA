@@ -67,7 +67,7 @@ static GLuint GLCompileShader(const char* name, GLenum type, const char* source,
 
 Shader* GLCompileShader(const char* name, int num_defines, const char** defines) {
 	Shader* shader = new Shader();
-	AssetInit(shader, AssetType_Shader, name);
+	AssetInit(shader, name);
 
 	shader->handle = glCreateProgram();
 
@@ -122,7 +122,7 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error) {
 
 Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices) {
 	Mesh* mesh = new Mesh();
-	AssetInit(mesh, AssetType_Mesh, name);
+	AssetInit(mesh, name);
 
 	mesh->index_count = num_indices;
 	mesh->vertex_count = num_vertices;
@@ -163,7 +163,7 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 	Texture* texture = new Texture();
 	texture->width = width;
 	texture->height = height;
-	AssetInit(texture, AssetType_Texture, name);
+	AssetInit(texture, name);
 
 	glGenTextures(1, &texture->handle);
 	glBindTexture(GL_TEXTURE_2D, texture->handle);
@@ -211,7 +211,7 @@ Texture* TextureLoad(const char* name, bool mips) {
 
 Material* MaterialCreate(const char* name, Shader* shader, Texture* texture) {
 	Material* material = new Material();
-	AssetInit(material, AssetType_Material, name);
+	AssetInit(material, name);
 
 	material->shader = shader;
 	material->color_texture = texture;
