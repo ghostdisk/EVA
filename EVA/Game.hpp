@@ -15,7 +15,6 @@ struct Game {
 	const char*        name                   = nullptr;
 	EntityManager      entity_manager         = {};
 	ECamera*           camera                 = {};
-	Entity*            pawn                   = nullptr;
 	Mesh*              level_mesh             = nullptr;
 	GameServer*        server                 = nullptr;
 	GameClient*        client                 = nullptr;

@@ -15,7 +15,6 @@ enum AssetType {
 	AssetType_Material,
 	AssetType_Sprite,
 	AssetType_Font,
-	AssetType_Map,
 	AssetType_Shader,
 };
 
@@ -68,10 +67,6 @@ struct Font : Asset {
 	int      line_height = 0;
 
 	FontGlyph glyphs[256];
-};
-
-struct Map : Asset {
-	CSGBrush* brushes;
 };
 
 struct Shader : Asset {
