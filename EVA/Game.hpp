@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Camera.hpp>
+#include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/EntityManager.hpp>
 #include <box3d/box3d.h>
 
@@ -14,7 +14,7 @@ struct Game {
 	int                id                     = 0;
 	const char*        name                   = nullptr;
 	EntityManager      entity_manager         = {};
-	Camera             camera                 = {};
+	ECamera*           camera                 = {};
 	Entity*            pawn                   = nullptr;
 	Mesh*              level_mesh             = nullptr;
 	GameServer*        server                 = nullptr;

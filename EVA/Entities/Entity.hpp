@@ -16,22 +16,22 @@ struct PlayerController {
 };
 
 struct EntityTypeMeta {
-	char        name[32]          = "";
-	float3      editor_box_offset = float3(0,0,0);
-	float3      editor_box_size   = float3(0.5f,0.5f,0.5f);
-	Entity*     (*CreateEntity)() = nullptr;
+	char        name[32]             = "";
+	float3      editor_box_offset    = float3(0,0,0);
+	float3      editor_box_size      = float3(0.5f,0.5f,0.5f);
+	Entity*     (*CreateEntity)()    = nullptr;
 };
 
 #define X_FOREACH_ENTITY() \
-    /* type          type id        limit*/ \
-	X(StaticMesh,    1,             512) \
-	X(Rigidbody,     2,             512) \
-	X(Character,     3,             512) \
-	X(Marker,        4,             512) \
+    /* type          type id */ \
+	X(StaticMesh,    1) \
+	X(Rigidbody,     2) \
+	X(Character,     3) \
+	X(Marker,        4) \
 
 enum EntityType : U8 {
 	EntityType_None       = 0,
-	#define X(name, id, lim) EntityType_ ## name = id,
+	#define X(name, id) EntityType_ ## name = id,
 	X_FOREACH_ENTITY()
 	#undef X
 	EntityType_ENUM_SIZE,

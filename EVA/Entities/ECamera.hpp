@@ -1,12 +1,12 @@
 #pragma once
 #include <EVA/Math.hpp>
+#include <EVA/Entities/Entity.hpp>
 
 struct Entity;
 
-struct Camera {
+struct ECamera : Entity {
 	float fov = 60 * GLM_PI / 180.0f;
 
-	float3 position  = {};
 	float  pitch     = 0.0f;
 	float  yaw       = 0.0f; // TODO: yaw=0 should point to the right, not forward
 
@@ -32,14 +32,14 @@ struct Camera {
 	float orbit_distance = 4.0f;
 };
 
-void CameraInit                (Camera& camera);
-void CameraUpdateBasisVectors  (Camera& camera);
-void CameraUpdateMatrices      (Camera& camera);
-void CameraFly                 (Camera& camera);
-void CameraOrbit               (Camera& camera, Entity* entity);
+void CameraInit                (ECamera& camera);
+void CameraUpdateBasisVectors  (ECamera& camera);
+void CameraUpdateMatrices      (ECamera& camera);
+void CameraFly                 (ECamera& camera);
+void CameraOrbit               (ECamera& camera, Entity* entity);
 
-Ray CameraClipToRay(Camera& camera, float2 clip_xy);
-Ray CameraScreenToRay(Camera& camera, float2 screen_xy);
-float3 CameraWorldToScreen(Camera& camera, float3 world);
+Ray CameraClipToRay(ECamera& camera, float2 clip_xy);
+Ray CameraScreenToRay(ECamera& camera, float2 screen_xy);
+float3 CameraWorldToScreen(ECamera& camera, float3 world);
 
-extern Camera* g_current_camera;
+extern ECamera* g_current_camera;

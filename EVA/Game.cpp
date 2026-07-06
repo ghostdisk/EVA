@@ -79,9 +79,10 @@ void GameInitialize() {
 }
 
 void Game::Init() {
-	CameraInit(camera);
-	camera.position.y = -10;
-	camera.position.z = 3;
+	camera = new ECamera();
+	CameraInit(*camera);
+	camera->position.y = -10;
+	camera->position.z = 3;
 	EntityManagerInit(entity_manager);
 
 	b3WorldDef world_def = b3DefaultWorldDef();
@@ -104,9 +105,9 @@ void Game::Tick(double dt) {
 	if (client) client->Tick(dt);
 
 	if (g_active_game == this && !pawn) {
-		CameraFly(camera);
+		CameraFly(*camera);
 	}
-	CameraUpdateMatrices(camera);
+	CameraUpdateMatrices(*camera);
 }
 
 void Game::Draw() {

@@ -1,6 +1,5 @@
-#include <EVA/Camera.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Entities/Entity.hpp>
+#include <EVA/Entities/ECamera.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Console.hpp>
 #include <SDL3/SDL.h>
@@ -9,15 +8,15 @@
 #include <cglm/euler.h>
 #include <cglm/mat4.h>
 
-Camera* g_current_camera = nullptr;
+ECamera* g_current_camera = nullptr;
 
-void CameraInit(Camera& camera) {
+void CameraInit(ECamera& camera) {
 	camera.position = {};
 	camera.forward = {0, 1, 0};
 	camera.up = {0, 0, 1};
 }
 
-void CameraUpdateMatrices(Camera& camera) {
+void CameraUpdateMatrices(ECamera& camera) {
 	CameraUpdateBasisVectors(camera);
 
 	glm_look_rh_zo(camera.position, camera.forward, camera.up, camera.view_matrix);
@@ -27,7 +26,7 @@ void CameraUpdateMatrices(Camera& camera) {
 	glm_mat4_inv(camera.view_projection_matrix, camera.inverse_view_projection_matrix);
 }
 
-void CameraUpdateBasisVectors(Camera& camera) {
+void CameraUpdateBasisVectors(ECamera& camera) {
 	float4x4 mat;
 	float euler_angles[3] = {camera.pitch, 0, camera.yaw};
 
@@ -37,7 +36,7 @@ void CameraUpdateBasisVectors(Camera& camera) {
 	camera.forward = float3(mat.data[1][0], mat.data[1][1], mat.data[1][2]);
 }
 
-void CameraFly(Camera& camera) {
+void CameraFly(ECamera& camera) {
 	float3 input = {
 		cvar_right.fvalue - cvar_left.fvalue,
 		cvar_forward.fvalue - cvar_back.fvalue,
@@ -70,7 +69,7 @@ void CameraFly(Camera& camera) {
 	// LogToScreen("Cam %.1f %.1f %.1f Facing %.1f (%s)", camera.position.x, camera.position.y, camera.position.z, yaw_deg, axis);
 }
 
-void CameraOrbit(Camera& camera, Entity* entity) {
+void CameraOrbit(ECamera& camera, Entity* entity) {
 	bool InMenu = false; // TODO
 	SDL_SetWindowRelativeMouseMode(g_game_window, !InMenu);
 
@@ -96,7 +95,7 @@ void CameraOrbit(Camera& camera, Entity* entity) {
 	}
 }
 
-Ray CameraClipToRay(Camera& camera, float2 pos) {
+Ray CameraClipToRay(ECamera& camera, float2 pos) {
 	float4 clip0 = { XY(pos), 0, 1 };
 	float4 clip1 = { XY(pos), 1, 1 };
 
@@ -112,14 +111,13 @@ Ray CameraClipToRay(Camera& camera, float2 pos) {
 	return Ray(camera.position, (world1.xyz() - world0.xyz()).Normalized());
 }
 
-Ray CameraScreenToRay(Camera& camera, float2 screen) {
+Ray CameraScreenToRay(ECamera& camera, float2 screen) {
 	return CameraClipToRay(camera, float2(
 		(screen.x / g_window_size.x) * 2.0f - 1.0f,
 		-((screen.y / g_window_size.y) * 2.0f - 1.0f)));
 }
 
-
-float3 CameraWorldToScreen(Camera& camera, float3 world) {
+float3 CameraWorldToScreen(ECamera& camera, float3 world) {
 	float4 clip = camera.view_projection_matrix * float4(world, 1);
 	clip.xyz() /= clip.w;
 

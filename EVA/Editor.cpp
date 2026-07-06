@@ -54,7 +54,7 @@ enum EdBrushToolPhase {
 	EdBrushToolPhase_Finalize    = 5,
 };
 
-Camera g_editor_camera = {};
+ECamera* g_editor_camera = {};
 
 static EID                      g_next_eid             = 1;
 static EntityManager            g_entity_manager       = {};
@@ -611,20 +611,20 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	U32 id = hash_stack.Push(hash);
 	DEFER(hash_stack.Pop());
 
-	const float scale = Distance(pos, g_editor_camera.position) * 0.1;
+	const float scale = Distance(pos, g_editor_camera->position) * 0.1;
 	const float cone_scale = 0.075f;
 
 	const float3 a = pos;
 	const float3 b = pos + direction * scale * base_scale;
 
-	const float3 a_screen = CameraWorldToScreen(g_editor_camera, a);
-	const float3 b_screen = CameraWorldToScreen(g_editor_camera, b);
+	const float3 a_screen = CameraWorldToScreen(*g_editor_camera, a);
+	const float3 b_screen = CameraWorldToScreen(*g_editor_camera, b);
 	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), g_mouse_position);
 
 	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
 
 	const float screen_dist = Distance(nearest_screen, g_mouse_position);
-	const Ray ray_to_nearest = CameraScreenToRay(g_editor_camera, nearest_screen);
+	const Ray ray_to_nearest = CameraScreenToRay(*g_editor_camera, nearest_screen);
 
 	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist) {
 		g_new_hover_gizmo_state.id = id;
@@ -725,9 +725,9 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx) {
 	DEFER(hash_stack.Pop());
 	DEFER(hash_stack.Pop());
 
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
-	float screen_dist = Distance(CameraWorldToScreen(g_editor_camera, comx).xy(), g_mouse_position);
+	float screen_dist = Distance(CameraWorldToScreen(*g_editor_camera, comx).xy(), g_mouse_position);
 	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f) {
 		if (screen_dist < g_new_hover_gizmo_state.screen_dist) {
 			g_new_hover_gizmo_state.id = id;
@@ -778,7 +778,7 @@ void EdDrawGrid(EdGrid& grid, float4 color) {
 }
 
 void EdTickTool_Select() {
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 	bool dirty = false;
 
 	std::vector<EdOp*> selected_ops = {};
@@ -853,7 +853,7 @@ void EdTickTool_Brush()
 	static bool just_entered_phase = false;
 	static float3 ref_a, ref_b, x;
 
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
 	float min_t = FLT_MAX;
 	bool hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr);
@@ -960,7 +960,7 @@ void EdTickTool_Brush()
 }
 
 void EdTickTool_Entity() {
-	Ray mouse_ray = CameraScreenToRay(g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
 	Entity* hit_entity = nullptr;
 	if (EdRaycastAgainstEntities(mouse_ray, nullptr, &hit_entity)) {
@@ -993,8 +993,8 @@ void EdSetTool(EdTool tool) {
 }
 
 void EdTick() {
-	CameraFly(g_editor_camera);
-	CameraUpdateMatrices(g_editor_camera);
+	CameraFly(*g_editor_camera);
+	CameraUpdateMatrices(*g_editor_camera);
 
 	DrawSetLayer(Layer_Main);
 	// EdDrawGrid(g_grid, float4{1,1,1,0.3});
@@ -1515,7 +1515,8 @@ void EdInitialize() {
 
 	EntityManagerInit(g_entity_manager);
 
-	CameraInit(g_editor_camera);
-	g_editor_camera.position.y = -10;
-	g_editor_camera.position.z = 3;
+	g_editor_camera = new ECamera();
+	CameraInit(*g_editor_camera);
+	g_editor_camera->position.y = -10;
+	g_editor_camera->position.z = 3;
 }

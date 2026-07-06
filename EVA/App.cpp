@@ -5,11 +5,10 @@
 #include <EVA/Console.hpp>
 #include <EVA/GLTF.hpp>
 #include <EVA/Input.hpp>
-#include <EVA/Camera.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Net.hpp>
 #include <EVA/Font.hpp>
-#include <EVA/Camera.hpp>
+#include <EVA/Entities/ECamera.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Renderer/Renderer.hpp>
@@ -83,13 +82,13 @@ void AppSetMode(AppMode mode, Game* game) {
 		case AppMode_Editor: {
 			assert(!game);
 			g_active_game = nullptr;
-			g_current_camera = &g_editor_camera;
+			g_current_camera = g_editor_camera;
 			break;
 		}
 		case AppMode_Game: {
 			assert(game);
 			g_active_game = game;
-			g_current_camera = &game->camera;
+			g_current_camera = game->camera;
 			break;
 		}
 		default: assert(0);

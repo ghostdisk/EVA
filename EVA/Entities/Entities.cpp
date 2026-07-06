@@ -33,7 +33,7 @@ EntityTypeMeta EMarkerMeta = {
 
 EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE] {
 	&ENoneMeta,
-	#define X(name, id, lim) &E ## name ## Meta,
+	#define X(name, id) &E ## name ## Meta,
 	X_FOREACH_ENTITY()
 	#undef X
 };
