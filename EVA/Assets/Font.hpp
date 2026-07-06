@@ -1,3 +1,4 @@
+#pragma once
 #include <EVA/Assets/Asset.hpp>
 
 struct FontGlyph {
@@ -10,7 +11,9 @@ struct FontGlyph {
 	int yoffs   = 0;
 };
 
-struct Font : Asset {
+struct ECLASS() Font : Asset {
+public:
+	ECLASS_COMMON();
 	FT_Face  face        = {};
 	Texture* atlas       = 0;
 	int      pixel_size  = 0;

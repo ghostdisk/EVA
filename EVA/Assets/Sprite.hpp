@@ -1,6 +1,10 @@
+#pragma once
 #include <EVA/Assets/Asset.hpp>
 
-struct Sprite : Asset {
+struct ECLASS() Sprite : Asset {
+public:
+	ECLASS_COMMON();
+
 	Texture* texture;
 	int x, y, w, h;
 };

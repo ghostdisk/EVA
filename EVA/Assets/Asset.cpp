@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <vector>
 
-Asset zero_dummy = { .type = AssetType_None };
-static std::vector<Asset*> assets = { &zero_dummy };
+static std::vector<Asset*> assets = { nullptr };
 static std::vector<U32> free_ids = {};
 
 void AssetsSkipToId(U32 id) {

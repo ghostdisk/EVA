@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Common.hpp>
+#include <EVA/Object.hpp>
 
 typedef struct FT_FaceRec_*  FT_Face;
 struct Sprite;
@@ -20,7 +20,10 @@ enum AssetType {
 	AssetType_Shader,
 };
 
-struct Asset {
+class ECLASS() Asset : Object {
+public:
+	ECLASS_COMMON();
+
 	AssetType type     = AssetType_None;
 	U32       id       = 0;
 	char      name[64] = {};

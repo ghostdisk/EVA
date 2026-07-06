@@ -34,6 +34,7 @@ add_executable(EVA
 	"EVA/UI_Utils.cpp"
 	"EVA/UI_Widgets.cpp"
 	"EVA/Utils.cpp"
+	"EVA/EVA.gen.cpp"
 	"EVA/EVA.natvis"
 )
 
@@ -100,3 +101,15 @@ target_include_directories(EVA PRIVATE "Vendor/tracy-0.13.1/public")
 #
 add_subdirectory(Vendor/box3d)
 target_link_libraries(EVA box3d)
+
+#
+# EVAGEN — reflection code generator
+#
+add_custom_command(
+	OUTPUT "${CMAKE_SOURCE_DIR}/EVA/EVA.gen.cpp"
+	COMMAND "${CMAKE_SOURCE_DIR}/EVAGEN/evagen.exe"
+	DEPENDS "${CMAKE_SOURCE_DIR}/EVAGEN/evagen.exe"
+	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+	COMMENT "EVAGEN: generating reflection data"
+	VERBATIM
+)

@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Common.hpp>
-#include <string.h>
 #include <cglm/types.h>
+#include <string.h>
 #include <math.h>
 
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }

@@ -1,3 +1,4 @@
+#pragma once
 #include <EVA/Common.hpp>
 
 struct Game;

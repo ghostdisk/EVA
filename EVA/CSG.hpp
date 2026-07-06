@@ -1,3 +1,4 @@
+#pragma once
 #include <EVA/Common.hpp>
 #include <EVA/Math.hpp>
 #include <vector>
