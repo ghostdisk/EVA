@@ -159,14 +159,13 @@ void MeshDestroy(Mesh* mesh) {
 	delete mesh;
 }
 
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format, bool mips) {
-	Texture* texture = new Texture();
-	texture->width = width;
-	texture->height = height;
-	AssetInit(texture, name);
 
-	glGenTextures(1, &texture->handle);
-	glBindTexture(GL_TEXTURE_2D, texture->handle);
+void Texture::Upload(int width, int height, const U8* pixels, GLenum format, bool mips) {
+	this->width = width;
+	this->height = height;
+
+	glGenTextures(1, &handle);
+	glBindTexture(GL_TEXTURE_2D, handle);
 
 	GLenum baseformat, type;
 	switch (format) {
@@ -188,25 +187,6 @@ Texture* TextureCreate(const char* name, int width, int height, const U8* pixels
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	GL_ERROR_CHECK();
-	return texture;
-}
-
-Texture* TextureLoad(const char* name, bool mips) {
-	char path[256];
-	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
-
-	int width, height, channels_in_file;
-	U8* pixels = stbi_load(path, &width, &height, &channels_in_file, 4);
-	if (!pixels) {
-		Fatal("Failed to load %s", path);
-	}
-	DEFER(free(pixels));
-
-	char name_without_ext[64];
-	int len = snprintf(name_without_ext, 64, "%s", name);
-	ReplaceFileExtension(name_without_ext, 64, "");
-
-	return TextureCreate(name_without_ext, width, height, pixels, GL_RGBA8, mips);
 }
 
 Material* MaterialCreate(const char* name, Shader* shader, Texture* texture) {

@@ -31,6 +31,3 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error);
 
 Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
 void  MeshDestroy(Mesh* mesh);
-
-Texture* TextureCreate(const char* name, int width, int height, const U8* pixels, GLenum format, bool mips);
-Texture* TextureLoad(const char* name, bool mips);

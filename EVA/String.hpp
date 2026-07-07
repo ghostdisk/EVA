@@ -4,6 +4,9 @@
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
 
+struct String;
+struct ZTString;
+
 /**
  ** A non-owning string view.
  **/
@@ -26,26 +29,37 @@ struct String {
 		return size == other_size && memcmp(data, other, size) == 0;
 	}
 
-	String Skip(size_t n) {
-		if (n > size) return {};
+	String Skip(size_t n) const {
+		if (n >= size) return {};
 		return String(data + n, size - n);
 	}
+
+	String Take(size_t n) const {
+		if (n >= size) return String(data, size);
+		return String(data, n);
+	}
+
+	inline ZTString CopyToHeap() const;
 };
 
 /**
  ** ZTString is a wrapper around String that's guarenteed to be zero-terminated.
  **/
-struct ZTString {
-	String string = {};
-
+struct ZTString : String {
 	ZTString() {}
-	ZTString(const char* cstring) : string(cstring) {}
-	explicit ZTString(String string) : string(string) {}
+	ZTString(const char* cstring) : String(cstring) {}
+	explicit ZTString(U8* data, size_t size) : String(data, size) {}
+	explicit ZTString(String string) : String(string) {}
 
-	operator String() { return string; }
-	operator char*() { return (char*)string.data; }
-	char* c_str() { return (char*)string.data; }
-
-	bool operator==(const String& other) const { return string == other; }
-	bool operator==(const char* other) const { return string == other; }
+	operator char*() { return (char*)data; }
+	operator const char*() const { return (const char*)data; }
+	char* c_str() { return (char*)data; }
+	const char* c_str() const { return (char*)data; }
 };
+
+ZTString String::CopyToHeap() const {
+	U8* copy_buffer = (U8*)malloc(size + 1);
+	memcpy(copy_buffer, data, size);
+	copy_buffer[size] = '\0';
+	return ZTString(copy_buffer, size);
+}

@@ -80,4 +80,9 @@ String GetExtension(String path) {
 	return candidate;
 }
 
+String WithoutExtension(String path) {
+	String ext = GetExtension(path);
+	return path.Take(path.size - ext.size);
+}
+
 }

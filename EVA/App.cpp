@@ -97,7 +97,6 @@ void AppSetMode(AppMode mode, Game* game) {
 int main() {
 	ArenaInitialize();
 	RotateFrameArenas();
-	AssetsInitialize();
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();
@@ -105,6 +104,7 @@ int main() {
 	GameInitialize();
 	RendererInitialize();
 	FontInitialize();
+	AssetsInitialize();
 	LibraryInitialize();
 	InputInitialize();
 	UIInitialize();

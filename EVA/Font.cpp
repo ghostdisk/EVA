@@ -2,6 +2,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Font.hpp>
+#include <EVA/Assets/Texture.hpp>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
@@ -83,7 +84,8 @@ Font* FontLoad(const char* name, int size, int atlas_size) {
 
 	char texture_name[256];
 	snprintf(texture_name, 256, "%s_atlas", name);
-	font->atlas = TextureCreate(texture_name, atlas_size, atlas_size, atlas_buffer, GL_R8, false);
+	font->atlas = new Texture();
+	font->atlas->Upload(atlas_size, atlas_size, atlas_buffer, GL_R8, false);
 	font->pixel_size = font->glyphs['O'].height;
 	font->line_height = font->pixel_size * 1.5;
 

@@ -1,12 +1,13 @@
 #pragma once
 #include <EVA/Common.hpp>
+#include <EVA/String.hpp>
 
 class Object;
 
 class Type {
 public:
-	Type*       parent_type = nullptr;
-	const char* name        = {};
+	Type*    parent_type = nullptr;
+	ZTString name        = {};
 	Object* (*Instantiate)()   = nullptr;
 };
 

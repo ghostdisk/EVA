@@ -80,16 +80,16 @@ void WriteBinString(BinaryWriter& writer, String str) {
 
 ZTString ReadBinString(BinaryReader& reader, Arena* arena, int max_size) {
 	ZTString str;
-	str.string.size = ReadBinT<U32>(reader);
-	if (str.string.size > max_size) {
+	str.size = ReadBinT<U32>(reader);
+	if (str.size > max_size) {
 		reader.ok = false;
 		return {};
 	}
-	str.string.data = (U8*)ArenaAllocate(arena, str.string.size + 1);
-	ReadBinBytes(reader, str.string.data, str.string.size);
+	str.data = (U8*)ArenaAllocate(arena, str.size + 1);
+	ReadBinBytes(reader, str.data, str.size);
 	if (!reader.ok) {
 		return {};
 	}
-	str.string.data[str.string.size] = '\0';
+	str.data[str.size] = '\0';
 	return str;
 }

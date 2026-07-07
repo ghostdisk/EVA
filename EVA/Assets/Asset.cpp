@@ -2,6 +2,7 @@
 #include <EVA/FS.hpp>
 #include <EVA/Arena.hpp>
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Console.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Assets/GLTF.hpp>
@@ -11,12 +12,21 @@
 #include <stdio.h>
 #include <vector>
 
-static std::vector<Asset*> assets = { nullptr };
+static std::vector<Asset*> assets_old = { nullptr };
+static std::vector<Asset*> g_assets = { };
 static std::vector<U32> free_ids = {};
 
 void AssetsSkipToId(U32 id) {
-	if (assets.size() > id) Fatal("AssetsSkipToId: we're already past that.");
-	assets.resize(id);
+	if (assets_old.size() > id) Fatal("AssetsSkipToId: we're already past that.");
+	assets_old.resize(id);
+}
+
+Asset* Asset::GetImpl(String name) {
+	for (Asset* asset : g_assets) {
+		if (asset->name_new == name)
+			return asset;
+	}
+	return nullptr;
 }
 
 Type* MapExtensionToType(String ext) {
@@ -37,8 +47,29 @@ void LoadAssetsRecursive(String dir) {
 		if (!asset_type) return;
 
 		Asset* asset = (Asset*)asset_type->Instantiate();
+		g_assets.push_back(asset);
+		asset->name_new = FS::WithoutExtension(stat.filename).CopyToHeap();
+
 		// TODO: Do something with this :-)
-		printf("%.*s -> %p", STRING_PRINTF_ARGS(stat.filename), asset);
+
+		void* data = nullptr;
+		size_t size;
+		if (!ReadEntireFile(stat.full_path.c_str(), &data, &size)) {
+			printf("failed to read file %.*s", STRING_PRINTF_ARGS(stat.full_path));
+			asset->state = AssetLoadState::Failed;
+			return;
+		}
+		DEFER(free(data));
+
+		asset->state = AssetLoadState::Loading;
+		Result res = asset->LoadImpl((U8*)data, size);
+		if (!res) {
+			asset->state = AssetLoadState::Failed;
+			ConError(res);
+			return;
+		}
+		asset->state = AssetLoadState::Loaded;
+		printf("%.*s -> %p\n", STRING_PRINTF_ARGS(asset->name_new), asset);
 	});
 }
 
@@ -52,16 +83,16 @@ void AssetInit(Asset* asset, const char* name) {
 	if (free_ids.size()) {
 		asset->id = free_ids.back();
 		free_ids.pop_back();
-		assets[asset->id] = asset;
+		assets_old[asset->id] = asset;
 	} else {
-		asset->id = assets.size();
-		assets.push_back(asset);
+		asset->id = assets_old.size();
+		assets_old.push_back(asset);
 	}
 }
 
 Asset* AssetGet(U32 id, Type* expected_type) {
-	if (id < assets.size()) {
-		Asset* asset = assets[id];
+	if (id < assets_old.size()) {
+		Asset* asset = assets_old[id];
 		if (asset->GetClass() == expected_type) {
 			return asset;
 		} else {
@@ -74,8 +105,8 @@ Asset* AssetGet(U32 id, Type* expected_type) {
 
 Asset* AssetGetByName(const char* name, Type* expected_type) {
 	// TODO: This is even slower than what you may expect looking at this code, as there's a bunch of holes
-	//       in the assets vector.
-	for (Asset* asset : assets) {
+	//       in the assets_old vector.
+	for (Asset* asset : assets_old) {
 		if (asset && strcmp(asset->name, name) == 0) {
 			if (asset->GetClass() == expected_type)
 				return asset;
@@ -86,5 +117,5 @@ Asset* AssetGetByName(const char* name, Type* expected_type) {
 
 void AssetDeinit(Asset* asset) {
 	free_ids.push_back(asset->id);
-	assets[asset->id] = nullptr;
+	assets_old[asset->id] = nullptr;
 }
