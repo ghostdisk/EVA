@@ -12,6 +12,6 @@ Result Texture::LoadImpl(const U8* file, size_t file_size) {
 	int len = snprintf(name_without_ext, 64, "%s", name);
 	ReplaceFileExtension(name_without_ext, 64, "");
 
-	Upload(width, height, pixels, GL_RGBA8, true);
+	Upload(width, height, pixels, GL_RGBA8);
 	return Success();
 }

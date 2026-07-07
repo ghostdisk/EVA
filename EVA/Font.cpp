@@ -85,7 +85,8 @@ Font* FontLoad(const char* name, int size, int atlas_size) {
 	char texture_name[256];
 	snprintf(texture_name, 256, "%s_atlas", name);
 	font->atlas = new Texture();
-	font->atlas->Upload(atlas_size, atlas_size, atlas_buffer, GL_R8, false);
+	font->atlas->mipmaps = false;
+	font->atlas->Upload(atlas_size, atlas_size, atlas_buffer, GL_R8);
 	font->pixel_size = font->glyphs['O'].height;
 	font->line_height = font->pixel_size * 1.5;
 

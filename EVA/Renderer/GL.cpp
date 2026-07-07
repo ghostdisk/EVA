@@ -160,7 +160,7 @@ void MeshDestroy(Mesh* mesh) {
 }
 
 
-void Texture::Upload(int width, int height, const U8* pixels, GLenum format, bool mips) {
+void Texture::Upload(int width, int height, const U8* pixels, GLenum format) {
 	this->width = width;
 	this->height = height;
 
@@ -176,7 +176,7 @@ void Texture::Upload(int width, int height, const U8* pixels, GLenum format, boo
 
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, baseformat, type, pixels);
 
-	if (mips) {
+	if (mipmaps) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glGenerateMipmap(GL_TEXTURE_2D);
