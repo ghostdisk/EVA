@@ -26,7 +26,6 @@ struct Game {
 	void Draw();
 
 	Result LoadMap(String name);
-	void UnloadMap();
 
 	static void TickAll(double dt);
 };

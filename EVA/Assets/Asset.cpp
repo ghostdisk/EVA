@@ -6,7 +6,7 @@
 #include <EVA/Console.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Font.hpp>
-#include <EVA/Assets/GLTF.hpp>
+#include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/EditorMap.hpp>
@@ -32,7 +32,7 @@ Asset* Asset::GetImpl(String name) {
 
 Type* MapExtensionToType(String ext) {
 	if (ext == ".ttf")     return Font::StaticClass();
-	if (ext == ".glb")     return GLTF::StaticClass();
+	// if (ext == ".glb")     return GLTF::StaticClass();
 	if (ext == ".png")     return Texture::StaticClass();
 	if (ext == ".jpg")     return Texture::StaticClass();
 	if (ext == ".jpeg")    return Texture::StaticClass();
@@ -42,17 +42,17 @@ Type* MapExtensionToType(String ext) {
 	return nullptr;
 }
 
-/*
 void BuildAssets(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
 		String ext = FS::GetExtension(stat.filename);
-		if (ext == ".png" || ext == ".jpg" || ext == ".psd") {
-			printf("%.*s\n", STRING_PRINTF_ARGS(stat.filename));
+		if (ext == ".gltf" || ext == ".glb") {
+			Model* model = new Model();
+			BuildGLTF(model, stat.full_path);
+			String path_wo_ext = FS::WithoutExtension(stat.full_path);
+			model->SaveToDisk(Fmt(FrameArena, "%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
 		}
-		BuildTexture(stat.full_path);
 	});
 }
-*/
 
 void LoadAssetsFromDir(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
@@ -105,7 +105,7 @@ void LoadAssetsFromDir(String dir) {
 
 void AssetsLoad() {
 	String root = Fmt(FrameArena, "%s/Assets", EVA_BASE_DIR);
-	// BuildAssets(root);
+	 BuildAssets(root);
 	LoadAssetsFromDir(root);
 }
 

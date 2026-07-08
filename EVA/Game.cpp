@@ -4,7 +4,7 @@
 #include <EVA/GameClient.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Renderer/Renderer.hpp>
-#include <EVA/Assets/GLTF.hpp>
+#include <EVA/Assets/Mesh.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
@@ -141,13 +141,6 @@ void Game::TickAll(double dt) {
 	}
 }
 
-void Game::UnloadMap() {
-	if (level_mesh) {
-		MeshDestroy(level_mesh);
-		level_mesh = nullptr;
-	}
-}
-
 Result Game::LoadMap(String name) {
 	int n;
 	char path[256];
@@ -185,7 +178,10 @@ Result Game::LoadMap(String name) {
 	}
 	fscanf(f, "\n");
 
-	level_mesh = MeshCreate("level_mesh", num_vertices, vertices.data(), num_indices, indices.data());
+	level_mesh = new Mesh();
+	level_mesh->vertices = std::move(vertices);
+	level_mesh->indices = std::move(indices);
+	level_mesh->Upload();
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);

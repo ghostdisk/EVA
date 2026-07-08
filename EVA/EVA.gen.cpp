@@ -4,10 +4,10 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/EditorMap.hpp>
 #include <EVA/Assets/Font.hpp>
-#include <EVA/Assets/GLTF.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
@@ -32,11 +32,6 @@ static Type g_type_Font = {
 	.name = "Font",
 	.Instantiate = []() -> Object* { return new Font(); },
 };
-static Type g_type_GLTF = {
-	.parent_type = &g_type_Asset,
-	.name = "GLTF",
-	.Instantiate = []() -> Object* { return new GLTF(); },
-};
 static Type g_type_Map = {
 	.parent_type = &g_type_Asset,
 	.name = "Map",
@@ -51,6 +46,11 @@ static Type g_type_Mesh = {
 	.parent_type = &g_type_Asset,
 	.name = "Mesh",
 	.Instantiate = []() -> Object* { return new Mesh(); },
+};
+static Type g_type_Model = {
+	.parent_type = &g_type_Asset,
+	.name = "Model",
+	.Instantiate = []() -> Object* { return new Model(); },
 };
 static Type g_type_Shader = {
 	.parent_type = &g_type_Asset,
@@ -76,14 +76,14 @@ Type* EditorMap::StaticClass() { return &g_type_EditorMap; }
 Type* EditorMap::GetClass() { return &g_type_EditorMap; }
 Type* Font::StaticClass() { return &g_type_Font; }
 Type* Font::GetClass() { return &g_type_Font; }
-Type* GLTF::StaticClass() { return &g_type_GLTF; }
-Type* GLTF::GetClass() { return &g_type_GLTF; }
 Type* Map::StaticClass() { return &g_type_Map; }
 Type* Map::GetClass() { return &g_type_Map; }
 Type* Material::StaticClass() { return &g_type_Material; }
 Type* Material::GetClass() { return &g_type_Material; }
 Type* Mesh::StaticClass() { return &g_type_Mesh; }
 Type* Mesh::GetClass() { return &g_type_Mesh; }
+Type* Model::StaticClass() { return &g_type_Model; }
+Type* Model::GetClass() { return &g_type_Model; }
 Type* Shader::StaticClass() { return &g_type_Shader; }
 Type* Shader::GetClass() { return &g_type_Shader; }
 Type* Sprite::StaticClass() { return &g_type_Sprite; }
@@ -97,10 +97,10 @@ Type* Type::Find(String name) {
 		&g_type_Asset,
 		&g_type_EditorMap,
 		&g_type_Font,
-		&g_type_GLTF,
 		&g_type_Map,
 		&g_type_Material,
 		&g_type_Mesh,
+		&g_type_Model,
 		&g_type_Shader,
 		&g_type_Sprite,
 		&g_type_Texture,
@@ -111,17 +111,29 @@ Type* Type::Find(String name) {
 }
 void Serialize(Serializer& s, const TextureInterpolation& value);
 void Deserialize(Deserializer& s, TextureInterpolation& out_value);
+void Serialize(Serializer& s, const TextureWrapMode& value);
+void Deserialize(Deserializer& s, TextureWrapMode& out_value);
 void Serialize(Serializer& s, const TextureProps& value);
 void Deserialize(Deserializer& s, TextureProps& out_value);
 
 void Serialize(Serializer& s, const TextureInterpolation& value) {
-	Serialize(s, (int)value);
+	Serialize(s, (U8)value);
 }
 
 void Deserialize(Deserializer& s, TextureInterpolation& out_value) {
-	int tmp = {};
+	U8 tmp = {};
 	Deserialize(s, tmp);
 	out_value = (TextureInterpolation)tmp;
+}
+
+void Serialize(Serializer& s, const TextureWrapMode& value) {
+	Serialize(s, (U8)value);
+}
+
+void Deserialize(Deserializer& s, TextureWrapMode& out_value) {
+	U8 tmp = {};
+	Deserialize(s, tmp);
+	out_value = (TextureWrapMode)tmp;
 }
 
 void Serialize(Serializer& s, const TextureProps& value) {
@@ -130,6 +142,8 @@ void Serialize(Serializer& s, const TextureProps& value) {
 	Serialize(s, value.generate_mipmaps);
 	s.Key("interpolation");
 	Serialize(s, value.interpolation);
+	s.Key("wrap_mode");
+	Serialize(s, value.wrap_mode);
 	s.EndObject();
 }
 
@@ -139,5 +153,7 @@ void Deserialize(Deserializer& s, TextureProps& out_value) {
 	Deserialize(s, out_value.generate_mipmaps);
 	s.Key("interpolation");
 	Deserialize(s, out_value.interpolation);
+	s.Key("wrap_mode");
+	Deserialize(s, out_value.wrap_mode);
 	s.EndObject();
 }

@@ -1,4 +1,5 @@
 #include <EVA/CSG.hpp>
+#include <EVA/Assets/Mesh.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/UI.hpp>
 #include <cglm/vec3.h>
@@ -7,7 +8,11 @@
 
 void CSGDestroyBrushMesh(CSGBrush* brush) {
 	if (brush->mesh) {
-		QueueForNextFrame([](void* mesh) { MeshDestroy((Mesh*)mesh); }, brush->mesh);
+		QueueForNextFrame([](void* _mesh) {
+			Mesh* mesh = (Mesh*)_mesh;
+			mesh->Deinit();
+			delete mesh;
+		}, brush->mesh);
 		brush->mesh = nullptr;
 	}
 }
@@ -174,7 +179,10 @@ void CSGBuildBrushMesh(CSGBrush* brush) {
 			indices.push_back(vertex_start + i);
 		}
 	}
-	brush->mesh = MeshCreate("Brush", vertices.size(), vertices.data(), indices.size(), indices.data());
+	brush->mesh = new Mesh(); 
+	brush->mesh->vertices = vertices;
+	brush->mesh->indices = indices;
+	brush->mesh->Upload();
 }
 
 CSGBrush* CSGCloneBrush(CSGBrush* orig) {

@@ -1,4 +1,5 @@
 #include <EVA/Math.hpp>
+#include <EVA/Core/Serialization.hpp>
 #include <math.h>
 #include <float.h>
 #include <cglm/mat4.h>
@@ -175,4 +176,52 @@ float2 NearestPointToLineSegment(float2 a, float2 b, float2 p) {
 
 float DistPlanePoint(const Plane& plane, const float3& point) {
 	return plane.distance - Dot(point, plane.normal);
+}
+
+void Serialize(Serializer& s, const float2& f) {
+	s.BeginArray(2);
+	s.SerializeF32(f.x);
+	s.SerializeF32(f.y);
+	s.EndArray();
+}
+
+void Deserialize(Deserializer& s, float2& f) {
+	s.BeginArray(2);
+	f.x = s.DeserializeF32();
+	f.y = s.DeserializeF32();
+	s.EndArray();
+}
+
+void Serialize(Serializer& s, const float3& f) {
+	s.BeginArray(3);
+	s.SerializeF32(f.x);
+	s.SerializeF32(f.y);
+	s.SerializeF32(f.z);
+	s.EndArray();
+}
+
+void Deserialize(Deserializer& s, float3& f) {
+	s.BeginArray(3);
+	f.x = s.DeserializeF32();
+	f.y = s.DeserializeF32();
+	f.z = s.DeserializeF32();
+	s.EndArray();
+}
+
+void Serialize(Serializer& s, const float4& f) {
+	s.BeginArray(4);
+	s.SerializeF32(f.x);
+	s.SerializeF32(f.y);
+	s.SerializeF32(f.z);
+	s.SerializeF32(f.w);
+	s.EndArray();
+}
+
+void Deserialize(Deserializer& s, float4& f) {
+	s.BeginArray(4);
+	f.x = s.DeserializeF32();
+	f.y = s.DeserializeF32();
+	f.z = s.DeserializeF32();
+	f.w = s.DeserializeF32();
+	s.EndArray();
 }

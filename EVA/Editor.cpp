@@ -1,11 +1,12 @@
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/Material.hpp>
 #include <EVA/App.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Editor.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Renderer/Renderer.hpp>
-#include <EVA/Assets/Material.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>

@@ -83,9 +83,11 @@ void RendererInitialize() {
 			MeshVertex { .position = float3(0, 1, 0) },
 		};
 		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
-		mesh_quad = MeshCreate("mesh_quad",
+		mesh_quad = new Mesh();
+		mesh_quad->InitCPUData(
 			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
 			EVA_ARRAYSIZE(quad_indices), quad_indices);
+		mesh_quad->Upload();
 	}
 
 	ConRegisterVar(&cvar_gl_wire);
@@ -157,7 +159,7 @@ void RenderFrame() {
 				Texture*  color_texture = Library::tex_proto;
 
 				if (!material) {
-					material = entry.mesh->default_maerial;
+					material = entry.mesh->default_material;
 				}
 				if (material) {
 					shader = material->shader;

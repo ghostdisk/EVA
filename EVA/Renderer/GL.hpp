@@ -7,16 +7,11 @@ class Mesh;
 class Material;
 class Texture;
 class Shader;
+struct MeshVertex;
 
 void GLPreInitialize();
 void GLInitialize();
 Shader* GLCompileShader(const char* name, int num_defines = 0, const char** defines = nullptr);
-
-struct MeshVertex {
-	float3 position;
-	float3 normal;
-	float2 texcoord;
-};
 
 #define GL_ERROR_CHECK() \
 	do { \
@@ -28,6 +23,3 @@ struct MeshVertex {
 
 
 void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error);
-
-Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
-void  MeshDestroy(Mesh* mesh);

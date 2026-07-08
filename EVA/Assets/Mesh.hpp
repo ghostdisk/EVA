@@ -1,16 +1,41 @@
 #pragma once
+#include <EVA/Math.hpp>
 #include <EVA/Assets/Asset.hpp>
+#include <vector>
 
 class Material;
+
+// TODO: FIgure out what the fuck is wrong with the autoserializer
+struct MeshVertex {
+	float3 position;
+	float3 normal;
+	float2 texcoord;
+};
+
+void Serialize(Serializer& s, const MeshVertex& f);
+void Deserialize(Deserializer& s, MeshVertex& f);
 
 class ECLASS() Mesh : public Asset {
 public:
 	ECLASS_COMMON();
 
-	U32           vao             = 0;
-	U32           vbo             = 0;
-	U32           ibo             = 0;
-	U32           index_count     = 0;
-	U32           vertex_count    = 0;
-	Material*     default_maerial = nullptr;
+	Material*     default_material = nullptr;
+
+	// cpu data:
+	std::vector<MeshVertex> vertices;
+	std::vector<U32>        indices;
+
+	// gpu data, initialized by Upload()
+	U32           vao              = 0;
+	U32           vbo              = 0;
+	U32           ibo              = 0;
+	U32           index_count      = 0;
+	U32           vertex_count     = 0;
+
+	void InitCPUData(size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
+	void Upload();
+	void Deinit(); // destroys gpu data
 };
+
+void Serialize(Serializer& s, Mesh* value);
+void Deserialize(Serializer& s, Mesh* value);

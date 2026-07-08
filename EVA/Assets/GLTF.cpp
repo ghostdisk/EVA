@@ -1,34 +1,31 @@
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/Assets/Texture.hpp>
-#include <EVA/Assets/GLTF.hpp>
+#include <EVA/Assets/Model.hpp>
+#include <EVA/Assets/Mesh.hpp>
+#include <vector>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>
 
-GLTF* GLTFLoad(const char* name, bool generate_colliders) {
-	GLTF* gltf = new GLTF();
-
-	char path[256];
-	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
-
+Result BuildGLTF(Model* model, ZTString path) {
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
 	if (cgltf_parse_file(&options, path, &data) != cgltf_result_success)
-	{
-		Fatal("cgltf_parse_file: failed to load %s", path);
-	}
-
+		return Err("cgltf_parse_file: failed to load %s", path.c_str());
 	DEFER(cgltf_free(data));
+
 	if (cgltf_load_buffers(&options, data, path) != cgltf_result_success) {
-		Fatal("cgltf_load_buffers: failed to load %s", path);
+		return Err("cgltf_load_buffers: failed to load %s", path.c_str());
 	}
 
+	/*
 	for (int material_idx = 0; material_idx < data->materials_count; material_idx++) {
 		Material* material = new Material();
-		gltf->materials.push_back(material);
+		// gltf->materials.push_back(material);
 
 		cgltf_material& gltf_material = data->materials[material_idx];
 
@@ -43,13 +40,12 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 			}
 		}
 	}
+	*/
 
 	for (int mesh_idx = 0; mesh_idx < data->meshes_count; mesh_idx++) {
 		cgltf_mesh& gltf_mesh = data->meshes[mesh_idx];
-		if (gltf_mesh.primitives_count > 1) {
-			fprintf(stderr, "[warn] GLTFLoad: %s mesh %d has %d primitives, all but the first are ignored.\n",
-				name, mesh_idx, (int)gltf_mesh.primitives_count);
-		}
+		if (gltf_mesh.primitives_count > 1)
+			fprintf(stderr, "mesh %d has %d primitives, all but the first are ignored.\n", mesh_idx, (int)gltf_mesh.primitives_count);
 
 		cgltf_primitive& primitive = gltf_mesh.primitives[0];
 
@@ -66,7 +62,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 				default: break;
 			}
 		}
-		if (!attr_pos || !primitive.indices) Fatal("Invalid gltf %s\n", name);
+		if (!attr_pos || !primitive.indices) return Err("Invalid gltf");
 
 		std::vector<MeshVertex> vertices(attr_pos->data->count);
 
@@ -87,25 +83,28 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 		std::vector<U32> indices(primitive.indices->count);
 		cgltf_accessor_unpack_indices(primitive.indices, indices.data(), 4, indices.size());
 
+		/*
 		char mesh_name[64];
 		if (gltf_mesh.name) {
 			snprintf(mesh_name, 64, "%s/meshes/%s", name, gltf_mesh.name);
 		} else {
 			snprintf(mesh_name, 64, "%s/meshes/mesh%d", name, mesh_idx);
 		}
+		*/
 
-		Mesh* mesh = MeshCreate(mesh_name, vertices.size(), vertices.data(), indices.size(), indices.data());
-		if (generate_colliders) {
-			char collider_name[64];
-			snprintf(collider_name, 64, "%s_shape", mesh_name);
-		}
-		
+		Mesh* mesh = new Mesh(); 
+		mesh->vertices = vertices;
+		mesh->indices = indices;
+		model->meshes.push_back(mesh);
+		/*
 		if (primitive.material) {
-			mesh->default_maerial = gltf->materials[cgltf_material_index(data, primitive.material)];
+			mesh->default_material = gltf->materials[cgltf_material_index(data, primitive.material)];
 		}
 		gltf->meshes.push_back(mesh);
+		*/
 	}
 
+	/*
 	for (int scene_idx = 0; scene_idx < data->scenes_count; scene_idx++) {
 		cgltf_scene& gltf_scene = data->scenes[scene_idx];
 		GLTFScene* scene = new GLTFScene();
@@ -122,7 +121,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 
 			if (gltf_node->mesh) {
 				mesh = gltf->meshes[cgltf_mesh_index(data, gltf_node->mesh)];
-				material = mesh->default_maerial;
+				material = mesh->default_material;
 			}
 
 			scene->nodes.push_back(GLTFSceneNode{
@@ -138,6 +137,7 @@ GLTF* GLTFLoad(const char* name, bool generate_colliders) {
 			}
 		}
 	}
+	*/
 
-	return gltf;
+	return Success();
 }

@@ -4,6 +4,9 @@
 #include <string.h>
 #include <math.h>
 
+class Serializer;
+class Deserializer;
+
 #define COLOR_RGB(r, g, b) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, 1 }
 #define COLOR_RGBA(r, g, b, a) { float(r) / 255.0f, float(g) / 255.0f, float(b) / 255.0f, float(a) / 255.0f }
 #define COLOR_WHITE (float4{1,1,1,1})
@@ -26,6 +29,9 @@ struct float2 {
 	inline float SquaredLength() { return x*x + y*y; }
 	inline float Length() { return sqrtf(x*x + y*y); }
 };
+
+void Serialize(Serializer& s, const float2& f);
+void Deserialize(Deserializer& s, float2& f);
 
 inline float2 operator+(const float2& a, const float2& b) { return float2(a.x+b.x, a.y+b.y); }
 inline float2 operator-(const float2& a, const float2& b) { return float2(a.x-b.x, a.y-b.y); }
@@ -59,6 +65,9 @@ struct float3 {
 	inline const float2& xy() const { return *(float2*)this; }
 };
 
+void Serialize(Serializer& s, const float3& f);
+void Deserialize(Deserializer& s, float3& f);
+
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
 inline float3 operator-(const float3& a, const float3& b) { return float3(a.x-b.x, a.y-b.y, a.z-b.z); }
 inline float3 operator*(const float3& vec, float s) { return float3(vec.x*s, vec.y*s, vec.z*s); }
@@ -87,6 +96,9 @@ struct float4 {
 	inline       float3& xyz()       { return *(float3*)this; }
 	inline const float3& xyz() const { return *(float3*)this; }
 };
+
+void Serialize(Serializer& s, const float4& f);
+void Deserialize(Deserializer& s, float4& f);
 
 struct __declspec(align(16)) float4x4 {
 	float data[4][4]; // column major, indexed as [col][row]

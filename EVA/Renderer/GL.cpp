@@ -120,24 +120,21 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error) {
 	printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
 }
 
-Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices) {
-	Mesh* mesh = new Mesh();
-	AssetInit(mesh, name);
+void Mesh::Upload() {
+	index_count = indices.size();
+	vertex_count = vertices.size();
 
-	mesh->index_count = num_indices;
-	mesh->vertex_count = num_vertices;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 
-	glGenVertexArrays(1, &mesh->vao);
-	glBindVertexArray(mesh->vao);
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * vertex_count, vertices.data(), GL_STATIC_DRAW);
 
-	glGenBuffers(1, &mesh->vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(MeshVertex) * num_vertices, vertices, GL_STATIC_DRAW);
-
-	if (indices) {
-		glGenBuffers(1, &mesh->ibo);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * num_indices, indices, GL_STATIC_DRAW);
+	if (indices.size()) {
+		glGenBuffers(1, &ibo);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices[0]) * indices.size(), indices.data(), GL_STATIC_DRAW);
 	}
 
 	glEnableVertexAttribArray(0);
@@ -147,18 +144,14 @@ Mesh* MeshCreate( const char* name, size_t num_vertices, const MeshVertex* verti
 	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(MeshVertex), (void*)0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
 	glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texcoord));
-
-	return mesh;
+	GL_ERROR_CHECK();
 }
 
-void MeshDestroy(Mesh* mesh) {
-	if (mesh->vbo) glDeleteBuffers(1, &mesh->vbo);
-	if (mesh->ibo) glDeleteBuffers(1, &mesh->ibo);
-	if (mesh->vao) glDeleteVertexArrays(1, &mesh->vao);
-	AssetDeinit(mesh);
-	delete mesh;
+void Mesh::Deinit() {
+	if (vbo) { glDeleteBuffers(1, &vbo);      vao = 0; }
+	if (ibo) { glDeleteBuffers(1, &ibo);      ibo = 0; }
+	if (vao) { glDeleteVertexArrays(1, &vao); vbo = 0; }
 }
-
 
 void Texture::Upload(int width, int height, const U8* pixels, GLenum format) {
 	this->width = width;

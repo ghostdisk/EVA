@@ -12,6 +12,8 @@ add_executable(EVA
 	"EVA/Assets/Asset.cpp"
 	"EVA/Assets/Sprite.cpp"
 	"EVA/Assets/Texture.cpp"
+	"EVA/Assets/Model.cpp"
+	"EVA/Assets/Mesh.cpp"
 	"EVA/Assets/GLTF.cpp"
 	"EVA/Console.cpp"
 	"EVA/CSG.cpp"
