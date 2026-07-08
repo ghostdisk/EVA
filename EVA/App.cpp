@@ -1,5 +1,5 @@
 #include <EVA/App.hpp>
-#include <EVA/String.hpp>
+#include <EVA/Core/String.hpp>
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
@@ -8,7 +8,7 @@
 #include <EVA/Net.hpp>
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Entities/ECamera.hpp>
-#include <EVA/Arena.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Game.hpp>

@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Common.hpp>
+#include <EVA/Core/Common.hpp>
 #include <cglm/types.h>
 #include <string.h>
 #include <math.h>

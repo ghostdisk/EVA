@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Common.hpp>
+#include <EVA/Core/Common.hpp>
 
 #define NUM_FRAME_ARENAS 3
 

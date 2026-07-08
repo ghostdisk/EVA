@@ -1,5 +1,5 @@
 #include <EVA/UI.hpp>
-#include <EVA/Arena.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Sprite.hpp>

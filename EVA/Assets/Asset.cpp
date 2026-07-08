@@ -1,6 +1,7 @@
-#include <EVA/String.hpp>
+#include <EVA/Core/String.hpp>
+#include <EVA/Core/Serialization.hpp>
 #include <EVA/FS.hpp>
-#include <EVA/Arena.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Assets/Sprite.hpp>
@@ -41,15 +42,17 @@ Type* MapExtensionToType(String ext) {
 	return nullptr;
 }
 
+/*
 void BuildAssets(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
 		String ext = FS::GetExtension(stat.filename);
 		if (ext == ".png" || ext == ".jpg" || ext == ".psd") {
 			printf("%.*s\n", STRING_PRINTF_ARGS(stat.filename));
 		}
+		BuildTexture(stat.full_path);
 	});
-
 }
+*/
 
 void LoadAssetsFromDir(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
@@ -60,16 +63,25 @@ void LoadAssetsFromDir(String dir) {
 		g_assets.push_back(asset);
 		asset->name_new = FS::WithoutExtension(stat.filename).CopyToHeap();
 
-		// TODO: Do something with this :-)
-
 		void* data = nullptr;
-		size_t size;
+		size_t size = 0;
 		if (!ReadEntireFile(stat.full_path.c_str(), &data, &size)) {
 			printf("failed to read file %.*s", STRING_PRINTF_ARGS(stat.full_path));
 			asset->state = AssetLoadState::Failed;
 			return;
 		}
 		DEFER(free(data));
+
+		ZTString meta_path = Fmt(FrameArena, "%.*s.meta", STRING_PRINTF_ARGS(stat.full_path));
+		void* meta = nullptr;
+		size_t meta_size = 0;
+
+		FILE* meta_file = fopen(meta_path.c_str(), "rb");
+		if (meta_file) {
+			TextDeserializer d(meta_file);
+			asset->LoadMetaImpl(d);
+			fclose(meta_file);
+		}
 
 		asset->state = AssetLoadState::Loading;
 		Result res = asset->LoadImpl((U8*)data, size);
@@ -80,12 +92,20 @@ void LoadAssetsFromDir(String dir) {
 		}
 		asset->state = AssetLoadState::Loaded;
 		printf("%.*s -> %p\n", STRING_PRINTF_ARGS(asset->name_new), asset);
+
+		meta_file = fopen(meta_path.c_str(), "wb");
+		if (meta_file) {
+			TextSerializer meta_serializer(meta_file);
+			asset->SaveMetaImpl(meta_serializer);
+			fclose(meta_file);
+		}
+
 	});
 }
 
 void AssetsLoad() {
 	String root = Fmt(FrameArena, "%s/Assets", EVA_BASE_DIR);
-	BuildAssets(root);
+	// BuildAssets(root);
 	LoadAssetsFromDir(root);
 }
 

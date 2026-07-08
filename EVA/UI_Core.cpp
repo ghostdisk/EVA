@@ -3,7 +3,7 @@
 #include <EVA/Hashing.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Input.hpp>
-#include <EVA/Arena.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <EVA/Library.hpp>
 #include <SDL3/SDL_events.h>
 

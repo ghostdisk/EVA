@@ -219,7 +219,7 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		return;
 	}
 
-	std::vector<std::string> includes = { "EVA/Object.hpp", "EVA/Serialization.hpp" };
+	std::vector<std::string> includes = { "EVA/Core/Object.hpp", "EVA/Serialization.hpp" };
 	for (const EClass& ec : eclasses) {
 		if (std::find(includes.begin(), includes.end(), ec.header) == includes.end()) {
 			includes.push_back(ec.header);

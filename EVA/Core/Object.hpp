@@ -1,7 +1,7 @@
 #pragma once
-#include <EVA/Common.hpp>
-#include <EVA/String.hpp>
-#include <EVA/Result.hpp>
+#include <EVA/Core/Common.hpp>
+#include <EVA/Core/String.hpp>
+#include <EVA/Core/Result.hpp>
 
 class Object;
 class Serializer;

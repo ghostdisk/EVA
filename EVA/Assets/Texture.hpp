@@ -1,10 +1,16 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-enum class ESERIALIZABLE TextureInterpolation {
+enum class ESERIALIZABLE TextureInterpolation : U8 {
 	Point,
 	Bilinear,
 	Trilinear,
+};
+
+enum class ESERIALIZABLE TextureWrapMode : U8 {
+	Clamp,
+	Repeat,
+	MirroredRepeat,
 };
 
 struct ESERIALIZABLE TextureProps {
@@ -13,6 +19,9 @@ struct ESERIALIZABLE TextureProps {
 
 	EPROPERTY()
 	TextureInterpolation interpolation = TextureInterpolation::Bilinear;
+
+	EPROPERTY()
+	TextureWrapMode wrap_mode = TextureWrapMode::Repeat;
 };
 
 class ECLASS() Texture : public Asset {
@@ -24,6 +33,8 @@ ECLASS_COMMON();
 	size_t width  = 0;
 	size_t height = 0;
 
+	virtual void LoadMetaImpl(Deserializer& deserializer) override;
+	virtual void SaveMetaImpl(Serializer& serializer) override;
 	virtual Result LoadImpl(const U8* file, size_t file_size) override;
 
 	void Upload(int width, int height, const U8* pixels, U32 gl_format);

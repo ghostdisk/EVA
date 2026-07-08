@@ -176,14 +176,27 @@ void Texture::Upload(int width, int height, const U8* pixels, GLenum format) {
 
 	glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, baseformat, type, pixels);
 
-	if (props.generate_mipmaps) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (props.generate_mipmaps)
 		glGenerateMipmap(GL_TEXTURE_2D);
-	} else {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	switch (props.interpolation) {
+		case TextureInterpolation::Point: {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, props.generate_mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			break;
+		}
+		case TextureInterpolation::Bilinear: {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, props.generate_mipmaps ? GL_LINEAR_MIPMAP_NEAREST : GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			break;
+		}
+		case TextureInterpolation::Trilinear: {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, props.generate_mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			break;
+		}
 	}
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	GL_ERROR_CHECK();

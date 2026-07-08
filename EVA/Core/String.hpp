@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Common.hpp>
+#include <EVA/Core/Common.hpp>
 #include <string.h>
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
@@ -16,6 +16,7 @@ struct String {
 
 	String() {};
 	String(U8* data, size_t size) : data(data), size(size) {}
+	String(char* data, size_t size) : data((U8*)data), size(size) {}
 	String(const char* cstring) : data((U8*)cstring), size(strlen(cstring)) {}
 
 	U8& operator[](size_t idx) { return data[idx]; }

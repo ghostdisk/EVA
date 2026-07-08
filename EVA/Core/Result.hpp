@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/String.hpp>
+#include <EVA/Core/String.hpp>
 
 struct Arena;
 

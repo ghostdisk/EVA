@@ -1,7 +1,7 @@
 #pragma once
-#include <EVA/String.hpp>
-#include <EVA/Object.hpp>
-#include <EVA/Result.hpp>
+#include <EVA/Core/String.hpp>
+#include <EVA/Core/Object.hpp>
+#include <EVA/Core/Result.hpp>
 
 enum class AssetLoadState {
 	Unloaded = 0,
@@ -11,6 +11,7 @@ enum class AssetLoadState {
 };
 
 class ECLASS() Asset : public Object {
+
 public:
 	ECLASS_COMMON();
 
@@ -18,6 +19,12 @@ public:
     U32            id          = 0;
     char           name[64]    = {};
 	ZTString       name_new    = {};
+
+	virtual void LoadMetaImpl(Deserializer& deserializer) {
+	}
+
+	virtual void SaveMetaImpl(Serializer& serializer) {
+	}
 
 	virtual Result LoadImpl(const U8* file, size_t file_size) {
 		return Success();

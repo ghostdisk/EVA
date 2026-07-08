@@ -1,9 +1,9 @@
 #pragma once
-#include <EVA/Common.hpp>
-#include <EVA/String.hpp>
-#include <EVA/Result.hpp>
-#include <EVA/Arena.hpp>
-#include <EVA/Object.hpp>
+#include <EVA/Core/Common.hpp>
+#include <EVA/Core/String.hpp>
+#include <EVA/Core/Result.hpp>
+#include <EVA/Core/Arena.hpp>
+#include <EVA/Core/Object.hpp>
 #include <stdio.h>
 #include <vector>
 
@@ -57,7 +57,8 @@ public:
 
 class Deserializer {
 public:
-	virtual Result GetResult();
+	Result res = {};
+
 
 	/**
 	 ** Parses either an object or null. Returns true on object and false on null.
@@ -84,7 +85,7 @@ public:
 	virtual ZTString DeserializeString () = 0;
 	virtual bool     DeserializeBool   () = 0;
 	virtual size_t   DeserializeBytes1 () = 0;
-	virtual size_t   DeserializeBytes2 (U8* out_bytes) = 0;
+	virtual void     DeserializeBytes2 (U8* out_bytes) = 0;
 };
 
 class TextSerializer : public Serializer {
@@ -123,6 +124,43 @@ public:
 	virtual void SerializeBool   (bool value) override;
 	virtual void SerializeNull   () override;
 	virtual void SerializeBytes  (U8* bytes, size_t size) override;
+};
+
+class TextDeserializer : public Deserializer {
+	Result result = {};
+	FILE* in = nullptr;
+
+	struct StackEntry {
+		char type = '\0';
+	};
+
+	std::vector<StackEntry> stack;
+
+	void NextValue();
+
+public:
+	void SkipWhitespace(bool new_lines_too);
+	TextDeserializer(FILE* in);
+
+	virtual bool     BeginObject() override;
+	virtual void     EndObject() override;
+	virtual void     Key(String key) override;
+	virtual void     BeginArray(U32 size) override;
+	virtual void     EndArray() override;
+	virtual U8       DeserializeU8() override;
+	virtual U16      DeserializeU16() override;
+	virtual U32      DeserializeU32() override;
+	virtual U64      DeserializeU64() override;
+	virtual I8       DeserializeI8() override;
+	virtual I16      DeserializeI16() override;
+	virtual I32      DeserializeI32() override;
+	virtual I64      DeserializeI64() override;
+	virtual F32      DeserializeF32() override;
+	virtual F64      DeserializeF64() override;
+	virtual ZTString DeserializeString() override;
+	virtual bool     DeserializeBool() override;
+	virtual size_t   DeserializeBytes1() override;
+	virtual void     DeserializeBytes2(U8* out_bytes) override;
 };
 
 inline void Serialize(Serializer& s, const U8&     value)  { s.SerializeU8     (value); }

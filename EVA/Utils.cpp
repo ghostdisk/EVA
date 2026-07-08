@@ -1,7 +1,7 @@
-#include <EVA/Common.hpp>
+#include <EVA/Core/Common.hpp>
 #include <EVA/Binary.hpp>
-#include <EVA/String.hpp>
-#include <EVA/Arena.hpp>
+#include <EVA/Core/String.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <stdarg.h>
 #include <stdio.h>
 #include <Windows.h>

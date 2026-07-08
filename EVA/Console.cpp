@@ -1,5 +1,5 @@
-#include <EVA/Arena.hpp>
-#include <EVA/String.hpp>
+#include <EVA/Core/Arena.hpp>
+#include <EVA/Core/String.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>

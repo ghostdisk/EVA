@@ -1,6 +1,6 @@
-#include <EVA/Arena.hpp>
+#include <EVA/Core/Arena.hpp>
 #include <EVA/GameClient.hpp>
-#include <EVA/Result.hpp>
+#include <EVA/Core/Result.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Console.hpp>
