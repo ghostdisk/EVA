@@ -186,7 +186,7 @@ void Serialize(Serializer& s, const float2& f) {
 }
 
 void Deserialize(Deserializer& s, float2& f) {
-	s.BeginArray(2);
+	s.BeginArray();
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
 	s.EndArray();
@@ -201,7 +201,7 @@ void Serialize(Serializer& s, const float3& f) {
 }
 
 void Deserialize(Deserializer& s, float3& f) {
-	s.BeginArray(3);
+	s.BeginArray();
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
 	f.z = s.DeserializeF32();
@@ -218,7 +218,7 @@ void Serialize(Serializer& s, const float4& f) {
 }
 
 void Deserialize(Deserializer& s, float4& f) {
-	s.BeginArray(4);
+	s.BeginArray();
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
 	f.z = s.DeserializeF32();

@@ -38,4 +38,4 @@ public:
 };
 
 void Serialize(Serializer& s, Mesh* value);
-void Deserialize(Serializer& s, Mesh* value);
+void Deserialize(Deserializer& d, Mesh* value);

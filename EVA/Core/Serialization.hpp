@@ -69,7 +69,7 @@ public:
 	virtual void EndObject() = 0;
 	virtual void Key(String key) = 0;
 
-	virtual void BeginArray(U32 size) = 0;
+	virtual U32 BeginArray() = 0;
 	virtual void EndArray() = 0;
 
 	virtual U8       DeserializeU8     () = 0;
@@ -145,7 +145,7 @@ public:
 	virtual bool     BeginObject() override;
 	virtual void     EndObject() override;
 	virtual void     Key(String key) override;
-	virtual void     BeginArray(U32 size) override;
+	virtual U32      BeginArray() override;
 	virtual void     EndArray() override;
 	virtual U8       DeserializeU8() override;
 	virtual U16      DeserializeU16() override;

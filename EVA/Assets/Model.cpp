@@ -11,13 +11,38 @@ void Serialize(Serializer& s, Model* model) {
 
 	s.Key("meshes");
 	s.BeginArray(model->meshes.size());
-
 	for (Mesh* mesh : model->meshes) {
 		Serialize(s, mesh);
 	}
-
 	s.EndArray();
+
 	s.EndObject();
+}
+
+void Deserialize(Deserializer& d, Model* model) {
+	d.BeginObject();
+
+	d.Key("version");
+	U32 version = d.DeserializeU32();
+	if (version != 1) {
+		d.res = Err("unexpected version");
+		return;
+	}
+
+	d.Key("meshes");
+	int num_meshes = d.BeginArray();
+	model->meshes.resize(num_meshes);
+
+	for (int i = 0; i < num_meshes; i++) {
+		model->meshes[i] = new Mesh();
+		Deserialize(d, model->meshes[i]);
+		if (d.res.error)
+			return;
+		model->meshes[i]->Upload();
+	}
+	d.EndArray();
+
+	d.EndObject();
 }
 
 Result Model::LoadImpl(const U8* file, size_t file_size) {
@@ -31,4 +56,6 @@ Result Model::SaveToDisk(ZTString path) {
 
 	TextSerializer s(f);
 	Serialize(s, this);
+
+	return Success();
 }

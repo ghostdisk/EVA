@@ -43,9 +43,40 @@ void Serialize(Serializer& s, Mesh* value) {
 	}
 	s.EndArray();
 
+	s.Key("indices");
+	s.BeginArray(value->indices.size());
+	for (const U32& index : value->indices) {
+		Serialize(s, index);
+	}
+	s.EndArray();
 
 	s.EndObject();
 }
 
-void Deserialize(Serializer& s, Mesh* value) {
+void Deserialize(Deserializer& d, Mesh* mesh) {
+	d.BeginObject();
+
+	d.Key("version");
+	U32 version = d.DeserializeU32();
+	if (version != 1) {
+		d.res = Err("unexpected version");
+		return;
+	}
+
+	d.Key("vertices");
+	U32 num_vertices = d.BeginArray();
+	mesh->vertices.resize(num_vertices);
+	for (int i = 0; i < num_vertices; i++) {
+		Deserialize(d, mesh->vertices[i]);
+	}
+	d.EndArray();
+
+	d.Key("indices");
+	U32 num_indices = d.BeginArray();
+	mesh->indices.resize(num_indices);
+	for (int i = 0; i < num_indices; i++) {
+		Deserialize(d, mesh->indices[i]);
+	}
+	d.EndArray();
+
 }

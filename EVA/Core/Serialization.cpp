@@ -163,8 +163,9 @@ void TextDeserializer::Key(String key) {
 	SkipWhitespace(false);
 }
 
-void TextDeserializer::BeginArray(U32 size) {
+U32 TextDeserializer::BeginArray() {
 	assert(0);
+	return 0;
 }
 
 void TextDeserializer::EndArray() {
