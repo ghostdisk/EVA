@@ -7,7 +7,7 @@ void Texture::LoadMetaImpl(Deserializer& d) {
 	d.BeginObject();
 	d.Key("version");
 	U32 version = d.DeserializeU8();
-	if (version > 2) {
+	if (version != 2) {
 		d.res = Err("Unexpected version");
 		return;
 	}
@@ -15,10 +15,8 @@ void Texture::LoadMetaImpl(Deserializer& d) {
 	props.generate_mipmaps = d.DeserializeBool();
 	d.Key("interpolation");
 	props.interpolation = (TextureInterpolation)d.DeserializeU8();
-	if (version >= 2) {
-		d.Key("wrap_mode");
-		props.wrap_mode = (TextureWrapMode)d.DeserializeU8();
-	}
+	d.Key("wrap_mode");
+	props.wrap_mode = (TextureWrapMode)d.DeserializeU8();
 	d.EndObject();
 }
 

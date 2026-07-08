@@ -197,8 +197,15 @@ void Texture::Upload(int width, int height, const U8* pixels, GLenum format) {
 		}
 	}
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	GLenum mode = GL_REPEAT;
+	switch (props.wrap_mode) {
+		case TextureWrapMode::Repeat:         mode = GL_REPEAT; break;
+		case TextureWrapMode::MirroredRepeat: mode = GL_MIRRORED_REPEAT; break;
+		case TextureWrapMode::Clamp:          mode = GL_CLAMP_TO_EDGE; break;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, mode);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
 	GL_ERROR_CHECK();
 }
 
