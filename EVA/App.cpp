@@ -104,7 +104,7 @@ int main() {
 	GameInitialize();
 	RendererInitialize();
 	FontInitialize();
-	AssetsInitialize();
+	AssetsLoad();
 	LibraryInitialize();
 	InputInitialize();
 	UIInitialize();

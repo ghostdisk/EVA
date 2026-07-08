@@ -1,12 +1,24 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
+enum class ESERIALIZABLE TextureInterpolation {
+	Point,
+	Bilinear,
+	Trilinear,
+};
+
+struct ESERIALIZABLE TextureProps {
+	EPROPERTY()
+	bool generate_mipmaps = true;
+
+	EPROPERTY()
+	TextureInterpolation interpolation = TextureInterpolation::Bilinear;
+};
+
 class ECLASS() Texture : public Asset {
 public:
 ECLASS_COMMON();
-
-	EPROPERTY()
-	bool mipmaps = true;
+	TextureProps props = {};
 
 	U32    handle = 0;
 	size_t width  = 0;

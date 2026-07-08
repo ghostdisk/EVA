@@ -37,4 +37,4 @@ void    AssetDeinit(Asset* asset);
 Asset*  AssetGet(U32 id, Type* expected_type);
 Asset*  AssetGetByName(const char* name, Type* expected_type);
 void    AssetsSkipToId(U32 id);
-void    AssetsInitialize();
+void    AssetsLoad();

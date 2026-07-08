@@ -41,7 +41,17 @@ Type* MapExtensionToType(String ext) {
 	return nullptr;
 }
 
-void LoadAssetsRecursive(String dir) {
+void BuildAssets(String dir) {
+	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
+		String ext = FS::GetExtension(stat.filename);
+		if (ext == ".png" || ext == ".jpg" || ext == ".psd") {
+			printf("%.*s\n", STRING_PRINTF_ARGS(stat.filename));
+		}
+	});
+
+}
+
+void LoadAssetsFromDir(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
 		Type* asset_type = MapExtensionToType(FS::GetExtension(stat.filename));
 		if (!asset_type) return;
@@ -73,8 +83,10 @@ void LoadAssetsRecursive(String dir) {
 	});
 }
 
-void AssetsInitialize() {
-	LoadAssetsRecursive(Fmt(FrameArena, "%s/Assets", EVA_BASE_DIR));
+void AssetsLoad() {
+	String root = Fmt(FrameArena, "%s/Assets", EVA_BASE_DIR);
+	BuildAssets(root);
+	LoadAssetsFromDir(root);
 }
 
 void AssetInit(Asset* asset, const char* name) {

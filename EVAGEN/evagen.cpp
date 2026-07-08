@@ -100,6 +100,11 @@ struct EClass {
 	std::string parent;
 	std::string annotation;
 	std::string header;
+	std::vector<std::string> properties;
+	bool is_class          = false;
+	bool is_serializable   = false;
+	bool is_enum           = false;
+	std::string underlying_type;
 };
 
 static std::vector<EClass> g_eclasses;
@@ -121,9 +126,20 @@ static std::string StripRecordKeyword(std::string s) {
 
 struct RecordInfo {
 	bool has_eclass = false;
+	bool has_eserializable = false;
 	std::string annotation;
 	std::string parent;
+	std::vector<std::string> properties;
 };
+
+static CXChildVisitResult FieldAnnotationVisitor(CXCursor c, CXCursor, CXClientData data) {
+	bool* is_prop = (bool*)data;
+	if (clang_getCursorKind(c) == CXCursor_AnnotateAttr) {
+		std::string s = CXStr(clang_getCursorSpelling(c));
+		if (s.rfind("eproperty", 0) == 0) *is_prop = true;
+	}
+	return CXChildVisit_Continue;
+}
 
 static CXChildVisitResult RecordChildVisitor(CXCursor c, CXCursor, CXClientData data) {
 	RecordInfo* info = (RecordInfo*)data;
@@ -134,9 +150,15 @@ static CXChildVisitResult RecordChildVisitor(CXCursor c, CXCursor, CXClientData 
 		if (s.rfind("eclass", 0) == 0) {
 			info->has_eclass = true;
 			info->annotation = s;
+		} else if (s.rfind("eserializable", 0) == 0) {
+			info->has_eserializable = true;
 		}
 	} else if (k == CXCursor_CXXBaseSpecifier) {
 		info->parent = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(c))));
+	} else if (k == CXCursor_FieldDecl) {
+		bool is_prop = false;
+		clang_visitChildren(c, FieldAnnotationVisitor, &is_prop);
+		if (is_prop) info->properties.push_back(CXStr(clang_getCursorSpelling(c)));
 	}
 	return CXChildVisit_Continue;
 }
@@ -146,10 +168,11 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 
 	bool is_record = kind == CXCursor_StructDecl ||
 	                 kind == CXCursor_ClassDecl;
+	bool is_enum   = kind == CXCursor_EnumDecl;
 
 	// Only actual definitions (skip forward declarations), and only ours.
-	if (is_record && clang_isCursorDefinition(cursor) && IsInOurTree(cursor)) {
-		const char* what = kind == CXCursor_ClassDecl ? "class" : "struct";
+	if ((is_record || is_enum) && clang_isCursorDefinition(cursor) && IsInOurTree(cursor)) {
+		const char* what = is_enum ? "enum" : (kind == CXCursor_ClassDecl ? "class" : "struct");
 
 		CXSourceLocation loc = clang_getCursorLocation(cursor);
 		CXFile file;
@@ -162,15 +185,23 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		RecordInfo info;
 		clang_visitChildren(cursor, RecordChildVisitor, &info);
 
-		printf("%-6s %-24s  %s:%u%s\n", what, name.c_str(), filename.c_str(), line,
-		       info.has_eclass ? "  [ECLASS]" : "");
+		printf("%-6s %-24s  %s:%u%s%s\n", what, name.c_str(), filename.c_str(), line,
+		       info.has_eclass ? "  [ECLASS]" : "",
+		       info.has_eserializable ? "  [ESERIALIZABLE]" : "");
 
-		if (info.has_eclass && !name.empty()) {
+		if ((info.has_eclass || info.has_eserializable) && !name.empty()) {
 			EClass ec;
 			ec.name = name;
 			ec.parent = info.parent;
 			ec.annotation = info.annotation;
 			ec.header = RelToBase(filename);
+			ec.properties = info.properties;
+			ec.is_class = info.has_eclass;
+			ec.is_serializable = info.has_eserializable;
+			ec.is_enum = is_enum;
+			if (is_enum) {
+				ec.underlying_type = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
+			}
 			g_eclasses.push_back(ec);
 		}
 	}
@@ -188,7 +219,7 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		return;
 	}
 
-	std::vector<std::string> includes = { "EVA/Object.hpp" };
+	std::vector<std::string> includes = { "EVA/Object.hpp", "EVA/Serialization.hpp" };
 	for (const EClass& ec : eclasses) {
 		if (std::find(includes.begin(), includes.end(), ec.header) == includes.end()) {
 			includes.push_back(ec.header);
@@ -201,31 +232,37 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 	}
 	fprintf(f, "\n");
 
-	std::vector<std::string> names;
-	for (const EClass& ec : eclasses) names.push_back(ec.name);
+	std::vector<const EClass*> classes;
+	for (const EClass& ec : eclasses) {
+		if (ec.is_class) classes.push_back(&ec);
+	}
+
 	auto is_eclass = [&](const std::string& n) {
-		return std::find(names.begin(), names.end(), n) != names.end();
+		for (const EClass* ec : classes) {
+			if (ec->name == n) return true;
+		}
+		return false;
 	};
 
 	std::vector<const EClass*> ordered;
-	std::vector<bool> emitted(eclasses.size(), false);
+	std::vector<bool> emitted(classes.size(), false);
 	bool progressed = true;
 	while (progressed) {
 		progressed = false;
-		for (size_t i = 0; i < eclasses.size(); ++i) {
+		for (size_t i = 0; i < classes.size(); ++i) {
 			if (emitted[i]) continue;
-			const EClass& ec = eclasses[i];
-			if (!is_eclass(ec.parent) ||
+			const EClass* ec = classes[i];
+			if (!is_eclass(ec->parent) ||
 			    std::find_if(ordered.begin(), ordered.end(),
-			                 [&](const EClass* e) { return e->name == ec.parent; }) != ordered.end()) {
-				ordered.push_back(&ec);
+			                 [&](const EClass* e) { return e->name == ec->parent; }) != ordered.end()) {
+				ordered.push_back(ec);
 				emitted[i] = true;
 				progressed = true;
 			}
 		}
 	}
-	for (size_t i = 0; i < eclasses.size(); ++i) {
-		if (!emitted[i]) ordered.push_back(&eclasses[i]);
+	for (size_t i = 0; i < classes.size(); ++i) {
+		if (!emitted[i]) ordered.push_back(classes[i]);
 	}
 
 	for (const EClass* ec : ordered) {
@@ -245,6 +282,57 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		        ec->name.c_str(), ec->name.c_str());
 		fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
 		        ec->name.c_str(), ec->name.c_str());
+	}
+
+	fprintf(f, "\nType* Type::Find(String name) {\n");
+	fprintf(f, "\tstatic Type* all[] = {\n");
+	for (const EClass* ec : ordered) {
+		fprintf(f, "\t\t&g_type_%s,\n", ec->name.c_str());
+	}
+	fprintf(f, "\t};\n");
+	fprintf(f, "\tfor (Type* t : all)\n");
+	fprintf(f, "\t\tif (name == t->name) return t;\n");
+	fprintf(f, "\treturn nullptr;\n");
+	fprintf(f, "}\n");
+
+	for (const EClass& ec : eclasses) {
+		if (!ec.is_serializable) continue;
+		fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", ec.name.c_str());
+		fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", ec.name.c_str());
+	}
+
+	for (const EClass& ec : eclasses) {
+		if (!ec.is_serializable) continue;
+
+		if (ec.is_enum) {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", ec.name.c_str());
+			fprintf(f, "\tSerialize(s, (%s)value);\n", ec.underlying_type.c_str());
+			fprintf(f, "}\n");
+
+			fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", ec.name.c_str());
+			fprintf(f, "\t%s tmp = {};\n", ec.underlying_type.c_str());
+			fprintf(f, "\tDeserialize(s, tmp);\n");
+			fprintf(f, "\tout_value = (%s)tmp;\n", ec.name.c_str());
+			fprintf(f, "}\n");
+		} else {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", ec.name.c_str());
+			fprintf(f, "\ts.BeginObject();\n");
+			for (const std::string& p : ec.properties) {
+				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
+			}
+			fprintf(f, "\ts.EndObject();\n");
+			fprintf(f, "}\n");
+
+			fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", ec.name.c_str());
+			fprintf(f, "\ts.BeginObject();\n");
+			for (const std::string& p : ec.properties) {
+				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+				fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
+			}
+			fprintf(f, "\ts.EndObject();\n");
+			fprintf(f, "}\n");
+		}
 	}
 
 	fclose(f);
