@@ -6,8 +6,17 @@ TextSerializer::TextSerializer(FILE* out) : out(out) {
 
 void TextSerializer::NextValue() {
 	if (stack.size() == 0) return;
-	if (stack.back().type == '[')
-		WriteNewLine();
+	auto& entry = stack.back();
+
+	if (entry.type == '[') {
+		if (entry.oneline) {
+			if (entry.has_some)
+				fputc(' ', out);
+			entry.has_some = true;
+		}
+		else
+			WriteNewLine();
+	}
 }
 
 void TextSerializer::WriteNewLine() {
@@ -19,7 +28,7 @@ void TextSerializer::WriteNewLine() {
 void TextSerializer::BeginObject() {
 	NextValue();
 	fprintf(out, "{");
-	stack.push_back({ '{' });
+	stack.push_back({ .type = '{' });
 }
 
 void TextSerializer::EndObject() {
@@ -35,12 +44,22 @@ void TextSerializer::Key(String key) {
 
 void TextSerializer::BeginArray(U32 size) {
 	fprintf(out, "[:%u", size);
-	stack.push_back({ '[' });
+	stack.push_back({ .type = '[' });
 }
 
 void TextSerializer::EndArray() {
 	stack.pop_back();
 	WriteNewLine();
+	fprintf(out, "]");
+}
+
+void TextSerializer::BeginFixedSizeArray(U32 size)  {
+	fprintf(out, "[");
+	stack.push_back({ .type = '[', .oneline = true });
+}
+
+void TextSerializer::EndFixedSizeArray() {
+	stack.pop_back();
 	fprintf(out, "]");
 }
 
@@ -112,7 +131,7 @@ bool TextDeserializer::BeginObject() {
 
 	switch (c) {
 		case '{': {
-			stack.push_back({ '{' });
+			stack.push_back({ .type = '{' });
 			return true;
 		}
 		case 'n': {
@@ -169,6 +188,14 @@ U32 TextDeserializer::BeginArray() {
 }
 
 void TextDeserializer::EndArray() {
+	assert(0);
+}
+
+void TextDeserializer::BeginFixedSizeArray(U32 size) {
+	assert(0);
+}
+
+void TextDeserializer::EndFixedSizeArray() {
 	assert(0);
 }
 

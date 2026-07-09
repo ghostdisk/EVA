@@ -179,49 +179,49 @@ float DistPlanePoint(const Plane& plane, const float3& point) {
 }
 
 void Serialize(Serializer& s, const float2& f) {
-	s.BeginArray(2);
+	s.BeginFixedSizeArray(2);
 	s.SerializeF32(f.x);
 	s.SerializeF32(f.y);
-	s.EndArray();
+	s.EndFixedSizeArray();
 }
 
 void Deserialize(Deserializer& s, float2& f) {
-	s.BeginArray();
+	s.BeginFixedSizeArray(2);
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
-	s.EndArray();
+	s.EndFixedSizeArray();
 }
 
 void Serialize(Serializer& s, const float3& f) {
-	s.BeginArray(3);
+	s.BeginFixedSizeArray(3);
 	s.SerializeF32(f.x);
 	s.SerializeF32(f.y);
 	s.SerializeF32(f.z);
-	s.EndArray();
+	s.EndFixedSizeArray();
 }
 
 void Deserialize(Deserializer& s, float3& f) {
-	s.BeginArray();
+	s.BeginFixedSizeArray(3);
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
 	f.z = s.DeserializeF32();
-	s.EndArray();
+	s.EndFixedSizeArray();
 }
 
 void Serialize(Serializer& s, const float4& f) {
-	s.BeginArray(4);
+	s.BeginFixedSizeArray(4);
 	s.SerializeF32(f.x);
 	s.SerializeF32(f.y);
 	s.SerializeF32(f.z);
 	s.SerializeF32(f.w);
-	s.EndArray();
+	s.EndFixedSizeArray();
 }
 
 void Deserialize(Deserializer& s, float4& f) {
-	s.BeginArray();
+	s.BeginFixedSizeArray(4);
 	f.x = s.DeserializeF32();
 	f.y = s.DeserializeF32();
 	f.z = s.DeserializeF32();
 	f.w = s.DeserializeF32();
-	s.EndArray();
+	s.EndFixedSizeArray();
 }

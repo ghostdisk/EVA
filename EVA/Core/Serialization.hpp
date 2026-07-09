@@ -39,6 +39,9 @@ public:
 	virtual void BeginArray(U32 size) = 0;
 	virtual void EndArray() = 0;
 
+	virtual void BeginFixedSizeArray(U32 size) = 0; 
+	virtual void EndFixedSizeArray() = 0;
+
 	virtual void SerializeU8     (U8 value) = 0;
 	virtual void SerializeU16    (U16 value) = 0;
 	virtual void SerializeU32    (U32 value) = 0;
@@ -72,6 +75,9 @@ public:
 	virtual U32 BeginArray() = 0;
 	virtual void EndArray() = 0;
 
+	virtual void BeginFixedSizeArray(U32 size) = 0;
+	virtual void EndFixedSizeArray() = 0;
+
 	virtual U8       DeserializeU8     () = 0;
 	virtual U16      DeserializeU16    () = 0;
 	virtual U32      DeserializeU32    () = 0;
@@ -92,6 +98,8 @@ class TextSerializer : public Serializer {
 
 	struct StackEntry {
 		char type = '\0';
+		bool oneline = false;
+		bool has_some = false;
 	};
 
 	std::vector<StackEntry> stack;
@@ -109,6 +117,9 @@ public:
 
 	virtual void BeginArray(U32 size) override;
 	virtual void EndArray() override;
+
+	virtual void BeginFixedSizeArray(U32 size) override;
+	virtual void EndFixedSizeArray() override;
 
 	virtual void SerializeU8     (U8 value) override;
 	virtual void SerializeU16    (U16 value) override;
@@ -147,6 +158,8 @@ public:
 	virtual void     Key(String key) override;
 	virtual U32      BeginArray() override;
 	virtual void     EndArray() override;
+	virtual void     BeginFixedSizeArray(U32 size) override;
+	virtual void     EndFixedSizeArray() override;
 	virtual U8       DeserializeU8() override;
 	virtual U16      DeserializeU16() override;
 	virtual U32      DeserializeU32() override;
