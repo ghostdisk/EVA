@@ -33,9 +33,9 @@ void Texture::SaveMetaImpl(Serializer& s) {
 	s.EndObject();
 }
 
-Result Texture::LoadImpl(const U8* file, size_t file_size) {
+Result Texture::LoadImpl(FILE* f) {
 	int width, height, num_channels_in_file;
-	U8* pixels = stbi_load_from_memory(file, file_size, &width, &height, &num_channels_in_file, 4);
+	U8* pixels = stbi_load_from_file(f, &width, &height, &num_channels_in_file, 4);
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 

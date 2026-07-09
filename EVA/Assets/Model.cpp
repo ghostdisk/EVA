@@ -45,8 +45,10 @@ void Deserialize(Deserializer& d, Model* model) {
 	d.EndObject();
 }
 
-Result Model::LoadImpl(const U8* file, size_t file_size) {
-	return Success();
+Result Model::LoadImpl(FILE* f) {
+	TextDeserializer d(f);
+	Deserialize(d, this);
+	return d.res;
 }
 
 Result Model::SaveToDisk(ZTString path) {

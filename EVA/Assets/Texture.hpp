@@ -35,7 +35,7 @@ ECLASS_COMMON();
 
 	virtual void LoadMetaImpl(Deserializer& deserializer) override;
 	virtual void SaveMetaImpl(Serializer& serializer) override;
-	virtual Result LoadImpl(const U8* file, size_t file_size) override;
+	virtual Result LoadImpl(FILE* f) override;
 
 	void Upload(int width, int height, const U8* pixels, U32 gl_format);
 };

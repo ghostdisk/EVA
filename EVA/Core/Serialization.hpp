@@ -62,6 +62,9 @@ class Deserializer {
 public:
 	Result res = {};
 
+	void SetError(Result err) {
+		res = err;
+	}
 
 	/**
 	 ** Parses either an object or null. Returns true on object and false on null.
@@ -150,7 +153,7 @@ class TextDeserializer : public Deserializer {
 	void NextValue();
 
 public:
-	void SkipWhitespace(bool new_lines_too);
+	void SkipWhitespace();
 	TextDeserializer(FILE* in);
 
 	virtual bool     BeginObject() override;

@@ -3,6 +3,14 @@
 #include <EVA/Core/Object.hpp>
 #include <EVA/Core/Result.hpp>
 
+#ifndef _FILE_DEFINED
+    #define _FILE_DEFINED
+    typedef struct _iobuf
+    {
+        void* _Placeholder;
+    } FILE;
+#endif
+
 enum class AssetLoadState {
 	Unloaded = 0,
 	Loading,
@@ -26,7 +34,7 @@ public:
 	virtual void SaveMetaImpl(Serializer& serializer) {
 	}
 
-	virtual Result LoadImpl(const U8* file, size_t file_size) {
+	virtual Result LoadImpl(FILE* f) {
 		return Success();
 	}
 

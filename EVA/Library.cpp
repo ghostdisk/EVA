@@ -1,6 +1,7 @@
 #include <EVA/Library.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Assets/Font.hpp>
@@ -38,8 +39,8 @@ void LibraryInitialize() {
 	Library::tex_crate          = Asset::Get<Texture>("tex_crate");
 	Library::tex_tiles1         = Asset::Get<Texture>("tex_tiles1");
 	Library::tex_tiles2         = Asset::Get<Texture>("tex_tiles2");
-	// Library::mesh_cube          = GLTFLoad("cube.glb", false)->meshes[0];
-	// Library::mesh_cone          = GLTFLoad("cone.glb", false)->meshes[0];
+	Library::mesh_cube          = Asset::Get<Model>("cube")->meshes[0];
+	Library::mesh_cone          = Asset::Get<Model>("cone")->meshes[0];
 
 	Texture* ui_atlas = Asset::Get<Texture>("ui_assets"); // TODO: disable mips!
 	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);

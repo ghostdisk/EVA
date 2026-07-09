@@ -107,13 +107,12 @@ void TextSerializer::SerializeI8(I8 value) { SerializeI64((I64)value); }
 void TextSerializer::SerializeI16(I16 value) { SerializeI64((I64)value); }
 void TextSerializer::SerializeI32(I32 value) { SerializeI64((I64)value); }
 
-void TextDeserializer::SkipWhitespace(bool new_lines_too) {
+void TextDeserializer::SkipWhitespace() {
 	int c;
 	for (;;) {
 		c = fgetc(in);
 		if (c == EOF) return;
-		if (c == ' ' || c == '\t') continue;
-		if (new_lines_too && (c == '\n' || c == '\r')) continue;
+		if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
 
 		ungetc(c, in);
 		return;
@@ -126,7 +125,7 @@ TextDeserializer::TextDeserializer(FILE* in) : in(in) {
 bool TextDeserializer::BeginObject() {
 	if (this->res.error) return false;
 
-	SkipWhitespace(false);
+	SkipWhitespace();
 	int c = fgetc(in);
 
 	switch (c) {
@@ -140,11 +139,12 @@ bool TextDeserializer::BeginObject() {
 			if (String(buf, 4) == "null") {
 				return true;
 			} else {
-				res = Err("invalid syntax");
+				SetError(Err("syntax error at BeginObject"));
 				return false;
 			}
 		}
 		default: {
+			SetError(Err("syntax error at BeginObject (expected { or null, got '%c')", c));
 			return false;
 		}
 	}
@@ -155,48 +155,68 @@ void TextDeserializer::EndObject() {
 	if (this->res.error) return;
 
 	stack.pop_back();
-	SkipWhitespace(true);
+	SkipWhitespace();
 	if (fgetc(in) != '}')
-		res = Err("expected }");
+		SetError(Err("syntax error at EndObject"));
 }
 
 void TextDeserializer::Key(String key) {
 	if (this->res.error) return;
 
-	SkipWhitespace(true);
+	SkipWhitespace();
 
 	assert(key.size < 64);
 	char buf[64];
 	fread(buf, key.size, 1, in);
 
 	if (memcmp(key.data, buf, key.size) != 0) {
-		res = Err("unexpected key");
+		SetError(Err("syntax error at Key (key mismatch - %.*s vs %.*s)", STRING_PRINTF_ARGS(key), key.size, buf));
 		return ;
 	}
 
-	SkipWhitespace(false);
+	SkipWhitespace();
 	if (fgetc(in) != '=') {
-		res = Err("expected =");
+		SetError(Err("syntax error at Key (expected =)"));
 		return;
 	}
-	SkipWhitespace(false);
 }
 
 U32 TextDeserializer::BeginArray() {
-	assert(0);
-	return 0;
+	if (res.error) return 0;
+	SkipWhitespace();
+	
+	U32 len;
+	if (fscanf(in, "[:%u", &len) != 1) {
+		SetError(Err("syntax error at BeginArray"));
+		return 0;
+	}
+
+	stack.push_back({ .type = '[' });
+	return len;
 }
 
 void TextDeserializer::EndArray() {
-	assert(0);
+	if (res.error) return;
+
+	SkipWhitespace();
+	int ch = fgetc(in);
+	if (ch != ']') 
+		SetError(Err("syntax error at EndArray (expected ], got '%c')", ch));
+	stack.pop_back();
 }
 
 void TextDeserializer::BeginFixedSizeArray(U32 size) {
-	assert(0);
+	if (res.error) return;
+	SkipWhitespace();
+	if (fgetc(in) != '[')
+		SetError(Err("syntax error at BeginFixedSizeArray"));
 }
 
 void TextDeserializer::EndFixedSizeArray() {
-	assert(0);
+	if (res.error) return;
+	SkipWhitespace();
+	if (fgetc(in) != ']')
+		SetError(Err("syntax error at EndFixedSizeArray"));
 }
 
 U8  TextDeserializer::DeserializeU8()  { return (U8) DeserializeU64(); }
@@ -211,7 +231,7 @@ U64 TextDeserializer::DeserializeU64() {
 	if (this->res.error) return 0;
 	U64 value;
 	if (fscanf(in, "%llu", &value) != 1)
-		res = Err("fscan error");
+		SetError(Err("syntax error at DeserializeU64"));
 	return value;
 }
 
@@ -219,7 +239,7 @@ I64 TextDeserializer::DeserializeI64() {
 	if (this->res.error) return 0;
 	I64 value;
 	if (fscanf(in, "%lld", &value) != 1)
-		res = Err("fscan error");
+		SetError(Err("syntax error at DeserializeI64"));
 	return value;
 }
 
@@ -227,7 +247,7 @@ F64 TextDeserializer::DeserializeF64() {
 	if (this->res.error) return 0;
 	double value;
 	if (fscanf(in, "%lf", &value) != 1)
-		res = Err("fscan error");
+		SetError(Err("syntax error at DeserializeF64"));
 	return value;
 }
 
@@ -240,11 +260,11 @@ bool TextDeserializer::DeserializeBool() {
 	if (this->res.error) return false;
 	char buf[10];
 	if (fscanf(in, "%9s", buf) != 1)
-		res = Err("fscan error");
+		SetError(Err("syntax error at DeserializeBool (fscan error)"));
 	ZTString str(buf);
 	if (str == "true") return true;
 	if (str == "false") return false;
-	res = Err("invalid bool");
+	SetError(Err("syntax error at DeserializeBool (not true or false)"));
 	return false;
 }
 

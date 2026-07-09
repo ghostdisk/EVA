@@ -10,7 +10,7 @@ public:
 
 	std::vector<Mesh*> meshes;
 
-	virtual Result LoadImpl(const U8* file, size_t file_size) override;
+	virtual Result LoadImpl(FILE* f) override;
 
 	Result SaveToDisk(ZTString path);
 };

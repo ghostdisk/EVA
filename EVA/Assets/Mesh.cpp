@@ -59,7 +59,7 @@ void Deserialize(Deserializer& d, Mesh* mesh) {
 	d.Key("version");
 	U32 version = d.DeserializeU32();
 	if (version != 1) {
-		d.res = Err("unexpected version");
+		d.SetError(Err("unexpected version"));
 		return;
 	}
 
@@ -79,4 +79,5 @@ void Deserialize(Deserializer& d, Mesh* mesh) {
 	}
 	d.EndArray();
 
+	d.EndObject();
 }

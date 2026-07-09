@@ -34,6 +34,7 @@ Type* MapExtensionToType(String ext) {
 	if (ext == ".ttf")     return Font::StaticClass();
 	// if (ext == ".glb")     return GLTF::StaticClass();
 	if (ext == ".png")     return Texture::StaticClass();
+	if (ext == ".mdl")     return Model::StaticClass();
 	if (ext == ".jpg")     return Texture::StaticClass();
 	if (ext == ".jpeg")    return Texture::StaticClass();
 	if (ext == ".psd")     return Texture::StaticClass();
@@ -63,14 +64,13 @@ void LoadAssetsFromDir(String dir) {
 		g_assets.push_back(asset);
 		asset->name_new = FS::WithoutExtension(stat.filename).CopyToHeap();
 
-		void* data = nullptr;
-		size_t size = 0;
-		if (!ReadEntireFile(stat.full_path.c_str(), &data, &size)) {
+		FILE* f = fopen(stat.full_path.c_str(), "rb");
+		if (!f) {
 			printf("failed to read file %.*s", STRING_PRINTF_ARGS(stat.full_path));
 			asset->state = AssetLoadState::Failed;
 			return;
 		}
-		DEFER(free(data));
+		DEFER(fclose(f));
 
 		ZTString meta_path = Fmt(FrameArena, "%.*s.meta", STRING_PRINTF_ARGS(stat.full_path));
 		void* meta = nullptr;
@@ -84,7 +84,7 @@ void LoadAssetsFromDir(String dir) {
 		}
 
 		asset->state = AssetLoadState::Loading;
-		Result res = asset->LoadImpl((U8*)data, size);
+		Result res = asset->LoadImpl(f);
 		if (!res) {
 			asset->state = AssetLoadState::Failed;
 			ConError(res);
