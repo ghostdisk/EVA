@@ -25,9 +25,9 @@ void Deserialize(Deserializer& d, MeshVertex& f) {
 
 void Mesh::InitCPUData(size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices) {
 	this->vertices.resize(num_vertices);
-	this->indices.resize(num_vertices);
+	this->indices.resize(num_indices);
 	memcpy(this->vertices.data(), vertices, this->vertices.size() * sizeof(vertices[0]));
-	memcpy(this->indices.data(), vertices, this->indices.size() * sizeof(indices[0]));
+	memcpy(this->indices.data(), indices, this->indices.size() * sizeof(indices[0]));
 }
 
 void Serialize(Serializer& s, Mesh* value) {
