@@ -87,7 +87,7 @@ void RendererInitialize() {
 		mesh_quad->InitCPUData(
 			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
 			EVA_ARRAYSIZE(quad_indices), quad_indices);
-		mesh_quad->Upload();
+		mesh_quad->Upload(false);
 	}
 
 	ConRegisterVar(&cvar_gl_wire);

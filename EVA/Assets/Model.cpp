@@ -38,7 +38,7 @@ void Deserialize(Deserializer& d, Model* model) {
 		Deserialize(d, model->meshes[i]);
 		if (d.res.error)
 			return;
-		model->meshes[i]->Upload();
+		model->meshes[i]->Upload(false);
 	}
 	d.EndArray();
 

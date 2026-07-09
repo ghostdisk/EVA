@@ -181,7 +181,7 @@ Result Game::LoadMap(String name) {
 	level_mesh = new Mesh();
 	level_mesh->vertices = std::move(vertices);
 	level_mesh->indices = std::move(indices);
-	level_mesh->Upload();
+	level_mesh->Upload(false);
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);

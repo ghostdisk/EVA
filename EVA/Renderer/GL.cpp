@@ -120,7 +120,7 @@ void GL_ERROR_CHECK_Impl(const char* file, int line, GLenum error) {
 	printf("GL_ERROR_CHECK(%s:%d) - Error 0x%x\n", file, line, error);
 }
 
-void Mesh::Upload() {
+void Mesh::Upload(bool keep_cpu_data) {
 	index_count = indices.size();
 	vertex_count = vertices.size();
 
@@ -145,6 +145,11 @@ void Mesh::Upload() {
 	glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, normal));
 	glVertexAttribPointer(2, 2, GL_FLOAT, false, sizeof(MeshVertex), (void*)offsetof(MeshVertex, texcoord));
 	GL_ERROR_CHECK();
+
+	if (!keep_cpu_data) {
+		vertices.clear();
+		indices.clear();
+	}
 }
 
 void Mesh::Deinit() {

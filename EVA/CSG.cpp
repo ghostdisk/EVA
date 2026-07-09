@@ -180,9 +180,9 @@ void CSGBuildBrushMesh(CSGBrush* brush) {
 		}
 	}
 	brush->mesh = new Mesh(); 
-	brush->mesh->vertices = vertices;
-	brush->mesh->indices = indices;
-	brush->mesh->Upload();
+	brush->mesh->vertices = std::move(vertices);
+	brush->mesh->indices = std::move(indices);
+	brush->mesh->Upload(false);
 }
 
 CSGBrush* CSGCloneBrush(CSGBrush* orig) {

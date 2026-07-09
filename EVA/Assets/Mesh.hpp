@@ -33,7 +33,7 @@ public:
 	U32           vertex_count     = 0;
 
 	void InitCPUData(size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
-	void Upload();
+	void Upload(bool keep_cpu_data);
 	void Deinit(); // destroys gpu data
 };
 
