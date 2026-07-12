@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
+#include <EVA/Core/Allocator.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <vector>
 
@@ -17,12 +18,18 @@ public:
 		}
 	}
 
+	Entity* CreateEntity(Type* type, EID eid) {
+		Entity* entity = (Entity*)type->Instantiate(Allocator::HeapAllocator);
+		RegisterEntity(entity, eid);
+		return entity;
+	}
+
 	void RegisterEntity(Entity* entity, EID eid) {
 		entities.push_back(entity);
 		entity->eid = eid;
 		entity->OnActivate(EntityCallbackInfo{
 			.game = game,
-			.entity_manager = this,
+			.entityManager = this,
 		});
 	}
 
@@ -34,7 +41,8 @@ public:
 				break;
 			}
 		}
-		delete entity;
+		entity->~Entity();
+		Allocator::HeapAllocator.Free(entity);
 	}
 
 	void Init();
@@ -42,5 +50,5 @@ public:
 };
 
 void EntitySetName(Entity* entity, const char* name);
-Entity* EntityLoad(EntityManager* entity_manager, FILE* f);
+Result EntityLoad(Entity** out_entity, EntityManager* entity_manager, FILE* f);
 void EntitySave(FILE* f, Entity* entity, int indent);

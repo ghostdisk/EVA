@@ -2,6 +2,7 @@
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/String.hpp>
 #include <EVA/Core/Result.hpp>
+#include <vector>
 
 struct Allocator;
 class Object;
@@ -10,8 +11,9 @@ class Deserializer;
 
 class Type {
 public:
-	Type*    parent_type = nullptr;
-	ZTString name        = {};
+	ZTString           name        = {};
+	Type*              parent_type = nullptr;
+	std::vector<Type*> subclasses  = {};
 
 	void* (*Instantiate)(Allocator allocator) = nullptr;
 	static Type* Find(String name);

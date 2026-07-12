@@ -4,9 +4,11 @@
 
 struct Entity;
 
-struct ECamera : Entity {
-	float fov = 60 * GLM_PI / 180.0f;
+class ECamera : public Entity {
+public:
+	ECLASS_COMMON();
 
+	float  fov       = 60 * GLM_PI / 180.0f;
 	float  pitch     = 0.0f;
 	float  yaw       = 0.0f; // TODO: yaw=0 should point to the right, not forward
 

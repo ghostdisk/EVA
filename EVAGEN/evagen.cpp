@@ -1,10 +1,3 @@
-// EVAGEN — EVA reflection generator.
-//
-// Walks EVA/ for .hpp files, emits a single amalgamated header that includes
-// them all, then runs libclang over that one translation unit (instead of
-// parsing ~200 compile units). For now it just logs struct/class definitions;
-// the useful codegen comes later.
-
 #include <clang-c/Index.h>
 
 #include <algorithm>
@@ -18,31 +11,34 @@
 namespace fs = std::filesystem;
 
 // Root that <EVA/...> includes resolve against, and the dir we walk.
-static const char* kBaseDir    = "D:/EVA";
-static const char* kEvaSubdir  = "EVA";
+static const char* g_baseDir    = "D:/EVA";
+
+std::vector<std::string> g_includes = {
+	"EVA/Core/Object.hpp",
+	"EVA/Core/Serialization.hpp",
+	"EVA/Core/Allocator.hpp"
+};
 
 static std::string ToForwardSlashes(std::string s) {
-	for (char& c : s) {
-		if (c == '\\') c = '/';
-	}
+	for (char& c : s) if (c == '\\') c = '/';
 	return s;
 }
 
-// Collect every .hpp under EVA/ as a path relative to kBaseDir, using forward
+// Collect every .hpp under EVA/ as a path relative to g_baseDir, using forward
 // slashes so we can emit them as #include <EVA/...>.
 static std::vector<std::string> CollectHeaders() {
 	std::vector<std::string> headers;
 
-	fs::path base = kBaseDir;
-	fs::path walk = base / kEvaSubdir;
+	fs::path base = g_baseDir;
+	fs::path walk = base / "EVA";
 
 	for (const auto& entry : fs::recursive_directory_iterator(walk)) {
 		if (!entry.is_regular_file()) continue;
 		if (entry.path().extension() != ".hpp") continue;
 
-		std::error_code ec;
-		fs::path rel = fs::relative(entry.path(), base, ec);
-		if (ec) rel = entry.path();
+		std::error_code t;
+		fs::path rel = fs::relative(entry.path(), base, t);
+		if (t) rel = entry.path();
 
 		headers.push_back(ToForwardSlashes(rel.string()));
 	}
@@ -57,7 +53,7 @@ static std::vector<std::string> CollectHeaders() {
 // path written, or empty on failure.
 static std::string WriteAmalgam(const std::vector<std::string>& headers) {
 	// Keep the generated file out of the source tree proper.
-	fs::path out = fs::path(kBaseDir) / "EVAGEN" / "_amalgam.generated.hpp";
+	fs::path out = fs::path(g_baseDir) / "EVAGEN" / "_amalgam.generated.hpp";
 
 	FILE* f = fopen(out.string().c_str(), "wb");
 	if (!f) {
@@ -91,26 +87,38 @@ static bool IsInOurTree(CXCursor cursor) {
 	if (!file) return false;
 
 	std::string path = ToForwardSlashes(CXStr(clang_getFileName(file)));
-	std::string base = ToForwardSlashes(std::string(kBaseDir) + "/" + kEvaSubdir + "/");
+	std::string base = ToForwardSlashes(std::string(g_baseDir) + "/EVA/");
 	return path.rfind(base, 0) == 0;
 }
 
-struct EClass {
-	std::string name;
-	std::string parent;
-	std::string annotation;
-	std::string header;
-	std::vector<std::string> properties;
-	bool is_class          = false;
-	bool is_serializable   = false;
-	bool is_enum           = false;
-	std::string underlying_type;
+class Type {
+public:
+	std::string              name               = "";
+	Type*                    parent             = nullptr;
+	std::vector<Type*>       subclasses         = {};
+	std::string              annotation         = "'";
+	std::string              header             = "'";
+	std::vector<std::string> properties         = {};
+	bool                     is_class           = false;
+	bool                     is_serializable    = false;
+	bool                     is_enum            = false;
+	std::string              underlying_type    = "";
 };
 
-static std::vector<EClass> g_eclasses;
+static std::vector<Type*> g_types;
+
+static Type* GetType(const std::string& name) {
+	for (Type* t : g_types) {
+		if (t->name == name) return t;
+	}
+	Type* t = new Type();
+	t->name = name;
+	g_types.push_back(t);
+	return t;
+}
 
 static std::string RelToBase(const std::string& path) {
-	std::string base = ToForwardSlashes(std::string(kBaseDir)) + "/";
+	std::string base = ToForwardSlashes(std::string(g_baseDir)) + "/";
 	if (path.rfind(base, 0) == 0) return path.substr(base.size());
 	return path;
 }
@@ -190,19 +198,19 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		       info.has_eserializable ? "  [ESERIALIZABLE]" : "");
 
 		if ((info.has_eclass || info.has_eserializable) && !name.empty()) {
-			EClass ec;
-			ec.name = name;
-			ec.parent = info.parent;
-			ec.annotation = info.annotation;
-			ec.header = RelToBase(filename);
-			ec.properties = info.properties;
-			ec.is_class = info.has_eclass;
-			ec.is_serializable = info.has_eserializable;
-			ec.is_enum = is_enum;
-			if (is_enum) {
-				ec.underlying_type = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
+			Type* t = GetType(name);
+			if (info.parent.size()) {
+				t->parent = GetType(info.parent);
+				t->parent->subclasses.push_back(t);
 			}
-			g_eclasses.push_back(ec);
+			t->annotation = info.annotation;
+			t->header = RelToBase(filename);
+			t->properties = info.properties;
+			t->is_class = info.has_eclass;
+			t->is_serializable = info.has_eserializable;
+			t->is_enum = is_enum;
+			if (is_enum) 
+				t->underlying_type = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
 		}
 	}
 
@@ -210,8 +218,8 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 	return CXChildVisit_Continue;
 }
 
-static void WriteGenFile(const std::vector<EClass>& eclasses) {
-	fs::path out = fs::path(kBaseDir) / "EVA" / "EVA.gen.cpp";
+static void WriteGenFile() {
+	fs::path out = fs::path(g_baseDir) / "EVA" / "EVA.gen.cpp";
 
 	FILE* f = fopen(out.string().c_str(), "wb");
 	if (!f) {
@@ -219,130 +227,113 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		return;
 	}
 
-	std::vector<std::string> includes = { "EVA/Core/Object.hpp", "EVA/Core/Serialization.hpp", "EVA/Core/Allocator.hpp" };
-	for (const EClass& ec : eclasses) {
-		if (std::find(includes.begin(), includes.end(), ec.header) == includes.end()) {
-			includes.push_back(ec.header);
-		}
+	for (Type* t : g_types) {
+		g_includes.push_back(t->header);
 	}
 
 	fprintf(f, "// GENERATED BY EVAGEN. DO NOT EDIT.\n");
-	for (const std::string& inc : includes) {
+	for (const std::string& inc : g_includes) {
 		fprintf(f, "#include <%s>\n", inc.c_str());
 	}
 	fprintf(f, "\n");
 
-	std::vector<const EClass*> classes;
-	for (const EClass& ec : eclasses) {
-		if (ec.is_class) classes.push_back(&ec);
-	}
+	for (Type* t : g_types)
+		fprintf(f, "extern Type g_type_%s;\n", t->name.c_str());
+	fprintf(f, "\n\n");
 
-	auto is_eclass = [&](const std::string& n) {
-		for (const EClass* ec : classes) {
-			if (ec->name == n) return true;
-		}
-		return false;
-	};
+	for (Type* t : g_types) {
+		std::string parent_ref = t->parent ?  ("&g_type_" + t->parent->name) : "nullptr";
 
-	std::vector<const EClass*> ordered;
-	std::vector<bool> emitted(classes.size(), false);
-	bool progressed = true;
-	while (progressed) {
-		progressed = false;
-		for (size_t i = 0; i < classes.size(); ++i) {
-			if (emitted[i]) continue;
-			const EClass* ec = classes[i];
-			if (!is_eclass(ec->parent) ||
-			    std::find_if(ordered.begin(), ordered.end(),
-			                 [&](const EClass* e) { return e->name == ec->parent; }) != ordered.end()) {
-				ordered.push_back(ec);
-				emitted[i] = true;
-				progressed = true;
-			}
-		}
-	}
-	for (size_t i = 0; i < classes.size(); ++i) {
-		if (!emitted[i]) ordered.push_back(classes[i]);
-	}
+		fprintf(f, "Type g_type_%s = {\n", t->name.c_str());
 
-	for (const EClass* ec : ordered) {
-		std::string parent_ref = is_eclass(ec->parent)
-			? "&g_type_" + ec->parent
-			: "nullptr";
-		fprintf(f, "static Type g_type_%s = {\n", ec->name.c_str());
+		fprintf(f, "\t.name = \"%s\",\n", t->name.c_str());
 		fprintf(f, "\t.parent_type = %s,\n", parent_ref.c_str());
-		fprintf(f, "\t.name = \"%s\",\n", ec->name.c_str());
-		fprintf(f,
-			"\t.Instantiate = [](Allocator allocator) -> void* {\n"
-			"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
-			"\t\tnew (ptr) %s();\n"
-			"\t\treturn ptr;\n"
-			"\t},",
-			ec->name.c_str(), ec->name.c_str(), ec->name.c_str());
+
+		if (t->subclasses.size()) {
+			fprintf(f, "\t.subclasses = {\n");
+			for (Type* subclass : t->subclasses) {
+				fprintf(f, "\t\t&g_type_%s,\n", subclass->name.c_str());
+			};
+			fprintf(f, "\t},\n");
+		}
+		if (t->is_class) {
+			fprintf(f,
+				"\t.Instantiate = [](Allocator allocator) -> void* {\n"
+				"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
+				"\t\tnew (ptr) %s();\n"
+				"\t\treturn ptr;\n"
+				"\t},\n",
+				t->name.c_str(), t->name.c_str(), t->name.c_str());
+		}
 		fprintf(f, "};\n");
 	}
 	fprintf(f, "\n");
 
-	for (const EClass* ec : ordered) {
-		fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
-		        ec->name.c_str(), ec->name.c_str());
-		fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
-		        ec->name.c_str(), ec->name.c_str());
+	for (Type* t : g_types) {
+		if (t->is_class) {
+			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
+					t->name.c_str(), t->name.c_str());
+			fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
+					t->name.c_str(), t->name.c_str());
+		}
 	}
 
 	fprintf(f, "\nType* Type::Find(String name) {\n");
-	fprintf(f, "\tstatic Type* all[] = {\n");
-	for (const EClass* ec : ordered) {
-		fprintf(f, "\t\t&g_type_%s,\n", ec->name.c_str());
+	fprintf(f, "\tstatic Type* g_allTypes[] = {\n");
+	for (Type* t : g_types) {
+		fprintf(f, "\t\t&g_type_%s,\n", t->name.c_str());
 	}
 	fprintf(f, "\t};\n");
-	fprintf(f, "\tfor (Type* t : all)\n");
+	fprintf(f, "\tfor (Type* t : g_allTypes)\n");
 	fprintf(f, "\t\tif (name == t->name) return t;\n");
 	fprintf(f, "\treturn nullptr;\n");
 	fprintf(f, "}\n");
 
-	for (const EClass& ec : eclasses) {
-		if (!ec.is_serializable) continue;
-		fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", ec.name.c_str());
-		fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", ec.name.c_str());
-	}
-
-	for (const EClass& ec : eclasses) {
-		if (!ec.is_serializable) continue;
-
-		if (ec.is_enum) {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", ec.name.c_str());
-			fprintf(f, "\tSerialize(s, (%s)value);\n", ec.underlying_type.c_str());
-			fprintf(f, "}\n");
-
-			fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", ec.name.c_str());
-			fprintf(f, "\t%s tmp = {};\n", ec.underlying_type.c_str());
-			fprintf(f, "\tDeserialize(s, tmp);\n");
-			fprintf(f, "\tout_value = (%s)tmp;\n", ec.name.c_str());
-			fprintf(f, "}\n");
-		} else {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", ec.name.c_str());
-			fprintf(f, "\ts.BeginObject();\n");
-			for (const std::string& p : ec.properties) {
-				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
-			}
-			fprintf(f, "\ts.EndObject();\n");
-			fprintf(f, "}\n");
-
-			fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", ec.name.c_str());
-			fprintf(f, "\ts.BeginObject();\n");
-			for (const std::string& p : ec.properties) {
-				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-				fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
-			}
-			fprintf(f, "\ts.EndObject();\n");
-			fprintf(f, "}\n");
+	for (Type* t : g_types) {
+		if (t->is_serializable) {
+			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->name.c_str());
+			fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", t->name.c_str());
 		}
+	}
+	fprintf(f, "\n\n");
+
+	for (Type* t : g_types) {
+		if (t->is_serializable) {
+			if (t->is_enum) {
+				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->name.c_str());
+				fprintf(f, "\tSerialize(s, (%s)value);\n", t->underlying_type.c_str());
+				fprintf(f, "}\n");
+
+				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->name.c_str());
+				fprintf(f, "\t%s tmp = {};\n", t->underlying_type.c_str());
+				fprintf(f, "\tDeserialize(s, tmp);\n");
+				fprintf(f, "\tout_value = (%s)tmp;\n", t->name.c_str());
+				fprintf(f, "}\n");
+			} else {
+				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->name.c_str());
+				fprintf(f, "\ts.BeginObject();\n");
+				for (const std::string& p : t->properties) {
+					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+					fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
+				}
+				fprintf(f, "\ts.EndObject();\n");
+				fprintf(f, "}\n");
+
+				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->name.c_str());
+				fprintf(f, "\ts.BeginObject();\n");
+				for (const std::string& p : t->properties) {
+					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+					fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
+				}
+				fprintf(f, "\ts.EndObject();\n");
+				fprintf(f, "}\n");
+			}
+		}
+
 	}
 
 	fclose(f);
-	printf("evagen: wrote %s (%zu eclasses)\n", out.string().c_str(), eclasses.size());
+	printf("evagen: wrote %s (%zu eclasses)\n", out.string().c_str(), g_types.size());
 }
 
 int main() {
@@ -352,7 +343,7 @@ int main() {
 	std::string amalgam = WriteAmalgam(headers);
 	if (amalgam.empty()) return 1;
 
-	std::string base = kBaseDir;
+	std::string base = g_baseDir;
 	std::vector<std::string> arg_strs = {
 		"-x", "c++",
 		"-std=c++20",
@@ -404,7 +395,7 @@ int main() {
 	clang_visitChildren(root, Visit, nullptr);
 
 	printf("----------------------------------------\n");
-	WriteGenFile(g_eclasses);
+	WriteGenFile();
 
 	clang_disposeTranslationUnit(tu);
 	clang_disposeIndex(index);

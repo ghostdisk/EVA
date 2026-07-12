@@ -2,6 +2,7 @@
 #include <EVA/Core/Object.hpp>
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/Allocator.hpp>
+#include <EVA/Core/Object.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/EditorMap.hpp>
 #include <EVA/Assets/Font.hpp>
@@ -12,122 +13,201 @@
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Texture.hpp>
 #include <EVA/GameMode.hpp>
 #include <EVA/BasePlayableGameMode.hpp>
+#include <EVA/Entities/Entity.hpp>
 #include <EVA/Editor.hpp>
 
-static Type g_type_Object = {
-	.parent_type = nullptr,
+extern Type g_type_Object;
+extern Type g_type_Asset;
+extern Type g_type_EditorMap;
+extern Type g_type_Font;
+extern Type g_type_Map;
+extern Type g_type_Material;
+extern Type g_type_Mesh;
+extern Type g_type_Model;
+extern Type g_type_Shader;
+extern Type g_type_Sprite;
+extern Type g_type_TextureInterpolation;
+extern Type g_type_TextureWrapMode;
+extern Type g_type_TextureProps;
+extern Type g_type_Texture;
+extern Type g_type_GameMode;
+extern Type g_type_BasePlayableGameMode;
+extern Type g_type_Entity;
+extern Type g_type_Editor;
+
+
+Type g_type_Object = {
 	.name = "Object",
+	.parent_type = nullptr,
+	.subclasses = {
+		&g_type_Asset,
+		&g_type_GameMode,
+		&g_type_Entity,
+	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Object), alignof(Object));
 		new (ptr) Object();
 		return ptr;
-	},};
-static Type g_type_Asset = {
-	.parent_type = &g_type_Object,
+	},
+};
+Type g_type_Asset = {
 	.name = "Asset",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_EditorMap,
+		&g_type_Font,
+		&g_type_Map,
+		&g_type_Material,
+		&g_type_Mesh,
+		&g_type_Model,
+		&g_type_Shader,
+		&g_type_Sprite,
+		&g_type_Texture,
+	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Asset), alignof(Asset));
 		new (ptr) Asset();
 		return ptr;
-	},};
-static Type g_type_EditorMap = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_EditorMap = {
 	.name = "EditorMap",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(EditorMap), alignof(EditorMap));
 		new (ptr) EditorMap();
 		return ptr;
-	},};
-static Type g_type_Font = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Font = {
 	.name = "Font",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Font), alignof(Font));
 		new (ptr) Font();
 		return ptr;
-	},};
-static Type g_type_Map = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Map = {
 	.name = "Map",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Map), alignof(Map));
 		new (ptr) Map();
 		return ptr;
-	},};
-static Type g_type_Material = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Material = {
 	.name = "Material",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Material), alignof(Material));
 		new (ptr) Material();
 		return ptr;
-	},};
-static Type g_type_Mesh = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Mesh = {
 	.name = "Mesh",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Mesh), alignof(Mesh));
 		new (ptr) Mesh();
 		return ptr;
-	},};
-static Type g_type_Model = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Model = {
 	.name = "Model",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Model), alignof(Model));
 		new (ptr) Model();
 		return ptr;
-	},};
-static Type g_type_Shader = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Shader = {
 	.name = "Shader",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Shader), alignof(Shader));
 		new (ptr) Shader();
 		return ptr;
-	},};
-static Type g_type_Sprite = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_Sprite = {
 	.name = "Sprite",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Sprite), alignof(Sprite));
 		new (ptr) Sprite();
 		return ptr;
-	},};
-static Type g_type_Texture = {
-	.parent_type = &g_type_Asset,
+	},
+};
+Type g_type_TextureInterpolation = {
+	.name = "TextureInterpolation",
+	.parent_type = nullptr,
+};
+Type g_type_TextureWrapMode = {
+	.name = "TextureWrapMode",
+	.parent_type = nullptr,
+};
+Type g_type_TextureProps = {
+	.name = "TextureProps",
+	.parent_type = nullptr,
+};
+Type g_type_Texture = {
 	.name = "Texture",
+	.parent_type = &g_type_Asset,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Texture), alignof(Texture));
 		new (ptr) Texture();
 		return ptr;
-	},};
-static Type g_type_GameMode = {
-	.parent_type = &g_type_Object,
+	},
+};
+Type g_type_GameMode = {
 	.name = "GameMode",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_BasePlayableGameMode,
+		&g_type_Editor,
+	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(GameMode), alignof(GameMode));
 		new (ptr) GameMode();
 		return ptr;
-	},};
-static Type g_type_BasePlayableGameMode = {
-	.parent_type = &g_type_GameMode,
+	},
+};
+Type g_type_BasePlayableGameMode = {
 	.name = "BasePlayableGameMode",
+	.parent_type = &g_type_GameMode,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(BasePlayableGameMode), alignof(BasePlayableGameMode));
 		new (ptr) BasePlayableGameMode();
 		return ptr;
-	},};
-static Type g_type_Editor = {
-	.parent_type = &g_type_GameMode,
+	},
+};
+Type g_type_Entity = {
+	.name = "Entity",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Entity), alignof(Entity));
+		new (ptr) Entity();
+		return ptr;
+	},
+};
+Type g_type_Editor = {
 	.name = "Editor",
+	.parent_type = &g_type_GameMode,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Editor), alignof(Editor));
 		new (ptr) Editor();
 		return ptr;
-	},};
+	},
+};
 
 Type* Object::StaticClass() { return &g_type_Object; }
 Type* Object::GetClass() { return &g_type_Object; }
@@ -155,11 +235,13 @@ Type* GameMode::StaticClass() { return &g_type_GameMode; }
 Type* GameMode::GetClass() { return &g_type_GameMode; }
 Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode; }
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
+Type* Entity::StaticClass() { return &g_type_Entity; }
+Type* Entity::GetClass() { return &g_type_Entity; }
 Type* Editor::StaticClass() { return &g_type_Editor; }
 Type* Editor::GetClass() { return &g_type_Editor; }
 
 Type* Type::Find(String name) {
-	static Type* all[] = {
+	static Type* g_allTypes[] = {
 		&g_type_Object,
 		&g_type_Asset,
 		&g_type_EditorMap,
@@ -170,12 +252,16 @@ Type* Type::Find(String name) {
 		&g_type_Model,
 		&g_type_Shader,
 		&g_type_Sprite,
+		&g_type_TextureInterpolation,
+		&g_type_TextureWrapMode,
+		&g_type_TextureProps,
 		&g_type_Texture,
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
+		&g_type_Entity,
 		&g_type_Editor,
 	};
-	for (Type* t : all)
+	for (Type* t : g_allTypes)
 		if (name == t->name) return t;
 	return nullptr;
 }
@@ -185,6 +271,8 @@ void Serialize(Serializer& s, const TextureWrapMode& value);
 void Deserialize(Deserializer& s, TextureWrapMode& out_value);
 void Serialize(Serializer& s, const TextureProps& value);
 void Deserialize(Deserializer& s, TextureProps& out_value);
+
+
 
 void Serialize(Serializer& s, const TextureInterpolation& value) {
 	Serialize(s, (U8)value);

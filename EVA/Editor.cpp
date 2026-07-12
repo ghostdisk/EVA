@@ -1328,7 +1328,8 @@ Result Editor::LoadMap(String name) {
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
-		Entity* ent = EntityLoad(m_entityManager, f);
+		Entity* ent = nullptr;
+		TRY(EntityLoad(&ent, m_entityManager, f));
 		if (ent->eid >= g_next_eid) g_next_eid = ent->eid + 1;
 	}
 

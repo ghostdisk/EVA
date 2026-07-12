@@ -45,17 +45,12 @@ add_executable(EVA
 	"EVA/EVA.natvis"
 )
 
-
 set_property(TARGET EVA PROPERTY CXX_STANDARD 20)
-
 target_include_directories(EVA PRIVATE "${CMAKE_SOURCE_DIR}")
 
 #
 # SDL
 #
-
- set(SDL3_MAINPROJECT OFF)
-
 set(SDL_GPU          OFF CACHE BOOL "" FORCE)
 set(SDL_RENDER       OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED       OFF CACHE BOOL "" FORCE)
@@ -69,7 +64,6 @@ target_link_libraries(EVA SDL3-static)
 #
 # glad
 #
-
 target_sources(EVA PRIVATE "Vendor/glad/src/glad.c")
 target_include_directories(EVA PRIVATE "Vendor/glad/include")
 
@@ -77,13 +71,11 @@ target_include_directories(EVA PRIVATE "Vendor/glad/include")
 #
 # cglm
 #
-
 target_include_directories(EVA PRIVATE "Vendor/cglm-0.9.6/include")
 
 #
 # FreeType
 #
-
 add_subdirectory("Vendor/freetype-2.14.3")
 target_link_libraries(EVA freetype)
 
@@ -91,7 +83,6 @@ target_link_libraries(EVA freetype)
 #
 # ENet
 #
-
 add_subdirectory("Vendor/enet-1.3.18")
 target_include_directories(EVA PRIVATE "Vendor/enet-1.3.18/include")
 target_link_libraries(EVA enet "Ws2_32.lib")

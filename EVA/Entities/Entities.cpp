@@ -4,40 +4,6 @@
 #include <EVA/Entities/ECharacter.hpp>
 #include <stdio.h>
 
-EntityTypeMeta ENoneMeta = {
-	.name = "<None>",
-};
-
-EntityTypeMeta EStaticMeshMeta = {
-	.name = "EStaticMesh",
-	.CreateEntity = []() { return new Entity(); }
-};
-
-EntityTypeMeta ERigidbodyMeta = {
-	.name = "ERigidbody",
-};
-
-EntityTypeMeta ECharacterMeta = {
-	.name = "ECharacter",
-	.editor_box_offset = {0,0,1},
-	.editor_box_size = {0.5, 0.5, 2},
-	.CreateEntity = []() -> Entity* { return new ECharacter(); }
-};
-
-EntityTypeMeta EMarkerMeta = {
-	.name = "EMarker",
-	.editor_box_offset = {0,0,.25},
-	.editor_box_size = {.25, .25, .25},
-	.CreateEntity = []() -> Entity* { return new Entity(); }
-};
-
-EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE] {
-	&ENoneMeta,
-	#define X(name, id) &E ## name ## Meta,
-	X_FOREACH_ENTITY()
-	#undef X
-};
-
 void EntityManager::Init() {
 }
 
@@ -53,30 +19,24 @@ void EntitySetName(Entity* entity, const char* name) {
 	snprintf(entity->name, sizeof(entity->name), "%s", name);
 }
 
-Entity* EntityLoad(EntityManager* entity_manager, FILE* f) {
+Result EntityLoad(Entity** out_entity, EntityManager* entityManager, FILE* f) {
 	int n;
 	char buf[32] = {};
 
-	int eid, type;
-	n = fscanf(f, "entity %d %d\n", &type, &eid);
-	assert(n == 2);
+	int eid;
+	n = fscanf(f, "entity %31s %d\n", buf, &eid);
+	if (n != 2) return Err("Failed to parse");
 
-	Entity* entity = ENTITY_TYPE_META[type]->CreateEntity();
-	entity->type = (EntityType)type;
-	entity_manager->RegisterEntity(entity, eid);
+	Type* type = Type::Find(buf);
+	if (!type) Err("Type %s doesn't exist", buf);
+
+	Entity* entity = entityManager->CreateEntity(type, eid);
 
 	for (;;) {
 		n = fscanf(f, "%s", buf);
 		assert(n == 1);
 
-		if (strcmp(buf, "type") == 0) {
-			int type;
-			n = fscanf(f, "%d\n", &type);
-			assert(n == 1);
-			assert(type > EntityType_None && type < EntityType_ENUM_SIZE);
-			entity->type = (EntityType)type;
-		}
-		else if (strcmp(buf, "position") == 0) {
+		if (strcmp(buf, "position") == 0) {
 			n = fscanf(f, "%f %f %f\n", XYZ(&entity->position));
 			assert(n == 3);
 		}
@@ -86,7 +46,9 @@ Entity* EntityLoad(EntityManager* entity_manager, FILE* f) {
 		}
 	}
 
-	return entity;
+	entityManager->RegisterEntity(entity, eid);
+	*out_entity = entity;
+	return Success();
 }
 
 static void Indent(FILE* f, int indent) {
@@ -94,7 +56,7 @@ static void Indent(FILE* f, int indent) {
 }
 
 void EntitySave(FILE* f, Entity* entity, int indent) {
-	Indent(f, indent); fprintf(f, "entity %d %d\n", (int)entity->type, (int)entity->eid);
+	Indent(f, indent); fprintf(f, "entity %s %d\n", entity->GetClass()->name.c_str(), (int)entity->eid);
 	indent++;
 	Indent(f, indent); fprintf(f, "position %f %f %f\n", XYZ(entity->position));
 
@@ -103,9 +65,9 @@ void EntitySave(FILE* f, Entity* entity, int indent) {
 }
 
 void Entity::RequestUpdateCallback(const EntityCallbackInfo& ci) {
-	ci.entity_manager->update_list.push_back(this);
+	ci.entityManager->update_list.push_back(this);
 }
 
 void Entity::RequestFixedUpdateCallback(const EntityCallbackInfo& ci) {
-	ci.entity_manager->fixed_update_list.push_back(this);
+	ci.entityManager->fixed_update_list.push_back(this);
 }
