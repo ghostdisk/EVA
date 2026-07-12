@@ -39,10 +39,6 @@ Result Texture::LoadImpl(FILE* f) {
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 
-	char name_without_ext[64];
-	int len = snprintf(name_without_ext, 64, "%s", name);
-	ReplaceFileExtension(name_without_ext, 64, "");
-
 	Upload(width, height, pixels, GL_RGBA8);
 	return Success();
 }

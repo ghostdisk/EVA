@@ -11,7 +11,7 @@
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/UI.hpp>
-#include <EVA/Hashing.hpp>
+#include <EVA/Core/Hashing.hpp>
 #include <cglm/quat.h>
 #include <algorithm>
 
