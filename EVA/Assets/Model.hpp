@@ -4,7 +4,7 @@
 
 class Mesh;
 
-class ECLASS() Model : public Asset {
+class Model : public Asset {
 public:
 	ECLASS_COMMON()
 

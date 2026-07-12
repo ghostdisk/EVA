@@ -29,7 +29,7 @@ struct EdOp {
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
-class ECLASS() Editor : public GameMode {
+class Editor : public GameMode {
 
 
 public:

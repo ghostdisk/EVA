@@ -3,7 +3,7 @@
 
 class Texture;
 
-class ECLASS() Sprite : public Asset {
+class Sprite : public Asset {
 public:
 	ECLASS_COMMON();
 

@@ -34,7 +34,7 @@ struct EntityCallbackInfo {
 	double         dt             = 0.0;
 };
 
-class ECLASS() Entity : public Object {
+class Entity : public Object {
 public:
 	ECLASS_COMMON();
 

@@ -5,7 +5,7 @@ class Game;
 class EntityManager;
 class ECamera;
 
-class ECLASS() GameMode : Object {
+class GameMode : Object {
 
 public:
 	Game*          m_game          = nullptr;

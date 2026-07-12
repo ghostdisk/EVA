@@ -20,11 +20,9 @@ public:
 };
 
 #ifdef EVAGEN
-#	define ECLASS(...)    [[clang::annotate("eclass " #__VA_ARGS__)]]
 #	define EPROPERTY(...) [[clang::annotate("eproperty " #__VA_ARGS__)]]
 #	define ESERIALIZABLE  [[clang::annotate("eserializable")]]
 #else
-#	define ECLASS(...) 
 #	define EPROPERTY(...)
 #	define ESERIALIZABLE
 #endif
@@ -33,7 +31,7 @@ public:
 	static Type* StaticClass(); \
 	virtual Type* GetClass() override;
 
-class ECLASS() Object {
+class Object {
 public:
 	static Type* StaticClass();
 	virtual Type* GetClass();

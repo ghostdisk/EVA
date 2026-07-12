@@ -16,7 +16,7 @@ enum class AssetLoadState {
 	Failed,
 };
 
-class ECLASS() Asset : public Object {
+class Asset : public Object {
 
 public:
 	ECLASS_COMMON();

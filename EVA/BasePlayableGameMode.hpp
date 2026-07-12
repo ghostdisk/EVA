@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/GameMode.hpp>
 
-class ECLASS() BasePlayableGameMode : GameMode {
+class BasePlayableGameMode : GameMode {
 
 	char map_name[32] = {};
 

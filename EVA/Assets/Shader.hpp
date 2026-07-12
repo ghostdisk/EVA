@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
 
-class ECLASS() Shader : public Asset {
+class Shader : public Asset {
 public:
 	ECLASS_COMMON();
 

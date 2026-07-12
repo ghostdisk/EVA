@@ -24,7 +24,7 @@ struct ESERIALIZABLE TextureProps {
 	TextureWrapMode wrap_mode = TextureWrapMode::Repeat;
 };
 
-class ECLASS() Texture : public Asset {
+class Texture : public Asset {
 public:
 ECLASS_COMMON();
 	TextureProps props = {};

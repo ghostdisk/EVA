@@ -4,7 +4,7 @@
 class Shader;
 class Texture;
 
-class ECLASS() Material : public Asset {
+class Material : public Asset {
 public:
 ECLASS_COMMON()
 

@@ -14,7 +14,7 @@ struct FontGlyph {
 	int yoffs   = 0;
 };
 
-class ECLASS() Font : public Asset {
+class Font : public Asset {
 public:
 	ECLASS_COMMON();
 	FT_Face  face        = {};

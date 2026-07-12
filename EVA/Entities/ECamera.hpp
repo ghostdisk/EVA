@@ -4,7 +4,7 @@
 
 struct Entity;
 
-class ECLASS() ECamera : public Entity {
+class ECamera : public Entity {
 public:
 	ECLASS_COMMON();
 

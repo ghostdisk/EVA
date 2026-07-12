@@ -96,10 +96,9 @@ public:
 	std::string              name               = "";
 	Type*                    parent             = nullptr;
 	std::vector<Type*>       subclasses         = {};
-	std::string              annotation         = "'";
 	std::string              header             = "'";
 	std::vector<std::string> properties         = {};
-	bool                     is_class           = false;
+	bool                     is_object          = false;
 	bool                     is_abstract        = false;
 	bool                     is_serializable    = false;
 	bool                     is_enum            = false;
@@ -134,9 +133,7 @@ static std::string StripRecordKeyword(std::string s) {
 }
 
 struct RecordInfo {
-	bool has_eclass = false;
 	bool has_eserializable = false;
-	std::string annotation;
 	std::string parent;
 	std::vector<std::string> properties;
 };
@@ -156,10 +153,7 @@ static CXChildVisitResult RecordChildVisitor(CXCursor c, CXCursor, CXClientData 
 
 	if (k == CXCursor_AnnotateAttr) {
 		std::string s = CXStr(clang_getCursorSpelling(c));
-		if (s.rfind("eclass", 0) == 0) {
-			info->has_eclass = true;
-			info->annotation = s;
-		} else if (s.rfind("eserializable", 0) == 0) {
+		if (s.rfind("eserializable", 0) == 0) {
 			info->has_eserializable = true;
 		}
 	} else if (k == CXCursor_CXXBaseSpecifier) {
@@ -195,21 +189,20 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		clang_visitChildren(cursor, RecordChildVisitor, &info);
 		bool is_abstract = is_record && clang_CXXRecord_isAbstract(cursor);
 
-		printf("%-6s %-24s  %s:%u%s%s%s\n", what, name.c_str(), filename.c_str(), line,
-		       info.has_eclass ? "  [ECLASS]" : "",
+		printf("%-6s %-24s  %s:%u%s%s\n", what, name.c_str(), filename.c_str(), line,
 		       info.has_eserializable ? "  [ESERIALIZABLE]" : "",
 		       is_abstract ? "  [ABSTRACT]" : "");
 
-		if ((info.has_eclass || info.has_eserializable) && !name.empty()) {
+		if ((is_record || info.has_eserializable) && !name.empty()) {
 			Type* t = GetType(name);
 			if (info.parent.size()) {
 				t->parent = GetType(info.parent);
-				t->parent->subclasses.push_back(t);
 			}
-			t->annotation = info.annotation;
+			t->is_object = name == "Object" || (t->parent && t->parent->is_object);
+			if (t->is_object && t->parent)
+				t->parent->subclasses.push_back(t);
 			t->header = RelToBase(filename);
 			t->properties = info.properties;
-			t->is_class = info.has_eclass;
 			t->is_abstract = is_abstract;
 			t->is_serializable = info.has_eserializable;
 			t->is_enum = is_enum;
@@ -232,6 +225,7 @@ static void WriteGenFile() {
 	}
 
 	for (Type* t : g_types) {
+		if (!t->is_object && !t->is_serializable) continue;
 		g_includes.push_back(t->header);
 	}
 
@@ -241,12 +235,16 @@ static void WriteGenFile() {
 	}
 	fprintf(f, "\n");
 
-	for (Type* t : g_types)
+	for (Type* t : g_types) {
+		if (!t->is_object && !t->is_serializable) continue;
 		fprintf(f, "extern Type g_type_%s;\n", t->name.c_str());
+	}
 	fprintf(f, "\n\n");
 
 	for (Type* t : g_types) {
-		std::string parent_ref = t->parent ?  ("&g_type_" + t->parent->name) : "nullptr";
+		if (!t->is_object && !t->is_serializable) continue;
+		std::string parent_ref = t->parent && t->parent->is_object ?
+			("&g_type_" + t->parent->name) : "nullptr";
 
 		fprintf(f, "Type g_type_%s = {\n", t->name.c_str());
 
@@ -260,7 +258,7 @@ static void WriteGenFile() {
 			};
 			fprintf(f, "\t},\n");
 		}
-		if (t->is_class && !t->is_abstract) {
+		if (t->is_object && !t->is_abstract) {
 			fprintf(f,
 				"\t.Instantiate = [](Allocator allocator) -> void* {\n"
 				"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
@@ -274,7 +272,8 @@ static void WriteGenFile() {
 	fprintf(f, "\n");
 
 	for (Type* t : g_types) {
-		if (t->is_class) {
+		if (!t->is_object && !t->is_serializable) continue;
+		if (t->is_object) {
 			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
 					t->name.c_str(), t->name.c_str());
 			fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
@@ -285,6 +284,7 @@ static void WriteGenFile() {
 	fprintf(f, "\nType* Type::Find(String name) {\n");
 	fprintf(f, "\tstatic Type* g_allTypes[] = {\n");
 	for (Type* t : g_types) {
+		if (!t->is_object && !t->is_serializable) continue;
 		fprintf(f, "\t\t&g_type_%s,\n", t->name.c_str());
 	}
 	fprintf(f, "\t};\n");
@@ -294,6 +294,7 @@ static void WriteGenFile() {
 	fprintf(f, "}\n");
 
 	for (Type* t : g_types) {
+		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_serializable) {
 			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->name.c_str());
 			fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", t->name.c_str());
@@ -302,6 +303,7 @@ static void WriteGenFile() {
 	fprintf(f, "\n\n");
 
 	for (Type* t : g_types) {
+		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_serializable) {
 			if (t->is_enum) {
 				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->name.c_str());
@@ -337,7 +339,10 @@ static void WriteGenFile() {
 	}
 
 	fclose(f);
-	printf("evagen: wrote %s (%zu eclasses)\n", out.string().c_str(), g_types.size());
+	size_t reflected_type_count = std::count_if(g_types.begin(), g_types.end(), [](Type* t) {
+		return t->is_object || t->is_serializable;
+	});
+	printf("evagen: wrote %s (%zu reflected types)\n", out.string().c_str(), reflected_type_count);
 }
 
 int main() {
