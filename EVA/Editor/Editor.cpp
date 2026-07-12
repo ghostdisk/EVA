@@ -16,30 +16,7 @@
 #include <cglm/quat.h>
 #include <algorithm>
 
-enum EdTool {
-	EdTool_None = 0,
-	EdTool_Select = 1,
-	EdTool_Entity = 2,
-	EdTool_Brush = 3,
-
-	EdTool_ENUM_SIZE,
-};
-
 static const char* ED_TOOL_NAMES[] = { "None", "Select", "Entity", "Brush" };
-
-enum EdSelectionType {
-	EdSelectionType_None,
-	EdSelectionType_Node,
-	EdSelectionType_BrushPlane,
-	EdSelectionType_Entity,
-};
-
-struct EdSelection {
-	EdSelectionType type   = EdSelectionType_None;
-	EdOp*           op     = nullptr;
-	Entity*         entity = nullptr;
-	int             index  = 0; // used by BrushPlane selection, face index
-};
 
 struct EdGrid {
 	float3 center;
@@ -48,26 +25,7 @@ struct EdGrid {
 	float  size;
 };
 
-enum EdBrushToolPhase {
-	EdBrushToolPhase_Inactive    = 0,
-	EdBrushToolPhase_InitialDraw = 1,
-	EdBrushToolPhase_X           = 2,
-	EdBrushToolPhase_Y           = 3,
-	EdBrushToolPhase_Z           = 4,
-	EdBrushToolPhase_Finalize    = 5,
-};
-
 ECamera* g_editor_camera = {};
-
-static EID                      g_next_eid             = EID_MapStart;
-static EdOp*                    g_root                 = nullptr;
-static std::vector<EdSelection> g_selection            = {};
-static char                     g_loaded_map_name[64]  = {};
-static EdTool                   g_tool                 = EdTool_Select;
-static float3                   g_brush_tool_start     = {};
-static float3                   g_brush_tool_end       = {};
-static EdBrushToolPhase         g_brush_tool_phase     = EdBrushToolPhase_Inactive;
-static Type*                    g_entity_tool_type     = nullptr;
 
 static const float ED_GRID_SIZES[] = {
 	0.03125f,
@@ -160,69 +118,69 @@ bool EdShouldSnap() {
 	return g_snap && !InputGetButton(SDL_SCANCODE_LALT);
 }
 
-void EdDeselect() {
-	g_selection.clear();
+void EdDeselect(Editor* ed) {
+	ed->m_selection.clear();
 }
 
-void EdSelectPlane(EdOp* op, int plane, bool additive = false) {
+void EdSelectPlane(Editor* ed, EdOp* op, int plane, bool additive = false) {
 	assert(op);
-	if (!additive) EdDeselect();
-	if (g_selection.size() && g_selection[0].type != EdSelectionType_BrushPlane) return;
+	if (!additive) EdDeselect(ed);
+	if (ed->m_selection.size() && ed->m_selection[0].type != EdSelectionType_BrushPlane) return;
 
-	g_selection.push_back(EdSelection{
+	ed->m_selection.push_back(EdSelection{
 		.type = EdSelectionType_BrushPlane,
 		.op = op,
 		.index = plane,
 	});
 }
 
-void EdSelectOp(EdOp* op, bool additive = false) {
-	if (!additive) EdDeselect();
-	if (!op || op == g_root) return;
+void EdSelectOp(Editor* ed, EdOp* op, bool additive = false) {
+	if (!additive) EdDeselect(ed);
+	if (!op || op == ed->m_root) return;
 
-	for (const EdSelection& sel : g_selection)
+	for (const EdSelection& sel : ed->m_selection)
 	{
-		if (sel.type != EdSelectionType_Node) { EdDeselect();  break; }
-		if (sel.op->parent != op->parent) { EdDeselect();  break; }
+		if (sel.type != EdSelectionType_Node) { EdDeselect(ed);  break; }
+		if (sel.op->parent != op->parent) { EdDeselect(ed);  break; }
 	}
 
-	g_selection.push_back(EdSelection{
+	ed->m_selection.push_back(EdSelection{
 		.type = EdSelectionType_Node,
 		.op = op,
 	});
 }
 
-void EdSelectEntity(Entity* entity, bool additive = false) {
-	if (!additive) EdDeselect();
+void EdSelectEntity(Editor* ed, Entity* entity, bool additive = false) {
+	if (!additive) EdDeselect(ed);
 
-	for (const EdSelection& sel : g_selection) {
-		if (sel.type != EdSelectionType_Entity) { EdDeselect();  break; }
+	for (const EdSelection& sel : ed->m_selection) {
+		if (sel.type != EdSelectionType_Entity) { EdDeselect(ed);  break; }
 	}
 
-	g_selection.push_back(EdSelection{
+	ed->m_selection.push_back(EdSelection{
 		.type = EdSelectionType_Entity,
 		.entity = entity,
 	});
 }
 
-bool EdIsSelected(EdOp* op) {
-	for (const EdSelection& sel : g_selection)
+bool EdIsSelected(Editor* ed, EdOp* op) {
+	for (const EdSelection& sel : ed->m_selection)
 		if (sel.type == EdSelectionType_Node && sel.op == op)
 			return true;
 	return false;
 }
 
-bool EdIsSelected(Entity* entity) {
-	for (const EdSelection& sel : g_selection)
+bool EdIsSelected(Editor* ed, Entity* entity) {
+	for (const EdSelection& sel : ed->m_selection)
 		if (sel.type == EdSelectionType_Entity && sel.entity == entity)
 			return true;
 	return false;
 }
 
-std::vector<EdOp*> EdGetSelectedOps() {
-	if (g_selection.size() == 0 || g_selection[0].type != EdSelectionType_Node) return {};
+std::vector<EdOp*> EdGetSelectedOps(Editor* ed) {
+	if (ed->m_selection.size() == 0 || ed->m_selection[0].type != EdSelectionType_Node) return {};
 	std::vector<EdOp*> selection;
-	for (const EdSelection& sel : g_selection) {
+	for (const EdSelection& sel : ed->m_selection) {
 		assert(sel.type == EdSelectionType_Node);
 		assert(!selection.size() || selection[0]->parent == sel.op->parent);
 		selection.push_back(sel.op);
@@ -245,7 +203,7 @@ void EdRemoveOpFromTree(EdOp* op) {
 Entity* EdCreateEntity(Editor* ed, Type* type, float3 pos) {
 	Entity* entity = (Entity*)type->Instantiate(Allocator::HeapAllocator);
 	entity->position = pos;
-	ed->m_entityManager->RegisterEntity(entity, g_next_eid++);
+	ed->m_entityManager->RegisterEntity(entity, ed->m_nextEID++);
 	return entity;
 }
 
@@ -269,7 +227,7 @@ void EdDestroyOp(EdOp* op) {
 void EdDestroySelection(Editor* ed) {
 	bool changed_geometry = false;
 
-	for (EdSelection& sel : g_selection) {
+	for (EdSelection& sel : ed->m_selection) {
 		switch (sel.type) {
 			case EdSelectionType_Entity: {
 				EdDestroyEntity(ed, sel.entity);
@@ -284,7 +242,7 @@ void EdDestroySelection(Editor* ed) {
 		}
 	}
 
-	EdDeselect();
+	EdDeselect(ed);
 }
 
 void EdDrawBrushPlaneOutline(CSGBrush* b, int i, const float4x4& transform, const float4& color) {
@@ -333,8 +291,8 @@ int EdGetSiblingIndex(EdOp* op) {
 	return -1;
 }
 
-void EdOrderMove(int offset) {
-	std::vector<EdOp*> selection = EdGetSelectedOps();
+void EdOrderMove(Editor* ed, int offset) {
+	std::vector<EdOp*> selection = EdGetSelectedOps(ed);
 	if (selection.size() == 0) return;
 
 	EdOp* parent = selection[0]->parent;
@@ -403,7 +361,7 @@ void EdUngroup(EdOp* group) {
 	EdDestroyOp(group);
 }
 
-void EdBuild(EdOp* op) {
+void EdBuild(Editor* ed, EdOp* op) {
 	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
 	op->built.clear();
 
@@ -422,7 +380,7 @@ void EdBuild(EdOp* op) {
 				// glm_scale(m, (vec3){ sx, sy, sz });
 
 				child->global_transform = child_transform * op->global_transform;
-				EdBuild(child);
+				EdBuild(ed, child);
 				for (CSGBrush* b : child->built) {
 					std::vector<CSGBrush*> new_set;
 					for (CSGBrush* a : op->built) {
@@ -442,7 +400,7 @@ void EdBuild(EdOp* op) {
 		default: assert(0); break;
 	}
 
-	if (op == g_root) {
+	if (op == ed->m_root) {
 		for (CSGBrush* b : op->built) CSGBuildBrushMesh(b);
 	}
 }
@@ -511,8 +469,8 @@ Res2 EdRaycastAgainstSubtractOpsImpl(const Ray& ray, EdOp* current) {
 	return {};
 }
 
-bool EdRaycastAgainstSubtractOps(const Ray& ray, float* out_t, EdOp** out_hit) {
-	auto res = EdRaycastAgainstSubtractOpsImpl(ray, g_root);
+bool EdRaycastAgainstSubtractOps(Editor* ed, const Ray& ray, float* out_t, EdOp** out_hit) {
+	auto res = EdRaycastAgainstSubtractOpsImpl(ray, ed->m_root);
 	if (res.op) {
 		*out_hit = res.op;
 		*out_t = res.t;
@@ -521,10 +479,10 @@ bool EdRaycastAgainstSubtractOps(const Ray& ray, float* out_t, EdOp** out_hit) {
 	else return false;
 }
 
-bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit) {
+bool EdRaycastAgainstBuiltBrushes(Editor* ed, const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit) {
 	float min_t = FLT_MAX;
 	CSGBrush* hit = nullptr;
-	for (CSGBrush* brush : g_root->built) {
+	for (CSGBrush* brush : ed->m_root->built) {
 		int plane_hit;
 		float t = Intersect(ray, brush, float4x4::Identity(), &plane_hit);
 		if (t < min_t && t >= 0) {
@@ -577,12 +535,12 @@ bool EdRaycastAgainstEntities(Editor* ed, const Ray& ray, float* out_t, Entity**
 	}
 }
 
-void EdOpGUI(EdOp* op) {
+void EdOpGUI(Editor* ed, EdOp* op) {
 	UIPushId(op);
 	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
-	if (EdIsSelected(op)) flags |= UITreeNodeFlags_Selected;
+	if (EdIsSelected(ed, op)) flags |= UITreeNodeFlags_Selected;
 	if (op->type == EdOpType_Brush) flags |= UITreeNodeFlags_Leaf;
 	flags |= UITreeNodeFlags_DefaultOpen;
 
@@ -593,7 +551,7 @@ void EdOpGUI(EdOp* op) {
 		switch (op->type) {
 			case EdOpType_Stack: {
 				for (EdOp* child : op->children) {
-					EdOpGUI(child);
+					EdOpGUI(ed, child);
 				}
 				break;
 			}
@@ -602,7 +560,7 @@ void EdOpGUI(EdOp* op) {
 		UIEndTreeNode();
 	}
 	if (tree_node->Clicked()) {
-		EdSelectOp(op, InputGetButton(SDL_SCANCODE_LCTRL));
+		EdSelectOp(ed, op, InputGetButton(SDL_SCANCODE_LCTRL));
 	}
 }
 
@@ -675,8 +633,8 @@ void EdTranslationGizmo(Hash hash, float3& pos) {
 	hash_stack.Pop();
 }
 
-void EdDrawSelectionOutline(float4 color) {
-	for (const EdSelection& sel : g_selection) {
+void EdDrawSelectionOutline(Editor* ed, float4 color) {
+	for (const EdSelection& sel : ed->m_selection) {
 		switch (sel.type) {
 			case EdSelectionType_Node: {
 				EdDrawOutline(sel.op, color);
@@ -788,7 +746,7 @@ void EdTickTool_Select(Editor* ed) {
 	bool dirty = false;
 
 	std::vector<EdOp*> selected_ops = {};
-	for (const EdSelection& sel : g_selection) {
+	for (const EdSelection& sel : ed->m_selection) {
 		if (sel.type == EdSelectionType_Node) {
 			if (sel.op->type == EdOpType_Brush) {
 				for (int i = 0; i < sel.op->brush->planes.size(); i++) {
@@ -797,7 +755,7 @@ void EdTickTool_Select(Editor* ed) {
 			}
 			selected_ops.push_back(sel.op);
 		}
-		if (sel.type == EdSelectionType_BrushPlane && !EdIsSelected(sel.op)) {
+		if (sel.type == EdSelectionType_BrushPlane && !EdIsSelected(ed, sel.op)) {
 			if (EdDoPlaneDragGizmo(sel.op, sel.op->brush, sel.index)) dirty = true;
 		}
 	}
@@ -834,27 +792,27 @@ void EdTickTool_Select(Editor* ed) {
 
 		bool hit = false;
 		if (InputGetButton(SDL_SCANCODE_LALT))
-			hit = EdRaycastAgainstSubtractOps(mouse_ray, &min_t, &hit_op);
+			hit = EdRaycastAgainstSubtractOps(ed, mouse_ray, &min_t, &hit_op);
 		else
-			hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
+			hit = EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, &hit_op, nullptr);
 
 		float entity_t = FLT_MAX;
 		Entity* hit_entity = nullptr;
 		bool hit_ent = EdRaycastAgainstEntities(ed, mouse_ray, &entity_t, &hit_entity);
 
 		if (hit_ent && (!hit || entity_t < min_t)) 
-			EdSelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
+			EdSelectEntity(ed, hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
 		else if (hit)
-			EdSelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
+			EdSelectOp(ed, hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
 		else if (!InputGetButton(SDL_SCANCODE_LSHIFT))
-			EdDeselect();
+			EdDeselect(ed);
 	}
 
 	if (dirty)
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 }
 
-void EdTickTool_Brush()
+void EdTickTool_Brush(Editor* ed)
 {
 	static bool just_entered_phase = false;
 	static float3 ref_a, ref_b, x;
@@ -862,7 +820,7 @@ void EdTickTool_Brush()
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
 	float min_t = FLT_MAX;
-	bool hit = EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr);
+	bool hit = EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr);
 	float3 p = {};
 	if (hit) {
 		p = mouse_ray.Evaluate(min_t);
@@ -870,35 +828,35 @@ void EdTickTool_Brush()
 	}
 
 	if (InputGetButton(SDL_SCANCODE_ESCAPE)) {
-		g_brush_tool_phase = EdBrushToolPhase_Inactive;
+		ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
 	}
 
 	if (hit) {
 		DrawSetLayer(Layer_Overlay);
-		DrawPoint(g_brush_tool_start, {0,0,1,0.1});
+		DrawPoint(ed->m_brushToolStart, {0,0,1,0.1});
 		DrawSetLayer(Layer_Main);
-		DrawPoint(g_brush_tool_start, {0,0,1,1});
+		DrawPoint(ed->m_brushToolStart, {0,0,1,1});
 	}
 
 	Step:
-	switch (g_brush_tool_phase) {
+	switch (ed->m_brushToolPhase) {
 		case EdBrushToolPhase_Inactive: {
 			if (hit) {
-				g_brush_tool_start = p;
+				ed->m_brushToolStart = p;
 				if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-					g_brush_tool_phase = EdBrushToolPhase_InitialDraw;
+					ed->m_brushToolPhase = EdBrushToolPhase_InitialDraw;
 				}
 			}
 			break;
 		}
 		case EdBrushToolPhase_InitialDraw: {
-			g_brush_tool_end = p;
+			ed->m_brushToolEnd = p;
 			if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT)) {
 				if (hit) {
 					just_entered_phase = false;
-					g_brush_tool_phase = EdBrushToolPhase_X;
+					ed->m_brushToolPhase = EdBrushToolPhase_X;
 				} else {
-					g_brush_tool_phase = EdBrushToolPhase_Inactive;
+					ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
 				}
 				goto Step;
 			}
@@ -908,59 +866,59 @@ void EdTickTool_Brush()
 		case EdBrushToolPhase_Y:
 		case EdBrushToolPhase_Z: {
 			float3 dir = {};
-			dir[g_brush_tool_phase - EdBrushToolPhase_X] = 1.0f;
+			dir[ed->m_brushToolPhase - EdBrushToolPhase_X] = 1.0f;
 
 			if (!just_entered_phase) {
 				just_entered_phase = true;
-				float len = Dot(dir, g_brush_tool_end - g_brush_tool_start);
+				float len = Dot(dir, ed->m_brushToolEnd - ed->m_brushToolStart);
 				if (len != 0)
 				{
 					just_entered_phase = false;
-					g_brush_tool_phase = (EdBrushToolPhase)(g_brush_tool_phase + 1);
+					ed->m_brushToolPhase = (EdBrushToolPhase)(ed->m_brushToolPhase + 1);
 					goto Step;
 				}
 
-				ref_a = g_brush_tool_end;
+				ref_a = ed->m_brushToolEnd;
 				ref_b = ref_a + dir;
-				x = g_brush_tool_end;
+				x = ed->m_brushToolEnd;
 			}
 
 			float t1, t2;
 			DistanceToLineSegment(mouse_ray, ref_a, ref_b, &t1, &t2);
 
-			g_brush_tool_end = x + t2 * dir;
-			if (EdShouldSnap()) g_brush_tool_end = EdSnapToGrid(g_grid, g_brush_tool_end);
+			ed->m_brushToolEnd = x + t2 * dir;
+			if (EdShouldSnap()) ed->m_brushToolEnd = EdSnapToGrid(g_grid, ed->m_brushToolEnd);
 			if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
 				just_entered_phase = false;
-				g_brush_tool_phase = (EdBrushToolPhase)(g_brush_tool_phase + 1);
+				ed->m_brushToolPhase = (EdBrushToolPhase)(ed->m_brushToolPhase + 1);
 			}
 			break;
 		}
 		case EdBrushToolPhase_Finalize: {
-			if (g_brush_tool_end.x < g_brush_tool_start.x) std::swap(g_brush_tool_start.x, g_brush_tool_end.x);
-			if (g_brush_tool_end.y < g_brush_tool_start.y) std::swap(g_brush_tool_start.y, g_brush_tool_end.y);
-			if (g_brush_tool_end.z < g_brush_tool_start.z) std::swap(g_brush_tool_start.z, g_brush_tool_end.z);
+			if (ed->m_brushToolEnd.x < ed->m_brushToolStart.x) std::swap(ed->m_brushToolStart.x, ed->m_brushToolEnd.x);
+			if (ed->m_brushToolEnd.y < ed->m_brushToolStart.y) std::swap(ed->m_brushToolStart.y, ed->m_brushToolEnd.y);
+			if (ed->m_brushToolEnd.z < ed->m_brushToolStart.z) std::swap(ed->m_brushToolStart.z, ed->m_brushToolEnd.z);
 
-			CSGBrush* cube = CSGCreateCube(g_brush_tool_end - g_brush_tool_start);
+			CSGBrush* cube = CSGCreateCube(ed->m_brushToolEnd - ed->m_brushToolStart);
 			CSGBuildBrush(cube);
 			EdOp* op = EdCreateOp();
 			op->type = EdOpType_Brush;
 			op->brush = cube;
-			op->position = g_brush_tool_start;
-			EdOpAddChild(g_root, op);
-			EdBuild(g_root);
-			EdSelectOp(op);
-			g_brush_tool_phase = EdBrushToolPhase_Inactive;
+			op->position = ed->m_brushToolStart;
+			EdOpAddChild(ed->m_root, op);
+			EdBuild(ed, ed->m_root);
+			EdSelectOp(ed, op);
+			ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
 			break;
 		}
 	}
 
-	if (g_brush_tool_phase != EdBrushToolPhase_Inactive) {
-		if (!(g_brush_tool_phase == EdBrushToolPhase_InitialDraw && !hit)) {
+	if (ed->m_brushToolPhase != EdBrushToolPhase_Inactive) {
+		if (!(ed->m_brushToolPhase == EdBrushToolPhase_InitialDraw && !hit)) {
 			DrawSetLayer(Layer_Overlay);
-			DrawBox(g_brush_tool_start, g_brush_tool_end, {0, 0, 1, 0.1 });
+			DrawBox(ed->m_brushToolStart, ed->m_brushToolEnd, {0, 0, 1, 0.1 });
 			DrawSetLayer(Layer_Main);
-			DrawBox(g_brush_tool_start, g_brush_tool_end, {0, 0, 1, 1 });
+			DrawBox(ed->m_brushToolStart, ed->m_brushToolEnd, {0, 0, 1, 1 });
 		}
 	}
 }
@@ -971,39 +929,43 @@ void EdTickTool_Entity(Editor* ed) {
 	Entity* hit_entity = nullptr;
 	if (EdRaycastAgainstEntities(ed, mouse_ray, nullptr, &hit_entity)) {
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			EdSelectEntity(hit_entity);
+			EdSelectEntity(ed, hit_entity);
 		}
 		return;
 	}
 
 	float min_t = FLT_MAX;
-	if (EdRaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr)) {
+	if (EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr)) {
 		float3 p = {};
 		p = mouse_ray.Evaluate(min_t);
 		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
 		DrawPoint(p, {0,1,0,1});
 
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			EdCreateEntity(ed, g_entity_tool_type, p);
-			EdDeselect();
+			EdCreateEntity(ed, ed->m_entityToolType, p);
+			EdDeselect(ed);
 		}
 	}
 }
 
-void EdSetTool(EdTool tool) {
+void EdSetTool(Editor* ed, EdTool tool) {
 	if (tool < 0 || tool >= EdTool_ENUM_SIZE) tool = (EdTool)0;
-	if (g_tool == tool) return;
-	g_tool = tool;
-	g_brush_tool_phase = EdBrushToolPhase_Inactive;
+	if (ed->m_tool == tool) return;
+	ed->m_tool = tool;
+	ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
 	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
 }
 
 Editor::Editor(Game* game, EntityManager* entity_manager)
 	: m_game(game), m_entityManager(entity_manager), m_camera(g_editor_camera) {
 	m_game->m_activeCamera = g_editor_camera;
+	m_root = EdCreateOp();
+	m_root->type = EdOpType_Stack;
+	m_root->global_transform = float4x4::Identity();
 }
 
 void Editor::Tick(double dt) {
+	Editor* ed = this;
 	CameraFly(*g_editor_camera);
 	CameraUpdateMatrices(*g_editor_camera);
 
@@ -1015,9 +977,9 @@ void Editor::Tick(double dt) {
 	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	switch (g_tool) {
+	switch (ed->m_tool) {
 		case EdTool_Select: { EdTickTool_Select(this); break; }
-		case EdTool_Brush:  { EdTickTool_Brush(); break; }
+		case EdTool_Brush:  { EdTickTool_Brush(ed); break; }
 		case EdTool_Entity: { EdTickTool_Entity(this); break; }
 		default: break;
 	}
@@ -1028,9 +990,9 @@ void Editor::Tick(double dt) {
 	});
 
 	DrawSetLayer(Layer_Main);
-	EdDrawSelectionOutline({1,1,1,1});
+	EdDrawSelectionOutline(ed, {1,1,1,1});
 	DrawSetLayer(Layer_Overlay);
-	EdDrawSelectionOutline({1,1,1,0.1});
+	EdDrawSelectionOutline(ed, {1,1,1,0.1});
 
 	if (cvar_ed_show_sub.fvalue) {
 		EdForeach([](EdOp* op) {
@@ -1042,7 +1004,7 @@ void Editor::Tick(double dt) {
 				}
 			}
 			return true;
-		}, g_root);
+		}, ed->m_root);
 	}
 
 	{ // Toolbar
@@ -1071,20 +1033,20 @@ void Editor::Tick(double dt) {
 		spacer();
 
 		// UILabel("Tools");
-		if (UIButton("SEL", UIButtonFlags_Small | (g_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(EdTool_Select);
-		if (UIButton("ENT", UIButtonFlags_Small | (g_tool == EdTool_Entity ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Entity);
-		if (UIButton("BSH", UIButtonFlags_Small | (g_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(EdTool_Brush);
+		if (UIButton("SEL", UIButtonFlags_Small | (ed->m_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(ed, EdTool_Select);
+		if (UIButton("ENT", UIButtonFlags_Small | (ed->m_tool == EdTool_Entity ? UIButtonFlags_Toggle : 0)))  EdSetTool(ed, EdTool_Entity);
+		if (UIButton("BSH", UIButtonFlags_Small | (ed->m_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(ed, EdTool_Brush);
 
 		spacer();
 
-		EdOp* first_sel = (g_selection.size() && g_selection[0].type == EdSelectionType_Node) ? g_selection[0].op : nullptr;
+		EdOp* first_sel = (ed->m_selection.size() && ed->m_selection[0].type == EdSelectionType_Node) ? ed->m_selection[0].op : nullptr;
 		bool sub = first_sel && first_sel->subtract;
 
 		if (UIButton("Sub", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled) | (sub ? UIButtonFlags_Toggle : 0u))) {
-			for (EdSelection& sel : g_selection)
+			for (EdSelection& sel : ed->m_selection)
 				if (sel.type == EdSelectionType_Node)
 					sel.op->subtract = !sub;
-			EdBuild(g_root);
+			EdBuild(ed, ed->m_root);
 		}
 
 		if (UIButton("X", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled))) {
@@ -1101,16 +1063,16 @@ void Editor::Tick(double dt) {
 		DEFER(UIEndBox());
 
 
-		switch (g_tool) {
+		switch (ed->m_tool) {
 			case EdTool_Entity: {
 				if (UIBeginTreeNode("Entity Type", nullptr, UITreeNodeFlags_DefaultOpen)) {
 
 
 					for (Type* type : Entity::StaticClass()->subclasses) {
 						UIButtonFlags flags = UIButtonFlags_Small;
-						if (g_entity_tool_type == type) flags |= UIButtonFlags_Toggle;
+						if (ed->m_entityToolType == type) flags |= UIButtonFlags_Toggle;
 						if (UIButton(type->name, flags)) {
-							g_entity_tool_type = type;
+							ed->m_entityToolType = type;
 						}
 					}
 					UIEndTreeNode();
@@ -1121,8 +1083,8 @@ void Editor::Tick(double dt) {
 		}
 
 		if (UIBeginTreeNode("Brushes")) {
-			for (EdOp* child : g_root->children)
-				EdOpGUI(child);
+			for (EdOp* child : ed->m_root->children)
+				EdOpGUI(ed, child);
 			UIEndTreeNode();
 		}
 
@@ -1132,14 +1094,14 @@ void Editor::Tick(double dt) {
 				DEFER(UIPopId());
 
 				UITreeNodeFlags flags = UITreeNodeFlags_Leaf;
-				if (EdIsSelected(entity)) flags |= UITreeNodeFlags_Selected;
+				if (EdIsSelected(ed, entity)) flags |= UITreeNodeFlags_Selected;
 
 				UIBox* tree_node = nullptr;
 				if (UIBeginTreeNode("Entity", &tree_node, flags)) UIEndTreeNode();
 
 				if (tree_node->Clicked())
 				{
-					EdSelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
+					EdSelectEntity(ed, entity, InputGetButton(SDL_SCANCODE_LCTRL));
 				}
 			});
 			UIEndTreeNode();
@@ -1147,8 +1109,8 @@ void Editor::Tick(double dt) {
 	}
 
 	DrawSetLayer(Layer_Main);
-	for (int i = 0; i < g_root->built.size(); i++) {
-		CSGBrush* b = g_root->built[i];
+	for (int i = 0; i < ed->m_root->built.size(); i++) {
+		CSGBrush* b = ed->m_root->built[i];
 		// DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), brush_colors[i % EVA_ARRAYSIZE(brush_colors)]);
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
 	}
@@ -1275,21 +1237,21 @@ Result EdSaveMap(Editor* ed, const char* name) {
 
 	fprintf(f, "type mpe\n");
 	fprintf(f, "version 1\n");
-	EdSaveOp(f, g_root, 0);
+	EdSaveOp(f, ed->m_root, 0);
 
 	int num_entities = 0;
 	ed->m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
 	ed->m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
-	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
+	snprintf(ed->m_loadedMapName, sizeof(ed->m_loadedMapName), "%s", name);
 	return Success();
 }
 
 void EdUnloadMap(Editor* ed) {
-	if (g_root) {
-		EdDestroyOp(g_root);
-		g_root = nullptr;
+	if (ed->m_root) {
+		EdDestroyOp(ed->m_root);
+		ed->m_root = nullptr;
 	}
 
 	ed->m_entityManager->Reset();
@@ -1297,6 +1259,7 @@ void EdUnloadMap(Editor* ed) {
 }
 
 Result Editor::LoadMap(String name) {
+	Editor* ed = this;
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%.*s.mpe", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
 	FILE* f = fopen(path, "rb");
@@ -1312,10 +1275,10 @@ Result Editor::LoadMap(String name) {
 		return Err("map %s is version %d, expected %d", name, version, 1);
 	}
 
-	g_next_eid = EID_MapStart;
+	ed->m_nextEID = EID_MapStart;
 
-	g_root = EdLoadOp(f);
-	g_root->global_transform = float4x4::Identity();
+	ed->m_root = EdLoadOp(f);
+	ed->m_root->global_transform = float4x4::Identity();
 
 	int num_entities;
 	int n = fscanf(f, "entities %d\n", &num_entities);
@@ -1325,11 +1288,11 @@ Result Editor::LoadMap(String name) {
 	for (int i = 0; i < num_entities; i++) {
 		Entity* ent = nullptr;
 		TRY(EntityLoad(&ent, m_entityManager, f));
-		if (ent->eid >= g_next_eid) g_next_eid = ent->eid + 1;
+		if (ent->eid >= ed->m_nextEID) ed->m_nextEID = ent->eid + 1;
 	}
 
-	EdBuild(g_root);
-	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%.*s", STRING_PRINTF_ARGS(name));
+	EdBuild(ed, ed->m_root);
+	snprintf(ed->m_loadedMapName, sizeof(ed->m_loadedMapName), "%.*s", STRING_PRINTF_ARGS(name));
 
 	return Success();
 }
@@ -1338,13 +1301,13 @@ Result EdCompileMap(Editor* ed) {
 	int indent = 0;
 
 	char path[256];
-	assert(g_loaded_map_name[0]);
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, g_loaded_map_name);
+	assert(ed->m_loadedMapName[0]);
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, ed->m_loadedMapName);
 	FILE* f = fopen(path, "wb");
 	if (!f) return Err("Failed to open %s", path);
 	DEFER(fclose(f));
 
-	EdBuild(g_root);
+	EdBuild(ed, ed->m_root);
 
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
@@ -1352,7 +1315,7 @@ Result EdCompileMap(Editor* ed) {
 	std::vector<MeshVertex> mesh_vertices;
 	std::vector<U32> mesh_indices;
 
-	for (CSGBrush* brush : g_root->built) {
+	for (CSGBrush* brush : ed->m_root->built) {
 		for (const CSGPlane& plane : brush->planes) {
 			int start = mesh_vertices.size();
 			for (int i = 0; i < plane.points.size(); i++) {
@@ -1393,88 +1356,108 @@ void EdInitialize() {
 	ConRegisterVar(&cvar_ed_show_sub);
 
 	ConRegisterCommand("ed_cube", [](ConParser& parser) {
+		Editor* ed;
+		TRY(GetEditor(&ed));
 		EdOp* op = EdCreateOp();
 		op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 		op->type = EdOpType_Brush;
-		EdOpAddChild(g_root, op);
-		EdSelectOp(op);
-		EdBuild(g_root);
+		EdOpAddChild(ed->m_root, op);
+		EdSelectOp(ed, op);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: create a cube");
 
 	ConRegisterCommand("ed_cylinder", [](ConParser& parser) {
+		Editor* ed;
+		TRY(GetEditor(&ed));
 		EdOp* op = EdCreateOp();
 		int nseg = parser.FloatArg(12.0f);
 		float rad  = parser.FloatArg(1.0f);
 		float height = parser.FloatArg(1.0f);
 		op->brush = CSGCreateCylinder(nseg, rad, height);
 		op->type = EdOpType_Brush;
-		EdOpAddChild(g_root, op);
-		EdSelectOp(op);
-		EdBuild(g_root);
+		EdOpAddChild(ed->m_root, op);
+		EdSelectOp(ed, op);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: create a cylinder");
 
 	ConRegisterCommand("ed_move", [](ConParser& parser) {
+		Editor* ed;
+		TRY(GetEditor(&ed));
 		float3 offset = { parser.FloatArg(0.0f), parser.FloatArg(0.0f), parser.FloatArg(0.0f) };
-		for (EdSelection& sel : g_selection)
+		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->position += offset;
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: create a cube");
 
 	ConRegisterCommand("ed_build", [](ConParser& parser) {
-		EdBuild(g_root);
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: rebuild csg");
 
 	ConRegisterCommand("ed_add", [](ConParser& parser) {
-		for (EdSelection& sel : g_selection)
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = false;
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: set selected to add");
 
 	ConRegisterCommand("ed_sub", [](ConParser& parser) {
-		for (EdSelection& sel : g_selection)
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = true;
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: set selected to subtract");
 
 	ConRegisterCommand("ed_order_move", [](ConParser& parser) {
-		EdOrderMove(parser.IntArg(1));
-		EdBuild(g_root);
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		EdOrderMove(ed, parser.IntArg(1));
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: move selection up/down in stack");
 
 	ConRegisterCommand("ed_group", [](ConParser& parser) {
-		EdSelectOp(EdGroup(EdGetSelectedOps()));
-		EdBuild(g_root);
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		EdSelectOp(ed, EdGroup(EdGetSelectedOps(ed)));
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: group selection into an object");
 
 	ConRegisterCommand("ed_ungroup", [](ConParser& parser) {
-		for (EdSelection& sel : g_selection)
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				EdUngroup(sel.op);
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: group ungroup selected objects");
 
 	ConRegisterCommand("ed_clone", [](ConParser& parser) {
-		std::vector<EdOp*> selection = EdGetSelectedOps();
-		EdDeselect();
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		std::vector<EdOp*> selection = EdGetSelectedOps(ed);
+		EdDeselect(ed);
 		for (EdOp* orig : selection)
 		{
 			EdOp* clone = EdCloneOp(orig);
 			EdOpAddChild(orig->parent, clone, EdGetSiblingIndex(orig) + 1);
-			EdSelectOp(clone, true);
+			EdSelectOp(ed, clone, true);
 		}
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: clone selection");
 
@@ -1482,18 +1465,20 @@ void EdInitialize() {
 		Editor* ed;
 		TRY(GetEditor(&ed));
 		EdDestroySelection(ed);
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: delete subtract");
 
 	ConRegisterCommand("ed_grid_size_inc", [](ConParser& parser) {
+		Editor* ed;
+		TRY(GetEditor(&ed));
 		g_grid_size_idx += parser.IntArg(1);
 		if (g_grid_size_idx < 0) g_grid_size_idx = 0;
 		if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES) - 1;
 		g_grid.size = ED_GRID_SIZES[g_grid_size_idx];
 		Library::mat_brush->texture_scale = 1.0f / g_grid.size / 4.0f;
 		ScreenLog("Grid Size: %g", g_grid.size);
-		EdBuild(g_root);
+		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: increase/decrease grid size");
 
@@ -1502,7 +1487,7 @@ void EdInitialize() {
 		TRY(GetEditor(&ed));
 
 		const char* name = parser.StringArg();
-		if (!name) name = g_loaded_map_name;
+		if (!name) name = ed->m_loadedMapName;
 		if (!name[0]) return Err("no map opened");
 
 		return EdSaveMap(ed, name);
@@ -1524,14 +1509,12 @@ void EdInitialize() {
 	}, "editor: open editor");
 
 	ConRegisterCommand("ed_tool", [](ConParser& parser) {
-		EdSetTool((EdTool)parser.IntArg(0));
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		EdSetTool(ed, (EdTool)parser.IntArg(0));
 		return Success();
 	}, "editor: set tool");
 
-
-	g_root = EdCreateOp();
-	g_root->type = EdOpType_Stack;
-	g_root->global_transform = float4x4::Identity();
 
 	g_editor_camera = new ECamera();
 	g_editor_camera->eid = EID_DefaultCamera;
