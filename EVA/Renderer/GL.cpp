@@ -206,12 +206,3 @@ void Texture::Upload(int width, int height, const U8* pixels, GLenum format) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, mode);
 	GL_ERROR_CHECK();
 }
-
-Material* MaterialCreate(const char* name, Shader* shader, Texture* texture) {
-	Material* material = new Material();
-	AssetInit(material, name);
-
-	material->shader = shader;
-	material->color_texture = texture;
-	return material;
-}

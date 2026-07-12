@@ -41,6 +41,7 @@ add_executable(EVA
 	"EVA/Net.cpp"
 	"EVA/Platform.cpp"
 	"EVA/Renderer/GL.cpp"
+	"EVA/Renderer/Material.cpp"
 	"EVA/Renderer/Renderer.cpp"
 	"EVA/UI_Core.cpp"
 	"EVA/UI_Utils.cpp"
@@ -64,12 +65,6 @@ set(SDL_EXAMPLES     OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC       ON  CACHE BOOL "" FORCE)
 add_subdirectory("Vendor/SDL-release-3.4.10")
 target_link_libraries(EVA SDL3-static)
-
-#
-# glad
-#
-target_sources(EVA PRIVATE "Vendor/glad/src/glad.c")
-target_include_directories(EVA PRIVATE "Vendor/glad/include")
 
 
 #

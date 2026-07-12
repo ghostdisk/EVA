@@ -27,6 +27,10 @@
 #include <EVA/GameModes/GameMode.hpp>
 #include <EVA/GameModes/BasePlayableGameMode.hpp>
 #include <EVA/GameModes/EditorGameMode.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -53,6 +57,10 @@ extern Type g_type_EMarker;
 extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
 extern Type g_type_EditorGameMode;
+extern Type g_type_CommandBuffer;
+extern Type g_type_Image;
+extern Type g_type_GPUBuffer;
+extern Type g_type_GraphicsDevice;
 
 
 Type g_type_Object = {
@@ -63,6 +71,10 @@ Type g_type_Object = {
 		&g_type_Tool,
 		&g_type_Entity,
 		&g_type_GameMode,
+		&g_type_CommandBuffer,
+		&g_type_Image,
+		&g_type_GPUBuffer,
+		&g_type_GraphicsDevice,
 	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Object), alignof(Object));
@@ -291,6 +303,37 @@ Type g_type_EditorGameMode = {
 		return ptr;
 	},
 };
+Type g_type_CommandBuffer = {
+	.name = "CommandBuffer",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(CommandBuffer), alignof(CommandBuffer));
+		new (ptr) CommandBuffer();
+		return ptr;
+	},
+};
+Type g_type_Image = {
+	.name = "Image",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Image), alignof(Image));
+		new (ptr) Image();
+		return ptr;
+	},
+};
+Type g_type_GPUBuffer = {
+	.name = "GPUBuffer",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GPUBuffer), alignof(GPUBuffer));
+		new (ptr) GPUBuffer();
+		return ptr;
+	},
+};
+Type g_type_GraphicsDevice = {
+	.name = "GraphicsDevice",
+	.parent_type = &g_type_Object,
+};
 
 Type* Object::StaticClass() { return &g_type_Object; }
 Type* Object::GetClass() { return &g_type_Object; }
@@ -336,6 +379,14 @@ Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode;
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
 Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
 Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
+Type* CommandBuffer::StaticClass() { return &g_type_CommandBuffer; }
+Type* CommandBuffer::GetClass() { return &g_type_CommandBuffer; }
+Type* Image::StaticClass() { return &g_type_Image; }
+Type* Image::GetClass() { return &g_type_Image; }
+Type* GPUBuffer::StaticClass() { return &g_type_GPUBuffer; }
+Type* GPUBuffer::GetClass() { return &g_type_GPUBuffer; }
+Type* GraphicsDevice::StaticClass() { return &g_type_GraphicsDevice; }
+Type* GraphicsDevice::GetClass() { return &g_type_GraphicsDevice; }
 
 Type* Type::Find(String name) {
 	static Type* g_allTypes[] = {
@@ -364,6 +415,10 @@ Type* Type::Find(String name) {
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
 		&g_type_EditorGameMode,
+		&g_type_CommandBuffer,
+		&g_type_Image,
+		&g_type_GPUBuffer,
+		&g_type_GraphicsDevice,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;
