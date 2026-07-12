@@ -7,6 +7,7 @@
 #include <EVA/Core/Common.hpp>
 #include <SDL3/SDL_vulkan.h>
 #include <vector>
+#include <algorithm>
 
 #define VK_TRY(expr) \
 	do { \
@@ -30,28 +31,38 @@ static bool HasInstanceLayer(String name) {
 	return false;
 }
 
+struct FormatMapping { Format format; VkFormat vkFormat; };
+#define FORMAT_MAP(format, vkFormat) { Format::format, VK_FORMAT_##vkFormat }
+static constexpr FormatMapping g_formatMappings[] = {
+	FORMAT_MAP(None, UNDEFINED),
+	FORMAT_MAP(R8_UNORM, R8_UNORM), FORMAT_MAP(R8_SNORM, R8_SNORM), FORMAT_MAP(R8_UINT, R8_UINT), FORMAT_MAP(R8_SINT, R8_SINT), FORMAT_MAP(R8_SRGB, R8_SRGB),
+	FORMAT_MAP(RG8_UNORM, R8G8_UNORM), FORMAT_MAP(RG8_SNORM, R8G8_SNORM), FORMAT_MAP(RG8_UINT, R8G8_UINT), FORMAT_MAP(RG8_SINT, R8G8_SINT), FORMAT_MAP(RG8_SRGB, R8G8_SRGB),
+	FORMAT_MAP(RGB8_UNORM, R8G8B8_UNORM), FORMAT_MAP(RGB8_SNORM, R8G8B8_SNORM), FORMAT_MAP(RGB8_UINT, R8G8B8_UINT), FORMAT_MAP(RGB8_SINT, R8G8B8_SINT), FORMAT_MAP(RGB8_SRGB, R8G8B8_SRGB),
+	FORMAT_MAP(BGR8_UNORM, B8G8R8_UNORM), FORMAT_MAP(BGR8_SNORM, B8G8R8_SNORM), FORMAT_MAP(BGR8_UINT, B8G8R8_UINT), FORMAT_MAP(BGR8_SINT, B8G8R8_SINT), FORMAT_MAP(BGR8_SRGB, B8G8R8_SRGB),
+	FORMAT_MAP(RGBA8_UNORM, R8G8B8A8_UNORM), FORMAT_MAP(RGBA8_SNORM, R8G8B8A8_SNORM), FORMAT_MAP(RGBA8_UINT, R8G8B8A8_UINT), FORMAT_MAP(RGBA8_SINT, R8G8B8A8_SINT), FORMAT_MAP(RGBA8_SRGB, R8G8B8A8_SRGB),
+	FORMAT_MAP(BGRA8_UNORM, B8G8R8A8_UNORM), FORMAT_MAP(BGRA8_SNORM, B8G8R8A8_SNORM), FORMAT_MAP(BGRA8_UINT, B8G8R8A8_UINT), FORMAT_MAP(BGRA8_SINT, B8G8R8A8_SINT), FORMAT_MAP(BGRA8_SRGB, B8G8R8A8_SRGB),
+	FORMAT_MAP(R16_UNORM, R16_UNORM), FORMAT_MAP(R16_SNORM, R16_SNORM), FORMAT_MAP(R16_UINT, R16_UINT), FORMAT_MAP(R16_SINT, R16_SINT), FORMAT_MAP(R16_FLOAT, R16_SFLOAT),
+	FORMAT_MAP(RG16_UNORM, R16G16_UNORM), FORMAT_MAP(RG16_SNORM, R16G16_SNORM), FORMAT_MAP(RG16_UINT, R16G16_UINT), FORMAT_MAP(RG16_SINT, R16G16_SINT), FORMAT_MAP(RG16_FLOAT, R16G16_SFLOAT),
+	FORMAT_MAP(RGB16_UNORM, R16G16B16_UNORM), FORMAT_MAP(RGB16_SNORM, R16G16B16_SNORM), FORMAT_MAP(RGB16_UINT, R16G16B16_UINT), FORMAT_MAP(RGB16_SINT, R16G16B16_SINT), FORMAT_MAP(RGB16_FLOAT, R16G16B16_SFLOAT),
+	FORMAT_MAP(RGBA16_UNORM, R16G16B16A16_UNORM), FORMAT_MAP(RGBA16_SNORM, R16G16B16A16_SNORM), FORMAT_MAP(RGBA16_UINT, R16G16B16A16_UINT), FORMAT_MAP(RGBA16_SINT, R16G16B16A16_SINT), FORMAT_MAP(RGBA16_FLOAT, R16G16B16A16_SFLOAT),
+	FORMAT_MAP(R32_UINT, R32_UINT), FORMAT_MAP(R32_SINT, R32_SINT), FORMAT_MAP(R32_FLOAT, R32_SFLOAT),
+	FORMAT_MAP(RG32_UINT, R32G32_UINT), FORMAT_MAP(RG32_SINT, R32G32_SINT), FORMAT_MAP(RG32_FLOAT, R32G32_SFLOAT),
+	FORMAT_MAP(RGB32_UINT, R32G32B32_UINT), FORMAT_MAP(RGB32_SINT, R32G32B32_SINT), FORMAT_MAP(RGB32_FLOAT, R32G32B32_SFLOAT),
+	FORMAT_MAP(RGBA32_UINT, R32G32B32A32_UINT), FORMAT_MAP(RGBA32_SINT, R32G32B32A32_SINT), FORMAT_MAP(RGBA32_FLOAT, R32G32B32A32_SFLOAT),
+	FORMAT_MAP(D16_UNORM, D16_UNORM), FORMAT_MAP(D32_FLOAT, D32_SFLOAT), FORMAT_MAP(D16_UNORM_S8_UINT, D16_UNORM_S8_UINT), FORMAT_MAP(D24_UNORM_S8_UINT, D24_UNORM_S8_UINT), FORMAT_MAP(D32_FLOAT_S8_UINT, D32_SFLOAT_S8_UINT),
+};
+#undef FORMAT_MAP
+
 static VkFormat ToVkFormat(Format format) {
-#define FORMAT_CASE(name, vkName) case Format::name: return VK_FORMAT_##vkName
-	switch (format) {
-		case Format::None: return VK_FORMAT_UNDEFINED;
-		FORMAT_CASE(R8_UNORM, R8_UNORM); FORMAT_CASE(R8_SNORM, R8_SNORM); FORMAT_CASE(R8_UINT, R8_UINT); FORMAT_CASE(R8_SINT, R8_SINT); FORMAT_CASE(R8_SRGB, R8_SRGB);
-		FORMAT_CASE(RG8_UNORM, R8G8_UNORM); FORMAT_CASE(RG8_SNORM, R8G8_SNORM); FORMAT_CASE(RG8_UINT, R8G8_UINT); FORMAT_CASE(RG8_SINT, R8G8_SINT); FORMAT_CASE(RG8_SRGB, R8G8_SRGB);
-		FORMAT_CASE(RGB8_UNORM, R8G8B8_UNORM); FORMAT_CASE(RGB8_SNORM, R8G8B8_SNORM); FORMAT_CASE(RGB8_UINT, R8G8B8_UINT); FORMAT_CASE(RGB8_SINT, R8G8B8_SINT); FORMAT_CASE(RGB8_SRGB, R8G8B8_SRGB);
-		FORMAT_CASE(BGR8_UNORM, B8G8R8_UNORM); FORMAT_CASE(BGR8_SNORM, B8G8R8_SNORM); FORMAT_CASE(BGR8_UINT, B8G8R8_UINT); FORMAT_CASE(BGR8_SINT, B8G8R8_SINT); FORMAT_CASE(BGR8_SRGB, B8G8R8_SRGB);
-		FORMAT_CASE(RGBA8_UNORM, R8G8B8A8_UNORM); FORMAT_CASE(RGBA8_SNORM, R8G8B8A8_SNORM); FORMAT_CASE(RGBA8_UINT, R8G8B8A8_UINT); FORMAT_CASE(RGBA8_SINT, R8G8B8A8_SINT); FORMAT_CASE(RGBA8_SRGB, R8G8B8A8_SRGB);
-		FORMAT_CASE(BGRA8_UNORM, B8G8R8A8_UNORM); FORMAT_CASE(BGRA8_SNORM, B8G8R8A8_SNORM); FORMAT_CASE(BGRA8_UINT, B8G8R8A8_UINT); FORMAT_CASE(BGRA8_SINT, B8G8R8A8_SINT); FORMAT_CASE(BGRA8_SRGB, B8G8R8A8_SRGB);
-		FORMAT_CASE(R16_UNORM, R16_UNORM); FORMAT_CASE(R16_SNORM, R16_SNORM); FORMAT_CASE(R16_UINT, R16_UINT); FORMAT_CASE(R16_SINT, R16_SINT); FORMAT_CASE(R16_FLOAT, R16_SFLOAT);
-		FORMAT_CASE(RG16_UNORM, R16G16_UNORM); FORMAT_CASE(RG16_SNORM, R16G16_SNORM); FORMAT_CASE(RG16_UINT, R16G16_UINT); FORMAT_CASE(RG16_SINT, R16G16_SINT); FORMAT_CASE(RG16_FLOAT, R16G16_SFLOAT);
-		FORMAT_CASE(RGB16_UNORM, R16G16B16_UNORM); FORMAT_CASE(RGB16_SNORM, R16G16B16_SNORM); FORMAT_CASE(RGB16_UINT, R16G16B16_UINT); FORMAT_CASE(RGB16_SINT, R16G16B16_SINT); FORMAT_CASE(RGB16_FLOAT, R16G16B16_SFLOAT);
-		FORMAT_CASE(RGBA16_UNORM, R16G16B16A16_UNORM); FORMAT_CASE(RGBA16_SNORM, R16G16B16A16_SNORM); FORMAT_CASE(RGBA16_UINT, R16G16B16A16_UINT); FORMAT_CASE(RGBA16_SINT, R16G16B16A16_SINT); FORMAT_CASE(RGBA16_FLOAT, R16G16B16A16_SFLOAT);
-		FORMAT_CASE(R32_UINT, R32_UINT); FORMAT_CASE(R32_SINT, R32_SINT); FORMAT_CASE(R32_FLOAT, R32_SFLOAT);
-		FORMAT_CASE(RG32_UINT, R32G32_UINT); FORMAT_CASE(RG32_SINT, R32G32_SINT); FORMAT_CASE(RG32_FLOAT, R32G32_SFLOAT);
-		FORMAT_CASE(RGB32_UINT, R32G32B32_UINT); FORMAT_CASE(RGB32_SINT, R32G32B32_SINT); FORMAT_CASE(RGB32_FLOAT, R32G32B32_SFLOAT);
-		FORMAT_CASE(RGBA32_UINT, R32G32B32A32_UINT); FORMAT_CASE(RGBA32_SINT, R32G32B32A32_SINT); FORMAT_CASE(RGBA32_FLOAT, R32G32B32A32_SFLOAT);
-		FORMAT_CASE(D16_UNORM, D16_UNORM); FORMAT_CASE(D32_FLOAT, D32_SFLOAT); FORMAT_CASE(D16_UNORM_S8_UINT, D16_UNORM_S8_UINT); FORMAT_CASE(D24_UNORM_S8_UINT, D24_UNORM_S8_UINT); FORMAT_CASE(D32_FLOAT_S8_UINT, D32_SFLOAT_S8_UINT);
-	}
-#undef FORMAT_CASE
+	for (const FormatMapping& mapping : g_formatMappings)
+		if (mapping.format == format) return mapping.vkFormat;
 	return VK_FORMAT_UNDEFINED;
+}
+
+static Format FromVkFormat(VkFormat format) {
+	for (const FormatMapping& mapping : g_formatMappings)
+		if (mapping.vkFormat == format) return mapping.format;
+	return Format::None;
 }
 
 static bool IsDepthFormat(Format format) {
@@ -60,6 +71,17 @@ static bool IsDepthFormat(Format format) {
 
 static bool HasStencil(Format format) {
 	return format == Format::D16_UNORM_S8_UINT || format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8_UINT;
+}
+
+static VkImageUsageFlags ToVkImageUsage(ImageUsage usage) {
+	VkImageUsageFlags result = 0;
+	if (usage & ImageUsage_TransferSource) result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	if (usage & ImageUsage_TransferDest) result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	if (usage & ImageUsage_Sampled) result |= VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (usage & ImageUsage_Storage) result |= VK_IMAGE_USAGE_STORAGE_BIT;
+	if (usage & ImageUsage_ColorAttachment) result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	if (usage & ImageUsage_DepthAttachment) result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	return result;
 }
 
 static VkAccessFlags2 ImageStateToAccessFlags(ImageState state) {
@@ -123,6 +145,23 @@ static VkSamplerAddressMode ToVkAddressMode(AddressMode mode) {
 		case AddressMode::MirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
 	}
 	return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+}
+
+static VkAttachmentLoadOp ToVkLoadOp(LoadOp op) {
+	switch (op) {
+		case LoadOp::Load:     return VK_ATTACHMENT_LOAD_OP_LOAD;
+		case LoadOp::Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
+		case LoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	}
+	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+}
+
+static VkAttachmentStoreOp ToVkStoreOp(StoreOp op) {
+	switch (op) {
+		case StoreOp::Store:    return VK_ATTACHMENT_STORE_OP_STORE;
+		case StoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	}
+	return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 }
 
 static I64 ScorePhysicalDevice(VkPhysicalDevice physicalDevice, U32* outGraphicsFamily) {
@@ -212,6 +251,83 @@ Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 	VK_TRY(vkBeginCommandBuffer(m_mainCommandBuffer->m_vk, &beginInfo));
 	VK_TRY(vkBeginCommandBuffer(m_transferCommandBuffer->m_vk, &beginInfo));
 	m_frameCommandBuffersBegun = true;
+	return Success();
+}
+
+Result GraphicsDevice_Vulkan::CreateSwapchain(const GraphicsDeviceInitDesc& desc) {
+	VkSurfaceCapabilitiesKHR capabilities;
+	VK_TRY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &capabilities));
+
+	U32 formatCount = 0;
+	VK_TRY(vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, nullptr));
+	if (!formatCount) {
+		return Err("Vulkan surface has no supported formats");
+	}
+
+	std::vector<VkSurfaceFormatKHR> formats(formatCount);
+	VK_TRY(vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, formats.data()));
+	VkSurfaceFormatKHR surfaceFormat = formats[0];
+	for (const VkSurfaceFormatKHR& format : formats) {
+		if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+			surfaceFormat = format;
+			break;
+		}
+	}
+
+	VkExtent2D extent = capabilities.currentExtent;
+	if (extent.width == UINT32_MAX) {
+		int width = 0, height = 0;
+		SDL_GetWindowSizeInPixels(desc.window, &width, &height);
+		extent.width = std::clamp((U32)width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+		extent.height = std::clamp((U32)height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+	}
+
+	U32 imageCount = std::max(capabilities.minImageCount, desc.frameCount);
+	if (capabilities.maxImageCount) imageCount = std::min(imageCount, capabilities.maxImageCount);
+	VkSwapchainCreateInfoKHR createInfo{
+		.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+		.surface          = m_surface,
+		.minImageCount    = imageCount,
+		.imageFormat      = surfaceFormat.format,
+		.imageColorSpace  = surfaceFormat.colorSpace,
+		.imageExtent      = extent,
+		.imageArrayLayers = 1,
+		.imageUsage       = ToVkImageUsage(desc.swapchainImageUsage),
+		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.preTransform     = capabilities.currentTransform,
+		.compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		.presentMode      = desc.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
+		.clipped          = VK_TRUE,
+	};
+
+	VK_TRY(vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapchain));
+	VK_TRY(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, nullptr));
+
+	std::vector<VkImage> images(imageCount);
+	VK_TRY(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, images.data()));
+
+	Format swapchainFormat = FromVkFormat(surfaceFormat.format);
+	if (swapchainFormat == Format::None) return Err("Unsupported swapchain format: %u", (U32)surfaceFormat.format);
+	for (VkImage vkImage : images) {
+		Image* image = CreateImage(ImageDesc{
+			.width            = extent.width,
+			.height           = extent.height,
+			.format           = swapchainFormat,
+			.usage            = desc.swapchainImageUsage,
+			.ownedBySwapchain = true,
+			.existingImage    = vkImage,
+		});
+		if (!image) return Err("Failed to create swapchain image view");
+		m_swapchainImages.push_back(image);
+	}
+	return Success();
+}
+
+Result GraphicsDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
+	VkSemaphoreCreateInfo createInfo{
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+	};
+	VK_TRY(vkCreateSemaphore(m_device, &createInfo, nullptr, outSemaphore));
 	return Success();
 }
 
@@ -333,6 +449,13 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 		VK_TRY(vmaCreateAllocator(&createInfo, &m_allocator));
 	}
 
+	{ // create a swapchain:
+	TRY(CreateSwapchain(desc));
+	TRY(CreateSemaphore(&m_renderSemaphore));
+	m_frameFence = CreateFence(true);
+	if (!m_frameFence) return Err("Failed to create frame fence");
+	}
+
 	{ // create frame command buffers:
 		TRY(CreateCommandPool(&m_mainCommandPool));
 		TRY(CreateCommandPool(&m_transferCommandPool));
@@ -345,6 +468,12 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 }
 
 GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
+	if (m_device) vkDeviceWaitIdle(m_device);
+	DestroyFence(m_frameFence);
+	if (m_renderSemaphore) vkDestroySemaphore(m_device, m_renderSemaphore, nullptr);
+	for (Image* image : m_swapchainImages) DestroyImage(image);
+	m_swapchainImages.clear();
+	if (m_swapchain) vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 	delete m_mainCommandBuffer;
 	delete m_transferCommandBuffer;
 	if (m_mainCommandPool) vkDestroyCommandPool(m_device, m_mainCommandPool, nullptr);
@@ -355,19 +484,118 @@ GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_instance) vkDestroyInstance(m_instance, nullptr);
 }
 
-void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc&) { assert(0); }
+void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
+	assert(desc.colorAttachmentCount <= 4);
+	assert(desc.colorAttachmentCount || desc.depthAttachment);
 
-void CommandBuffer_Vulkan::EndRendering(const RenderingDesc&) { assert(0); }
+	Image* extentImage = desc.colorAttachmentCount ? desc.colorAttachments[0].image : desc.depthAttachment->image;
+	assert(extentImage);
 
-void CommandBuffer_Vulkan::BindPipeline(GraphicsPipeline*) { assert(0); }
+	VkRenderingAttachmentInfo colorAttachments[4] = {};
+	for (U32 i = 0; i < desc.colorAttachmentCount; i++) {
+		const AttachmentDesc& attachment = desc.colorAttachments[i];
+		assert(attachment.image);
+		ImageBarrier(GFX::ImageBarrier{
+			.image       = attachment.image,
+			.stateBefore = attachment.stateBefore,
+			.stateAfter  = attachment.stateDuring,
+		});
+		colorAttachments[i] = VkRenderingAttachmentInfo{
+			.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView   = attachment.image->m_vulkan.imageView,
+			.imageLayout = ImageStateToImageLayout(attachment.stateDuring),
+			.loadOp      = ToVkLoadOp(attachment.loadOp),
+			.storeOp     = ToVkStoreOp(attachment.storeOp),
+			.clearValue  = {
+				.color = {{ attachment.clearColor.x, attachment.clearColor.y, attachment.clearColor.z, attachment.clearColor.w }},
+			},
+		};
+	}
 
-void CommandBuffer_Vulkan::BindIndexBuffer(GPUBuffer*, IndexType, U64) { assert(0); }
+	VkRenderingAttachmentInfo depthAttachment{};
+	if (desc.depthAttachment) {
+		const AttachmentDesc& attachment = *desc.depthAttachment;
+		assert(attachment.image);
+		ImageBarrier(GFX::ImageBarrier{
+			.image       = attachment.image,
+			.stateBefore = attachment.stateBefore,
+			.stateAfter  = attachment.stateDuring,
+		});
+		depthAttachment = VkRenderingAttachmentInfo{
+			.sType       = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.imageView   = attachment.image->m_vulkan.imageView,
+			.imageLayout = ImageStateToImageLayout(attachment.stateDuring),
+			.loadOp      = ToVkLoadOp(attachment.loadOp),
+			.storeOp     = ToVkStoreOp(attachment.storeOp),
+			.clearValue  = { .depthStencil = { attachment.clearDepth, attachment.clearStencil } },
+		};
+	}
 
-void CommandBuffer_Vulkan::PushConstants(GraphicsPipeline*, ShaderStages, U32, U32, const void*) { assert(0); }
+	VkRenderingInfo renderingInfo{
+		.sType                = VK_STRUCTURE_TYPE_RENDERING_INFO,
+		.renderArea           = {{0, 0}, {extentImage->m_width, extentImage->m_height}},
+		.layerCount           = 1,
+		.colorAttachmentCount = desc.colorAttachmentCount,
+		.pColorAttachments    = colorAttachments,
+		.pDepthAttachment     = desc.depthAttachment ? &depthAttachment : nullptr,
+		.pStencilAttachment   = desc.depthAttachment && HasStencil(desc.depthAttachment->image->m_format) ? &depthAttachment : nullptr,
+	};
+	vkCmdBeginRendering(m_vk, &renderingInfo);
 
-void CommandBuffer_Vulkan::Draw(U32, U32, U32, U32) { assert(0); }
+	VkViewport viewport{ 0.0f, 0.0f, (float)extentImage->m_width, (float)extentImage->m_height, 0.0f, 1.0f, };
+	VkRect2D scissor{ {0, 0}, {extentImage->m_width, extentImage->m_height} };
+	vkCmdSetViewport(m_vk, 0, 1, &viewport);
+	vkCmdSetScissor(m_vk, 0, 1, &scissor);
+}
 
-void CommandBuffer_Vulkan::DrawIndexed(U32, U32, U32, I32, U32) { assert(0); }
+void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
+	vkCmdEndRendering(m_vk);
+
+	for (U32 i = 0; i < desc.colorAttachmentCount; i++) {
+		const AttachmentDesc& attachment = desc.colorAttachments[i];
+		assert(attachment.image);
+		if (attachment.stateDuring != attachment.stateAfter) {
+			ImageBarrier(GFX::ImageBarrier{
+				.image       = attachment.image,
+				.stateBefore = attachment.stateDuring,
+				.stateAfter  = attachment.stateAfter,
+			});
+		}
+	}
+
+	if (desc.depthAttachment) {
+		const AttachmentDesc& attachment = *desc.depthAttachment;
+		assert(attachment.image);
+		if (attachment.stateDuring != attachment.stateAfter) {
+			ImageBarrier(GFX::ImageBarrier{
+				.image       = attachment.image,
+				.stateBefore = attachment.stateDuring,
+				.stateAfter  = attachment.stateAfter,
+			});
+		}
+	}
+}
+
+void CommandBuffer_Vulkan::BindPipeline(GraphicsPipeline* pipeline) {
+	vkCmdBindPipeline(m_vk, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->m_vulkan.pipeline);
+}
+
+void CommandBuffer_Vulkan::BindIndexBuffer(GPUBuffer* buffer, IndexType type, U64 offset) {
+	VkIndexType indexType = type == IndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+	vkCmdBindIndexBuffer(m_vk, buffer->m_vk, offset, indexType);
+}
+
+void CommandBuffer_Vulkan::PushConstants(GraphicsPipeline* pipeline, U32 size, const void* data) {
+	vkCmdPushConstants(m_vk, pipeline->m_vulkan.layout, VK_SHADER_STAGE_ALL, 0, size, data);
+}
+
+void CommandBuffer_Vulkan::Draw(U32 vertexCount, U32 instanceCount, U32 firstVertex, U32 firstInstance) {
+	vkCmdDraw(m_vk, vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void CommandBuffer_Vulkan::DrawIndexed(U32 indexCount, U32 instanceCount, U32 firstIndex, I32 vertexOffset, U32 firstInstance) {
+	vkCmdDrawIndexed(m_vk, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
 
 void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) {
 	VkBufferCopy region{
@@ -433,26 +661,77 @@ void CommandBuffer_Vulkan::GenerateMipmaps(Image*) {
 }
 
 bool GraphicsDevice_Vulkan::BeginFrameImpl() {
+	WaitForFence(m_frameFence);
+	ResetFence(m_frameFence);
+	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, VK_NULL_HANDLE, m_frameFence->m_vk, &m_swapchainImageIndex);
+	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		DestroyFence(m_frameFence);
+		m_frameFence = CreateFence(true);
+		return false;
+	}
+	WaitForFence(m_frameFence);
+	ResetFence(m_frameFence);
 	return (bool)BeginFrameCommandBuffers();
 }
 
-void GraphicsDevice_Vulkan::EndFrame() { assert(0); }
+void GraphicsDevice_Vulkan::EndFrame() {
+	VkMemoryBarrier2 transferBarrier{
+		.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+		.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+		.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+		.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+		.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+	};
+	VkDependencyInfo dependencyInfo{
+		.sType              = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		.memoryBarrierCount = 1,
+		.pMemoryBarriers    = &transferBarrier,
+	};
+	vkCmdPipelineBarrier2(m_transferCommandBuffer->m_vk, &dependencyInfo);
+	vkEndCommandBuffer(m_transferCommandBuffer->m_vk);
+	vkEndCommandBuffer(m_mainCommandBuffer->m_vk);
+
+	VkCommandBufferSubmitInfo commandBuffers[] = {
+	{
+		.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		.commandBuffer = m_transferCommandBuffer->m_vk,
+	},
+	{
+		.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+		.commandBuffer = m_mainCommandBuffer->m_vk,
+	},
+	};
+	VkSemaphoreSubmitInfo renderSignal{
+		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		.semaphore = m_renderSemaphore,
+		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+	};
+	VkSubmitInfo2 mainSubmit{
+		.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		.commandBufferInfoCount   = 2,
+		.pCommandBufferInfos      = commandBuffers,
+		.signalSemaphoreInfoCount = 1,
+		.pSignalSemaphoreInfos    = &renderSignal,
+	};
+	vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence->m_vk);
+
+	VkPresentInfoKHR presentInfo{
+		.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores    = &m_renderSemaphore,
+		.swapchainCount     = 1,
+		.pSwapchains        = &m_swapchain,
+		.pImageIndices      = &m_swapchainImageIndex,
+	};
+	vkQueuePresentKHR(m_graphicsQueue, &presentInfo);
+	m_frameCommandBuffersBegun = false;
+}
 
 CommandBuffer* GraphicsDevice_Vulkan::GetMainCommandBuffer() { return m_mainCommandBuffer; }
 
 CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() { return m_transferCommandBuffer; }
 
-Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() { assert(0); return {}; }
-
-Image* GraphicsDevice_Vulkan::GetDepthBuffer() { assert(0); return {}; }
-
-U32 GraphicsDevice_Vulkan::GetDrawableWidth() const { assert(0); return {}; }
-
-U32 GraphicsDevice_Vulkan::GetDrawableHeight() const { assert(0); return {}; }
-
-Format GraphicsDevice_Vulkan::GetBackbufferFormat() const { assert(0); return {}; }
-
-Format GraphicsDevice_Vulkan::GetDepthFormat() const { assert(0); return {}; }
+Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() { return m_swapchainImages.empty() ? nullptr : m_swapchainImages[m_swapchainImageIndex]; }
 
 void GraphicsDevice_Vulkan::SetVSync(bool) {
 	printf("STUB: SetVSync\n");
@@ -468,15 +747,48 @@ void GraphicsDevice_Vulkan::BeginCommandBuffer(CommandBuffer*) { assert(0); }
 
 void GraphicsDevice_Vulkan::EndCommandBuffer(CommandBuffer*) { assert(0); }
 
-Fence* GraphicsDevice_Vulkan::CreateFence(bool) { assert(0); return {}; }
+Fence* GraphicsDevice_Vulkan::CreateFence(bool signaled) {
+	VkFenceCreateInfo createInfo{
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = signaled ? (VkFenceCreateFlags)VK_FENCE_CREATE_SIGNALED_BIT : 0,
+	};
+	Fence* fence = new Fence();
+	if (vkCreateFence(m_device, &createInfo, nullptr, &fence->m_vk) != VK_SUCCESS) {
+		delete fence;
+		return nullptr;
+	}
+	return fence;
+}
 
-void GraphicsDevice_Vulkan::DestroyFence(Fence*) { assert(0); }
+void GraphicsDevice_Vulkan::DestroyFence(Fence* fence) {
+	if (!fence) return;
+	if (fence->m_vk) vkDestroyFence(m_device, fence->m_vk, nullptr);
+	delete fence;
+}
 
-void GraphicsDevice_Vulkan::WaitForFence(Fence*) { assert(0); }
+void GraphicsDevice_Vulkan::WaitForFence(Fence* fence) {
+	vkWaitForFences(m_device, 1, &fence->m_vk, VK_TRUE, UINT64_MAX);
+}
 
-void GraphicsDevice_Vulkan::ResetFence(Fence*) { assert(0); }
+void GraphicsDevice_Vulkan::ResetFence(Fence* fence) {
+	vkResetFences(m_device, 1, &fence->m_vk);
+}
 
-void GraphicsDevice_Vulkan::Submit(const SubmitDesc&) { assert(0); }
+void GraphicsDevice_Vulkan::Submit(const SubmitDesc& desc) {
+	std::vector<VkCommandBufferSubmitInfo> commandBuffers(desc.commandBufferCount);
+	for (U32 i = 0; i < desc.commandBufferCount; i++) {
+		commandBuffers[i] = VkCommandBufferSubmitInfo{
+			.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+			.commandBuffer = desc.commandBuffers[i]->m_vk,
+		};
+	}
+	VkSubmitInfo2 submitInfo{
+		.sType                  = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		.commandBufferInfoCount = desc.commandBufferCount,
+		.pCommandBufferInfos    = commandBuffers.data(),
+	};
+	vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, desc.fence ? desc.fence->m_vk : VK_NULL_HANDLE);
+}
 
 GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 	VkBufferUsageFlags usage = 0;
@@ -529,14 +841,6 @@ void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
 }
 
 Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
-	VkImageUsageFlags usage = 0;
-	if (desc.usage & ImageUsage_TransferSource) usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	if (desc.usage & ImageUsage_TransferDest) usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	if (desc.usage & ImageUsage_Sampled) usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-	if (desc.usage & ImageUsage_Storage) usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-	if (desc.usage & ImageUsage_ColorAttachment) usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	if (desc.usage & ImageUsage_DepthAttachment) usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
 	VkImageCreateInfo imageCreateInfo{
 		.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType     = VK_IMAGE_TYPE_2D,
@@ -546,18 +850,23 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 		.arrayLayers   = 1,
 		.samples       = VK_SAMPLE_COUNT_1_BIT,
 		.tiling        = VK_IMAGE_TILING_OPTIMAL,
-		.usage         = usage,
+		.usage         = ToVkImageUsage(desc.usage),
 		.sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
 	};
 	VmaAllocationCreateInfo allocationCreateInfo{};
 	allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
 	Image* image = new Image();
-	VkResult result = vmaCreateImage(m_allocator, &imageCreateInfo, &allocationCreateInfo,
-		&image->m_vulkan.image, &image->m_vulkan.allocation, nullptr);
-	if (result != VK_SUCCESS) {
-		delete image;
-		return nullptr;
+	VkResult result = VK_SUCCESS;
+	if (desc.existingImage) {
+		image->m_vulkan.image = desc.existingImage;
+	} else {
+		result = vmaCreateImage(m_allocator, &imageCreateInfo, &allocationCreateInfo,
+			&image->m_vulkan.image, &image->m_vulkan.allocation, nullptr);
+		if (result != VK_SUCCESS) {
+			delete image;
+			return nullptr;
+		}
 	}
 
 	VkImageAspectFlags aspect = IsDepthFormat(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
@@ -571,7 +880,8 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	};
 	result = vkCreateImageView(m_device, &viewCreateInfo, nullptr, &image->m_vulkan.imageView);
 	if (result != VK_SUCCESS) {
-		vmaDestroyImage(m_allocator, image->m_vulkan.image, image->m_vulkan.allocation);
+		if (!desc.ownedBySwapchain)
+			vmaDestroyImage(m_allocator, image->m_vulkan.image, image->m_vulkan.allocation);
 		delete image;
 		return nullptr;
 	}
@@ -581,13 +891,15 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	image->m_mipCount = desc.mipCount;
 	image->m_format = desc.format;
 	image->m_state = ImageState::Undefined;
+	image->m_ownedBySwapchain = desc.ownedBySwapchain;
 	return image;
 }
 
 void GraphicsDevice_Vulkan::DestroyImage(Image* image) {
 	if (!image) return;
 	if (image->m_vulkan.imageView) vkDestroyImageView(m_device, image->m_vulkan.imageView, nullptr);
-	if (image->m_vulkan.image) vmaDestroyImage(m_allocator, image->m_vulkan.image, image->m_vulkan.allocation);
+	if (image->m_vulkan.image && !image->m_ownedBySwapchain)
+		vmaDestroyImage(m_allocator, image->m_vulkan.image, image->m_vulkan.allocation);
 	delete image;
 }
 

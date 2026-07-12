@@ -42,6 +42,7 @@ GraphicsDevice* GraphicsDevice::Get() {
 }
 
 bool GraphicsDevice::BeginFrame() {
+	// TODO: Move m_frameUploadOffset to Renderer, and get rid of this Impl.
 	m_frameUploadOffset = 0;
 	return BeginFrameImpl();
 }

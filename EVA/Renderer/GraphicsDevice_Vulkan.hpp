@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Renderer/GraphicsDevice.hpp>
 #include <volk.h>
+#include <vector>
 
 typedef struct VmaAllocator_T* VmaAllocator;
 
@@ -15,7 +16,7 @@ public:
 
 	virtual void BindPipeline(GraphicsPipeline* pipeline) override;
 	virtual void BindIndexBuffer(GPUBuffer* buffer, IndexType type, U64 offset = 0) override;
-	virtual void PushConstants(GraphicsPipeline* pipeline, ShaderStages stages, U32 offset, U32 size, const void* data) override;
+	virtual void PushConstants(GraphicsPipeline* pipeline, U32 size, const void* data) override;
 
 	virtual void Draw(U32 vertexCount, U32 instanceCount = 1, U32 firstVertex = 0, U32 firstInstance = 0) override;
 	virtual void DrawIndexed(U32 indexCount, U32 instanceCount = 1, U32 firstIndex = 0, I32 vertexOffset = 0, U32 firstInstance = 0) override;
@@ -40,12 +41,6 @@ public:
 	virtual CommandBuffer* GetTransferCommandBuffer() override;
 
 	virtual Image* GetCurrentBackbuffer() override;
-	virtual Image* GetDepthBuffer() override;
-
-	virtual U32 GetDrawableWidth() const override;
-	virtual U32 GetDrawableHeight() const override;
-	virtual Format GetBackbufferFormat() const override;
-	virtual Format GetDepthFormat() const override;
 
 	virtual void SetVSync(bool enabled) override;
 	virtual void WaitIdle() override;
@@ -84,12 +79,16 @@ private:
 	Result CreateCommandPool(VkCommandPool* outCommandPool);
 	Result CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer);
 	Result BeginFrameCommandBuffers();
+	Result CreateSwapchain(const GraphicsDeviceInitDesc& desc);
+	Result CreateSemaphore(VkSemaphore* outSemaphore);
 
 	VkInstance       m_instance       = nullptr;
 	VkSurfaceKHR     m_surface        = nullptr;
 	VkPhysicalDevice m_physicalDevice = nullptr;
 	VkDevice         m_device         = nullptr;
 	VkQueue          m_graphicsQueue  = nullptr;
+	VkSwapchainKHR   m_swapchain      = nullptr;
+	VkSemaphore      m_renderSemaphore = nullptr;
 	VmaAllocator     m_allocator      = nullptr;
 	U32              m_graphicsFamily = UINT32_MAX;
 	VkCommandPool    m_mainCommandPool = nullptr;
@@ -97,6 +96,9 @@ private:
 	CommandBuffer_Vulkan* m_mainCommandBuffer = nullptr;
 	CommandBuffer_Vulkan* m_transferCommandBuffer = nullptr;
 	bool             m_frameCommandBuffersBegun = false;
+	std::vector<Image*> m_swapchainImages;
+	U32              m_swapchainImageIndex = 0;
+	Fence*           m_frameFence = nullptr;
 };
 
 }

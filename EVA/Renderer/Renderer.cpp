@@ -54,6 +54,7 @@ Shader* shd_brush;
 
 static Mesh* mesh_quad = nullptr;
 static GFX::GPUBuffer* g_mainConstantBuffer = nullptr;
+static GFX::Image* g_depthBuffer = nullptr;
 
 static LayerData layers[Layer_ENUM_SIZE] = {};
 static LayerData* current_layer = &layers[Layer_Main];
@@ -65,6 +66,8 @@ ConVar cvar_wireframe = {
 	.help = "toggle wireframe rendering",
 	.fvalue = 0,
 };
+
+static GFX::GraphicsDevice* g_device;
 
 void RendererInitialize() {
 	shd_lines = new Shader();
@@ -93,12 +96,26 @@ void RendererInitialize() {
 
 	ConRegisterVar(&cvar_wireframe);
 
-	g_mainConstantBuffer = GFX::GraphicsDevice::Get()->CreateGPUBuffer(GFX::GPUBufferDesc{
+	g_device = GFX::GraphicsDevice::Get();
+
+	g_mainConstantBuffer = g_device->CreateGPUBuffer(GFX::GPUBufferDesc{
 		.size = sizeof(MainConstantBuffer),
 		.usage = GFX::GPUBufferUsage_ConstantBuffer | GFX::GPUBufferUsage_StorageBuffer,
 		.memoryUsage = GFX::MemoryUsage::CPUToGPU,
 		.bindless = true,
 	});
+	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
+	g_depthBuffer = g_device->CreateImage(GFX::ImageDesc{
+		.width = backbuffer->m_width,
+		.height = backbuffer->m_height,
+		.format = GFX::Format::D32_FLOAT,
+		.usage = GFX::ImageUsage_DepthAttachment,
+	});
+}
+
+void RendererShutdown() {
+	g_device->DestroyImage(g_depthBuffer);
+	g_depthBuffer = nullptr;
 }
 
 void DrawLine(float3 a, float3 b, float4 color) {
@@ -115,8 +132,7 @@ void DrawSetLineThickness() {
 
 void RenderFrame() {
 	ZoneScopedN("RenderScene");
-	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
-	GFX::CommandBuffer* cmd = device->GetMainCommandBuffer();
+	GFX::CommandBuffer* cmd = g_device->GetMainCommandBuffer();
 
 	ECamera* camera = nullptr;
 	if (g_active_game && g_active_game->m_activeCamera) {
@@ -132,22 +148,22 @@ void RenderFrame() {
 	memcpy(g_mainConstantBuffer->m_mapped, &cb, sizeof(cb));
 
 	GFX::AttachmentDesc colorAttachment = {
-		.image = device->GetCurrentBackbuffer(),
-		.loadOp = GFX::LoadOp::Clear,
-		.storeOp = GFX::StoreOp::Store,
-		.clearColor = COLOR_BLACK,
-		.stateBefore = GFX::ImageState::Present,
+		.image       = g_device->GetCurrentBackbuffer(),
+		.loadOp      = GFX::LoadOp::Clear,
+		.storeOp     = GFX::StoreOp::Store,
+		.clearColor  = COLOR_BLACK,
+		.stateBefore = GFX::ImageState::Undefined,
 		.stateDuring = GFX::ImageState::ColorAttachment,
-		.stateAfter = GFX::ImageState::Present,
+		.stateAfter  = GFX::ImageState::Present,
 	};
 	GFX::AttachmentDesc depthAttachment = {
-		.image = device->GetDepthBuffer(),
-		.loadOp = GFX::LoadOp::Clear,
-		.storeOp = GFX::StoreOp::Store,
-		.clearDepth = 1.0f,
-		.stateBefore = device->GetDepthBuffer()->m_state,
+		.image       = g_depthBuffer,
+		.loadOp      = GFX::LoadOp::Clear,
+		.storeOp     = GFX::StoreOp::Store,
+		.clearDepth  = 1.0f,
+		.stateBefore = g_depthBuffer->m_state,
 		.stateDuring = GFX::ImageState::DepthAttachment,
-		.stateAfter = GFX::ImageState::DepthAttachment,
+		.stateAfter  = GFX::ImageState::DepthAttachment,
 	};
 	GFX::RenderingDesc renderingDesc = {
 		.colorAttachmentCount = 1,
@@ -193,7 +209,7 @@ void RenderFrame() {
 					.colorSampler = color_texture->sampler->m_bindlessIndex,
 				};
 				cmd->BindPipeline(shader->m_pipeline);
-				cmd->PushConstants(shader->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
+				cmd->PushConstants(shader->m_pipeline, sizeof(constants), &constants);
 
 				if (entry.mesh->index_count) {
 					cmd->BindIndexBuffer(entry.mesh->index_buffer, GFX::IndexType::U32);
@@ -210,7 +226,7 @@ void RenderFrame() {
 		if (current_layer->lines.size()) { 
 			GFX::GPUBuffer* lineBuffer = nullptr;
 			size_t lineBufferOffset = 0;
-			device->UploadFrameData(
+			g_device->UploadFrameData(
 				current_layer->lines.data(),
 				current_layer->lines.size() * sizeof(LineVertex),
 				&lineBuffer,
@@ -225,7 +241,7 @@ void RenderFrame() {
 				(U32)(lineBufferOffset / sizeof(LineVertex)),
 			};
 			cmd->BindPipeline(shd_lines->m_pipeline);
-			cmd->PushConstants(shd_lines->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
+			cmd->PushConstants(shd_lines->m_pipeline, sizeof(constants), &constants);
 			cmd->Draw((U32)current_layer->lines.size());
 
 			current_layer->lines.clear();
@@ -257,7 +273,7 @@ void RenderFrame() {
 
 				GFX::GPUBuffer* quadBuffer = nullptr;
 				size_t quadBufferOffset = 0;
-				device->UploadFrameData(
+				g_device->UploadFrameData(
 					quads.data(),
 					quads.size() * sizeof(DrawQuad),
 					&quadBuffer,
@@ -270,7 +286,7 @@ void RenderFrame() {
 					U32 textureImage;
 					U32 textureSampler;
 				} constants = {
-					.framebufferSize = float2(device->GetDrawableWidth(), device->GetDrawableHeight()),
+					.framebufferSize = float2(colorAttachment.image->m_width, colorAttachment.image->m_height),
 					.quadBuffer = quadBuffer->m_bindlessIndex,
 					.quadOffset = (U32)(quadBufferOffset / sizeof(DrawQuad)),
 					.vertexBuffer = mesh_quad->vertex_buffer->m_bindlessIndex,
@@ -278,7 +294,7 @@ void RenderFrame() {
 					.textureSampler = texture ? texture->sampler->m_bindlessIndex : UINT32_MAX,
 				};
 				cmd->BindPipeline(shd_quad->m_pipeline);
-				cmd->PushConstants(shd_quad->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
+				cmd->PushConstants(shd_quad->m_pipeline, sizeof(constants), &constants);
 				cmd->BindIndexBuffer(mesh_quad->index_buffer, GFX::IndexType::U32);
 				cmd->DrawIndexed(6, (U32)quads.size());
 

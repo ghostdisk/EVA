@@ -43,6 +43,7 @@ struct DrawQuadRecord {
 };
 
 void RendererInitialize();
+void RendererShutdown();
 void RenderFrame();
 
 void DrawSetLayer(Layer layer);

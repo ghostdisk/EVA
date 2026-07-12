@@ -144,6 +144,7 @@ int main() {
 		FrameMark;
 	}
 
+	RendererShutdown();
 	GFX::GraphicsDevice::Shutdown();
 	return 0;
 }

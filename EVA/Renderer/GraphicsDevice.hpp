@@ -265,19 +265,6 @@ enum class ShaderStage : U8 {
 	TessellationEvaluation,
 };
 
-enum ShaderStageBits : U32 {
-	ShaderStage_None                   = 0,
-	ShaderStage_Vertex                 = 1 << 0,
-	ShaderStage_Fragment               = 1 << 1,
-	ShaderStage_Compute                = 1 << 2,
-	ShaderStage_Geometry               = 1 << 3,
-	ShaderStage_TessellationControl    = 1 << 4,
-	ShaderStage_TessellationEvaluation = 1 << 5,
-	ShaderStage_AllGraphics            = ShaderStage_Vertex | ShaderStage_Fragment | ShaderStage_Geometry | ShaderStage_TessellationControl | ShaderStage_TessellationEvaluation,
-	ShaderStage_All                    = ShaderStage_AllGraphics | ShaderStage_Compute,
-};
-using ShaderStages = U32;
-
 enum class LoadOp : U8 {
 	Load,
 	Clear,
@@ -318,6 +305,7 @@ public:
 	U32        m_bindlessIndex = UINT32_MAX;
 	Format     m_format        = Format::None;
 	ImageState m_state         = ImageState::Undefined;
+	bool       m_ownedBySwapchain = false;
 
 	union {
 		struct {
@@ -377,13 +365,14 @@ public:
 
 	virtual void BindPipeline(GraphicsPipeline* pipeline) = 0;
 	virtual void BindIndexBuffer(GPUBuffer* buffer, IndexType type, U64 offset = 0) = 0;
-	virtual void PushConstants(GraphicsPipeline* pipeline, ShaderStages stages, U32 offset, U32 size, const void* data) = 0;
+	virtual void PushConstants(GraphicsPipeline* pipeline, U32 size, const void* data) = 0;
 
 	virtual void Draw(U32 vertexCount, U32 instanceCount = 1, U32 firstVertex = 0, U32 firstInstance = 0) = 0;
 	virtual void DrawIndexed(U32 indexCount, U32 instanceCount = 1, U32 firstIndex = 0, I32 vertexOffset = 0, U32 firstInstance = 0) = 0;
 
 	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) = 0;
 	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) = 0;
+	// TODO: Make this API accept multiple basrriers
 	virtual void ImageBarrier(const GFX::ImageBarrier& barrier) = 0;
 	virtual void GenerateMipmaps(Image* image) = 0;
 };
@@ -412,6 +401,8 @@ struct ImageDesc {
 	ImageUsage  usage         = ImageUsage_None;
 	ImageState  initialState  = ImageState::Undefined;
 	bool        bindless      = false;
+	bool        ownedBySwapchain = false;
+	VkImage     existingImage = nullptr;
 };
 
 struct SamplerDesc {
@@ -463,8 +454,7 @@ struct GraphicsPipelineDesc {
 
 	RenderPassFormat format = {};
 
-	U32          pushConstantSize   = 0;
-	ShaderStages pushConstantStages = ShaderStage_AllGraphics;
+	U32 pushConstantSize = 0;
 };
 
 struct AttachmentDesc {
@@ -530,6 +520,7 @@ struct GraphicsDeviceInitDesc {
 	U32         frameCount   = 2;
 	bool        enableDebug  = true;
 	bool        vsync        = true;
+	ImageUsage  swapchainImageUsage = ImageUsage_ColorAttachment;
 };
 
 class GraphicsDevice : public Object {
@@ -549,12 +540,6 @@ public:
 	virtual CommandBuffer* GetTransferCommandBuffer() = 0;
 
 	virtual Image* GetCurrentBackbuffer() = 0;
-	virtual Image* GetDepthBuffer() = 0;
-
-	virtual U32 GetDrawableWidth() const = 0;
-	virtual U32 GetDrawableHeight() const = 0;
-	virtual Format GetBackbufferFormat() const = 0;
-	virtual Format GetDepthFormat() const = 0;
 
 	virtual void SetVSync(bool enabled) = 0;
 	virtual void WaitIdle() = 0;

@@ -6,9 +6,10 @@
             "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
-            "cacheVariables": {
+			"cacheVariables": {
 				"CMAKE_C_COMPILER": "clang.exe",
 				"CMAKE_CXX_COMPILER": "clang++.exe",
+				"CMAKE_RC_COMPILER": "llvm-rc.exe",
 				        "CMAKE_EXPORT_COMPILE_COMMANDS": true
             }
         },
