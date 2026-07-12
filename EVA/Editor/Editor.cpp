@@ -16,15 +16,6 @@
 #include <cglm/quat.h>
 #include <algorithm>
 
-struct EdGrid {
-	float3 center;
-	float3 forward;
-	float3 right;
-	float  size;
-};
-
-ECamera* g_editor_camera = {};
-
 static const float ED_GRID_SIZES[] = {
 	0.03125f,
 	0.0625f,
@@ -37,28 +28,11 @@ static const float ED_GRID_SIZES[] = {
 	8.0f,
 };
 
-int g_grid_size_idx = 3;
-bool g_snap = true;
-
-static EdGrid g_grid = {
-	.center        = {},
-	.forward       = { 0, 1, 0 },
-	.right         = { 1, 0, 0 },
-	.size          = ED_GRID_SIZES[g_grid_size_idx],
-};
 
 static ConVar cvar_ed_show_sub = {
 	.name = "ed_show_sub",
 	.help = "show subtract brushes",
 	.fvalue = 0,
-};
-
-struct EdGizmoState
-{
-	U32      id             = 0;
-	float    world_dist     = 0;
-	float    screen_dist    = 0;
-	float3   offset         = {};
 };
 
 static float4 brush_colors[] = {
@@ -94,12 +68,6 @@ static float4 brush_colors[] = {
 	{ 0.910f, 0.450f, 0.542f, 1.0f },
 };
 
-EdGizmoState g_active_gizmo_state = {};
-EdGizmoState g_hover_gizmo_state = {};
-EdGizmoState g_new_hover_gizmo_state = {};
-
-HashStack hash_stack;
-
 
 static Result GetEditor(Editor** out) {
 	EditorGameMode* game_mode = dynamic_cast<EditorGameMode*>(GameMode::GetCurrent());
@@ -112,8 +80,8 @@ EdOp* EdCreateOp() {
 	return op;
 }
 
-bool EdShouldSnap() {
-	return g_snap && !InputGetButton(SDL_SCANCODE_LALT);
+bool EdShouldSnap(Editor* ed) {
+	return ed->m_snap && !InputGetButton(SDL_SCANCODE_LALT);
 }
 
 void EdDeselect(Editor* ed) {
@@ -570,31 +538,31 @@ float3 EdSnapToGrid(EdGrid& grid, float3 p) {
 	return p;
 }
 
-void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1, bool hidden = false, bool force_activate = false) {
-	U32 id = hash_stack.Push(hash);
-	DEFER(hash_stack.Pop());
+void EdArrowGizmo(Editor* ed, Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1, bool hidden = false, bool force_activate = false) {
+	U32 id = ed->m_hashStack.Push(hash);
+	DEFER(ed->m_hashStack.Pop());
 
-	const float scale = Distance(pos, g_editor_camera->position) * 0.1;
+	const float scale = Distance(pos, ed->m_camera->position) * 0.1;
 	const float cone_scale = 0.075f;
 
 	const float3 a = pos;
 	const float3 b = pos + direction * scale * base_scale;
 
-	const float3 a_screen = CameraWorldToScreen(*g_editor_camera, a);
-	const float3 b_screen = CameraWorldToScreen(*g_editor_camera, b);
+	const float3 a_screen = CameraWorldToScreen(*ed->m_camera, a);
+	const float3 b_screen = CameraWorldToScreen(*ed->m_camera, b);
 	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), g_mouse_position);
 
 	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
 
 	const float screen_dist = Distance(nearest_screen, g_mouse_position);
-	const Ray ray_to_nearest = CameraScreenToRay(*g_editor_camera, nearest_screen);
+	const Ray ray_to_nearest = CameraScreenToRay(*ed->m_camera, nearest_screen);
 
-	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < g_new_hover_gizmo_state.screen_dist) {
-		g_new_hover_gizmo_state.id = id;
-		g_new_hover_gizmo_state.screen_dist = screen_dist;
+	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < ed->m_newHoverGizmoState.screen_dist) {
+		ed->m_newHoverGizmoState.id = id;
+		ed->m_newHoverGizmoState.screen_dist = screen_dist;
 	}
 
-	if (g_active_gizmo_state.id == id || g_hover_gizmo_state.id == id) {
+	if (ed->m_activeGizmoState.id == id || ed->m_hoverGizmoState.id == id) {
 		color.x += 0.7;
 		color.y += 0.7;
 		color.z += 0.7;
@@ -612,23 +580,23 @@ void EdArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float 
 	DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t);
 	float3 nearest_world = a + (b - a).Normalized() * t;
 
-	if (force_activate || (g_hover_gizmo_state.id == id && !g_active_gizmo_state.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))) {
-		g_active_gizmo_state.id = id;
-		g_active_gizmo_state.offset = nearest_world - pos;
+	if (force_activate || (ed->m_hoverGizmoState.id == id && !ed->m_activeGizmoState.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))) {
+		ed->m_activeGizmoState.id = id;
+		ed->m_activeGizmoState.offset = nearest_world - pos;
 	}
 
-	if (g_active_gizmo_state.id == id) {
-		pos = nearest_world - g_active_gizmo_state.offset;
-		if (EdShouldSnap()) pos = EdSnapToGrid(g_grid, pos);
+	if (ed->m_activeGizmoState.id == id) {
+		pos = nearest_world - ed->m_activeGizmoState.offset;
+		if (EdShouldSnap(ed)) pos = EdSnapToGrid(ed->m_grid, pos);
 	}
 }
 
-void EdTranslationGizmo(Hash hash, float3& pos) {
-	hash_stack.Push(hash);
-	EdArrowGizmo(1, pos, float3(1, 0, 0), float4(1, 0, 0, 1));
-	EdArrowGizmo(2, pos, float3(0, 1, 0), float4(0, 1, 0, 1));
-	EdArrowGizmo(3, pos, float3(0, 0, 1), float4(0, 0, 1, 1));
-	hash_stack.Pop();
+void EdTranslationGizmo(Editor* ed, Hash hash, float3& pos) {
+	ed->m_hashStack.Push(hash);
+	EdArrowGizmo(ed, 1, pos, float3(1, 0, 0), float4(1, 0, 0, 1));
+	EdArrowGizmo(ed, 2, pos, float3(0, 1, 0), float4(0, 1, 0, 1));
+	EdArrowGizmo(ed, 3, pos, float3(0, 0, 1), float4(0, 0, 1, 1));
+	ed->m_hashStack.Pop();
 }
 
 void EdDrawSelectionOutline(Editor* ed, float4 color) {
@@ -653,14 +621,14 @@ void EdDrawSelectionOutline(Editor* ed, float4 color) {
 	}
 }
 
-bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx) {
+bool EdDoPlaneDragGizmo(Editor* ed, EdOp* op, CSGBrush* brush, int idx) {
 	CSGPlane& plane = brush->planes[idx];
 	if (plane.points.size() == 0) return false;
 
-	hash_stack.Push(brush);
-	hash_stack.Push(EdSelectionType_BrushPlane);
-	DEFER(hash_stack.Pop());
-	DEFER(hash_stack.Pop());
+	ed->m_hashStack.Push(brush);
+	ed->m_hashStack.Push(EdSelectionType_BrushPlane);
+	DEFER(ed->m_hashStack.Pop());
+	DEFER(ed->m_hashStack.Pop());
 
 
 	float3 c1 = (plane.points[0] - plane.points[1]).Normalized();
@@ -680,24 +648,24 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx) {
 	float3 p10 = op->global_transform.TransformPosition(com + c1 - c2);
 	float3 p11 = op->global_transform.TransformPosition(com + c1 + c2);
 
-	hash_stack.Push((int)EdSelectionType_BrushPlane);
-	hash_stack.Push(op);
-	U32 id = hash_stack.Push(idx);
-	DEFER(hash_stack.Pop());
-	DEFER(hash_stack.Pop());
-	DEFER(hash_stack.Pop());
+	ed->m_hashStack.Push((int)EdSelectionType_BrushPlane);
+	ed->m_hashStack.Push(op);
+	U32 id = ed->m_hashStack.Push(idx);
+	DEFER(ed->m_hashStack.Pop());
+	DEFER(ed->m_hashStack.Pop());
+	DEFER(ed->m_hashStack.Pop());
 
-	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 
-	float screen_dist = Distance(CameraWorldToScreen(*g_editor_camera, comx).xy(), g_mouse_position);
+	float screen_dist = Distance(CameraWorldToScreen(*ed->m_camera, comx).xy(), g_mouse_position);
 	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f) {
-		if (screen_dist < g_new_hover_gizmo_state.screen_dist) {
-			g_new_hover_gizmo_state.id = id;
-			g_new_hover_gizmo_state.screen_dist = screen_dist;
+		if (screen_dist < ed->m_newHoverGizmoState.screen_dist) {
+			ed->m_newHoverGizmoState.id = id;
+			ed->m_newHoverGizmoState.screen_dist = screen_dist;
 		}
 	}
 
-	float4 color = g_hover_gizmo_state.id == id ? float4(1,0,1,1) : float4(1,1,1,.5);
+	float4 color = ed->m_hoverGizmoState.id == id ? float4(1,0,1,1) : float4(1,1,1,.5);
 
 	DrawSetLayer(Layer_Overlay);
 	DrawLine(p00, p10, color);
@@ -705,10 +673,10 @@ bool EdDoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx) {
 	DrawLine(p10, p11, color);
 	DrawLine(p01, p11, color);
 
-	bool activate = !g_active_gizmo_state.id && g_hover_gizmo_state.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
+	bool activate = !ed->m_activeGizmoState.id && ed->m_hoverGizmoState.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
 
 	float3 new_comx = comx;
-	EdArrowGizmo(idx, new_comx, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
+	EdArrowGizmo(ed, idx, new_comx, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
 	float3 d = new_comx - comx;
 
 	float add = Dot(d, plane.plane.normal);
@@ -741,7 +709,7 @@ void EdDrawGrid(EdGrid& grid, float4 color) {
 
 void SelectTool::Tick(double dt) {
 	Editor* ed = m_editor;
-	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 	bool dirty = false;
 
 	std::vector<EdOp*> selected_ops = {};
@@ -749,18 +717,18 @@ void SelectTool::Tick(double dt) {
 		if (sel.type == EdSelectionType_Node) {
 			if (sel.op->type == EdOpType_Brush) {
 				for (int i = 0; i < sel.op->brush->planes.size(); i++) {
-					if (EdDoPlaneDragGizmo(sel.op, sel.op->brush, i)) dirty = true;
+					if (EdDoPlaneDragGizmo(ed, sel.op, sel.op->brush, i)) dirty = true;
 				}
 			}
 			selected_ops.push_back(sel.op);
 		}
 		if (sel.type == EdSelectionType_BrushPlane && !EdIsSelected(ed, sel.op)) {
-			if (EdDoPlaneDragGizmo(sel.op, sel.op->brush, sel.index)) dirty = true;
+			if (EdDoPlaneDragGizmo(ed, sel.op, sel.op->brush, sel.index)) dirty = true;
 		}
 	}
 
 	if (selected_ops.size()) {
-		if (!g_active_gizmo_state.id) {
+		if (!ed->m_activeGizmoState.id) {
 			m_gizmoCenter = {};
 			for (EdOp* op : selected_ops)
 			{
@@ -769,11 +737,11 @@ void SelectTool::Tick(double dt) {
 			m_gizmoCenter /= selected_ops.size();
 		}
 
-		hash_stack.Push(&m_gizmoCenter);
-		DEFER(hash_stack.Pop());
+		ed->m_hashStack.Push(&m_gizmoCenter);
+		DEFER(ed->m_hashStack.Pop());
 
 		float3 old_center = m_gizmoCenter;
-		EdTranslationGizmo(&m_gizmoCenter, m_gizmoCenter);
+		EdTranslationGizmo(ed, &m_gizmoCenter, m_gizmoCenter);
 		float3 d = m_gizmoCenter - old_center;
 
 		if (abs(d.Length()) > 0.0001f)
@@ -783,7 +751,7 @@ void SelectTool::Tick(double dt) {
 		}
 	}
 	
-	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT) && !g_active_gizmo_state.id) {
+	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT) && !ed->m_activeGizmoState.id) {
 		float min_t = FLT_MAX;
 		EdOp* hit_op = nullptr;
 		CSGBrush* hit_brush = nullptr;
@@ -814,14 +782,14 @@ void BrushTool::Tick(double dt)
 {
 	Editor* ed = m_editor;
 
-	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 
 	float min_t = FLT_MAX;
 	bool hit = EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr);
 	float3 p = {};
 	if (hit) {
 		p = mouse_ray.Evaluate(min_t);
-		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
+		if (EdShouldSnap(ed)) p = EdSnapToGrid(ed->m_grid, p);
 	}
 
 	if (InputGetButton(SDL_SCANCODE_ESCAPE)) {
@@ -884,7 +852,7 @@ void BrushTool::Tick(double dt)
 			DistanceToLineSegment(mouse_ray, m_refA, m_refB, &t1, &t2);
 
 			m_end = m_axisStart + t2 * dir;
-			if (EdShouldSnap()) m_end = EdSnapToGrid(g_grid, m_end);
+			if (EdShouldSnap(ed)) m_end = EdSnapToGrid(ed->m_grid, m_end);
 			if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
 				m_justEnteredPhase = false;
 				m_phase = (Phase)(m_phase + 1);
@@ -922,7 +890,7 @@ void BrushTool::Tick(double dt)
 
 void EntityTool::Tick(double dt) {
 	Editor* ed = m_editor;
-	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 
 	Entity* hit_entity = nullptr;
 	if (EdRaycastAgainstEntities(ed, mouse_ray, nullptr, &hit_entity)) {
@@ -936,7 +904,7 @@ void EntityTool::Tick(double dt) {
 	if (EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr)) {
 		float3 p = {};
 		p = mouse_ray.Evaluate(min_t);
-		if (EdShouldSnap()) p = EdSnapToGrid(g_grid, p);
+		if (EdShouldSnap(ed)) p = EdSnapToGrid(ed->m_grid, p);
 		DrawPoint(p, {0,1,0,1});
 
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
@@ -970,8 +938,14 @@ void Editor::SetTool(Tool* tool) {
 }
 
 Editor::Editor(Game* game, EntityManager* entity_manager)
-	: m_game(game), m_entityManager(entity_manager), m_camera(g_editor_camera) {
-	m_game->m_activeCamera = g_editor_camera;
+	: m_game(game), m_entityManager(entity_manager) {
+	m_camera = new ECamera();
+	m_camera->eid = EID_DefaultCamera;
+	CameraInit(*m_camera);
+	m_camera->position.y = -10;
+	m_camera->position.z = 3;
+	m_game->m_activeCamera = m_camera;
+	m_grid.size = ED_GRID_SIZES[m_gridSizeIdx];
 	m_root = EdCreateOp();
 	m_root->type = EdOpType_Stack;
 	m_root->global_transform = float4x4::Identity();
@@ -999,20 +973,21 @@ Editor::~Editor() {
 		tool->~Tool();
 		Allocator::HeapAllocator.Free(tool);
 	}
+	delete m_camera;
 }
 
 void Editor::Tick(double dt) {
 	Editor* ed = this;
-	CameraFly(*g_editor_camera);
-	CameraUpdateMatrices(*g_editor_camera);
+	CameraFly(*m_camera);
+	CameraUpdateMatrices(*m_camera);
 
 	DrawSetLayer(Layer_Main);
-	// EdDrawGrid(g_grid, float4{1,1,1,0.3});
+	// EdDrawGrid(m_grid, float4{1,1,1,0.3});
 
-	hash_stack.Reset();
-	g_new_hover_gizmo_state = {};
-	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
-	g_new_hover_gizmo_state.world_dist = FLT_MAX;
+	m_hashStack.Reset();
+	m_newHoverGizmoState = {};
+	m_newHoverGizmoState.screen_dist = FLT_MAX;
+	m_newHoverGizmoState.world_dist = FLT_MAX;
 
 	if (m_tool) m_tool->Tick(dt);
 
@@ -1056,11 +1031,11 @@ void Editor::Tick(double dt) {
 		};
 
 		char buf[32];
-		snprintf(buf, 32, "Snap: %.3f", g_grid.size);
-		if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap()) ? UIButtonFlags_Toggle : 0))) g_snap = !g_snap;
+		snprintf(buf, 32, "Snap: %.3f", m_grid.size);
+		if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap(this)) ? UIButtonFlags_Toggle : 0))) m_snap = !m_snap;
 
-		if (UIButton("-", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
-		if (UIButton("+", UIButtonFlags_Small | (g_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
+		if (UIButton("-", UIButtonFlags_Small | (m_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
+		if (UIButton("+", UIButtonFlags_Small | (m_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
 
 		spacer();
 
@@ -1131,9 +1106,9 @@ void Editor::Tick(double dt) {
 		DrawMesh(b->mesh, Library::mat_brush, float4x4::Identity(), COLOR_WHITE);
 	}
 
-	g_hover_gizmo_state = g_new_hover_gizmo_state;
+	m_hoverGizmoState = m_newHoverGizmoState;
 	if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT))
-		g_active_gizmo_state = {};
+		m_activeGizmoState = {};
 }
 
 void EdIndent(FILE* f, int indent) {
@@ -1488,12 +1463,12 @@ void EdInitialize() {
 	ConRegisterCommand("ed_grid_size_inc", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		g_grid_size_idx += parser.IntArg(1);
-		if (g_grid_size_idx < 0) g_grid_size_idx = 0;
-		if (g_grid_size_idx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) g_grid_size_idx = EVA_ARRAYSIZE(ED_GRID_SIZES) - 1;
-		g_grid.size = ED_GRID_SIZES[g_grid_size_idx];
-		Library::mat_brush->texture_scale = 1.0f / g_grid.size / 4.0f;
-		ScreenLog("Grid Size: %g", g_grid.size);
+		ed->m_gridSizeIdx += parser.IntArg(1);
+		if (ed->m_gridSizeIdx < 0) ed->m_gridSizeIdx = 0;
+		if (ed->m_gridSizeIdx >= EVA_ARRAYSIZE(ED_GRID_SIZES)) ed->m_gridSizeIdx = EVA_ARRAYSIZE(ED_GRID_SIZES) - 1;
+		ed->m_grid.size = ED_GRID_SIZES[ed->m_gridSizeIdx];
+		Library::mat_brush->texture_scale = 1.0f / ed->m_grid.size / 4.0f;
+		ScreenLog("Grid Size: %g", ed->m_grid.size);
 		EdBuild(ed, ed->m_root);
 		return Success();
 	}, "editor: increase/decrease grid size");
@@ -1533,10 +1508,4 @@ void EdInitialize() {
 		return Success();
 	}, "editor: set tool");
 
-
-	g_editor_camera = new ECamera();
-	g_editor_camera->eid = EID_DefaultCamera;
-	CameraInit(*g_editor_camera);
-	g_editor_camera->position.y = -10;
-	g_editor_camera->position.z = 3;
 }

@@ -10,7 +10,6 @@ class GameMode : Object {
 public:
 	Game*          m_game          = nullptr;
 	EntityManager* m_entityManager = nullptr;
-	ECamera*       m_mainCamera    = nullptr;
 
 	ECLASS_COMMON();
 

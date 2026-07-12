@@ -4,6 +4,7 @@
 class BasePlayableGameMode : GameMode {
 
 	char map_name[32] = {};
+	ECamera* m_camera = nullptr;
 
 public:
 	ECLASS_COMMON();

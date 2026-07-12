@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Core/Object.hpp>
+#include <EVA/Core/Hashing.hpp>
 #include <EVA/Math.hpp>
 #include <EVA/Entities/Entity.hpp> // TODO: EntityType
 #include <vector>
@@ -10,6 +11,20 @@ class EntityManager;
 class Game;
 struct CSGBrush;
 struct ECamera;
+
+struct EdGrid {
+	float3 center = {};
+	float3 forward = { 0, 1, 0 };
+	float3 right = { 1, 0, 0 };
+	float size = 0.25f;
+};
+
+struct EdGizmoState {
+	U32 id = 0;
+	float world_dist = 0;
+	float screen_dist = 0;
+	float3 offset = {};
+};
 
 enum EdOpType {
 	EdOpType_None   = 0,
@@ -120,6 +135,13 @@ public:
 	Game*                    m_game              = nullptr;
 	EntityManager*           m_entityManager     = nullptr;
 	ECamera*                 m_camera            = nullptr;
+	int                      m_gridSizeIdx       = 3;
+	bool                     m_snap              = true;
+	HashStack                m_hashStack         = {};
+	EdGrid                   m_grid              = {};
+	EdGizmoState             m_activeGizmoState  = {};
+	EdGizmoState             m_hoverGizmoState   = {};
+	EdGizmoState             m_newHoverGizmoState = {};
 	EID                      m_nextEID           = EID_MapStart;
 	EdOp*                    m_root              = nullptr;
 	std::vector<EdSelection> m_selection         = {};

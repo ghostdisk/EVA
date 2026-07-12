@@ -7,16 +7,15 @@
 #include <stdio.h>
 #include <vector>
 
-
 void BasePlayableGameMode::OnBegin() {
-	m_mainCamera = new ECamera();
+	m_camera = new ECamera();
 
-	CameraInit(*m_mainCamera);
-	m_mainCamera->position.y = -10;
-	m_mainCamera->position.z = 3;
+	CameraInit(*m_camera);
+	m_camera->position.y = -10;
+	m_camera->position.z = 3;
 
-	m_entityManager->RegisterEntity(m_mainCamera, EID_DefaultCamera);
-	m_game->m_activeCamera = m_mainCamera;
+	m_entityManager->RegisterEntity(m_camera, EID_DefaultCamera);
+	m_game->m_activeCamera = m_camera;
 }
 
 void BasePlayableGameMode::OnEnd() {
@@ -24,9 +23,9 @@ void BasePlayableGameMode::OnEnd() {
 
 void BasePlayableGameMode::OnTick(double dt) {
 	if (g_active_game == m_game) {
-		CameraFly(*m_mainCamera);
+		CameraFly(*m_camera);
 	}
-	CameraUpdateMatrices(*m_mainCamera);
+	CameraUpdateMatrices(*m_camera);
 }
 
 Result BasePlayableGameMode::LoadMap(String name) {
