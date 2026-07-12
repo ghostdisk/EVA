@@ -1,10 +1,10 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Mesh.hpp>
-#include <EVA/Editor.hpp>
+#include <EVA/Editor/Editor.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/App.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Editor.hpp>
+#include <EVA/GameModes/EditorGameMode.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Renderer/Renderer.hpp>
@@ -146,7 +146,8 @@ HashStack hash_stack;
 
 
 static Result GetEditor(Editor** out) {
-	*out = dynamic_cast<Editor*>(GameMode::GetCurrent());
+	EditorGameMode* game_mode = dynamic_cast<EditorGameMode*>(GameMode::GetCurrent());
+	*out = game_mode ? game_mode->editor : nullptr;
 	return *out ? Success() : Err("no active editor");
 }
 
@@ -997,15 +998,12 @@ void EdSetTool(EdTool tool) {
 	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
 }
 
-void Editor::OnBegin() {
-	m_mainCamera = g_editor_camera;
+Editor::Editor(Game* game, EntityManager* entity_manager)
+	: m_game(game), m_entityManager(entity_manager), m_camera(g_editor_camera) {
 	m_game->m_activeCamera = g_editor_camera;
 }
 
-void Editor::OnEnd() {
-}
-
-void Editor::OnTick(double dt) {
+void Editor::Tick(double dt) {
 	CameraFly(*g_editor_camera);
 	CameraUpdateMatrices(*g_editor_camera);
 
@@ -1518,7 +1516,7 @@ void EdInitialize() {
 
 	ConRegisterCommand("ed", [](ConParser& parser) {
 		if (g_active_game) {
-			g_active_game->SetGameMode(Editor::StaticClass());
+			g_active_game->SetGameMode(EditorGameMode::StaticClass());
 			return Success();
 		} else {
 			return Err("no active game");

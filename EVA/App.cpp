@@ -14,7 +14,7 @@
 #include <EVA/GameClient.hpp>
 #include <EVA/GameServer.hpp>
 #include <EVA/Library.hpp>
-#include <EVA/Editor.hpp>
+#include <EVA/Editor/Editor.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>

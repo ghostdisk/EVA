@@ -16,13 +16,13 @@
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Texture.hpp>
-#include <EVA/GameModes/GameMode.hpp>
 #include <EVA/Entities/Entity.hpp>
-#include <EVA/Editor.hpp>
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/ECharacter.hpp>
 #include <EVA/Entities/EMarker.hpp>
+#include <EVA/GameModes/GameMode.hpp>
 #include <EVA/GameModes/BasePlayableGameMode.hpp>
+#include <EVA/GameModes/EditorGameMode.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -38,13 +38,13 @@ extern Type g_type_TextureInterpolation;
 extern Type g_type_TextureWrapMode;
 extern Type g_type_TextureProps;
 extern Type g_type_Texture;
-extern Type g_type_GameMode;
 extern Type g_type_Entity;
-extern Type g_type_Editor;
 extern Type g_type_ECamera;
 extern Type g_type_ECharacter;
 extern Type g_type_EMarker;
+extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
+extern Type g_type_EditorGameMode;
 
 
 Type g_type_Object = {
@@ -52,8 +52,8 @@ Type g_type_Object = {
 	.parent_type = nullptr,
 	.subclasses = {
 		&g_type_Asset,
-		&g_type_GameMode,
 		&g_type_Entity,
+		&g_type_GameMode,
 	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Object), alignof(Object));
@@ -174,19 +174,6 @@ Type g_type_Texture = {
 		return ptr;
 	},
 };
-Type g_type_GameMode = {
-	.name = "GameMode",
-	.parent_type = &g_type_Object,
-	.subclasses = {
-		&g_type_Editor,
-		&g_type_BasePlayableGameMode,
-	},
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(GameMode), alignof(GameMode));
-		new (ptr) GameMode();
-		return ptr;
-	},
-};
 Type g_type_Entity = {
 	.name = "Entity",
 	.parent_type = &g_type_Object,
@@ -198,15 +185,6 @@ Type g_type_Entity = {
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Entity), alignof(Entity));
 		new (ptr) Entity();
-		return ptr;
-	},
-};
-Type g_type_Editor = {
-	.name = "Editor",
-	.parent_type = &g_type_GameMode,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Editor), alignof(Editor));
-		new (ptr) Editor();
 		return ptr;
 	},
 };
@@ -237,12 +215,34 @@ Type g_type_EMarker = {
 		return ptr;
 	},
 };
+Type g_type_GameMode = {
+	.name = "GameMode",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_BasePlayableGameMode,
+		&g_type_EditorGameMode,
+	},
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GameMode), alignof(GameMode));
+		new (ptr) GameMode();
+		return ptr;
+	},
+};
 Type g_type_BasePlayableGameMode = {
 	.name = "BasePlayableGameMode",
 	.parent_type = &g_type_GameMode,
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(BasePlayableGameMode), alignof(BasePlayableGameMode));
 		new (ptr) BasePlayableGameMode();
+		return ptr;
+	},
+};
+Type g_type_EditorGameMode = {
+	.name = "EditorGameMode",
+	.parent_type = &g_type_GameMode,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(EditorGameMode), alignof(EditorGameMode));
+		new (ptr) EditorGameMode();
 		return ptr;
 	},
 };
@@ -269,20 +269,20 @@ Type* Sprite::StaticClass() { return &g_type_Sprite; }
 Type* Sprite::GetClass() { return &g_type_Sprite; }
 Type* Texture::StaticClass() { return &g_type_Texture; }
 Type* Texture::GetClass() { return &g_type_Texture; }
-Type* GameMode::StaticClass() { return &g_type_GameMode; }
-Type* GameMode::GetClass() { return &g_type_GameMode; }
 Type* Entity::StaticClass() { return &g_type_Entity; }
 Type* Entity::GetClass() { return &g_type_Entity; }
-Type* Editor::StaticClass() { return &g_type_Editor; }
-Type* Editor::GetClass() { return &g_type_Editor; }
 Type* ECamera::StaticClass() { return &g_type_ECamera; }
 Type* ECamera::GetClass() { return &g_type_ECamera; }
 Type* ECharacter::StaticClass() { return &g_type_ECharacter; }
 Type* ECharacter::GetClass() { return &g_type_ECharacter; }
 Type* EMarker::StaticClass() { return &g_type_EMarker; }
 Type* EMarker::GetClass() { return &g_type_EMarker; }
+Type* GameMode::StaticClass() { return &g_type_GameMode; }
+Type* GameMode::GetClass() { return &g_type_GameMode; }
 Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode; }
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
+Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
+Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
 
 Type* Type::Find(String name) {
 	static Type* g_allTypes[] = {
@@ -300,13 +300,13 @@ Type* Type::Find(String name) {
 		&g_type_TextureWrapMode,
 		&g_type_TextureProps,
 		&g_type_Texture,
-		&g_type_GameMode,
 		&g_type_Entity,
-		&g_type_Editor,
 		&g_type_ECamera,
 		&g_type_ECharacter,
 		&g_type_EMarker,
+		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
+		&g_type_EditorGameMode,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;

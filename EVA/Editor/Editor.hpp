@@ -1,11 +1,12 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
-#include <EVA/GameModes/GameMode.hpp>
 #include <EVA/Math.hpp>
 #include <EVA/Entities/Entity.hpp> // TODO: EntityType
 #include <vector>
 
 class Entity;
+class EntityManager;
+class Game;
 struct CSGBrush;
 struct ECamera;
 
@@ -29,19 +30,16 @@ struct EdOp {
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
-class Editor : public GameMode {
-
-
+class Editor {
 public:
-	ECLASS_COMMON();
+	Editor(Game* game, EntityManager* entity_manager);
 
-	ECamera* m_camera;
-	void EdTick();
+	Game*          m_game          = nullptr;
+	EntityManager* m_entityManager = nullptr;
+	ECamera*       m_camera        = nullptr;
 
-	virtual void OnBegin() override;
-	virtual void OnEnd() override;
-	virtual void OnTick(double dt) override;
-	virtual Result LoadMap(String name) override;
+	void Tick(double dt);
+	Result LoadMap(String name);
 };
 
 
