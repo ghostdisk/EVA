@@ -81,7 +81,7 @@ inline void operator/=(float3& vec, float s) { vec.x /= s; vec.y /= s; vec.z /= 
 
 inline float3 operator-(const float3& vec) { return float3(-vec.x, -vec.y, -vec.z); }
 
-struct float4 {
+struct __declspec(align(16)) float4 {
 	float x = 0.0f;
 	float y = 0.0f;
 	float z = 0.0f;

@@ -981,6 +981,9 @@ Editor::Editor(Game* game, EntityManager* entity_manager)
 		tool->m_editor = this;
 		m_tools.push_back(tool);
 	}
+	std::sort(m_tools.begin(), m_tools.end(), [](Tool* a, Tool* b) {
+		return a->GetOrder() < b->GetOrder();
+	});
 
 	for (Tool* tool : m_tools) {
 		if (tool->GetClass() == SelectTool::StaticClass()) {
@@ -1064,7 +1067,7 @@ void Editor::Tick(double dt) {
 		for (Tool* tool : m_tools) {
 			UIButtonFlags flags = UIButtonFlags_Small;
 			if (tool == m_tool) flags |= UIButtonFlags_Toggle;
-			if (UIButton(tool->Name().c_str(), flags)) SetTool(tool);
+			if (UIButton(tool->GetShortName().c_str(), flags)) SetTool(tool);
 		}
 
 		spacer();
