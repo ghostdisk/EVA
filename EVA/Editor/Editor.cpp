@@ -80,73 +80,76 @@ EdOp* EdCreateOp() {
 	return op;
 }
 
-bool EdShouldSnap(Editor* ed) {
-	return ed->m_snap && !InputGetButton(SDL_SCANCODE_LALT);
+bool Editor::ShouldSnap() const {
+	return m_snap && !InputGetButton(SDL_SCANCODE_LALT);
 }
 
-void EdDeselect(Editor* ed) {
-	ed->m_selection.clear();
+void Editor::Deselect() {
+	m_selection.clear();
 }
 
-void EdSelectPlane(Editor* ed, EdOp* op, int plane, bool additive = false) {
+void Editor::SelectPlane(EdOp* op, int plane, bool additive) {
 	assert(op);
-	if (!additive) EdDeselect(ed);
-	if (ed->m_selection.size() && ed->m_selection[0].type != EdSelectionType_BrushPlane) return;
+	if (!additive) Deselect();
+	if (m_selection.size() && m_selection[0].type != EdSelectionType_BrushPlane) return;
 
-	ed->m_selection.push_back(EdSelection{
+	m_selection.push_back(EdSelection{
 		.type = EdSelectionType_BrushPlane,
 		.op = op,
 		.index = plane,
 	});
 }
 
-void EdSelectOp(Editor* ed, EdOp* op, bool additive = false) {
-	if (!additive) EdDeselect(ed);
-	if (!op || op == ed->m_root) return;
+void Editor::SelectOp(EdOp* op, bool additive) {
+	if (!additive) Deselect();
+	if (!op || op == m_root) return;
 
-	for (const EdSelection& sel : ed->m_selection)
+	for (const EdSelection& sel : m_selection)
 	{
-		if (sel.type != EdSelectionType_Node) { EdDeselect(ed);  break; }
-		if (sel.op->parent != op->parent) { EdDeselect(ed);  break; }
+		if (sel.type != EdSelectionType_Node) { Deselect();  break; }
+		if (sel.op->parent != op->parent) { Deselect();  break; }
 	}
 
-	ed->m_selection.push_back(EdSelection{
+	m_selection.push_back(EdSelection{
 		.type = EdSelectionType_Node,
 		.op = op,
 	});
 }
 
-void EdSelectEntity(Editor* ed, Entity* entity, bool additive = false) {
-	if (!additive) EdDeselect(ed);
+void Editor::SelectEntity(Entity* entity, bool additive) {
+	if (!additive) Deselect();
 
-	for (const EdSelection& sel : ed->m_selection) {
-		if (sel.type != EdSelectionType_Entity) { EdDeselect(ed);  break; }
+	for (const EdSelection& sel : m_selection) {
+		if (sel.type != EdSelectionType_Entity) {
+			Deselect();
+			break;
+		}
 	}
 
-	ed->m_selection.push_back(EdSelection{
+	m_selection.push_back(EdSelection{
 		.type = EdSelectionType_Entity,
 		.entity = entity,
 	});
 }
 
-bool EdIsSelected(Editor* ed, EdOp* op) {
-	for (const EdSelection& sel : ed->m_selection)
+bool Editor::IsSelected(EdOp* op) const {
+	for (const EdSelection& sel : m_selection)
 		if (sel.type == EdSelectionType_Node && sel.op == op)
 			return true;
 	return false;
 }
 
-bool EdIsSelected(Editor* ed, Entity* entity) {
-	for (const EdSelection& sel : ed->m_selection)
+bool Editor::IsSelected(Entity* entity) const {
+	for (const EdSelection& sel : m_selection)
 		if (sel.type == EdSelectionType_Entity && sel.entity == entity)
 			return true;
 	return false;
 }
 
-std::vector<EdOp*> EdGetSelectedOps(Editor* ed) {
-	if (ed->m_selection.size() == 0 || ed->m_selection[0].type != EdSelectionType_Node) return {};
+std::vector<EdOp*> Editor::GetSelectedOps() const {
+	if (m_selection.size() == 0 || m_selection[0].type != EdSelectionType_Node) return {};
 	std::vector<EdOp*> selection;
-	for (const EdSelection& sel : ed->m_selection) {
+	for (const EdSelection& sel : m_selection) {
 		assert(sel.type == EdSelectionType_Node);
 		assert(!selection.size() || selection[0]->parent == sel.op->parent);
 		selection.push_back(sel.op);
@@ -166,15 +169,15 @@ void EdRemoveOpFromTree(EdOp* op) {
 	}
 }
 
-Entity* EdCreateEntity(Editor* ed, Type* type, float3 pos) {
+Entity* Editor::CreateEntity(Type* type, float3 pos) {
 	Entity* entity = (Entity*)type->Instantiate(Allocator::HeapAllocator);
 	entity->position = pos;
-	ed->m_entityManager->RegisterEntity(entity, ed->m_nextEID++);
+	m_entityManager->RegisterEntity(entity, m_nextEID++);
 	return entity;
 }
 
-void EdDestroyEntity(Editor* ed, Entity* entity) {
-	ed->m_entityManager->DestroyEntity(entity);
+void Editor::DestroyEntity(Entity* entity) {
+	m_entityManager->DestroyEntity(entity);
 }
 
 void EdDestroyOp(EdOp* op) {
@@ -190,13 +193,13 @@ void EdDestroyOp(EdOp* op) {
 	delete op;
 }
 
-void EdDestroySelection(Editor* ed) {
+void Editor::DestroySelection() {
 	bool changed_geometry = false;
 
-	for (EdSelection& sel : ed->m_selection) {
+	for (EdSelection& sel : m_selection) {
 		switch (sel.type) {
 			case EdSelectionType_Entity: {
-				EdDestroyEntity(ed, sel.entity);
+				DestroyEntity(sel.entity);
 				break;
 			}
 			case EdSelectionType_Node: {
@@ -208,7 +211,7 @@ void EdDestroySelection(Editor* ed) {
 		}
 	}
 
-	EdDeselect(ed);
+	Deselect();
 }
 
 void EdDrawBrushPlaneOutline(CSGBrush* b, int i, const float4x4& transform, const float4& color) {
@@ -257,8 +260,8 @@ int EdGetSiblingIndex(EdOp* op) {
 	return -1;
 }
 
-void EdOrderMove(Editor* ed, int offset) {
-	std::vector<EdOp*> selection = EdGetSelectedOps(ed);
+void Editor::OrderMove(int offset) {
+	std::vector<EdOp*> selection = GetSelectedOps();
 	if (selection.size() == 0) return;
 
 	EdOp* parent = selection[0]->parent;
@@ -327,7 +330,7 @@ void EdUngroup(EdOp* group) {
 	EdDestroyOp(group);
 }
 
-void EdBuild(Editor* ed, EdOp* op) {
+void Editor::Build(EdOp* op) {
 	for (CSGBrush* brush : op->built) CSGDestroyBrush(brush);
 	op->built.clear();
 
@@ -346,7 +349,7 @@ void EdBuild(Editor* ed, EdOp* op) {
 				// glm_scale(m, (vec3){ sx, sy, sz });
 
 				child->global_transform = child_transform * op->global_transform;
-				EdBuild(ed, child);
+				Build(child);
 				for (CSGBrush* b : child->built) {
 					std::vector<CSGBrush*> new_set;
 					for (CSGBrush* a : op->built) {
@@ -366,7 +369,7 @@ void EdBuild(Editor* ed, EdOp* op) {
 		default: assert(0); break;
 	}
 
-	if (op == ed->m_root) {
+	if (op == m_root) {
 		for (CSGBrush* b : op->built) CSGBuildBrushMesh(b);
 	}
 }
@@ -435,8 +438,8 @@ Res2 EdRaycastAgainstSubtractOpsImpl(const Ray& ray, EdOp* current) {
 	return {};
 }
 
-bool EdRaycastAgainstSubtractOps(Editor* ed, const Ray& ray, float* out_t, EdOp** out_hit) {
-	auto res = EdRaycastAgainstSubtractOpsImpl(ray, ed->m_root);
+bool Editor::RaycastAgainstSubtractOps(const Ray& ray, float* out_t, EdOp** out_hit) {
+	auto res = EdRaycastAgainstSubtractOpsImpl(ray, m_root);
 	if (res.op) {
 		*out_hit = res.op;
 		*out_t = res.t;
@@ -445,10 +448,10 @@ bool EdRaycastAgainstSubtractOps(Editor* ed, const Ray& ray, float* out_t, EdOp*
 	else return false;
 }
 
-bool EdRaycastAgainstBuiltBrushes(Editor* ed, const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit) {
+bool Editor::RaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit) {
 	float min_t = FLT_MAX;
 	CSGBrush* hit = nullptr;
-	for (CSGBrush* brush : ed->m_root->built) {
+	for (CSGBrush* brush : m_root->built) {
 		int plane_hit;
 		float t = Intersect(ray, brush, float4x4::Identity(), &plane_hit);
 		if (t < min_t && t >= 0) {
@@ -478,10 +481,10 @@ AABB EdGetEntityAABB(Entity* entity) {
 	return aabb;
 }
 
-bool EdRaycastAgainstEntities(Editor* ed, const Ray& ray, float* out_t, Entity** out_hit) {
+bool Editor::RaycastAgainstEntities(const Ray& ray, float* out_t, Entity** out_hit) {
 	float min_t = FLT_MAX;
 	Entity* hit = nullptr;
-	ed->m_entityManager->Iterate([&](Entity* entity) {
+	m_entityManager->Iterate([&](Entity* entity) {
 		float t = Intersect(ray, EdGetEntityAABB(entity));
 		if (t >= 0 && t < min_t)
 		{
@@ -501,12 +504,12 @@ bool EdRaycastAgainstEntities(Editor* ed, const Ray& ray, float* out_t, Entity**
 	}
 }
 
-void EdOpGUI(Editor* ed, EdOp* op) {
+void Editor::DrawOpGUI(EdOp* op) {
 	UIPushId(op);
 	DEFER(UIPopId());
 
 	UITreeNodeFlags flags = 0;
-	if (EdIsSelected(ed, op)) flags |= UITreeNodeFlags_Selected;
+	if (IsSelected(op)) flags |= UITreeNodeFlags_Selected;
 	if (op->type == EdOpType_Brush) flags |= UITreeNodeFlags_Leaf;
 	flags |= UITreeNodeFlags_DefaultOpen;
 
@@ -517,7 +520,7 @@ void EdOpGUI(Editor* ed, EdOp* op) {
 		switch (op->type) {
 			case EdOpType_Stack: {
 				for (EdOp* child : op->children) {
-					EdOpGUI(ed, child);
+					DrawOpGUI(child);
 				}
 				break;
 			}
@@ -526,43 +529,43 @@ void EdOpGUI(Editor* ed, EdOp* op) {
 		UIEndTreeNode();
 	}
 	if (tree_node->Clicked()) {
-		EdSelectOp(ed, op, InputGetButton(SDL_SCANCODE_LCTRL));
+		SelectOp(op, InputGetButton(SDL_SCANCODE_LCTRL));
 	}
 }
 
-float3 EdSnapToGrid(EdGrid& grid, float3 p) {
+float3 Editor::SnapToGrid(float3 p) const {
 	// TODO: make a 3x3 matrix for the grid, do a basis change, figure out which axis we're snapping on, blablabla
-	p.x = round(p.x / grid.size) * grid.size;
-	p.y = round(p.y / grid.size) * grid.size;
-	p.z = round(p.z / grid.size) * grid.size;
+	p.x = round(p.x / m_grid.size) * m_grid.size;
+	p.y = round(p.y / m_grid.size) * m_grid.size;
+	p.z = round(p.z / m_grid.size) * m_grid.size;
 	return p;
 }
 
-void EdArrowGizmo(Editor* ed, Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1, bool hidden = false, bool force_activate = false) {
-	U32 id = ed->m_hashStack.Push(hash);
-	DEFER(ed->m_hashStack.Pop());
+void Editor::ArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale, bool hidden, bool force_activate) {
+	U32 id = m_hashStack.Push(hash);
+	DEFER(m_hashStack.Pop());
 
-	const float scale = Distance(pos, ed->m_camera->position) * 0.1;
+	const float scale = Distance(pos, m_camera->position) * 0.1;
 	const float cone_scale = 0.075f;
 
 	const float3 a = pos;
 	const float3 b = pos + direction * scale * base_scale;
 
-	const float3 a_screen = CameraWorldToScreen(*ed->m_camera, a);
-	const float3 b_screen = CameraWorldToScreen(*ed->m_camera, b);
+	const float3 a_screen = CameraWorldToScreen(*m_camera, a);
+	const float3 b_screen = CameraWorldToScreen(*m_camera, b);
 	const float2 nearest_screen = NearestPointToLineSegment(a_screen.xy(), b_screen.xy(), g_mouse_position);
 
 	const float nearest_screen_t = Unlerp(a_screen.xy(), nearest_screen, b_screen.xy());
 
 	const float screen_dist = Distance(nearest_screen, g_mouse_position);
-	const Ray ray_to_nearest = CameraScreenToRay(*ed->m_camera, nearest_screen);
+	const Ray ray_to_nearest = CameraScreenToRay(*m_camera, nearest_screen);
 
-	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < ed->m_newHoverGizmoState.screen_dist) {
-		ed->m_newHoverGizmoState.id = id;
-		ed->m_newHoverGizmoState.screen_dist = screen_dist;
+	if (!hidden && screen_dist < 20 && nearest_screen_t >= 0.0f && nearest_screen_t <= (1.0f + 0.2 / base_scale) && screen_dist < m_newHoverGizmoState.screen_dist) {
+		m_newHoverGizmoState.id = id;
+		m_newHoverGizmoState.screen_dist = screen_dist;
 	}
 
-	if (ed->m_activeGizmoState.id == id || ed->m_hoverGizmoState.id == id) {
+	if (m_activeGizmoState.id == id || m_hoverGizmoState.id == id) {
 		color.x += 0.7;
 		color.y += 0.7;
 		color.z += 0.7;
@@ -580,27 +583,27 @@ void EdArrowGizmo(Editor* ed, Hash hash, float3& pos, float3 direction, float4 c
 	DistanceToLineSegment(ray_to_nearest, a, b, nullptr, &t);
 	float3 nearest_world = a + (b - a).Normalized() * t;
 
-	if (force_activate || (ed->m_hoverGizmoState.id == id && !ed->m_activeGizmoState.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))) {
-		ed->m_activeGizmoState.id = id;
-		ed->m_activeGizmoState.offset = nearest_world - pos;
+	if (force_activate || (m_hoverGizmoState.id == id && !m_activeGizmoState.id && !UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT))) {
+		m_activeGizmoState.id = id;
+		m_activeGizmoState.offset = nearest_world - pos;
 	}
 
-	if (ed->m_activeGizmoState.id == id) {
-		pos = nearest_world - ed->m_activeGizmoState.offset;
-		if (EdShouldSnap(ed)) pos = EdSnapToGrid(ed->m_grid, pos);
+	if (m_activeGizmoState.id == id) {
+		pos = nearest_world - m_activeGizmoState.offset;
+		if (ShouldSnap()) pos = SnapToGrid(pos);
 	}
 }
 
-void EdTranslationGizmo(Editor* ed, Hash hash, float3& pos) {
-	ed->m_hashStack.Push(hash);
-	EdArrowGizmo(ed, 1, pos, float3(1, 0, 0), float4(1, 0, 0, 1));
-	EdArrowGizmo(ed, 2, pos, float3(0, 1, 0), float4(0, 1, 0, 1));
-	EdArrowGizmo(ed, 3, pos, float3(0, 0, 1), float4(0, 0, 1, 1));
-	ed->m_hashStack.Pop();
+void Editor::TranslationGizmo(Hash hash, float3& pos) {
+	m_hashStack.Push(hash);
+	ArrowGizmo(1, pos, float3(1, 0, 0), float4(1, 0, 0, 1));
+	ArrowGizmo(2, pos, float3(0, 1, 0), float4(0, 1, 0, 1));
+	ArrowGizmo(3, pos, float3(0, 0, 1), float4(0, 0, 1, 1));
+	m_hashStack.Pop();
 }
 
-void EdDrawSelectionOutline(Editor* ed, float4 color) {
-	for (const EdSelection& sel : ed->m_selection) {
+void Editor::DrawSelectionOutline(float4 color) {
+	for (const EdSelection& sel : m_selection) {
 		switch (sel.type) {
 			case EdSelectionType_Node: {
 				EdDrawOutline(sel.op, color);
@@ -621,14 +624,14 @@ void EdDrawSelectionOutline(Editor* ed, float4 color) {
 	}
 }
 
-bool EdDoPlaneDragGizmo(Editor* ed, EdOp* op, CSGBrush* brush, int idx) {
+bool Editor::DoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx) {
 	CSGPlane& plane = brush->planes[idx];
 	if (plane.points.size() == 0) return false;
 
-	ed->m_hashStack.Push(brush);
-	ed->m_hashStack.Push(EdSelectionType_BrushPlane);
-	DEFER(ed->m_hashStack.Pop());
-	DEFER(ed->m_hashStack.Pop());
+	m_hashStack.Push(brush);
+	m_hashStack.Push(EdSelectionType_BrushPlane);
+	DEFER(m_hashStack.Pop());
+	DEFER(m_hashStack.Pop());
 
 
 	float3 c1 = (plane.points[0] - plane.points[1]).Normalized();
@@ -648,24 +651,24 @@ bool EdDoPlaneDragGizmo(Editor* ed, EdOp* op, CSGBrush* brush, int idx) {
 	float3 p10 = op->global_transform.TransformPosition(com + c1 - c2);
 	float3 p11 = op->global_transform.TransformPosition(com + c1 + c2);
 
-	ed->m_hashStack.Push((int)EdSelectionType_BrushPlane);
-	ed->m_hashStack.Push(op);
-	U32 id = ed->m_hashStack.Push(idx);
-	DEFER(ed->m_hashStack.Pop());
-	DEFER(ed->m_hashStack.Pop());
-	DEFER(ed->m_hashStack.Pop());
+	m_hashStack.Push((int)EdSelectionType_BrushPlane);
+	m_hashStack.Push(op);
+	U32 id = m_hashStack.Push(idx);
+	DEFER(m_hashStack.Pop());
+	DEFER(m_hashStack.Pop());
+	DEFER(m_hashStack.Pop());
 
-	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
+	Ray mouse_ray = CameraScreenToRay(*m_camera, g_mouse_position);
 
-	float screen_dist = Distance(CameraWorldToScreen(*ed->m_camera, comx).xy(), g_mouse_position);
+	float screen_dist = Distance(CameraWorldToScreen(*m_camera, comx).xy(), g_mouse_position);
 	if (screen_dist < 10 || IntersectTriangle(mouse_ray, p00, p01, p11) > 0.0f || IntersectTriangle(mouse_ray, p00, p11, p10) > 0.0f) {
-		if (screen_dist < ed->m_newHoverGizmoState.screen_dist) {
-			ed->m_newHoverGizmoState.id = id;
-			ed->m_newHoverGizmoState.screen_dist = screen_dist;
+		if (screen_dist < m_newHoverGizmoState.screen_dist) {
+			m_newHoverGizmoState.id = id;
+			m_newHoverGizmoState.screen_dist = screen_dist;
 		}
 	}
 
-	float4 color = ed->m_hoverGizmoState.id == id ? float4(1,0,1,1) : float4(1,1,1,.5);
+	float4 color = m_hoverGizmoState.id == id ? float4(1,0,1,1) : float4(1,1,1,.5);
 
 	DrawSetLayer(Layer_Overlay);
 	DrawLine(p00, p10, color);
@@ -673,10 +676,10 @@ bool EdDoPlaneDragGizmo(Editor* ed, EdOp* op, CSGBrush* brush, int idx) {
 	DrawLine(p10, p11, color);
 	DrawLine(p01, p11, color);
 
-	bool activate = !ed->m_activeGizmoState.id && ed->m_hoverGizmoState.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
+	bool activate = !m_activeGizmoState.id && m_hoverGizmoState.id == id && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT);
 
 	float3 new_comx = comx;
-	EdArrowGizmo(ed, idx, new_comx, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
+	ArrowGizmo(idx, new_comx, plane.plane.normal, {1,1,0,1}, 1.0f, true, activate);
 	float3 d = new_comx - comx;
 
 	float add = Dot(d, plane.plane.normal);
@@ -689,20 +692,20 @@ bool EdDoPlaneDragGizmo(Editor* ed, EdOp* op, CSGBrush* brush, int idx) {
 	}
 }
 
-void EdDrawGrid(EdGrid& grid, float4 color) {
+void Editor::DrawGrid(float4 color) {
 	int S = 50;
 
-	float3 fwd = grid.forward * grid.size;
-	float3 rgh = grid.right * grid.size;
+	float3 fwd = m_grid.forward * m_grid.size;
+	float3 rgh = m_grid.right * m_grid.size;
 
 	for (int i = -S; i <= S; i++) {
 		DrawLine(
-			grid.center - fwd * S + rgh * i,
-			grid.center + fwd * S + rgh * i,
+			m_grid.center - fwd * S + rgh * i,
+			m_grid.center + fwd * S + rgh * i,
 			color);
 		DrawLine(
-			grid.center - rgh * S + fwd * i,
-			grid.center + rgh * S + fwd * i,
+			m_grid.center - rgh * S + fwd * i,
+			m_grid.center + rgh * S + fwd * i,
 			color);
 	}
 }
@@ -717,13 +720,13 @@ void SelectTool::Tick(double dt) {
 		if (sel.type == EdSelectionType_Node) {
 			if (sel.op->type == EdOpType_Brush) {
 				for (int i = 0; i < sel.op->brush->planes.size(); i++) {
-					if (EdDoPlaneDragGizmo(ed, sel.op, sel.op->brush, i)) dirty = true;
+					if (ed->DoPlaneDragGizmo(sel.op, sel.op->brush, i)) dirty = true;
 				}
 			}
 			selected_ops.push_back(sel.op);
 		}
-		if (sel.type == EdSelectionType_BrushPlane && !EdIsSelected(ed, sel.op)) {
-			if (EdDoPlaneDragGizmo(ed, sel.op, sel.op->brush, sel.index)) dirty = true;
+		if (sel.type == EdSelectionType_BrushPlane && !ed->IsSelected(sel.op)) {
+			if (ed->DoPlaneDragGizmo(sel.op, sel.op->brush, sel.index)) dirty = true;
 		}
 	}
 
@@ -741,7 +744,7 @@ void SelectTool::Tick(double dt) {
 		DEFER(ed->m_hashStack.Pop());
 
 		float3 old_center = m_gizmoCenter;
-		EdTranslationGizmo(ed, &m_gizmoCenter, m_gizmoCenter);
+		ed->TranslationGizmo(&m_gizmoCenter, m_gizmoCenter);
 		float3 d = m_gizmoCenter - old_center;
 
 		if (abs(d.Length()) > 0.0001f)
@@ -758,24 +761,24 @@ void SelectTool::Tick(double dt) {
 
 		bool hit = false;
 		if (InputGetButton(SDL_SCANCODE_LALT))
-			hit = EdRaycastAgainstSubtractOps(ed, mouse_ray, &min_t, &hit_op);
+			hit = ed->RaycastAgainstSubtractOps(mouse_ray, &min_t, &hit_op);
 		else
-			hit = EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, &hit_op, nullptr);
+			hit = ed->RaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
 
 		float entity_t = FLT_MAX;
 		Entity* hit_entity = nullptr;
-		bool hit_ent = EdRaycastAgainstEntities(ed, mouse_ray, &entity_t, &hit_entity);
+		bool hit_ent = ed->RaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
 
 		if (hit_ent && (!hit || entity_t < min_t)) 
-			EdSelectEntity(ed, hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
+			ed->SelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
 		else if (hit)
-			EdSelectOp(ed, hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
+			ed->SelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
 		else if (!InputGetButton(SDL_SCANCODE_LSHIFT))
-			EdDeselect(ed);
+			ed->Deselect();
 	}
 
 	if (dirty)
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 }
 
 void BrushTool::Tick(double dt)
@@ -785,11 +788,11 @@ void BrushTool::Tick(double dt)
 	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 
 	float min_t = FLT_MAX;
-	bool hit = EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr);
+	bool hit = ed->RaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr);
 	float3 p = {};
 	if (hit) {
 		p = mouse_ray.Evaluate(min_t);
-		if (EdShouldSnap(ed)) p = EdSnapToGrid(ed->m_grid, p);
+		if (ed->ShouldSnap()) p = ed->SnapToGrid(p);
 	}
 
 	if (InputGetButton(SDL_SCANCODE_ESCAPE)) {
@@ -852,7 +855,7 @@ void BrushTool::Tick(double dt)
 			DistanceToLineSegment(mouse_ray, m_refA, m_refB, &t1, &t2);
 
 			m_end = m_axisStart + t2 * dir;
-			if (EdShouldSnap(ed)) m_end = EdSnapToGrid(ed->m_grid, m_end);
+			if (ed->ShouldSnap()) m_end = ed->SnapToGrid(m_end);
 			if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
 				m_justEnteredPhase = false;
 				m_phase = (Phase)(m_phase + 1);
@@ -871,8 +874,8 @@ void BrushTool::Tick(double dt)
 			op->brush = cube;
 			op->position = m_start;
 			EdOpAddChild(ed->m_root, op);
-			EdBuild(ed, ed->m_root);
-			EdSelectOp(ed, op);
+			ed->Build(ed->m_root);
+			ed->SelectOp(op);
 			m_phase = Phase_Inactive;
 			break;
 		}
@@ -893,23 +896,23 @@ void EntityTool::Tick(double dt) {
 	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 
 	Entity* hit_entity = nullptr;
-	if (EdRaycastAgainstEntities(ed, mouse_ray, nullptr, &hit_entity)) {
+	if (ed->RaycastAgainstEntities(mouse_ray, nullptr, &hit_entity)) {
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			EdSelectEntity(ed, hit_entity);
+			ed->SelectEntity(hit_entity);
 		}
 		return;
 	}
 
 	float min_t = FLT_MAX;
-	if (EdRaycastAgainstBuiltBrushes(ed, mouse_ray, &min_t, nullptr, nullptr)) {
+	if (ed->RaycastAgainstBuiltBrushes(mouse_ray, &min_t, nullptr, nullptr)) {
 		float3 p = {};
 		p = mouse_ray.Evaluate(min_t);
-		if (EdShouldSnap(ed)) p = EdSnapToGrid(ed->m_grid, p);
+		if (ed->ShouldSnap()) p = ed->SnapToGrid(p);
 		DrawPoint(p, {0,1,0,1});
 
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			if (m_entityType) EdCreateEntity(ed, m_entityType, p);
-			EdDeselect(ed);
+			if (m_entityType) ed->CreateEntity(m_entityType, p);
+			ed->Deselect();
 		}
 	}
 }
@@ -982,7 +985,7 @@ void Editor::Tick(double dt) {
 	CameraUpdateMatrices(*m_camera);
 
 	DrawSetLayer(Layer_Main);
-	// EdDrawGrid(m_grid, float4{1,1,1,0.3});
+	// DrawGrid(float4{1,1,1,0.3});
 
 	m_hashStack.Reset();
 	m_newHoverGizmoState = {};
@@ -997,9 +1000,9 @@ void Editor::Tick(double dt) {
 	});
 
 	DrawSetLayer(Layer_Main);
-	EdDrawSelectionOutline(ed, {1,1,1,1});
+	DrawSelectionOutline({1,1,1,1});
 	DrawSetLayer(Layer_Overlay);
-	EdDrawSelectionOutline(ed, {1,1,1,0.1});
+	DrawSelectionOutline({1,1,1,0.1});
 
 	if (cvar_ed_show_sub.fvalue) {
 		EdForeach([](EdOp* op) {
@@ -1032,7 +1035,7 @@ void Editor::Tick(double dt) {
 
 		char buf[32];
 		snprintf(buf, 32, "Snap: %.3f", m_grid.size);
-		if (UIButton(buf, UIButtonFlags_Small | ((EdShouldSnap(this)) ? UIButtonFlags_Toggle : 0))) m_snap = !m_snap;
+		if (UIButton(buf, UIButtonFlags_Small | (ShouldSnap() ? UIButtonFlags_Toggle : 0))) m_snap = !m_snap;
 
 		if (UIButton("-", UIButtonFlags_Small | (m_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc -1");
 		if (UIButton("+", UIButtonFlags_Small | (m_snap ? 0 : UIButtonFlags_Disabled))) ConExec("ed_grid_size_inc +1");
@@ -1054,7 +1057,7 @@ void Editor::Tick(double dt) {
 			for (EdSelection& sel : ed->m_selection)
 				if (sel.type == EdSelectionType_Node)
 					sel.op->subtract = !sub;
-			EdBuild(ed, ed->m_root);
+			Build(m_root);
 		}
 
 		if (UIButton("X", UIButtonFlags_Small | (first_sel ? 0 : UIButtonFlags_Disabled))) {
@@ -1075,7 +1078,7 @@ void Editor::Tick(double dt) {
 
 		if (UIBeginTreeNode("Brushes")) {
 			for (EdOp* child : ed->m_root->children)
-				EdOpGUI(ed, child);
+				DrawOpGUI(child);
 			UIEndTreeNode();
 		}
 
@@ -1085,14 +1088,14 @@ void Editor::Tick(double dt) {
 				DEFER(UIPopId());
 
 				UITreeNodeFlags flags = UITreeNodeFlags_Leaf;
-				if (EdIsSelected(ed, entity)) flags |= UITreeNodeFlags_Selected;
+				if (IsSelected(entity)) flags |= UITreeNodeFlags_Selected;
 
 				UIBox* tree_node = nullptr;
 				if (UIBeginTreeNode("Entity", &tree_node, flags)) UIEndTreeNode();
 
 				if (tree_node->Clicked())
 				{
-					EdSelectEntity(ed, entity, InputGetButton(SDL_SCANCODE_LCTRL));
+					ed->SelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
 				}
 			});
 			UIEndTreeNode();
@@ -1219,7 +1222,7 @@ EdOp* EdLoadOp(FILE* f) {
 	return op;
 }
 
-Result EdSaveMap(Editor* ed, const char* name) {
+Result Editor::SaveMap(const char* name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "wb");
@@ -1228,25 +1231,25 @@ Result EdSaveMap(Editor* ed, const char* name) {
 
 	fprintf(f, "type mpe\n");
 	fprintf(f, "version 1\n");
-	EdSaveOp(f, ed->m_root, 0);
+	EdSaveOp(f, m_root, 0);
 
 	int num_entities = 0;
-	ed->m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
+	m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
-	ed->m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
+	m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
-	snprintf(ed->m_loadedMapName, sizeof(ed->m_loadedMapName), "%s", name);
+	snprintf(m_loadedMapName, sizeof(m_loadedMapName), "%s", name);
 	return Success();
 }
 
-void EdUnloadMap(Editor* ed) {
-	if (ed->m_root) {
-		EdDestroyOp(ed->m_root);
-		ed->m_root = nullptr;
+void Editor::UnloadMap() {
+	if (m_root) {
+		EdDestroyOp(m_root);
+		m_root = nullptr;
 	}
 
-	ed->m_entityManager->Reset();
-	ed->m_entityManager->Init();
+	m_entityManager->Reset();
+	m_entityManager->Init();
 }
 
 Result Editor::LoadMap(String name) {
@@ -1257,7 +1260,7 @@ Result Editor::LoadMap(String name) {
 	if (!f) return Err("Failed to open %s", name);
 	DEFER(fclose(f));
 
-	EdUnloadMap(this);
+	UnloadMap();
 
 	int version = 0;
 	fscanf(f, "type mpe\n");
@@ -1282,23 +1285,23 @@ Result Editor::LoadMap(String name) {
 		if (ent->eid >= ed->m_nextEID) ed->m_nextEID = ent->eid + 1;
 	}
 
-	EdBuild(ed, ed->m_root);
+	Build(m_root);
 	snprintf(ed->m_loadedMapName, sizeof(ed->m_loadedMapName), "%.*s", STRING_PRINTF_ARGS(name));
 
 	return Success();
 }
 
-Result EdCompileMap(Editor* ed) {
+Result Editor::CompileMap() {
 	int indent = 0;
 
 	char path[256];
-	assert(ed->m_loadedMapName[0]);
-	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, ed->m_loadedMapName);
+	assert(m_loadedMapName[0]);
+	snprintf(path, 256, "%s/Assets/%s.map", EVA_BASE_DIR, m_loadedMapName);
 	FILE* f = fopen(path, "wb");
 	if (!f) return Err("Failed to open %s", path);
 	DEFER(fclose(f));
 
-	EdBuild(ed, ed->m_root);
+	Build(m_root);
 
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
@@ -1306,7 +1309,7 @@ Result EdCompileMap(Editor* ed) {
 	std::vector<MeshVertex> mesh_vertices;
 	std::vector<U32> mesh_indices;
 
-	for (CSGBrush* brush : ed->m_root->built) {
+	for (CSGBrush* brush : m_root->built) {
 		for (const CSGPlane& plane : brush->planes) {
 			int start = mesh_vertices.size();
 			for (int i = 0; i < plane.points.size(); i++) {
@@ -1336,9 +1339,9 @@ Result EdCompileMap(Editor* ed) {
 	fprintf(f, "\n");
 
 	int num_entities = 0;
-	ed->m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
+	m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
-	ed->m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
+	m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
 	return Success();
 }
@@ -1353,8 +1356,8 @@ void EdInitialize() {
 		op->brush = CSGCreateCube({ parser.FloatArg(1.0f), parser.FloatArg(1.0f), parser.FloatArg(1.0f) });
 		op->type = EdOpType_Brush;
 		EdOpAddChild(ed->m_root, op);
-		EdSelectOp(ed, op);
-		EdBuild(ed, ed->m_root);
+		ed->SelectOp(op);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: create a cube");
 
@@ -1368,8 +1371,8 @@ void EdInitialize() {
 		op->brush = CSGCreateCylinder(nseg, rad, height);
 		op->type = EdOpType_Brush;
 		EdOpAddChild(ed->m_root, op);
-		EdSelectOp(ed, op);
-		EdBuild(ed, ed->m_root);
+		ed->SelectOp(op);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: create a cylinder");
 
@@ -1380,14 +1383,14 @@ void EdInitialize() {
 		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->position += offset;
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: create a cube");
 
 	ConRegisterCommand("ed_build", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: rebuild csg");
 
@@ -1397,7 +1400,7 @@ void EdInitialize() {
 		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = false;
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: set selected to add");
 
@@ -1407,23 +1410,23 @@ void EdInitialize() {
 		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				sel.op->subtract = true;
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: set selected to subtract");
 
 	ConRegisterCommand("ed_order_move", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		EdOrderMove(ed, parser.IntArg(1));
-		EdBuild(ed, ed->m_root);
+		ed->OrderMove(parser.IntArg(1));
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: move selection up/down in stack");
 
 	ConRegisterCommand("ed_group", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		EdSelectOp(ed, EdGroup(EdGetSelectedOps(ed)));
-		EdBuild(ed, ed->m_root);
+		ed->SelectOp(EdGroup(ed->GetSelectedOps()));
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: group selection into an object");
 
@@ -1433,30 +1436,30 @@ void EdInitialize() {
 		for (EdSelection& sel : ed->m_selection)
 			if (sel.type == EdSelectionType_Node)
 				EdUngroup(sel.op);
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: group ungroup selected objects");
 
 	ConRegisterCommand("ed_clone", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		std::vector<EdOp*> selection = EdGetSelectedOps(ed);
-		EdDeselect(ed);
+		std::vector<EdOp*> selection = ed->GetSelectedOps();
+		ed->Deselect();
 		for (EdOp* orig : selection)
 		{
 			EdOp* clone = EdCloneOp(orig);
 			EdOpAddChild(orig->parent, clone, EdGetSiblingIndex(orig) + 1);
-			EdSelectOp(ed, clone, true);
+			ed->SelectOp(clone, true);
 		}
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: clone selection");
 
 	ConRegisterCommand("ed_del", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		EdDestroySelection(ed);
-		EdBuild(ed, ed->m_root);
+		ed->DestroySelection();
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: delete subtract");
 
@@ -1469,7 +1472,7 @@ void EdInitialize() {
 		ed->m_grid.size = ED_GRID_SIZES[ed->m_gridSizeIdx];
 		Library::mat_brush->texture_scale = 1.0f / ed->m_grid.size / 4.0f;
 		ScreenLog("Grid Size: %g", ed->m_grid.size);
-		EdBuild(ed, ed->m_root);
+		ed->Build(ed->m_root);
 		return Success();
 	}, "editor: increase/decrease grid size");
 
@@ -1481,13 +1484,13 @@ void EdInitialize() {
 		if (!name) name = ed->m_loadedMapName;
 		if (!name[0]) return Err("no map opened");
 
-		return EdSaveMap(ed, name);
+		return ed->SaveMap(name);
 	}, "editor: save map .mpe");
 
 	ConRegisterCommand("ed_compile", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		return EdCompileMap(ed);
+		return ed->CompileMap();
 	}, "editor: compile map");
 
 	ConRegisterCommand("ed", [](ConParser& parser) {

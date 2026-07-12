@@ -3,7 +3,6 @@
 
 void EditorGameMode::OnBegin() {
 	editor = new Editor(m_game, m_entityManager);
-	m_mainCamera = editor->m_camera;
 }
 
 void EditorGameMode::OnEnd() {

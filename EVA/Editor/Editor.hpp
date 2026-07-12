@@ -152,6 +152,35 @@ public:
 	void Tick(double dt);
 	void SetTool(Tool* tool);
 	Result LoadMap(String name);
+
+
+	void Deselect();
+	void SelectPlane(EdOp* op, int plane, bool additive = false);
+	void SelectEntity(Entity* entity, bool additive = false);
+	void SelectOp(EdOp* op, bool additive = false);
+	void DestroySelection();
+	bool ShouldSnap() const;
+	bool IsSelected(EdOp* op) const;
+	bool IsSelected(Entity* entity) const;
+	std::vector<EdOp*> GetSelectedOps() const;
+	Entity* CreateEntity(Type* type, float3 pos);
+	void DestroyEntity(Entity* entity);
+	void OrderMove(int offset);
+	void Build(EdOp* op);
+	bool RaycastAgainstSubtractOps(const Ray& ray, float* out_t, EdOp** out_hit);
+	bool RaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hit, CSGBrush** out_built_brush_hit);
+	bool RaycastAgainstEntities(const Ray& ray, float* out_t, Entity** out_hit);
+	void DrawOpGUI(EdOp* op);
+	float3 SnapToGrid(float3 p) const;
+	void ArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, float base_scale = 1, bool hidden = false, bool force_activate = false);
+	void TranslationGizmo(Hash hash, float3& pos);
+	void DrawSelectionOutline(float4 color);
+	bool DoPlaneDragGizmo(EdOp* op, CSGBrush* brush, int idx);
+	void DrawGrid(float4 color);
+	Result SaveMap(const char* name);
+	void UnloadMap();
+	Result CompileMap();
+
 };
 
 
