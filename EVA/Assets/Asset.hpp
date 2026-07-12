@@ -32,9 +32,7 @@ public:
 	virtual void SaveMetaImpl(Serializer& serializer) {
 	}
 
-	virtual Result LoadImpl(FILE* f) {
-		return Success();
-	}
+	virtual Result LoadImpl(FILE* f) = 0;
 
 	static Asset* GetImpl(String name);
 

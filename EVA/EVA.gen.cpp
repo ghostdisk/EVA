@@ -69,56 +69,26 @@ Type g_type_Asset = {
 		&g_type_Sprite,
 		&g_type_Texture,
 	},
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Asset), alignof(Asset));
-		new (ptr) Asset();
-		return ptr;
-	},
 };
 Type g_type_EditorMap = {
 	.name = "EditorMap",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(EditorMap), alignof(EditorMap));
-		new (ptr) EditorMap();
-		return ptr;
-	},
 };
 Type g_type_Font = {
 	.name = "Font",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Font), alignof(Font));
-		new (ptr) Font();
-		return ptr;
-	},
 };
 Type g_type_Map = {
 	.name = "Map",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Map), alignof(Map));
-		new (ptr) Map();
-		return ptr;
-	},
 };
 Type g_type_Material = {
 	.name = "Material",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Material), alignof(Material));
-		new (ptr) Material();
-		return ptr;
-	},
 };
 Type g_type_Mesh = {
 	.name = "Mesh",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Mesh), alignof(Mesh));
-		new (ptr) Mesh();
-		return ptr;
-	},
 };
 Type g_type_Model = {
 	.name = "Model",
@@ -132,20 +102,10 @@ Type g_type_Model = {
 Type g_type_Shader = {
 	.name = "Shader",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Shader), alignof(Shader));
-		new (ptr) Shader();
-		return ptr;
-	},
 };
 Type g_type_Sprite = {
 	.name = "Sprite",
 	.parent_type = &g_type_Asset,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Sprite), alignof(Sprite));
-		new (ptr) Sprite();
-		return ptr;
-	},
 };
 Type g_type_TextureInterpolation = {
 	.name = "TextureInterpolation",

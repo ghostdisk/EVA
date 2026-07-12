@@ -100,6 +100,7 @@ public:
 	std::string              header             = "'";
 	std::vector<std::string> properties         = {};
 	bool                     is_class           = false;
+	bool                     is_abstract        = false;
 	bool                     is_serializable    = false;
 	bool                     is_enum            = false;
 	std::string              underlying_type    = "";
@@ -192,10 +193,12 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 
 		RecordInfo info;
 		clang_visitChildren(cursor, RecordChildVisitor, &info);
+		bool is_abstract = is_record && clang_CXXRecord_isAbstract(cursor);
 
-		printf("%-6s %-24s  %s:%u%s%s\n", what, name.c_str(), filename.c_str(), line,
+		printf("%-6s %-24s  %s:%u%s%s%s\n", what, name.c_str(), filename.c_str(), line,
 		       info.has_eclass ? "  [ECLASS]" : "",
-		       info.has_eserializable ? "  [ESERIALIZABLE]" : "");
+		       info.has_eserializable ? "  [ESERIALIZABLE]" : "",
+		       is_abstract ? "  [ABSTRACT]" : "");
 
 		if ((info.has_eclass || info.has_eserializable) && !name.empty()) {
 			Type* t = GetType(name);
@@ -207,6 +210,7 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 			t->header = RelToBase(filename);
 			t->properties = info.properties;
 			t->is_class = info.has_eclass;
+			t->is_abstract = is_abstract;
 			t->is_serializable = info.has_eserializable;
 			t->is_enum = is_enum;
 			if (is_enum) 
@@ -256,7 +260,7 @@ static void WriteGenFile() {
 			};
 			fprintf(f, "\t},\n");
 		}
-		if (t->is_class) {
+		if (t->is_class && !t->is_abstract) {
 			fprintf(f,
 				"\t.Instantiate = [](Allocator allocator) -> void* {\n"
 				"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
