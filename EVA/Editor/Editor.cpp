@@ -16,8 +16,6 @@
 #include <cglm/quat.h>
 #include <algorithm>
 
-static const char* ED_TOOL_NAMES[] = { "None", "Select", "Entity", "Brush" };
-
 struct EdGrid {
 	float3 center;
 	float3 forward;
@@ -741,7 +739,8 @@ void EdDrawGrid(EdGrid& grid, float4 color) {
 	}
 }
 
-void EdTickTool_Select(Editor* ed) {
+void SelectTool::Tick(double dt) {
+	Editor* ed = m_editor;
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 	bool dirty = false;
 
@@ -761,22 +760,21 @@ void EdTickTool_Select(Editor* ed) {
 	}
 
 	if (selected_ops.size()) {
-		static float3 center = {};
 		if (!g_active_gizmo_state.id) {
-			center = {};
+			m_gizmoCenter = {};
 			for (EdOp* op : selected_ops)
 			{
-				center += op->global_transform.column(3).xyz();
+				m_gizmoCenter += op->global_transform.column(3).xyz();
 			}
-			center /= selected_ops.size();
+			m_gizmoCenter /= selected_ops.size();
 		}
 
-		hash_stack.Push(&center);
+		hash_stack.Push(&m_gizmoCenter);
 		DEFER(hash_stack.Pop());
 
-		float3 old_center = center;
-		EdTranslationGizmo(&center, center);
-		float3 d = center - old_center;
+		float3 old_center = m_gizmoCenter;
+		EdTranslationGizmo(&m_gizmoCenter, m_gizmoCenter);
+		float3 d = m_gizmoCenter - old_center;
 
 		if (abs(d.Length()) > 0.0001f)
 		{
@@ -812,10 +810,9 @@ void EdTickTool_Select(Editor* ed) {
 		EdBuild(ed, ed->m_root);
 }
 
-void EdTickTool_Brush(Editor* ed)
+void BrushTool::Tick(double dt)
 {
-	static bool just_entered_phase = false;
-	static float3 ref_a, ref_b, x;
+	Editor* ed = m_editor;
 
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
@@ -828,102 +825,103 @@ void EdTickTool_Brush(Editor* ed)
 	}
 
 	if (InputGetButton(SDL_SCANCODE_ESCAPE)) {
-		ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
+		m_phase = Phase_Inactive;
 	}
 
 	if (hit) {
 		DrawSetLayer(Layer_Overlay);
-		DrawPoint(ed->m_brushToolStart, {0,0,1,0.1});
+		DrawPoint(m_start, {0,0,1,0.1});
 		DrawSetLayer(Layer_Main);
-		DrawPoint(ed->m_brushToolStart, {0,0,1,1});
+		DrawPoint(m_start, {0,0,1,1});
 	}
 
 	Step:
-	switch (ed->m_brushToolPhase) {
-		case EdBrushToolPhase_Inactive: {
+	switch (m_phase) {
+		case Phase_Inactive: {
 			if (hit) {
-				ed->m_brushToolStart = p;
+				m_start = p;
 				if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-					ed->m_brushToolPhase = EdBrushToolPhase_InitialDraw;
+					m_phase = Phase_InitialDraw;
 				}
 			}
 			break;
 		}
-		case EdBrushToolPhase_InitialDraw: {
-			ed->m_brushToolEnd = p;
+		case Phase_InitialDraw: {
+			m_end = p;
 			if (InputGetButtonUp(INPUT_BUTTON_MOUSE_LEFT)) {
 				if (hit) {
-					just_entered_phase = false;
-					ed->m_brushToolPhase = EdBrushToolPhase_X;
+					m_justEnteredPhase = false;
+					m_phase = Phase_X;
 				} else {
-					ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
+					m_phase = Phase_Inactive;
 				}
 				goto Step;
 			}
 			break;
 		}
-		case EdBrushToolPhase_X:
-		case EdBrushToolPhase_Y:
-		case EdBrushToolPhase_Z: {
+		case Phase_X:
+		case Phase_Y:
+		case Phase_Z: {
 			float3 dir = {};
-			dir[ed->m_brushToolPhase - EdBrushToolPhase_X] = 1.0f;
+			dir[m_phase - Phase_X] = 1.0f;
 
-			if (!just_entered_phase) {
-				just_entered_phase = true;
-				float len = Dot(dir, ed->m_brushToolEnd - ed->m_brushToolStart);
+			if (!m_justEnteredPhase) {
+				m_justEnteredPhase = true;
+				float len = Dot(dir, m_end - m_start);
 				if (len != 0)
 				{
-					just_entered_phase = false;
-					ed->m_brushToolPhase = (EdBrushToolPhase)(ed->m_brushToolPhase + 1);
+					m_justEnteredPhase = false;
+					m_phase = (Phase)(m_phase + 1);
 					goto Step;
 				}
 
-				ref_a = ed->m_brushToolEnd;
-				ref_b = ref_a + dir;
-				x = ed->m_brushToolEnd;
+				m_refA = m_end;
+				m_refB = m_refA + dir;
+				m_axisStart = m_end;
 			}
 
 			float t1, t2;
-			DistanceToLineSegment(mouse_ray, ref_a, ref_b, &t1, &t2);
+			DistanceToLineSegment(mouse_ray, m_refA, m_refB, &t1, &t2);
 
-			ed->m_brushToolEnd = x + t2 * dir;
-			if (EdShouldSnap()) ed->m_brushToolEnd = EdSnapToGrid(g_grid, ed->m_brushToolEnd);
+			m_end = m_axisStart + t2 * dir;
+			if (EdShouldSnap()) m_end = EdSnapToGrid(g_grid, m_end);
 			if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-				just_entered_phase = false;
-				ed->m_brushToolPhase = (EdBrushToolPhase)(ed->m_brushToolPhase + 1);
+				m_justEnteredPhase = false;
+				m_phase = (Phase)(m_phase + 1);
 			}
 			break;
 		}
-		case EdBrushToolPhase_Finalize: {
-			if (ed->m_brushToolEnd.x < ed->m_brushToolStart.x) std::swap(ed->m_brushToolStart.x, ed->m_brushToolEnd.x);
-			if (ed->m_brushToolEnd.y < ed->m_brushToolStart.y) std::swap(ed->m_brushToolStart.y, ed->m_brushToolEnd.y);
-			if (ed->m_brushToolEnd.z < ed->m_brushToolStart.z) std::swap(ed->m_brushToolStart.z, ed->m_brushToolEnd.z);
+		case Phase_Finalize: {
+			if (m_end.x < m_start.x) std::swap(m_start.x, m_end.x);
+			if (m_end.y < m_start.y) std::swap(m_start.y, m_end.y);
+			if (m_end.z < m_start.z) std::swap(m_start.z, m_end.z);
 
-			CSGBrush* cube = CSGCreateCube(ed->m_brushToolEnd - ed->m_brushToolStart);
+			CSGBrush* cube = CSGCreateCube(m_end - m_start);
 			CSGBuildBrush(cube);
 			EdOp* op = EdCreateOp();
 			op->type = EdOpType_Brush;
 			op->brush = cube;
-			op->position = ed->m_brushToolStart;
+			op->position = m_start;
 			EdOpAddChild(ed->m_root, op);
 			EdBuild(ed, ed->m_root);
 			EdSelectOp(ed, op);
-			ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
+			m_phase = Phase_Inactive;
 			break;
 		}
 	}
 
-	if (ed->m_brushToolPhase != EdBrushToolPhase_Inactive) {
-		if (!(ed->m_brushToolPhase == EdBrushToolPhase_InitialDraw && !hit)) {
+	if (m_phase != Phase_Inactive) {
+		if (!(m_phase == Phase_InitialDraw && !hit)) {
 			DrawSetLayer(Layer_Overlay);
-			DrawBox(ed->m_brushToolStart, ed->m_brushToolEnd, {0, 0, 1, 0.1 });
+			DrawBox(m_start, m_end, {0, 0, 1, 0.1 });
 			DrawSetLayer(Layer_Main);
-			DrawBox(ed->m_brushToolStart, ed->m_brushToolEnd, {0, 0, 1, 1 });
+			DrawBox(m_start, m_end, {0, 0, 1, 1 });
 		}
 	}
 }
 
-void EdTickTool_Entity(Editor* ed) {
+void EntityTool::Tick(double dt) {
+	Editor* ed = m_editor;
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
 	Entity* hit_entity = nullptr;
@@ -942,18 +940,33 @@ void EdTickTool_Entity(Editor* ed) {
 		DrawPoint(p, {0,1,0,1});
 
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			EdCreateEntity(ed, ed->m_entityToolType, p);
+			if (m_entityType) EdCreateEntity(ed, m_entityType, p);
 			EdDeselect(ed);
 		}
 	}
 }
 
-void EdSetTool(Editor* ed, EdTool tool) {
-	if (tool < 0 || tool >= EdTool_ENUM_SIZE) tool = (EdTool)0;
-	if (ed->m_tool == tool) return;
-	ed->m_tool = tool;
-	ed->m_brushToolPhase = EdBrushToolPhase_Inactive;
-	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
+void EntityTool::DrawSidebar() {
+	if (UIBeginTreeNode("Entity Type", nullptr, UITreeNodeFlags_DefaultOpen)) {
+		for (Type* type : Entity::StaticClass()->subclasses) {
+			UIButtonFlags flags = UIButtonFlags_Small;
+			if (m_entityType == type) flags |= UIButtonFlags_Toggle;
+			if (UIButton(type->name, flags)) m_entityType = type;
+		}
+		UIEndTreeNode();
+	}
+}
+
+void BrushTool::OnDeactivate() {
+	m_phase = Phase_Inactive;
+}
+
+void Editor::SetTool(Tool* tool) {
+	if (!tool || m_tool == tool) return;
+	if (m_tool) m_tool->OnDeactivate();
+	m_tool = tool;
+	m_tool->OnActivate();
+	ScreenLog("Tool: %s", m_tool->Name().c_str());
 }
 
 Editor::Editor(Game* game, EntityManager* entity_manager)
@@ -962,6 +975,27 @@ Editor::Editor(Game* game, EntityManager* entity_manager)
 	m_root = EdCreateOp();
 	m_root->type = EdOpType_Stack;
 	m_root->global_transform = float4x4::Identity();
+
+	for (Type* tool_type : Tool::StaticClass()->subclasses) {
+		Tool* tool = (Tool*)tool_type->Instantiate(Allocator::HeapAllocator);
+		tool->m_editor = this;
+		m_tools.push_back(tool);
+	}
+
+	for (Tool* tool : m_tools) {
+		if (tool->GetClass() == SelectTool::StaticClass()) {
+			SetTool(tool);
+			break;
+		}
+	}
+}
+
+Editor::~Editor() {
+	if (m_tool) m_tool->OnDeactivate();
+	for (Tool* tool : m_tools) {
+		tool->~Tool();
+		Allocator::HeapAllocator.Free(tool);
+	}
 }
 
 void Editor::Tick(double dt) {
@@ -977,12 +1011,7 @@ void Editor::Tick(double dt) {
 	g_new_hover_gizmo_state.screen_dist = FLT_MAX;
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
-	switch (ed->m_tool) {
-		case EdTool_Select: { EdTickTool_Select(this); break; }
-		case EdTool_Brush:  { EdTickTool_Brush(ed); break; }
-		case EdTool_Entity: { EdTickTool_Entity(this); break; }
-		default: break;
-	}
+	if (m_tool) m_tool->Tick(dt);
 
 	m_entityManager->Iterate([&](Entity* ent) {
 		DrawAABB(ent->position, {0.5,0.5,0.5}, {0,1,0,1});
@@ -1032,10 +1061,11 @@ void Editor::Tick(double dt) {
 
 		spacer();
 
-		// UILabel("Tools");
-		if (UIButton("SEL", UIButtonFlags_Small | (ed->m_tool == EdTool_Select ? UIButtonFlags_Toggle : 0))) EdSetTool(ed, EdTool_Select);
-		if (UIButton("ENT", UIButtonFlags_Small | (ed->m_tool == EdTool_Entity ? UIButtonFlags_Toggle : 0)))  EdSetTool(ed, EdTool_Entity);
-		if (UIButton("BSH", UIButtonFlags_Small | (ed->m_tool == EdTool_Brush ? UIButtonFlags_Toggle : 0)))  EdSetTool(ed, EdTool_Brush);
+		for (Tool* tool : m_tools) {
+			UIButtonFlags flags = UIButtonFlags_Small;
+			if (tool == m_tool) flags |= UIButtonFlags_Toggle;
+			if (UIButton(tool->Name().c_str(), flags)) SetTool(tool);
+		}
 
 		spacer();
 
@@ -1063,24 +1093,7 @@ void Editor::Tick(double dt) {
 		DEFER(UIEndBox());
 
 
-		switch (ed->m_tool) {
-			case EdTool_Entity: {
-				if (UIBeginTreeNode("Entity Type", nullptr, UITreeNodeFlags_DefaultOpen)) {
-
-
-					for (Type* type : Entity::StaticClass()->subclasses) {
-						UIButtonFlags flags = UIButtonFlags_Small;
-						if (ed->m_entityToolType == type) flags |= UIButtonFlags_Toggle;
-						if (UIButton(type->name, flags)) {
-							ed->m_entityToolType = type;
-						}
-					}
-					UIEndTreeNode();
-				}
-				break;
-			}
-			default: break;
-		}
+		if (m_tool) m_tool->DrawSidebar();
 
 		if (UIBeginTreeNode("Brushes")) {
 			for (EdOp* child : ed->m_root->children)
@@ -1511,7 +1524,9 @@ void EdInitialize() {
 	ConRegisterCommand("ed_tool", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		EdSetTool(ed, (EdTool)parser.IntArg(0));
+		int index = parser.IntArg(0);
+		if (index < 0 || index >= ed->m_tools.size()) return Err("invalid tool index");
+		ed->SetTool(ed->m_tools[index]);
 		return Success();
 	}, "editor: set tool");
 

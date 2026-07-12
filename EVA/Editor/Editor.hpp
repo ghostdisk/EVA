@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
+#include <EVA/Core/Object.hpp>
 #include <EVA/Math.hpp>
 #include <EVA/Entities/Entity.hpp> // TODO: EntityType
 #include <vector>
@@ -30,15 +31,6 @@ struct EdOp {
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
-enum EdTool {
-	EdTool_None = 0,
-	EdTool_Select = 1,
-	EdTool_Entity = 2,
-	EdTool_Brush = 3,
-
-	EdTool_ENUM_SIZE,
-};
-
 enum EdSelectionType {
 	EdSelectionType_None,
 	EdSelectionType_Node,
@@ -53,33 +45,82 @@ struct EdSelection {
 	int             index  = 0;
 };
 
-enum EdBrushToolPhase {
-	EdBrushToolPhase_Inactive    = 0,
-	EdBrushToolPhase_InitialDraw = 1,
-	EdBrushToolPhase_X           = 2,
-	EdBrushToolPhase_Y           = 3,
-	EdBrushToolPhase_Z           = 4,
-	EdBrushToolPhase_Finalize    = 5,
+class Editor;
+
+class Tool : public Object {
+public:
+	ECLASS_COMMON();
+
+	Editor* m_editor = nullptr;
+
+	virtual ZTString Name() = 0;
+	virtual void OnActivate() {}
+	virtual void OnDeactivate() {}
+	virtual void Tick(double dt) = 0;
+	virtual void DrawSidebar() {}
+};
+
+class SelectTool : public Tool {
+public:
+	ECLASS_COMMON();
+	virtual ZTString Name() override { return "Select"; }
+	virtual void Tick(double dt) override;
+
+	float3 m_gizmoCenter = {};
+};
+
+class EntityTool : public Tool {
+public:
+	ECLASS_COMMON();
+	virtual ZTString Name() override { return "Entity"; }
+	virtual void Tick(double dt) override;
+	virtual void DrawSidebar() override;
+
+	Type* m_entityType = nullptr;
+};
+
+class BrushTool : public Tool {
+public:
+	ECLASS_COMMON();
+	virtual ZTString Name() override { return "Brush"; }
+	virtual void OnDeactivate() override;
+	virtual void Tick(double dt) override;
+
+	enum Phase {
+		Phase_Inactive,
+		Phase_InitialDraw,
+		Phase_X,
+		Phase_Y,
+		Phase_Z,
+		Phase_Finalize,
+	};
+
+	Phase  m_phase = Phase_Inactive;
+	float3 m_start = {};
+	float3 m_end = {};
+	bool   m_justEnteredPhase = false;
+	float3 m_refA = {};
+	float3 m_refB = {};
+	float3 m_axisStart = {};
 };
 
 class Editor {
 public:
 	Editor(Game* game, EntityManager* entity_manager);
+	~Editor();
 
-	Game*          m_game          = nullptr;
-	EntityManager* m_entityManager = nullptr;
-	ECamera*       m_camera        = nullptr;
-	EID            m_nextEID       = EID_MapStart;
-	EdOp*          m_root          = nullptr;
-	std::vector<EdSelection> m_selection = {};
-	char           m_loadedMapName[64] = {};
-	EdTool         m_tool          = EdTool_Select;
-	float3         m_brushToolStart = {};
-	float3         m_brushToolEnd   = {};
-	EdBrushToolPhase m_brushToolPhase = EdBrushToolPhase_Inactive;
-	Type*          m_entityToolType = nullptr;
+	Game*                    m_game              = nullptr;
+	EntityManager*           m_entityManager     = nullptr;
+	ECamera*                 m_camera            = nullptr;
+	EID                      m_nextEID           = EID_MapStart;
+	EdOp*                    m_root              = nullptr;
+	std::vector<EdSelection> m_selection         = {};
+	char                     m_loadedMapName[64] = {};
+	std::vector<Tool*>       m_tools             = {};
+	Tool*                    m_tool              = nullptr;
 
 	void Tick(double dt);
+	void SetTool(Tool* tool);
 	Result LoadMap(String name);
 };
 
