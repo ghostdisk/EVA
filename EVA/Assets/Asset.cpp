@@ -1,7 +1,6 @@
-#include <EVA/Core/String.hpp>
+#include <EVA/Core/Basic.hpp>
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/FS.hpp>
-#include <EVA/Core/Arena.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Assets/Sprite.hpp>
@@ -60,7 +59,7 @@ void LoadAssetsFromDir(String dir) {
 		Type* asset_type = MapExtensionToType(FS::GetExtension(stat.filename));
 		if (!asset_type) return;
 
-		Asset* asset = (Asset*)asset_type->Instantiate();
+		Asset* asset = (Asset*)asset_type->Instantiate(Allocator::HeapAllocator);
 		g_assets.push_back(asset);
 		asset->name_new = FS::WithoutExtension(stat.filename).CopyToHeap();
 

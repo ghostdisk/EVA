@@ -3,6 +3,7 @@
 #include <EVA/Core/String.hpp>
 #include <EVA/Core/Result.hpp>
 
+struct Allocator;
 class Object;
 class Serializer;
 class Deserializer;
@@ -11,8 +12,8 @@ class Type {
 public:
 	Type*    parent_type = nullptr;
 	ZTString name        = {};
-	Object* (*Instantiate)()   = nullptr;
 
+	void* (*Instantiate)(Allocator allocator) = nullptr;
 	static Type* Find(String name);
 };
 

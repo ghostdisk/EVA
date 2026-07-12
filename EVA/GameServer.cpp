@@ -2,7 +2,7 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Library.hpp>
-#include <EVA/Binary.hpp>
+#include <EVA/Core/Binary.hpp>
 #include <EVA/Renderer/GL.hpp> // Mesh
 #include <EVA/CSG.hpp> // Mesh
 #include <enet/enet.h>

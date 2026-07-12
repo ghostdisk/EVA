@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Core/Common.hpp>
+#include <EVA/Core/Basic.hpp>
 #include <string.h>
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data

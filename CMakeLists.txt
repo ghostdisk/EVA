@@ -10,6 +10,7 @@ add_executable(EVA
 	"EVA/Core/Arena.cpp"
 	"EVA/Core/Serialization.cpp"
 	"EVA/Core/Utils.cpp"
+	"EVA/Core/Allocator.cpp"
 	"EVA/Assets/Asset.cpp"
 	"EVA/Assets/Sprite.cpp"
 	"EVA/Assets/Texture.cpp"

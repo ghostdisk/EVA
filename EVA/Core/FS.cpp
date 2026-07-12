@@ -1,5 +1,4 @@
 #include <EVA/Core/FS.hpp>
-#include <EVA/Core/Arena.hpp>
 #include <Windows.h>
 
 namespace FS {

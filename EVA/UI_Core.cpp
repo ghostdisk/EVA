@@ -1,9 +1,9 @@
+#include <EVA/Core/Basic.hpp>
+#include <EVA/Core/Hashing.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Renderer/Renderer.hpp>
-#include <EVA/Core/Hashing.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Input.hpp>
-#include <EVA/Core/Arena.hpp>
 #include <EVA/Library.hpp>
 #include <SDL3/SDL_events.h>
 

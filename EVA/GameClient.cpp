@@ -1,10 +1,9 @@
-#include <EVA/Core/Arena.hpp>
+#include <EVA/Core/Basic.hpp>
+#include <EVA/Core/Binary.hpp>
 #include <EVA/GameClient.hpp>
-#include <EVA/Core/Result.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/Binary.hpp>
 #include <enet/enet.h>
 
 Result Con_connect(ConParser& parser) {

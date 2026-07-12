@@ -1,6 +1,4 @@
-#include <EVA/Core/Arena.hpp>
-#include <EVA/Core/String.hpp>
-#include <EVA/Core/Result.hpp>
+#include <EVA/Core/Basic.hpp>
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>

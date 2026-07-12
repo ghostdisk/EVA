@@ -1,6 +1,6 @@
 #pragma once
 #include <EVA/Math.hpp>
-#include <EVA/Core/Result.hpp>
+#include <EVA/Core/Basic.hpp>
 
 struct ConParser {
 	const char* start;

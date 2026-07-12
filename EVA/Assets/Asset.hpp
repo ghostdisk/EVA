@@ -1,7 +1,5 @@
 #pragma once
-#include <EVA/Core/String.hpp>
-#include <EVA/Core/Object.hpp>
-#include <EVA/Core/Result.hpp>
+#include <EVA/Core/Basic.hpp>
 
 #ifndef _FILE_DEFINED
     #define _FILE_DEFINED

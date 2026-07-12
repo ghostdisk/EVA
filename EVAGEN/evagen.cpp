@@ -219,7 +219,7 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		return;
 	}
 
-	std::vector<std::string> includes = { "EVA/Core/Object.hpp", "EVA/Core/Serialization.hpp" };
+	std::vector<std::string> includes = { "EVA/Core/Object.hpp", "EVA/Core/Serialization.hpp", "EVA/Core/Allocator.hpp" };
 	for (const EClass& ec : eclasses) {
 		if (std::find(includes.begin(), includes.end(), ec.header) == includes.end()) {
 			includes.push_back(ec.header);
@@ -272,7 +272,13 @@ static void WriteGenFile(const std::vector<EClass>& eclasses) {
 		fprintf(f, "static Type g_type_%s = {\n", ec->name.c_str());
 		fprintf(f, "\t.parent_type = %s,\n", parent_ref.c_str());
 		fprintf(f, "\t.name = \"%s\",\n", ec->name.c_str());
-		fprintf(f, "\t.Instantiate = []() -> Object* { return new %s(); },\n", ec->name.c_str());
+		fprintf(f,
+			"\t.Instantiate = [](Allocator allocator) -> void* {\n"
+			"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
+			"\t\tnew (ptr) %s();\n"
+			"\t\treturn ptr;\n"
+			"\t},",
+			ec->name.c_str(), ec->name.c_str(), ec->name.c_str());
 		fprintf(f, "};\n");
 	}
 	fprintf(f, "\n");
