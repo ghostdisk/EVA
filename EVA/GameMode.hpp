@@ -7,12 +7,11 @@ class ECamera;
 
 class ECLASS() GameMode : Object {
 
-protected:
+public:
 	Game*          m_game          = nullptr;
 	EntityManager* m_entityManager = nullptr;
 	ECamera*       m_mainCamera    = nullptr;
 
-public:
 	ECLASS_COMMON();
 
 	void Init(Game* game, EntityManager* entityManager);

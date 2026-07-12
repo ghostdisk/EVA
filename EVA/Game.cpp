@@ -19,7 +19,7 @@
 Game* g_games[8]        = {};
 Game* g_active_game     = nullptr;
 
-class EditorGameMode;
+class Editor;
 
 ConVar cvar_game = {
 	.name = "game",

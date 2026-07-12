@@ -2,8 +2,10 @@
 #include <EVA/Core/Basic.hpp>
 #include <EVA/GameMode.hpp>
 #include <EVA/Math.hpp>
+#include <EVA/Entities/Entity.hpp> // TODO: EntityType
 #include <vector>
 
+class Entity;
 struct CSGBrush;
 struct ECamera;
 
@@ -27,7 +29,9 @@ struct EdOp {
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
-class ECLASS() EditorGameMode : public GameMode {
+class ECLASS() Editor : public GameMode {
+
+
 public:
 	ECLASS_COMMON();
 

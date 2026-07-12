@@ -60,7 +60,6 @@ enum EdBrushToolPhase {
 ECamera* g_editor_camera = {};
 
 static EID                      g_next_eid             = EID_MapStart;
-static EntityManager            g_entity_manager       = {};
 static EdOp*                    g_root                 = nullptr;
 static std::vector<EdSelection> g_selection            = {};
 static char                     g_loaded_map_name[64]  = {};
@@ -144,6 +143,12 @@ EdGizmoState g_hover_gizmo_state = {};
 EdGizmoState g_new_hover_gizmo_state = {};
 
 HashStack hash_stack;
+
+
+static Result GetEditor(Editor** out) {
+	*out = dynamic_cast<Editor*>(GameMode::GetCurrent());
+	return *out ? Success() : Err("no active editor");
+}
 
 EdOp* EdCreateOp() {
 	EdOp* op = new EdOp();
@@ -236,16 +241,16 @@ void EdRemoveOpFromTree(EdOp* op) {
 	}
 }
 
-Entity* EdCreateEntity(EntityType type, float3 pos) {
+Entity* EdCreateEntity(Editor* ed, EntityType type, float3 pos) {
 	Entity* entity = ENTITY_TYPE_META[type]->CreateEntity();
 	entity->type = type;
 	entity->position = pos;
-	g_entity_manager.RegisterEntity(entity, g_next_eid++);
+	ed->m_entityManager->RegisterEntity(entity, g_next_eid++);
 	return entity;
 }
 
-void EdDestroyEntity(Entity* entity) {
-	g_entity_manager.DestroyEntity(entity);
+void EdDestroyEntity(Editor* ed, Entity* entity) {
+	ed->m_entityManager->DestroyEntity(entity);
 }
 
 void EdDestroyOp(EdOp* op) {
@@ -261,13 +266,13 @@ void EdDestroyOp(EdOp* op) {
 	delete op;
 }
 
-void EdDestroySelection() {
+void EdDestroySelection(Editor* ed) {
 	bool changed_geometry = false;
 
 	for (EdSelection& sel : g_selection) {
 		switch (sel.type) {
 			case EdSelectionType_Entity: {
-				EdDestroyEntity(sel.entity);
+				EdDestroyEntity(ed, sel.entity);
 				break;
 			}
 			case EdSelectionType_Node: {
@@ -550,10 +555,10 @@ AABB EdGetEntityAABB(Entity* entity) {
 	return aabb;
 }
 
-bool EdRaycastAgainstEntities(const Ray& ray, float* out_t, Entity** out_hit) {
+bool EdRaycastAgainstEntities(Editor* ed, const Ray& ray, float* out_t, Entity** out_hit) {
 	float min_t = FLT_MAX;
 	Entity* hit = nullptr;
-	g_entity_manager.Iterate([&](Entity* entity) {
+	ed->m_entityManager->Iterate([&](Entity* entity) {
 		float t = Intersect(ray, EdGetEntityAABB(entity));
 		if (t >= 0 && t < min_t)
 		{
@@ -780,7 +785,7 @@ void EdDrawGrid(EdGrid& grid, float4 color) {
 	}
 }
 
-void EdTickTool_Select() {
+void EdTickTool_Select(Editor* ed) {
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 	bool dirty = false;
 
@@ -837,7 +842,7 @@ void EdTickTool_Select() {
 
 		float entity_t = FLT_MAX;
 		Entity* hit_entity = nullptr;
-		bool hit_ent = EdRaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
+		bool hit_ent = EdRaycastAgainstEntities(ed, mouse_ray, &entity_t, &hit_entity);
 
 		if (hit_ent && (!hit || entity_t < min_t)) 
 			EdSelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
@@ -962,11 +967,11 @@ void EdTickTool_Brush()
 	}
 }
 
-void EdTickTool_Entity() {
+void EdTickTool_Entity(Editor* ed) {
 	Ray mouse_ray = CameraScreenToRay(*g_editor_camera, g_mouse_position);
 
 	Entity* hit_entity = nullptr;
-	if (EdRaycastAgainstEntities(mouse_ray, nullptr, &hit_entity)) {
+	if (EdRaycastAgainstEntities(ed, mouse_ray, nullptr, &hit_entity)) {
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
 			EdSelectEntity(hit_entity);
 		}
@@ -981,7 +986,7 @@ void EdTickTool_Entity() {
 		DrawPoint(p, {0,1,0,1});
 
 		if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT)) {
-			EdCreateEntity(g_entity_tool_type, p);
+			EdCreateEntity(ed, g_entity_tool_type, p);
 			EdDeselect();
 		}
 	}
@@ -995,15 +1000,15 @@ void EdSetTool(EdTool tool) {
 	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
 }
 
-void EditorGameMode::OnBegin() {
+void Editor::OnBegin() {
 	m_mainCamera = g_editor_camera;
 	m_game->m_activeCamera = g_editor_camera;
 }
 
-void EditorGameMode::OnEnd() {
+void Editor::OnEnd() {
 }
 
-void EditorGameMode::OnTick(double dt) {
+void Editor::OnTick(double dt) {
 	CameraFly(*g_editor_camera);
 	CameraUpdateMatrices(*g_editor_camera);
 
@@ -1016,13 +1021,13 @@ void EditorGameMode::OnTick(double dt) {
 	g_new_hover_gizmo_state.world_dist = FLT_MAX;
 
 	switch (g_tool) {
-		case EdTool_Select: { EdTickTool_Select(); break; }
+		case EdTool_Select: { EdTickTool_Select(this); break; }
 		case EdTool_Brush:  { EdTickTool_Brush(); break; }
-		case EdTool_Entity: { EdTickTool_Entity(); break; }
+		case EdTool_Entity: { EdTickTool_Entity(this); break; }
 		default: break;
 	}
 
-	g_entity_manager.Iterate([&](Entity* ent) {
+	m_entityManager->Iterate([&](Entity* ent) {
 		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
 		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
 		DrawPoint(ent->position, {0,1,0,1});
@@ -1127,7 +1132,7 @@ void EditorGameMode::OnTick(double dt) {
 		}
 
 		if (UIBeginTreeNode("Entities")) {
-			g_entity_manager.Iterate([&](Entity* entity) {
+			m_entityManager->Iterate([&](Entity* entity) {
 				UIPushId(entity);
 				DEFER(UIPopId());
 
@@ -1266,7 +1271,7 @@ EdOp* EdLoadOp(FILE* f) {
 	return op;
 }
 
-Result EdSaveMap(const char* name) {
+Result EdSaveMap(Editor* ed, const char* name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
 	FILE* f = fopen(path, "wb");
@@ -1278,32 +1283,32 @@ Result EdSaveMap(const char* name) {
 	EdSaveOp(f, g_root, 0);
 
 	int num_entities = 0;
-	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
+	ed->m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
-	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
+	ed->m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
 	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
 	return Success();
 }
 
-void EdUnloadMap() {
+void EdUnloadMap(Editor* ed) {
 	if (g_root) {
 		EdDestroyOp(g_root);
 		g_root = nullptr;
 	}
 
-	g_entity_manager.Reset();
-	g_entity_manager.Init();
+	ed->m_entityManager->Reset();
+	ed->m_entityManager->Init();
 }
 
-Result EditorGameMode::LoadMap(String name) {
+Result Editor::LoadMap(String name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%.*s.mpe", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
 	FILE* f = fopen(path, "rb");
 	if (!f) return Err("Failed to open %s", name);
 	DEFER(fclose(f));
 
-	EdUnloadMap();
+	EdUnloadMap(this);
 
 	int version = 0;
 	fscanf(f, "type mpe\n");
@@ -1323,7 +1328,7 @@ Result EditorGameMode::LoadMap(String name) {
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
-		Entity* ent = EntityLoad(&g_entity_manager, f);
+		Entity* ent = EntityLoad(m_entityManager, f);
 		if (ent->eid >= g_next_eid) g_next_eid = ent->eid + 1;
 	}
 
@@ -1333,7 +1338,7 @@ Result EditorGameMode::LoadMap(String name) {
 	return Success();
 }
 
-Result EdCompileMap() {
+Result EdCompileMap(Editor* ed) {
 	int indent = 0;
 
 	char path[256];
@@ -1381,9 +1386,9 @@ Result EdCompileMap() {
 	fprintf(f, "\n");
 
 	int num_entities = 0;
-	g_entity_manager.Iterate([&](Entity* entity) { num_entities++; });
+	ed->m_entityManager->Iterate([&](Entity* entity) { num_entities++; });
 	fprintf(f, "entities %d\n", num_entities);
-	g_entity_manager.Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
+	ed->m_entityManager->Iterate([&](Entity* entity) { EntitySave(f, entity, 1); });
 
 	return Success();
 }
@@ -1478,7 +1483,9 @@ void EdInitialize() {
 	}, "editor: clone selection");
 
 	ConRegisterCommand("ed_del", [](ConParser& parser) {
-		EdDestroySelection();
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		EdDestroySelection(ed);
 		EdBuild(g_root);
 		return Success();
 	}, "editor: delete subtract");
@@ -1495,19 +1502,25 @@ void EdInitialize() {
 	}, "editor: increase/decrease grid size");
 
 	ConRegisterCommand("ed_save", [](ConParser& parser) {
+		Editor* ed;
+		TRY(GetEditor(&ed));
+
 		const char* name = parser.StringArg();
 		if (!name) name = g_loaded_map_name;
 		if (!name[0]) return Err("no map opened");
-		return EdSaveMap(name);
+
+		return EdSaveMap(ed, name);
 	}, "editor: save map .mpe");
 
 	ConRegisterCommand("ed_compile", [](ConParser& parser) {
-		return EdCompileMap();
+		Editor* ed;
+		TRY(GetEditor(&ed));
+		return EdCompileMap(ed);
 	}, "editor: compile map");
 
 	ConRegisterCommand("ed", [](ConParser& parser) {
 		if (g_active_game) {
-			g_active_game->SetGameMode(EditorGameMode::StaticClass());
+			g_active_game->SetGameMode(Editor::StaticClass());
 			return Success();
 		} else {
 			return Err("no active game");
@@ -1523,9 +1536,6 @@ void EdInitialize() {
 	g_root = EdCreateOp();
 	g_root->type = EdOpType_Stack;
 	g_root->global_transform = float4x4::Identity();
-
-	g_entity_manager.Reset();
-	g_entity_manager.Init();
 
 	g_editor_camera = new ECamera();
 	g_editor_camera->eid = EID_DefaultCamera;

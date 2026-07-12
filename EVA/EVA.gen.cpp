@@ -120,12 +120,12 @@ static Type g_type_BasePlayableGameMode = {
 		new (ptr) BasePlayableGameMode();
 		return ptr;
 	},};
-static Type g_type_EditorGameMode = {
+static Type g_type_Editor = {
 	.parent_type = &g_type_GameMode,
-	.name = "EditorGameMode",
+	.name = "Editor",
 	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(EditorGameMode), alignof(EditorGameMode));
-		new (ptr) EditorGameMode();
+		void* ptr = (void*)allocator.Allocate(sizeof(Editor), alignof(Editor));
+		new (ptr) Editor();
 		return ptr;
 	},};
 
@@ -155,8 +155,8 @@ Type* GameMode::StaticClass() { return &g_type_GameMode; }
 Type* GameMode::GetClass() { return &g_type_GameMode; }
 Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode; }
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
-Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
-Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
+Type* Editor::StaticClass() { return &g_type_Editor; }
+Type* Editor::GetClass() { return &g_type_Editor; }
 
 Type* Type::Find(String name) {
 	static Type* all[] = {
@@ -173,7 +173,7 @@ Type* Type::Find(String name) {
 		&g_type_Texture,
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
-		&g_type_EditorGameMode,
+		&g_type_Editor,
 	};
 	for (Type* t : all)
 		if (name == t->name) return t;
