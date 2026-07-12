@@ -20,6 +20,9 @@
 #include <EVA/BasePlayableGameMode.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Editor.hpp>
+#include <EVA/Entities/ECamera.hpp>
+#include <EVA/Entities/ECharacter.hpp>
+#include <EVA/Entities/EMarker.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -39,6 +42,9 @@ extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
 extern Type g_type_Entity;
 extern Type g_type_Editor;
+extern Type g_type_ECamera;
+extern Type g_type_ECharacter;
+extern Type g_type_EMarker;
 
 
 Type g_type_Object = {
@@ -69,26 +75,56 @@ Type g_type_Asset = {
 		&g_type_Sprite,
 		&g_type_Texture,
 	},
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Asset), alignof(Asset));
+		new (ptr) Asset();
+		return ptr;
+	},
 };
 Type g_type_EditorMap = {
 	.name = "EditorMap",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(EditorMap), alignof(EditorMap));
+		new (ptr) EditorMap();
+		return ptr;
+	},
 };
 Type g_type_Font = {
 	.name = "Font",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Font), alignof(Font));
+		new (ptr) Font();
+		return ptr;
+	},
 };
 Type g_type_Map = {
 	.name = "Map",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Map), alignof(Map));
+		new (ptr) Map();
+		return ptr;
+	},
 };
 Type g_type_Material = {
 	.name = "Material",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Material), alignof(Material));
+		new (ptr) Material();
+		return ptr;
+	},
 };
 Type g_type_Mesh = {
 	.name = "Mesh",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Mesh), alignof(Mesh));
+		new (ptr) Mesh();
+		return ptr;
+	},
 };
 Type g_type_Model = {
 	.name = "Model",
@@ -102,10 +138,20 @@ Type g_type_Model = {
 Type g_type_Shader = {
 	.name = "Shader",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Shader), alignof(Shader));
+		new (ptr) Shader();
+		return ptr;
+	},
 };
 Type g_type_Sprite = {
 	.name = "Sprite",
 	.parent_type = &g_type_Asset,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(Sprite), alignof(Sprite));
+		new (ptr) Sprite();
+		return ptr;
+	},
 };
 Type g_type_TextureInterpolation = {
 	.name = "TextureInterpolation",
@@ -153,6 +199,11 @@ Type g_type_BasePlayableGameMode = {
 Type g_type_Entity = {
 	.name = "Entity",
 	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_ECamera,
+		&g_type_ECharacter,
+		&g_type_EMarker,
+	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Entity), alignof(Entity));
 		new (ptr) Entity();
@@ -165,6 +216,33 @@ Type g_type_Editor = {
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Editor), alignof(Editor));
 		new (ptr) Editor();
+		return ptr;
+	},
+};
+Type g_type_ECamera = {
+	.name = "ECamera",
+	.parent_type = &g_type_Entity,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(ECamera), alignof(ECamera));
+		new (ptr) ECamera();
+		return ptr;
+	},
+};
+Type g_type_ECharacter = {
+	.name = "ECharacter",
+	.parent_type = &g_type_Entity,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(ECharacter), alignof(ECharacter));
+		new (ptr) ECharacter();
+		return ptr;
+	},
+};
+Type g_type_EMarker = {
+	.name = "EMarker",
+	.parent_type = &g_type_Entity,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(EMarker), alignof(EMarker));
+		new (ptr) EMarker();
 		return ptr;
 	},
 };
@@ -199,6 +277,12 @@ Type* Entity::StaticClass() { return &g_type_Entity; }
 Type* Entity::GetClass() { return &g_type_Entity; }
 Type* Editor::StaticClass() { return &g_type_Editor; }
 Type* Editor::GetClass() { return &g_type_Editor; }
+Type* ECamera::StaticClass() { return &g_type_ECamera; }
+Type* ECamera::GetClass() { return &g_type_ECamera; }
+Type* ECharacter::StaticClass() { return &g_type_ECharacter; }
+Type* ECharacter::GetClass() { return &g_type_ECharacter; }
+Type* EMarker::StaticClass() { return &g_type_EMarker; }
+Type* EMarker::GetClass() { return &g_type_EMarker; }
 
 Type* Type::Find(String name) {
 	static Type* g_allTypes[] = {
@@ -220,6 +304,9 @@ Type* Type::Find(String name) {
 		&g_type_BasePlayableGameMode,
 		&g_type_Entity,
 		&g_type_Editor,
+		&g_type_ECamera,
+		&g_type_ECharacter,
+		&g_type_EMarker,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;

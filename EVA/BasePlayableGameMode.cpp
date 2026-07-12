@@ -77,7 +77,8 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	assert(num_entities >= 0 && num_entities < 1000);
 
 	for (int i = 0; i < num_entities; i++) {
-		Entity* entity = EntityLoad(m_entityManager, f);
+		Entity* entity = nullptr;
+		TRY(EntityLoad(&entity, m_entityManager, f));
 	}
 
 	snprintf(map_name, sizeof(map_name), "%.*s", STRING_PRINTF_ARGS(name));

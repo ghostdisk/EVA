@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Entities/Entity.hpp>
 
-class ECharacter : public Entity {
+class ECLASS() ECharacter : public Entity {
 public:
 	ECLASS_COMMON();
 

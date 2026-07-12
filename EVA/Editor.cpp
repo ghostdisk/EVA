@@ -67,7 +67,7 @@ static EdTool                   g_tool                 = EdTool_Select;
 static float3                   g_brush_tool_start     = {};
 static float3                   g_brush_tool_end       = {};
 static EdBrushToolPhase         g_brush_tool_phase     = EdBrushToolPhase_Inactive;
-static EntityType               g_entity_tool_type     = EntityType_Marker;
+static Type*                    g_entity_tool_type     = nullptr;
 
 static const float ED_GRID_SIZES[] = {
 	0.03125f,
@@ -241,9 +241,8 @@ void EdRemoveOpFromTree(EdOp* op) {
 	}
 }
 
-Entity* EdCreateEntity(Editor* ed, EntityType type, float3 pos) {
-	Entity* entity = ENTITY_TYPE_META[type]->CreateEntity();
-	entity->type = type;
+Entity* EdCreateEntity(Editor* ed, Type* type, float3 pos) {
+	Entity* entity = (Entity*)type->Instantiate(Allocator::HeapAllocator);
 	entity->position = pos;
 	ed->m_entityManager->RegisterEntity(entity, g_next_eid++);
 	return entity;
@@ -547,11 +546,10 @@ bool EdRaycastAgainstBuiltBrushes(const Ray& ray, float* out_t, EdOp** out_op_hi
 }
 
 AABB EdGetEntityAABB(Entity* entity) {
-	const EntityTypeMeta* meta = ENTITY_TYPE_META[entity->type];
-	float3 center = entity->position + meta->editor_box_offset;
+	float3 center = entity->position;
 	AABB aabb;
-	aabb.min = center - meta->editor_box_size / 2.0f;
-	aabb.max = center + meta->editor_box_size / 2.0f;
+	aabb.min = center - float3{0.5, 0.5, 0.5} / 2.0f;
+	aabb.max = center + float3{0.5, 0.5, 0.5} / 2.0f;
 	return aabb;
 }
 
@@ -688,8 +686,7 @@ void EdDrawSelectionOutline(float4 color) {
 				break;
 			}
 			case EdSelectionType_Entity: {
-				const EntityTypeMeta* meta = ENTITY_TYPE_META[sel.entity->type];
-				DrawAABB(sel.entity->position + meta->editor_box_offset, meta->editor_box_size, color);
+				DrawAABB(sel.entity->position, {0.5, 0.5, 0.5}, color);
 				break;
 			}
 			default: {
@@ -1028,8 +1025,7 @@ void Editor::OnTick(double dt) {
 	}
 
 	m_entityManager->Iterate([&](Entity* ent) {
-		const EntityTypeMeta* meta = ENTITY_TYPE_META[ent->type];
-		DrawAABB(ent->position + meta->editor_box_offset, meta->editor_box_size, {0,1,0,1});
+		DrawAABB(ent->position, {0.5,0.5,0.5}, {0,1,0,1});
 		DrawPoint(ent->position, {0,1,0,1});
 	});
 
@@ -1110,12 +1106,13 @@ void Editor::OnTick(double dt) {
 		switch (g_tool) {
 			case EdTool_Entity: {
 				if (UIBeginTreeNode("Entity Type", nullptr, UITreeNodeFlags_DefaultOpen)) {
-					for (int i = 1; i < EntityType_ENUM_SIZE; i++) {
+
+
+					for (Type* type : Entity::StaticClass()->subclasses) {
 						UIButtonFlags flags = UIButtonFlags_Small;
-						if (g_entity_tool_type == i) flags |= UIButtonFlags_Toggle;
-						if (UIButton(ENTITY_TYPE_META[i]->name, flags))
-						{
-							g_entity_tool_type = (EntityType)i;
+						if (g_entity_tool_type == type) flags |= UIButtonFlags_Toggle;
+						if (UIButton(type->name, flags)) {
+							g_entity_tool_type = type;
 						}
 					}
 					UIEndTreeNode();

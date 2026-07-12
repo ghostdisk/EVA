@@ -103,11 +103,11 @@ target_link_libraries(EVA box3d)
 #
 # EVAGEN — reflection code generator
 #
-add_custom_command(
-	OUTPUT "${CMAKE_SOURCE_DIR}/EVA/EVA.gen.cpp"
+add_custom_target(EVAGEN_generate ALL
 	COMMAND "${CMAKE_SOURCE_DIR}/EVAGEN/evagen.exe"
-	DEPENDS "${CMAKE_SOURCE_DIR}/EVAGEN/evagen.exe"
+	BYPRODUCTS "${CMAKE_SOURCE_DIR}/EVA/EVA.gen.cpp"
 	WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 	COMMENT "EVAGEN: generating reflection data"
 	VERBATIM
 )
+add_dependencies(EVA EVAGEN_generate)
