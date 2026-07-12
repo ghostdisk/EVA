@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/GameMode.hpp>
+#include <EVA/GameModes/GameMode.hpp>
 
 class BasePlayableGameMode : GameMode {
 

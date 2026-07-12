@@ -1,5 +1,5 @@
 #include <EVA/Game.hpp>
-#include <EVA/GameMode.hpp>
+#include <EVA/GameModes/GameMode.hpp>
 
 GameMode* GameMode::GetCurrent() {
 	if (!g_active_game) return nullptr;

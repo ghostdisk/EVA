@@ -5,7 +5,7 @@
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Assets/Mesh.hpp>
-#include <EVA/GameMode.hpp>
+#include <EVA/GameModes/GameMode.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>

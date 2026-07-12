@@ -1,5 +1,5 @@
 #include <EVA/Game.hpp>
-#include <EVA/BasePlayableGameMode.hpp>
+#include <EVA/GameModes/BasePlayableGameMode.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Entities/ECamera.hpp>

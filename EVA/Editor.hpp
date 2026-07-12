@@ -1,6 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
-#include <EVA/GameMode.hpp>
+#include <EVA/GameModes/GameMode.hpp>
 #include <EVA/Math.hpp>
 #include <EVA/Entities/Entity.hpp> // TODO: EntityType
 #include <vector>
