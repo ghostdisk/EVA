@@ -8,6 +8,14 @@
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/Material.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Shader.hpp>
@@ -27,10 +35,8 @@
 #include <EVA/GameModes/GameMode.hpp>
 #include <EVA/GameModes/BasePlayableGameMode.hpp>
 #include <EVA/GameModes/EditorGameMode.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
+#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -38,6 +44,14 @@ extern Type g_type_EditorMap;
 extern Type g_type_Font;
 extern Type g_type_Map;
 extern Type g_type_Material;
+extern Type g_type_GFX__GPUBuffer;
+extern Type g_type_GFX__Image;
+extern Type g_type_GFX__Sampler;
+extern Type g_type_GFX__ShaderModule;
+extern Type g_type_GFX__GraphicsPipeline;
+extern Type g_type_GFX__CommandBuffer;
+extern Type g_type_GFX__Fence;
+extern Type g_type_GFX__GraphicsDevice;
 extern Type g_type_Mesh;
 extern Type g_type_Model;
 extern Type g_type_Shader;
@@ -57,10 +71,8 @@ extern Type g_type_EMarker;
 extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
 extern Type g_type_EditorGameMode;
-extern Type g_type_CommandBuffer;
-extern Type g_type_Image;
-extern Type g_type_GPUBuffer;
-extern Type g_type_GraphicsDevice;
+extern Type g_type_GFX__CommandBuffer_Vulkan;
+extern Type g_type_GFX__GraphicsDevice_Vulkan;
 
 
 Type g_type_Object = {
@@ -68,13 +80,17 @@ Type g_type_Object = {
 	.parent_type = nullptr,
 	.subclasses = {
 		&g_type_Asset,
+		&g_type_GFX__GPUBuffer,
+		&g_type_GFX__Image,
+		&g_type_GFX__Sampler,
+		&g_type_GFX__ShaderModule,
+		&g_type_GFX__GraphicsPipeline,
+		&g_type_GFX__CommandBuffer,
+		&g_type_GFX__Fence,
+		&g_type_GFX__GraphicsDevice,
 		&g_type_Tool,
 		&g_type_Entity,
 		&g_type_GameMode,
-		&g_type_CommandBuffer,
-		&g_type_Image,
-		&g_type_GPUBuffer,
-		&g_type_GraphicsDevice,
 	},
 	.Instantiate = [](Allocator allocator) -> void* {
 		void* ptr = (void*)allocator.Allocate(sizeof(Object), alignof(Object));
@@ -136,6 +152,74 @@ Type g_type_Material = {
 		void* ptr = (void*)allocator.Allocate(sizeof(Material), alignof(Material));
 		new (ptr) Material();
 		return ptr;
+	},
+};
+Type g_type_GFX__GPUBuffer = {
+	.name = "GFX::GPUBuffer",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::GPUBuffer), alignof(GFX::GPUBuffer));
+		new (ptr) GFX::GPUBuffer();
+		return ptr;
+	},
+};
+Type g_type_GFX__Image = {
+	.name = "GFX::Image",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::Image), alignof(GFX::Image));
+		new (ptr) GFX::Image();
+		return ptr;
+	},
+};
+Type g_type_GFX__Sampler = {
+	.name = "GFX::Sampler",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::Sampler), alignof(GFX::Sampler));
+		new (ptr) GFX::Sampler();
+		return ptr;
+	},
+};
+Type g_type_GFX__ShaderModule = {
+	.name = "GFX::ShaderModule",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::ShaderModule), alignof(GFX::ShaderModule));
+		new (ptr) GFX::ShaderModule();
+		return ptr;
+	},
+};
+Type g_type_GFX__GraphicsPipeline = {
+	.name = "GFX::GraphicsPipeline",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::GraphicsPipeline), alignof(GFX::GraphicsPipeline));
+		new (ptr) GFX::GraphicsPipeline();
+		return ptr;
+	},
+};
+Type g_type_GFX__CommandBuffer = {
+	.name = "GFX::CommandBuffer",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_GFX__CommandBuffer_Vulkan,
+	},
+};
+Type g_type_GFX__Fence = {
+	.name = "GFX::Fence",
+	.parent_type = &g_type_Object,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::Fence), alignof(GFX::Fence));
+		new (ptr) GFX::Fence();
+		return ptr;
+	},
+};
+Type g_type_GFX__GraphicsDevice = {
+	.name = "GFX::GraphicsDevice",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_GFX__GraphicsDevice_Vulkan,
 	},
 };
 Type g_type_Mesh = {
@@ -303,36 +387,23 @@ Type g_type_EditorGameMode = {
 		return ptr;
 	},
 };
-Type g_type_CommandBuffer = {
-	.name = "CommandBuffer",
-	.parent_type = &g_type_Object,
+Type g_type_GFX__CommandBuffer_Vulkan = {
+	.name = "GFX::CommandBuffer_Vulkan",
+	.parent_type = &g_type_GFX__CommandBuffer,
 	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(CommandBuffer), alignof(CommandBuffer));
-		new (ptr) CommandBuffer();
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::CommandBuffer_Vulkan), alignof(GFX::CommandBuffer_Vulkan));
+		new (ptr) GFX::CommandBuffer_Vulkan();
 		return ptr;
 	},
 };
-Type g_type_Image = {
-	.name = "Image",
-	.parent_type = &g_type_Object,
+Type g_type_GFX__GraphicsDevice_Vulkan = {
+	.name = "GFX::GraphicsDevice_Vulkan",
+	.parent_type = &g_type_GFX__GraphicsDevice,
 	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(Image), alignof(Image));
-		new (ptr) Image();
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::GraphicsDevice_Vulkan), alignof(GFX::GraphicsDevice_Vulkan));
+		new (ptr) GFX::GraphicsDevice_Vulkan();
 		return ptr;
 	},
-};
-Type g_type_GPUBuffer = {
-	.name = "GPUBuffer",
-	.parent_type = &g_type_Object,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(GPUBuffer), alignof(GPUBuffer));
-		new (ptr) GPUBuffer();
-		return ptr;
-	},
-};
-Type g_type_GraphicsDevice = {
-	.name = "GraphicsDevice",
-	.parent_type = &g_type_Object,
 };
 
 Type* Object::StaticClass() { return &g_type_Object; }
@@ -347,6 +418,22 @@ Type* Map::StaticClass() { return &g_type_Map; }
 Type* Map::GetClass() { return &g_type_Map; }
 Type* Material::StaticClass() { return &g_type_Material; }
 Type* Material::GetClass() { return &g_type_Material; }
+Type* GFX::GPUBuffer::StaticClass() { return &g_type_GFX__GPUBuffer; }
+Type* GFX::GPUBuffer::GetClass() { return &g_type_GFX__GPUBuffer; }
+Type* GFX::Image::StaticClass() { return &g_type_GFX__Image; }
+Type* GFX::Image::GetClass() { return &g_type_GFX__Image; }
+Type* GFX::Sampler::StaticClass() { return &g_type_GFX__Sampler; }
+Type* GFX::Sampler::GetClass() { return &g_type_GFX__Sampler; }
+Type* GFX::ShaderModule::StaticClass() { return &g_type_GFX__ShaderModule; }
+Type* GFX::ShaderModule::GetClass() { return &g_type_GFX__ShaderModule; }
+Type* GFX::GraphicsPipeline::StaticClass() { return &g_type_GFX__GraphicsPipeline; }
+Type* GFX::GraphicsPipeline::GetClass() { return &g_type_GFX__GraphicsPipeline; }
+Type* GFX::CommandBuffer::StaticClass() { return &g_type_GFX__CommandBuffer; }
+Type* GFX::CommandBuffer::GetClass() { return &g_type_GFX__CommandBuffer; }
+Type* GFX::Fence::StaticClass() { return &g_type_GFX__Fence; }
+Type* GFX::Fence::GetClass() { return &g_type_GFX__Fence; }
+Type* GFX::GraphicsDevice::StaticClass() { return &g_type_GFX__GraphicsDevice; }
+Type* GFX::GraphicsDevice::GetClass() { return &g_type_GFX__GraphicsDevice; }
 Type* Mesh::StaticClass() { return &g_type_Mesh; }
 Type* Mesh::GetClass() { return &g_type_Mesh; }
 Type* Model::StaticClass() { return &g_type_Model; }
@@ -379,14 +466,10 @@ Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode;
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
 Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
 Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
-Type* CommandBuffer::StaticClass() { return &g_type_CommandBuffer; }
-Type* CommandBuffer::GetClass() { return &g_type_CommandBuffer; }
-Type* Image::StaticClass() { return &g_type_Image; }
-Type* Image::GetClass() { return &g_type_Image; }
-Type* GPUBuffer::StaticClass() { return &g_type_GPUBuffer; }
-Type* GPUBuffer::GetClass() { return &g_type_GPUBuffer; }
-Type* GraphicsDevice::StaticClass() { return &g_type_GraphicsDevice; }
-Type* GraphicsDevice::GetClass() { return &g_type_GraphicsDevice; }
+Type* GFX::CommandBuffer_Vulkan::StaticClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
+Type* GFX::CommandBuffer_Vulkan::GetClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
+Type* GFX::GraphicsDevice_Vulkan::StaticClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
+Type* GFX::GraphicsDevice_Vulkan::GetClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
 
 Type* Type::Find(String name) {
 	static Type* g_allTypes[] = {
@@ -396,6 +479,14 @@ Type* Type::Find(String name) {
 		&g_type_Font,
 		&g_type_Map,
 		&g_type_Material,
+		&g_type_GFX__GPUBuffer,
+		&g_type_GFX__Image,
+		&g_type_GFX__Sampler,
+		&g_type_GFX__ShaderModule,
+		&g_type_GFX__GraphicsPipeline,
+		&g_type_GFX__CommandBuffer,
+		&g_type_GFX__Fence,
+		&g_type_GFX__GraphicsDevice,
 		&g_type_Mesh,
 		&g_type_Model,
 		&g_type_Shader,
@@ -415,10 +506,8 @@ Type* Type::Find(String name) {
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
 		&g_type_EditorGameMode,
-		&g_type_CommandBuffer,
-		&g_type_Image,
-		&g_type_GPUBuffer,
-		&g_type_GraphicsDevice,
+		&g_type_GFX__CommandBuffer_Vulkan,
+		&g_type_GFX__GraphicsDevice_Vulkan,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;

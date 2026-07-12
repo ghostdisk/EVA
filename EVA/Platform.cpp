@@ -1,6 +1,6 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/Renderer/GL.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 #include <SDL3/SDL.h>
 
 #define FRAME_TIME_HISTORY_SIZE 50
@@ -19,7 +19,8 @@ ConVar cvar_vsync = {
 	.help = "0 - no vsync, 1 - every vblank, 2 - every 2nd vblank",
 	.fvalue = 0,
 	.on_change = [](ConVar*) {
-		SDL_GL_SetSwapInterval((int)cvar_vsync.fvalue);
+		if (GFX::GraphicsDevice::Get())
+			GFX::GraphicsDevice::Get()->SetVSync(cvar_vsync.fvalue != 0);
 	},
 };
 
@@ -28,9 +29,7 @@ void PlatformInitialize() {
 		Fatal("SDL_Init: %s", SDL_GetError());
 	}
 
-	GLPreInitialize();
-
-	g_game_window = SDL_CreateWindow("EVA", g_window_size.x, g_window_size.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+	g_game_window = SDL_CreateWindow("EVA", g_window_size.x, g_window_size.y, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 	if (!g_game_window)
 	{
 		Fatal("SDL_CreateWindow: %s", SDL_GetError());

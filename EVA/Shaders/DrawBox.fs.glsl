@@ -1,25 +1,39 @@
-layout (location = 0) out vec4 o_Color;
+#version 460
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_GOOGLE_include_directive : require
+#include "Common.h"
 
-layout (location = 0)      in vec2 v_Texcoord;
-layout (location = 1) flat in uint v_Mode;
-layout (location = 2)      in vec4 v_Tint;
+layout(push_constant) uniform PushConstants {
+	vec2 framebufferSize;
+	uint quadBuffer;
+	uint quadOffset;
+	uint vertexBuffer;
+	uint textureImage;
+	uint textureSampler;
+} push;
 
-layout (location = 1) uniform sampler2D u_Texture;
+layout(location = 0) in vec2 v_Texcoord;
+layout(location = 1) flat in uint v_Mode;
+layout(location = 2) in vec4 v_Tint;
+
+layout(location = 0) out vec4 o_Color;
 
 void main() {
-	vec4 tex = texture(u_Texture, v_Texcoord);
-	vec4 color;
-
-	if (v_Mode == 0) { // solid color
-		color = v_Tint;
-	}
-	else if (v_Mode == 1) { // text
-		float alpha = tex.r;
-		color = vec4(v_Tint.rgb , v_Tint.a * alpha);
-	}
-	else { // sprite
-		color = tex * v_Tint;
+	if (v_Mode == 0) {
+		o_Color = v_Tint;
+		return;
 	}
 
-	o_Color = color;
+	vec4 tex = texture(
+		sampler2D(
+			bindlessImages[nonuniformEXT(push.textureImage)],
+			bindlessSamplers[nonuniformEXT(push.textureSampler)]),
+		v_Texcoord);
+
+	if (v_Mode == 1) {
+		o_Color = vec4(v_Tint.rgb, v_Tint.a * tex.r);
+	} else {
+		o_Color = tex * v_Tint;
+	}
 }

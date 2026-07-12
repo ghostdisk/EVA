@@ -81,3 +81,41 @@ void Deserialize(Deserializer& d, Mesh* mesh) {
 
 	d.EndObject();
 }
+
+void Mesh::Upload(bool keep_cpu_data) {
+	index_count = indices.size();
+	vertex_count = vertices.size();
+
+	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
+	U64 vertexDataSize = sizeof(MeshVertex) * vertex_count;
+	vertex_buffer = device->CreateGPUBuffer(GFX::GPUBufferDesc{
+		.size = vertexDataSize,
+		.usage = GFX::GPUBufferUsage_TransferDest | GFX::GPUBufferUsage_StorageBuffer,
+		.memoryUsage = GFX::MemoryUsage::GPUOnly,
+		.bindless = true,
+	});
+	device->UploadBuffer(vertex_buffer, vertexDataSize, 0, vertices.data());
+
+	if (index_count) {
+		U64 indexDataSize = sizeof(U32) * index_count;
+		index_buffer = device->CreateGPUBuffer(GFX::GPUBufferDesc{
+			.size = indexDataSize,
+			.usage = GFX::GPUBufferUsage_TransferDest | GFX::GPUBufferUsage_IndexBuffer,
+			.memoryUsage = GFX::MemoryUsage::GPUOnly,
+		});
+		device->UploadBuffer(index_buffer, indexDataSize, 0, indices.data());
+	}
+
+	if (!keep_cpu_data) {
+		vertices.clear();
+		indices.clear();
+	}
+}
+
+void Mesh::Deinit() {
+	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
+	if (vertex_buffer) device->DestroyGPUBuffer(vertex_buffer);
+	if (index_buffer) device->DestroyGPUBuffer(index_buffer);
+	vertex_buffer = nullptr;
+	index_buffer = nullptr;
+}

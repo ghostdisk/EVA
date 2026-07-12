@@ -1,6 +1,5 @@
 #include <EVA/CSG.hpp>
 #include <EVA/Assets/Mesh.hpp>
-#include <EVA/Renderer/GL.hpp>
 #include <EVA/UI.hpp>
 #include <cglm/vec3.h>
 #include <algorithm>

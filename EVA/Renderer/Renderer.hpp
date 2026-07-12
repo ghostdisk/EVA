@@ -1,6 +1,10 @@
 #pragma once
-#include <EVA/Renderer/GL.hpp>
 #include <EVA/Math.hpp>
+
+class Material;
+class Mesh;
+class Shader;
+class Texture;
 
 class Sprite;
 class Font;

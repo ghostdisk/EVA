@@ -53,27 +53,28 @@ Shader* shd_quad;
 Shader* shd_brush;
 
 static Mesh* mesh_quad = nullptr;
-
-GLuint g_main_constant_buffer;
+static GFX::GPUBuffer* g_mainConstantBuffer = nullptr;
 
 static LayerData layers[Layer_ENUM_SIZE] = {};
 static LayerData* current_layer = &layers[Layer_Main];
 
 // ------------------------------------------------------------
 
-ConVar cvar_gl_wire = {
-	.name = "gl_wire",
-	.help = "toggle opengl wireframe mode",
+ConVar cvar_wireframe = {
+	.name = "r_wireframe",
+	.help = "toggle wireframe rendering",
 	.fvalue = 0,
 };
 
 void RendererInitialize() {
-	shd_lines   = GLCompileShader("Lines");
-	shd_main    = GLCompileShader("Main");
-	shd_quad    = GLCompileShader("DrawBox");
-
-	const char* brush_defines[] = { "S_BRUSH" };
-	shd_brush = GLCompileShader("Main", EVA_ARRAYSIZE(brush_defines), brush_defines);
+	shd_lines = new Shader();
+	AssetInit(shd_lines, "Lines");
+	shd_main = new Shader();
+	AssetInit(shd_main, "Main");
+	shd_quad = new Shader();
+	AssetInit(shd_quad, "DrawBox");
+	shd_brush = new Shader();
+	AssetInit(shd_brush, "MainBrush");
 
 	{ // mesh_quad:
 		MeshVertex quad_vertices[] = {
@@ -90,9 +91,14 @@ void RendererInitialize() {
 		mesh_quad->Upload(false);
 	}
 
-	ConRegisterVar(&cvar_gl_wire);
+	ConRegisterVar(&cvar_wireframe);
 
-	glGenBuffers(1, &g_main_constant_buffer);
+	g_mainConstantBuffer = GFX::GraphicsDevice::Get()->CreateGPUBuffer(GFX::GPUBufferDesc{
+		.size = sizeof(MainConstantBuffer),
+		.usage = GFX::GPUBufferUsage_ConstantBuffer | GFX::GPUBufferUsage_StorageBuffer,
+		.memoryUsage = GFX::MemoryUsage::CPUToGPU,
+		.bindless = true,
+	});
 }
 
 void DrawLine(float3 a, float3 b, float4 color) {
@@ -109,6 +115,8 @@ void DrawSetLineThickness() {
 
 void RenderFrame() {
 	ZoneScopedN("RenderScene");
+	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
+	GFX::CommandBuffer* cmd = device->GetMainCommandBuffer();
 
 	ECamera* camera = nullptr;
 	if (g_active_game && g_active_game->m_activeCamera) {
@@ -121,43 +129,37 @@ void RenderFrame() {
 		cb.view = camera->view_matrix;
 		cb.view_projection = camera->view_projection_matrix;
 	}
-	glBindBuffer(GL_UNIFORM_BUFFER, g_main_constant_buffer);
-	glBufferData(GL_UNIFORM_BUFFER, sizeof(cb), &cb, GL_STATIC_DRAW);
-	glBindBufferBase(GL_UNIFORM_BUFFER, 0, g_main_constant_buffer);
+	memcpy(g_mainConstantBuffer->m_mapped, &cb, sizeof(cb));
 
-	glViewport(0, 0, g_window_size.x, g_window_size.y);
-	glDepthRange(0.0, 1.0);
-
-	if (glClipControl) glClipControl(GL_LOWER_LEFT,  GL_ZERO_TO_ONE);
+	GFX::AttachmentDesc colorAttachment = {
+		.image = device->GetCurrentBackbuffer(),
+		.loadOp = GFX::LoadOp::Clear,
+		.storeOp = GFX::StoreOp::Store,
+		.clearColor = COLOR_BLACK,
+		.stateBefore = GFX::ImageState::Present,
+		.stateDuring = GFX::ImageState::ColorAttachment,
+		.stateAfter = GFX::ImageState::Present,
+	};
+	GFX::AttachmentDesc depthAttachment = {
+		.image = device->GetDepthBuffer(),
+		.loadOp = GFX::LoadOp::Clear,
+		.storeOp = GFX::StoreOp::Store,
+		.clearDepth = 1.0f,
+		.stateBefore = device->GetDepthBuffer()->m_state,
+		.stateDuring = GFX::ImageState::DepthAttachment,
+		.stateAfter = GFX::ImageState::DepthAttachment,
+	};
+	GFX::RenderingDesc renderingDesc = {
+		.colorAttachmentCount = 1,
+		.colorAttachments = &colorAttachment,
+		.depthAttachment = &depthAttachment,
+	};
+	cmd->BeginRendering(renderingDesc);
 
 	for (Layer layer = (Layer)0; layer < Layer_ENUM_SIZE; layer = (Layer)(layer + 1)) {
 		DrawSetLayer(layer);
 
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_BACK);
-		glDisable(GL_BLEND);
-
-		if (layer == Layer_Sky) {
-			float4 clear_color = COLOR_BLACK;
-			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-			glClear(GL_COLOR_BUFFER_BIT);
-		}
-
-		bool layer_has_depth = layer == Layer_Main;
-
-		if (layer_has_depth) {
-			glEnable(GL_DEPTH_TEST);
-			glDepthFunc(GL_LEQUAL);
-			glClear(GL_DEPTH_BUFFER_BIT);
-		} else {
-			glDisable(GL_DEPTH_TEST);
-		}
-
 		{ // render pending meshes:
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_BACK);
-			glPolygonMode(GL_FRONT_AND_BACK, cvar_gl_wire.fvalue ?  GL_LINE : GL_FILL);
-
 			for (const DrawMeshEntry& entry : current_layer->meshes)
 			{
 				Material* material      = entry.material;
@@ -173,68 +175,64 @@ void RenderFrame() {
 						color_texture = material->color_texture;
 				}
 
-				glUseProgram(shader->handle);
-				glUniform1f(4, material ? material->texture_scale : 1.0f);
-				GL_ERROR_CHECK();
-
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_2D, color_texture->handle);
-				glUniformMatrix4fv(2, 1, false, (float*)&entry.matrix);
-				glUniform4fv(3, 1, &entry.color.x);
-				glBindVertexArray(entry.mesh->vao);
-				GL_ERROR_CHECK();
+				struct MeshPushConstants {
+					float4x4 model;
+					float4 color;
+					float textureScale;
+					U32 cameraBuffer;
+					U32 vertexBuffer;
+					U32 colorImage;
+					U32 colorSampler;
+				} constants = {
+					.model = entry.matrix,
+					.color = entry.color,
+					.textureScale = material ? material->texture_scale : 1.0f,
+					.cameraBuffer = g_mainConstantBuffer->m_bindlessIndex,
+					.vertexBuffer = entry.mesh->vertex_buffer->m_bindlessIndex,
+					.colorImage = color_texture->image->m_bindlessIndex,
+					.colorSampler = color_texture->sampler->m_bindlessIndex,
+				};
+				cmd->BindPipeline(shader->m_pipeline);
+				cmd->PushConstants(shader->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
 
 				if (entry.mesh->index_count) {
-					glDrawElements(GL_TRIANGLES, entry.mesh->index_count, GL_UNSIGNED_INT, (void*)0);
+					cmd->BindIndexBuffer(entry.mesh->index_buffer, GFX::IndexType::U32);
+					cmd->DrawIndexed(entry.mesh->index_count);
 				} else {
-					glDrawArrays(GL_TRIANGLES, 0, entry.mesh->vertex_count);
+					cmd->Draw(entry.mesh->vertex_count);
 				}
-				GL_ERROR_CHECK();
 			}
 
 			current_layer->meshes.clear();
 		}
 
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
 		// render pending lines:
 		if (current_layer->lines.size()) { 
-			GLuint vao, vbo;
-			glGenVertexArrays(1, &vao);
-			glBindVertexArray(vao);
-			glGenBuffers(1, &vbo);
-			glBindBuffer(GL_ARRAY_BUFFER, vbo);
-			glBufferData(GL_ARRAY_BUFFER, current_layer->lines.size() * sizeof(current_layer->lines[0]), current_layer->lines.data(), GL_STATIC_DRAW);
-			GL_ERROR_CHECK();
-
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-			glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(LineVertex), (void*)0);
-			glVertexAttribPointer(1, 4, GL_FLOAT, false, sizeof(LineVertex), (void*)12);
-
-			glUseProgram(shd_lines->handle);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glDrawArrays(GL_LINES, 0, current_layer->lines.size());
-			GL_ERROR_CHECK();
-
-			glDeleteVertexArrays(1, &vao);
-			glDeleteBuffers(1, &vbo);
+			GFX::GPUBuffer* lineBuffer = nullptr;
+			size_t lineBufferOffset = 0;
+			device->UploadFrameData(
+				current_layer->lines.data(),
+				current_layer->lines.size() * sizeof(LineVertex),
+				&lineBuffer,
+				&lineBufferOffset);
+			struct LinePushConstants {
+				U32 cameraBuffer;
+				U32 vertexBuffer;
+				U32 vertexOffset;
+			} constants = {
+				g_mainConstantBuffer->m_bindlessIndex,
+				lineBuffer->m_bindlessIndex,
+				(U32)(lineBufferOffset / sizeof(LineVertex)),
+			};
+			cmd->BindPipeline(shd_lines->m_pipeline);
+			cmd->PushConstants(shd_lines->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
+			cmd->Draw((U32)current_layer->lines.size());
 
 			current_layer->lines.clear();
 		}
 
 		// render quads:
 		{
-			glEnable(GL_CULL_FACE);
-			glCullFace(GL_FRONT);
-			glUseProgram(shd_quad->handle);
-			glBindVertexArray(mesh_quad->vao);
-			glUniform2f(0, g_window_size.x, g_window_size.y);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			GL_ERROR_CHECK();
-
 			int start = 0;
 			while (start < current_layer->quads.size()) {
 				Texture* texture = current_layer->quads[start].texture;
@@ -257,24 +255,32 @@ void RenderFrame() {
 					};
 				}
 
-				GLuint quad_buffer;
-				glGenBuffers(1, &quad_buffer);
-				glBindBuffer(GL_SHADER_STORAGE_BUFFER, quad_buffer);
-				glBufferData(GL_SHADER_STORAGE_BUFFER, quads.size() * sizeof(quads[0]), quads.data(), GL_STATIC_DRAW);
-				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, quad_buffer);
-				GL_ERROR_CHECK();
-
-				if (texture) {
-					glActiveTexture(GL_TEXTURE0);
-					glBindTexture(GL_TEXTURE_2D, texture->handle);
-					glUniform1i(1, 0);
-					GL_ERROR_CHECK();
-				}
-
-				glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, quads.size());
-				GL_ERROR_CHECK();
-
-				glDeleteBuffers(1, &quad_buffer);
+				GFX::GPUBuffer* quadBuffer = nullptr;
+				size_t quadBufferOffset = 0;
+				device->UploadFrameData(
+					quads.data(),
+					quads.size() * sizeof(DrawQuad),
+					&quadBuffer,
+					&quadBufferOffset);
+				struct QuadPushConstants {
+					float2 framebufferSize;
+					U32 quadBuffer;
+					U32 quadOffset;
+					U32 vertexBuffer;
+					U32 textureImage;
+					U32 textureSampler;
+				} constants = {
+					.framebufferSize = float2(device->GetDrawableWidth(), device->GetDrawableHeight()),
+					.quadBuffer = quadBuffer->m_bindlessIndex,
+					.quadOffset = (U32)(quadBufferOffset / sizeof(DrawQuad)),
+					.vertexBuffer = mesh_quad->vertex_buffer->m_bindlessIndex,
+					.textureImage = texture ? texture->image->m_bindlessIndex : UINT32_MAX,
+					.textureSampler = texture ? texture->sampler->m_bindlessIndex : UINT32_MAX,
+				};
+				cmd->BindPipeline(shd_quad->m_pipeline);
+				cmd->PushConstants(shd_quad->m_pipeline, GFX::ShaderStage_AllGraphics, 0, sizeof(constants), &constants);
+				cmd->BindIndexBuffer(mesh_quad->index_buffer, GFX::IndexType::U32);
+				cmd->DrawIndexed(6, (U32)quads.size());
 
 				start = end;
 			}
@@ -282,6 +288,7 @@ void RenderFrame() {
 		}
 
 	}
+	cmd->EndRendering(renderingDesc);
 }
 
 void DrawMesh(Mesh* mesh, Material* material, const float4x4& matrix, float4 color) {

@@ -1,18 +1,21 @@
-layout (location = 0) in vec3 a_Position;
-layout (location = 1) in vec4 a_Color;
+#version 460
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_GOOGLE_include_directive : require
+#include "Common.h"
 
-layout (location = 0) out vec4 v_Color;
+layout(push_constant) uniform PushConstants {
+	uint cameraBuffer;
+	uint vertexBuffer;
+	uint vertexOffset;
+} push;
 
-// --- uniform buffers ----------------------------------------
-
-layout (std140, binding = 0) uniform MainConstantBuffer {
-	mat4 view;
-	mat4 view_projection;
-} u_main;
-
-// ------------------------------------------------------------
+layout(location = 0) out vec4 v_Color;
 
 void main() {
-	gl_Position = u_main.view_projection * vec4(a_Position, 1);
-	v_Color = a_Color;
+	LineVertex vertex = bindlessBuffers_LineVertex[nonuniformEXT(push.vertexBuffer)].data[push.vertexOffset + gl_VertexIndex];
+	v_Color = vertex.color;
+
+	mat4 viewProjection = bindlessBuffers_FrameGlobals[nonuniformEXT(push.cameraBuffer)].data.viewProjection;
+	gl_Position = viewProjection * vec4(vertex.position, 1.0);
 }

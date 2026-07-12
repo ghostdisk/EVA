@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 
 enum class ESERIALIZABLE TextureInterpolation : U8 {
 	Point,
@@ -29,13 +30,14 @@ public:
 ECLASS_COMMON();
 	TextureProps props = {};
 
-	U32    handle = 0;
-	size_t width  = 0;
-	size_t height = 0;
+	GFX::Image*   image   = nullptr;
+	GFX::Sampler* sampler = nullptr;
+	size_t        width   = 0;
+	size_t        height  = 0;
 
 	virtual void LoadMetaImpl(Deserializer& deserializer) override;
 	virtual void SaveMetaImpl(Serializer& serializer) override;
 	virtual Result LoadImpl(FILE* f) override;
 
-	void Upload(int width, int height, const U8* pixels, U32 gl_format);
+	void Upload(int width, int height, const U8* pixels, GFX::Format format);
 };

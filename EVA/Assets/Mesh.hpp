@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 #include <vector>
 
 class Material;
@@ -26,11 +27,10 @@ public:
 	std::vector<U32>        indices;
 
 	// gpu data, initialized by Upload()
-	U32           vao              = 0;
-	U32           vbo              = 0;
-	U32           ibo              = 0;
-	U32           index_count      = 0;
-	U32           vertex_count     = 0;
+	GFX::GPUBuffer* vertex_buffer = nullptr;
+	GFX::GPUBuffer* index_buffer  = nullptr;
+	U32             index_count   = 0;
+	U32             vertex_count  = 0;
 
 	void InitCPUData(size_t num_vertices, const MeshVertex* vertices, size_t num_indices, const U32* indices);
 	void Upload(bool keep_cpu_data);

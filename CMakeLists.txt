@@ -40,7 +40,9 @@ add_executable(EVA
 	"EVA/Math.cpp"
 	"EVA/Net.cpp"
 	"EVA/Platform.cpp"
-	"EVA/Renderer/GL.cpp"
+	"EVA/Renderer/GraphicsDevice.cpp"
+	"EVA/Renderer/GraphicsDevice_Vulkan.cpp"
+	"Vendor/volk/volk.c"
 	"EVA/Renderer/Material.cpp"
 	"EVA/Renderer/Renderer.cpp"
 	"EVA/UI_Core.cpp"
@@ -52,6 +54,10 @@ add_executable(EVA
 
 set_property(TARGET EVA PROPERTY CXX_STANDARD 20)
 target_include_directories(EVA PRIVATE "${CMAKE_SOURCE_DIR}")
+
+find_package(Vulkan REQUIRED)
+target_link_libraries(EVA Vulkan::Headers)
+target_include_directories(EVA PRIVATE "Vendor/volk")
 
 #
 # SDL

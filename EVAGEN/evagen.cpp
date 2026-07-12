@@ -1,6 +1,7 @@
 #include <clang-c/Index.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -94,6 +95,8 @@ static bool IsInOurTree(CXCursor cursor) {
 class Type {
 public:
 	std::string              name               = "";
+	std::string              qualified_name     = "";
+	std::string              symbol_name        = "";
 	Type*                    parent             = nullptr;
 	std::vector<Type*>       subclasses         = {};
 	std::string              header             = "'";
@@ -107,12 +110,22 @@ public:
 
 static std::vector<Type*> g_types;
 
-static Type* GetType(const std::string& name) {
+static std::string SymbolName(std::string name) {
+	for (char& c : name) {
+		if (!isalnum((unsigned char)c) && c != '_') c = '_';
+	}
+	return name;
+}
+
+static Type* GetType(const std::string& qualified_name) {
 	for (Type* t : g_types) {
-		if (t->name == name) return t;
+		if (t->qualified_name == qualified_name) return t;
 	}
 	Type* t = new Type();
-	t->name = name;
+	t->qualified_name = qualified_name;
+	size_t separator = qualified_name.rfind("::");
+	t->name = separator == std::string::npos ? qualified_name : qualified_name.substr(separator + 2);
+	t->symbol_name = SymbolName(qualified_name);
 	g_types.push_back(t);
 	return t;
 }
@@ -157,7 +170,8 @@ static CXChildVisitResult RecordChildVisitor(CXCursor c, CXCursor, CXClientData 
 			info->has_eserializable = true;
 		}
 	} else if (k == CXCursor_CXXBaseSpecifier) {
-		info->parent = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(c))));
+		CXType base_type = clang_getCanonicalType(clang_getCursorType(c));
+		info->parent = StripRecordKeyword(CXStr(clang_getTypeSpelling(base_type)));
 	} else if (k == CXCursor_FieldDecl) {
 		bool is_prop = false;
 		clang_visitChildren(c, FieldAnnotationVisitor, &is_prop);
@@ -183,6 +197,7 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		clang_getFileLocation(loc, &file, &line, nullptr, nullptr);
 
 		std::string name = CXStr(clang_getCursorSpelling(cursor));
+		std::string qualified_name = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(cursor))));
 		std::string filename = ToForwardSlashes(CXStr(clang_getFileName(file)));
 
 		RecordInfo info;
@@ -194,11 +209,11 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		       is_abstract ? "  [ABSTRACT]" : "");
 
 		if ((is_record || info.has_eserializable) && !name.empty()) {
-			Type* t = GetType(name);
+			Type* t = GetType(qualified_name);
 			if (info.parent.size()) {
 				t->parent = GetType(info.parent);
 			}
-			t->is_object = name == "Object" || (t->parent && t->parent->is_object);
+			t->is_object = qualified_name == "Object" || (t->parent && t->parent->is_object);
 			if (t->is_object && t->parent)
 				t->parent->subclasses.push_back(t);
 			t->header = RelToBase(filename);
@@ -237,24 +252,24 @@ static void WriteGenFile() {
 
 	for (Type* t : g_types) {
 		if (!t->is_object && !t->is_serializable) continue;
-		fprintf(f, "extern Type g_type_%s;\n", t->name.c_str());
+		fprintf(f, "extern Type g_type_%s;\n", t->symbol_name.c_str());
 	}
 	fprintf(f, "\n\n");
 
 	for (Type* t : g_types) {
 		if (!t->is_object && !t->is_serializable) continue;
 		std::string parent_ref = t->parent && t->parent->is_object ?
-			("&g_type_" + t->parent->name) : "nullptr";
+			("&g_type_" + t->parent->symbol_name) : "nullptr";
 
-		fprintf(f, "Type g_type_%s = {\n", t->name.c_str());
+		fprintf(f, "Type g_type_%s = {\n", t->symbol_name.c_str());
 
-		fprintf(f, "\t.name = \"%s\",\n", t->name.c_str());
+		fprintf(f, "\t.name = \"%s\",\n", t->qualified_name.c_str());
 		fprintf(f, "\t.parent_type = %s,\n", parent_ref.c_str());
 
 		if (t->subclasses.size()) {
 			fprintf(f, "\t.subclasses = {\n");
 			for (Type* subclass : t->subclasses) {
-				fprintf(f, "\t\t&g_type_%s,\n", subclass->name.c_str());
+				fprintf(f, "\t\t&g_type_%s,\n", subclass->symbol_name.c_str());
 			};
 			fprintf(f, "\t},\n");
 		}
@@ -265,7 +280,7 @@ static void WriteGenFile() {
 				"\t\tnew (ptr) %s();\n"
 				"\t\treturn ptr;\n"
 				"\t},\n",
-				t->name.c_str(), t->name.c_str(), t->name.c_str());
+				t->qualified_name.c_str(), t->qualified_name.c_str(), t->qualified_name.c_str());
 		}
 		fprintf(f, "};\n");
 	}
@@ -275,9 +290,9 @@ static void WriteGenFile() {
 		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_object) {
 			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
-					t->name.c_str(), t->name.c_str());
+					t->qualified_name.c_str(), t->symbol_name.c_str());
 			fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
-					t->name.c_str(), t->name.c_str());
+					t->qualified_name.c_str(), t->symbol_name.c_str());
 		}
 	}
 
@@ -285,7 +300,7 @@ static void WriteGenFile() {
 	fprintf(f, "\tstatic Type* g_allTypes[] = {\n");
 	for (Type* t : g_types) {
 		if (!t->is_object && !t->is_serializable) continue;
-		fprintf(f, "\t\t&g_type_%s,\n", t->name.c_str());
+		fprintf(f, "\t\t&g_type_%s,\n", t->symbol_name.c_str());
 	}
 	fprintf(f, "\t};\n");
 	fprintf(f, "\tfor (Type* t : g_allTypes)\n");
@@ -296,8 +311,8 @@ static void WriteGenFile() {
 	for (Type* t : g_types) {
 		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_serializable) {
-			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->name.c_str());
-			fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", t->name.c_str());
+			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->qualified_name.c_str());
+			fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", t->qualified_name.c_str());
 		}
 	}
 	fprintf(f, "\n\n");
@@ -306,17 +321,17 @@ static void WriteGenFile() {
 		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_serializable) {
 			if (t->is_enum) {
-				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->name.c_str());
+				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\tSerialize(s, (%s)value);\n", t->underlying_type.c_str());
 				fprintf(f, "}\n");
 
-				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->name.c_str());
+				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\t%s tmp = {};\n", t->underlying_type.c_str());
 				fprintf(f, "\tDeserialize(s, tmp);\n");
-				fprintf(f, "\tout_value = (%s)tmp;\n", t->name.c_str());
+				fprintf(f, "\tout_value = (%s)tmp;\n", t->qualified_name.c_str());
 				fprintf(f, "}\n");
 			} else {
-				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->name.c_str());
+				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\ts.BeginObject();\n");
 				for (const std::string& p : t->properties) {
 					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
@@ -325,7 +340,7 @@ static void WriteGenFile() {
 				fprintf(f, "\ts.EndObject();\n");
 				fprintf(f, "}\n");
 
-				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->name.c_str());
+				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\ts.BeginObject();\n");
 				for (const std::string& p : t->properties) {
 					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
@@ -359,12 +374,14 @@ int main() {
 		"-DEVAGEN",
 		"-I" + base,
 		"-I" + base + "/Vendor/cglm-0.9.6/include",
-		"-I" + base + "/Vendor/glad/include",
 		"-I" + base + "/Vendor/box3d/include",
 		"-I" + base + "/Vendor/SDL-release-3.4.10/include",
 		"-I" + base + "/Vendor/freetype-2.14.3/include",
 		"-I" + base + "/Vendor/enet-1.3.18/include",
+		"-I" + base + "/Vendor/volk",
 	};
+	if (const char* vulkanSdk = getenv("VULKAN_SDK"))
+		arg_strs.push_back("-I" + std::string(vulkanSdk) + "/Include");
 	std::vector<const char*> args;
 	for (const std::string& s : arg_strs) args.push_back(s.c_str());
 

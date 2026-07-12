@@ -1,37 +1,32 @@
-layout (location = 0) in vec3 a_Position;
+#version 460
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_GOOGLE_include_directive : require
+#include "Common.h"
 
-layout (location = 0)      out vec2 v_Texcoord;
-layout (location = 1) flat out uint v_Mode;
-layout (location = 2)      out vec4 v_Tint;
+layout(push_constant) uniform PushConstants {
+	vec2 framebufferSize;
+	uint quadBuffer;
+	uint quadOffset;
+	uint vertexBuffer;
+	uint textureImage;
+	uint textureSampler;
+} push;
 
-layout (location = 0) uniform vec2 u_Framebuffer;
-
-struct DrawQuad {
-	int mode;
-	int pad0;
-	int pad1;
-	int pad2;
-	vec4 position_rect;
-	vec4 uv_rect;
-	vec4 tint;
-};
-
-layout (std430, binding = 0) buffer Quads {
-	DrawQuad quads[];
-};
+layout(location = 0) out vec2 v_Texcoord;
+layout(location = 1) flat out uint v_Mode;
+layout(location = 2) out vec4 v_Tint;
 
 void main() {
-	DrawQuad quad = quads[gl_InstanceID];
-	vec2 mask = a_Position.xy;
+	vec2 mask = bindlessBuffers_MeshVertex[nonuniformEXT(push.vertexBuffer)].data[gl_VertexIndex].position.xy;
+	DrawQuad quad = bindlessBuffers_DrawQuad[nonuniformEXT(push.quadBuffer)].data[push.quadOffset + gl_InstanceIndex];
 
-	vec2 position = quad.position_rect.xy + mask * quad.position_rect.zw;
-	position = (position / u_Framebuffer) * 2.0 - 1.0;
+	vec2 position = quad.positionRect.xy + mask * quad.positionRect.zw;
+	position = position / push.framebufferSize * 2.0 - 1.0;
 	position.y = -position.y;
 
-	vec2 uv = quad.uv_rect.xy + mask * quad.uv_rect.zw;
-
-	gl_Position = vec4(position, 0, 1);
-	v_Texcoord = uv;
-	v_Mode = quad.mode;
+	gl_Position = vec4(position, 0.0, 1.0);
+	v_Texcoord = quad.uvRect.xy + mask * quad.uvRect.zw;
+	v_Mode = uint(quad.mode);
 	v_Tint = quad.tint;
 }

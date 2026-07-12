@@ -1,6 +1,6 @@
 #include <EVA/App.hpp>
 #include <EVA/Core/Basic.hpp>
-#include <EVA/Renderer/GL.hpp>
+#include <EVA/Renderer/GraphicsDevice.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Input.hpp>
@@ -73,7 +73,11 @@ int main() {
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();
-	GLInitialize();
+	Result graphicsResult = GFX::GraphicsDevice::Create(GFX::GraphicsDeviceInitDesc{
+		.api = GFX::GraphicsAPI::Vulkan,
+		.window = g_game_window,
+	});
+	if (!graphicsResult) Fatal("GraphicsDevice::Create: %s", graphicsResult.error->c_str());
 	GameInitialize();
 	RendererInitialize();
 	FontInitialize();
@@ -132,11 +136,14 @@ int main() {
 			}
 		}
 
-		RenderFrame();
-		SDL_GL_SwapWindow(g_game_window);
+		if (GFX::GraphicsDevice::Get()->BeginFrame()) {
+			RenderFrame();
+			GFX::GraphicsDevice::Get()->EndFrame();
+		}
 
 		FrameMark;
 	}
 
+	GFX::GraphicsDevice::Shutdown();
 	return 0;
 }
