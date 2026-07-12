@@ -38,14 +38,15 @@ EntityTypeMeta* ENTITY_TYPE_META[EntityType_ENUM_SIZE] {
 	#undef X
 };
 
-void EntityManagerInit(EntityManager& entity_manager) {
+void EntityManager::Init() {
 }
 
-void EntityManagerDeinit(EntityManager& entity_manager) {
-	for (Entity* entity : entity_manager.entities) delete entity;
-	entity_manager.entities.clear();
-	entity_manager.update_list.clear();
-	entity_manager.fixed_update_list.clear();
+void EntityManager::Reset() {
+	for (Entity* entity : entities) delete entity;
+
+	entities.clear();
+	update_list.clear();
+	fixed_update_list.clear();
 }
 
 void EntitySetName(Entity* entity, const char* name) {

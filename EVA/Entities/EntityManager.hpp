@@ -3,7 +3,8 @@
 #include <EVA/Entities/Entity.hpp>
 #include <vector>
 
-struct EntityManager {
+class EntityManager {
+public:
 	Game*                game                = nullptr;
 	std::vector<Entity*> entities            = {};
 	std::vector<Entity*> update_list         = {};
@@ -18,6 +19,7 @@ struct EntityManager {
 
 	void RegisterEntity(Entity* entity, EID eid) {
 		entities.push_back(entity);
+		entity->eid = eid;
 		entity->OnActivate(EntityCallbackInfo{
 			.game = game,
 			.entity_manager = this,
@@ -34,10 +36,11 @@ struct EntityManager {
 		}
 		delete entity;
 	}
+
+	void Init();
+	void Reset();
 };
 
-void EntityManagerInit(EntityManager& entity_manager);
-void EntityManagerDeinit(EntityManager& entity_manager);
 void EntitySetName(Entity* entity, const char* name);
 Entity* EntityLoad(EntityManager* entity_manager, FILE* f);
 void EntitySave(FILE* f, Entity* entity, int indent);

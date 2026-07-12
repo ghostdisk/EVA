@@ -15,7 +15,6 @@
 #include <EVA/GameServer.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Editor.hpp>
-#include <EVA/MainMenu.hpp>
 #include <SDL3/SDL.h>
 #include <enet/enet.h>
 #include <tracy/Tracy.hpp>
@@ -38,8 +37,6 @@ struct NextFrameCallback {
 };
 
 // ------------------------------------------------------------
-
-AppMode g_app_mode = AppMode_None;
 
 static std::vector<NextFrameCallback> g_next_frame_callbacks;
 static std::vector<ScreenLogEntry>    g_screen_logs;
@@ -70,29 +67,6 @@ void QueueForNextFrame(void (*callback)(void* userdata), void* userdata) {
 	g_next_frame_callbacks.push_back({ callback, userdata });
 }
 
-void AppSetMode(AppMode mode, Game* game) {
-	g_app_mode = mode;
-
-	switch (g_app_mode) {
-		case AppMode_MainMenu: {
-			break;
-		}
-		case AppMode_Editor: {
-			assert(!game);
-			g_active_game = nullptr;
-			g_current_camera = g_editor_camera;
-			break;
-		}
-		case AppMode_Game: {
-			assert(game);
-			g_active_game = game;
-			g_current_camera = game->camera;
-			break;
-		}
-		default: assert(0);
-	}
-}
-
 int main() {
 	ArenaInitialize();
 	RotateFrameArenas();
@@ -111,7 +85,7 @@ int main() {
 	GameClientInitialize();
 	GameServerInitialize();
 
-	AppSetMode(AppMode_MainMenu, nullptr);
+	ConExec("game 0");
 	ConExec("exec autoexec.cfg");
 
 	while (!g_quit) {
@@ -134,20 +108,8 @@ int main() {
 
 		Game::TickAll(g_delta_time);
 
-		switch (g_app_mode) {
-			case AppMode_Game: {
-				g_active_game->Draw();
-				break;
-			}
-			case AppMode_MainMenu: {
-				MainMenuTick();
-				break;
-			}
-			case AppMode_Editor: {
-				EdTick();
-				break;
-			}
-			default: break;
+		if (g_active_game) {
+			g_active_game->Draw();
 		}
 
 		ConsoleDraw();

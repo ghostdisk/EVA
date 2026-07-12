@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
+#include <EVA/GameMode.hpp>
 #include <EVA/Math.hpp>
 #include <vector>
 
@@ -26,7 +27,18 @@ struct EdOp {
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
-void EdInitialize();
-void EdTick();
+class ECLASS() EditorGameMode : public GameMode {
+public:
+	ECLASS_COMMON();
 
-extern ECamera* g_editor_camera;
+	ECamera* m_camera;
+	void EdTick();
+
+	virtual void OnBegin() override;
+	virtual void OnEnd() override;
+	virtual void OnTick(double dt) override;
+	virtual Result LoadMap(String name) override;
+};
+
+
+void EdInitialize();

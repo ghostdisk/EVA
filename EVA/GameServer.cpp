@@ -65,7 +65,7 @@ void GameServer::SendHello(GameServerPlayer* player) {
 	BinaryWriterInit(writer);
 
 	WriteBinT<U8>(writer, S2CMessageType_Hello);
-	WriteBinString(writer, game->map_name);
+	//WriteBinString(writer, game->map_name);
 
 	Send(player, writer.data.data(), writer.data.size());
 }

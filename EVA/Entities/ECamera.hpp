@@ -41,5 +41,3 @@ void CameraOrbit               (ECamera& camera, Entity* entity);
 Ray CameraClipToRay(ECamera& camera, float2 clip_xy);
 Ray CameraScreenToRay(ECamera& camera, float2 screen_xy);
 float3 CameraWorldToScreen(ECamera& camera, float3 world);
-
-extern ECamera* g_current_camera;

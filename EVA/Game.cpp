@@ -5,6 +5,7 @@
 #include <EVA/Renderer/GL.hpp>
 #include <EVA/Renderer/Renderer.hpp>
 #include <EVA/Assets/Mesh.hpp>
+#include <EVA/GameMode.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/CSG.hpp>
@@ -14,33 +15,31 @@
 #include <cglm/affine.h>
 #include <cglm/quat.h>
 #include <tracy/Tracy.hpp>
-#include <vector>
 
 Game* g_games[8]        = {};
 Game* g_active_game     = nullptr;
+
+class EditorGameMode;
 
 ConVar cvar_game = {
 	.name = "game",
 	.help = "set active game (0 to 7)",
 	.fvalue = 0,
-	.on_change =
-		[](ConVar* v)
-		{
-			int id = (int)cvar_game.fvalue;
-			if (id < 0) id = 0;
-			if (id > 7) id = 7;
-			cvar_game.fvalue = id;
+	.on_change = [](ConVar* v) {
+		int id = (int)cvar_game.fvalue;
+		if (id < 0) id = 0;
+		if (id > 7) id = 7;
+		cvar_game.fvalue = id;
 
-			if (!g_games[id])
-			{
-				g_games[id] = new Game();
-				g_games[id]->Init();
-				g_games[id]->id = id;
-			}
-			
-			ScreenLog("Game %d", id);
-			AppSetMode(AppMode_Game, g_games[id]);
-		},
+		if (!g_games[id]) {
+			g_games[id] = new Game();
+			g_games[id]->Init();
+			g_games[id]->id = id;
+		}
+		
+		g_active_game = g_games[id];
+		ScreenLog("Game %d", id);
+	},
 };
 
 ConVar cvar_show_fps = {
@@ -50,23 +49,30 @@ ConVar cvar_show_fps = {
 };
 
 Result Con_tp(ConParser& parser) {
-	g_current_camera->position.x = parser.FloatArg(g_current_camera->position.x);
-	g_current_camera->position.y = parser.FloatArg(g_current_camera->position.y);
-	g_current_camera->position.z = parser.FloatArg(g_current_camera->position.z);
+	ECamera* camera = g_active_game->m_activeCamera;
+
+	camera->position.x = parser.FloatArg(camera->position.x);
+	camera->position.y = parser.FloatArg(camera->position.y);
+	camera->position.z = parser.FloatArg(camera->position.z);
 	return Success();
 }
 
 Result Con_map(ConParser& parser) {
 	const char* map_name = parser.StringArg();
-	if (g_app_mode == AppMode_Editor) {
-		char ed_load_cmd_buf[64];
-		snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
-		return ConExec(ed_load_cmd_buf);
-	} else {
-		if (!g_active_game)
-			ConExec("game 0");
-		g_active_game->LoadMap(map_name);
-	}
+
+	GameMode* gm = GameMode::GetCurrent();
+	if (gm) return gm->LoadMap(map_name);
+	else return Err("no active gamemode");
+
+	// if (g_app_mode == AppMode_Editor) {
+	// 	char ed_load_cmd_buf[64];
+	// 	snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
+	// 	return ConExec(ed_load_cmd_buf);
+	// } else {
+	// 	if (!g_active_game)
+	// 		ConExec("game 0");
+	// 	g_active_game->LoadMap(map_name);
+	// }
 	return Success();
 }
 
@@ -79,12 +85,7 @@ void GameInitialize() {
 }
 
 void Game::Init() {
-	camera = new ECamera();
-	camera->eid = EID_DefaultCamera;
-	CameraInit(*camera);
-	camera->position.y = -10;
-	camera->position.z = 3;
-	EntityManagerInit(entity_manager);
+	m_entityManager.Init();
 
 	b3WorldDef world_def = b3DefaultWorldDef();
 	world_def.gravity = b3Vec3{ 0, 0, -10 };
@@ -102,13 +103,9 @@ void Game::Init() {
 void Game::Tick(double dt) {
 	ZoneScopedN("GameTick");
 
+	if (m_gameMode) m_gameMode->OnTick(dt);
 	if (server) server->Tick(dt);
 	if (client) client->Tick(dt);
-
-	if (g_active_game == this) {
-		CameraFly(*camera);
-	}
-	CameraUpdateMatrices(*camera);
 }
 
 void Game::Draw() {
@@ -117,13 +114,13 @@ void Game::Draw() {
 	DrawSetLayer(Layer_Main);
 
 	static float3 test1 = {};
-	if (InputGetButton(SDL_SCANCODE_X)) test1 = g_current_camera->position;
+	if (InputGetButton(SDL_SCANCODE_X)) test1 = m_activeCamera->position;
 
 	if (level_mesh) {
 		DrawMesh(level_mesh, Library::mat_brush, float4x4::Identity());
 	}
 
-	entity_manager.Iterate([](Entity* entity) {
+	m_entityManager.Iterate([](Entity* entity) {
 		if (entity->mesh) {
 			float4x4 model_matrix;
 			glm_translate_make(model_matrix, &entity->position.x);
@@ -141,57 +138,23 @@ void Game::TickAll(double dt) {
 	}
 }
 
-Result Game::LoadMap(String name) {
-	int n;
-	char path[256];
-	snprintf(path, 256, "%s/Assets/%.*s.map", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
-	FILE* f = fopen(path, "rb");
-	if (!f) return Err("Failed to open %s", path);
-	DEFER(fclose(f));
-	fscanf(f, "type map\n");
+void Game::EndGameMode() {
+	m_entityManager.Reset();
+	m_entityManager.Init();
 
-	int version;
-	n = fscanf(f, "version %d\n", &version);
-	assert(n == 1);
-	if (version != 1) return Err("map %s is version %d, expected %d", name, version, 1);
-
-	int num_vertices;
-	n = fscanf(f, "vertices %d", &num_vertices);
-	assert(n == 1);
-
-	std::vector<MeshVertex> vertices(num_vertices);
-	for (int i = 0; i < num_vertices; i++) {
-		MeshVertex& vert = vertices[i];
-		vert.texcoord = {};
-		n = fscanf(f, "%f %f %f %f %f %f", XYZ(&vert.position), XYZ(&vert.normal));
-		assert(n == 6);
+	if (m_gameMode) {
+		m_gameMode->OnEnd();
+		m_gameMode->~GameMode();
+		Allocator::HeapAllocator.Free(m_gameMode);
 	}
+}
 
-	int num_indices;
-	n = fscanf(f, "\nindices %d", &num_indices);
-	assert(n == 1);
+void Game::SetGameMode(Type* gm_class) {
+	EndGameMode();
 
-	std::vector<U32> indices(num_indices);
-	for (int i = 0; i < num_indices; i++) {
-		n = fscanf(f, "%u", &indices[i]);
-		assert(n == 1);
-	}
-	fscanf(f, "\n");
+	m_gameMode = (GameMode*)gm_class->Instantiate(Allocator::HeapAllocator);
+	assert(m_gameMode);
 
-	level_mesh = new Mesh();
-	level_mesh->vertices = std::move(vertices);
-	level_mesh->indices = std::move(indices);
-	level_mesh->Upload(false);
-
-	int num_entities;
-	n = fscanf(f, "entities %d\n", &num_entities);
-	if (n != 1) return Err("failed to load map");
-	assert(num_entities >= 0 && num_entities < 1000);
-
-	for (int i = 0; i < num_entities; i++) {
-		Entity* entity = EntityLoad(&entity_manager, f);
-	}
-
-	snprintf(map_name, sizeof(map_name), "%.*s", STRING_PRINTF_ARGS(name));
-	return Success();
+	m_gameMode->Init(this, &m_entityManager);
+	m_gameMode->OnBegin();
 }

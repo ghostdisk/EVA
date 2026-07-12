@@ -6,8 +6,8 @@ typedef U32 EID;
 struct Entity;
 class Mesh;
 class Material;
-struct Game;
-struct EntityManager;
+class Game;
+class EntityManager;
 
 enum EIDs : U32 {
 	EID_None = 0,

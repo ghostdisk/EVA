@@ -135,8 +135,8 @@ Result GameClient::HandleS2CHello(BinaryReader& reader) {
 	if (hello_received) return Err("received hello multiple times");
 	hello_received = true;
 
-	String map_name = ReadBinString(reader, FrameArena, 32);
-	TRY(game->LoadMap(map_name));
+	// String map_name = ReadBinString(reader, FrameArena, 32);
+	//TRY(game->LoadMap(map_name));
 
 	return Success();
 }

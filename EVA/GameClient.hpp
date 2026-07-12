@@ -1,10 +1,9 @@
 #pragma once
+#include <EVA/Core/Basic.hpp>
 #include <EVA/Net.hpp>
 
-struct Game;
-struct Result;
+class  Game;
 struct BinaryReader;
-struct String;
 
 enum GameClientState {
 	GameClientState_Disconnected,

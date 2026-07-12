@@ -12,6 +12,9 @@
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
+#include <EVA/GameMode.hpp>
+#include <EVA/BasePlayableGameMode.hpp>
+#include <EVA/Editor.hpp>
 
 static Type g_type_Object = {
 	.parent_type = nullptr,
@@ -101,6 +104,30 @@ static Type g_type_Texture = {
 		new (ptr) Texture();
 		return ptr;
 	},};
+static Type g_type_GameMode = {
+	.parent_type = &g_type_Object,
+	.name = "GameMode",
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GameMode), alignof(GameMode));
+		new (ptr) GameMode();
+		return ptr;
+	},};
+static Type g_type_BasePlayableGameMode = {
+	.parent_type = &g_type_GameMode,
+	.name = "BasePlayableGameMode",
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(BasePlayableGameMode), alignof(BasePlayableGameMode));
+		new (ptr) BasePlayableGameMode();
+		return ptr;
+	},};
+static Type g_type_EditorGameMode = {
+	.parent_type = &g_type_GameMode,
+	.name = "EditorGameMode",
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(EditorGameMode), alignof(EditorGameMode));
+		new (ptr) EditorGameMode();
+		return ptr;
+	},};
 
 Type* Object::StaticClass() { return &g_type_Object; }
 Type* Object::GetClass() { return &g_type_Object; }
@@ -124,6 +151,12 @@ Type* Sprite::StaticClass() { return &g_type_Sprite; }
 Type* Sprite::GetClass() { return &g_type_Sprite; }
 Type* Texture::StaticClass() { return &g_type_Texture; }
 Type* Texture::GetClass() { return &g_type_Texture; }
+Type* GameMode::StaticClass() { return &g_type_GameMode; }
+Type* GameMode::GetClass() { return &g_type_GameMode; }
+Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode; }
+Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
+Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
+Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
 
 Type* Type::Find(String name) {
 	static Type* all[] = {
@@ -138,6 +171,9 @@ Type* Type::Find(String name) {
 		&g_type_Shader,
 		&g_type_Sprite,
 		&g_type_Texture,
+		&g_type_GameMode,
+		&g_type_BasePlayableGameMode,
+		&g_type_EditorGameMode,
 	};
 	for (Type* t : all)
 		if (name == t->name) return t;

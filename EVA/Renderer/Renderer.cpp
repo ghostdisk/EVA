@@ -110,10 +110,16 @@ void DrawSetLineThickness() {
 void RenderFrame() {
 	ZoneScopedN("RenderScene");
 
+	ECamera* camera = nullptr;
+	if (g_active_game && g_active_game->m_activeCamera) {
+		camera = g_active_game->m_activeCamera;
+	}
+
 	MainConstantBuffer cb = {};
-	if (g_current_camera) {
-		cb.view = g_current_camera->view_matrix;
-		cb.view_projection = g_current_camera->view_projection_matrix;
+
+	if (camera) {
+		cb.view = camera->view_matrix;
+		cb.view_projection = camera->view_projection_matrix;
 	}
 	glBindBuffer(GL_UNIFORM_BUFFER, g_main_constant_buffer);
 	glBufferData(GL_UNIFORM_BUFFER, sizeof(cb), &cb, GL_STATIC_DRAW);

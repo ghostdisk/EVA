@@ -1,0 +1,26 @@
+#pragma once
+#include <EVA/Core/Basic.hpp>
+
+class Game;
+class EntityManager;
+class ECamera;
+
+class ECLASS() GameMode : Object {
+
+protected:
+	Game*          m_game          = nullptr;
+	EntityManager* m_entityManager = nullptr;
+	ECamera*       m_mainCamera    = nullptr;
+
+public:
+	ECLASS_COMMON();
+
+	void Init(Game* game, EntityManager* entityManager);
+
+	static GameMode* GetCurrent();
+
+	virtual void OnBegin() {}
+	virtual void OnEnd() {}
+	virtual void OnTick(double dt) {}
+	virtual Result LoadMap(String name);
+};

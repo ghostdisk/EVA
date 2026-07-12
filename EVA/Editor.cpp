@@ -1,5 +1,6 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Mesh.hpp>
+#include <EVA/Editor.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/App.hpp>
 #include <EVA/Platform.hpp>
@@ -994,7 +995,15 @@ void EdSetTool(EdTool tool) {
 	ScreenLog("Tool: %s", ED_TOOL_NAMES[tool]);
 }
 
-void EdTick() {
+void EditorGameMode::OnBegin() {
+	m_mainCamera = g_editor_camera;
+	m_game->m_activeCamera = g_editor_camera;
+}
+
+void EditorGameMode::OnEnd() {
+}
+
+void EditorGameMode::OnTick(double dt) {
 	CameraFly(*g_editor_camera);
 	CameraUpdateMatrices(*g_editor_camera);
 
@@ -1282,13 +1291,14 @@ void EdUnloadMap() {
 		EdDestroyOp(g_root);
 		g_root = nullptr;
 	}
-	EntityManagerDeinit(g_entity_manager);
-	EntityManagerInit(g_entity_manager);
+
+	g_entity_manager.Reset();
+	g_entity_manager.Init();
 }
 
-Result EdLoadMap(const char* name) {
+Result EditorGameMode::LoadMap(String name) {
 	char path[256];
-	snprintf(path, 256, "%s/Assets/%s.mpe", EVA_BASE_DIR, name);
+	snprintf(path, 256, "%s/Assets/%.*s.mpe", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
 	FILE* f = fopen(path, "rb");
 	if (!f) return Err("Failed to open %s", name);
 	DEFER(fclose(f));
@@ -1318,7 +1328,7 @@ Result EdLoadMap(const char* name) {
 	}
 
 	EdBuild(g_root);
-	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%s", name);
+	snprintf(g_loaded_map_name, sizeof(g_loaded_map_name), "%.*s", STRING_PRINTF_ARGS(name));
 
 	return Success();
 }
@@ -1491,20 +1501,17 @@ void EdInitialize() {
 		return EdSaveMap(name);
 	}, "editor: save map .mpe");
 
-	ConRegisterCommand("ed_load", [](ConParser& parser) {
-		const char* name = parser.StringArg();
-		if (!name || name[0] == '\0') return Err("required arg missing");
-
-		return EdLoadMap(name);
-	}, "editor: load a map .mpe");
-
 	ConRegisterCommand("ed_compile", [](ConParser& parser) {
 		return EdCompileMap();
 	}, "editor: compile map");
 
 	ConRegisterCommand("ed", [](ConParser& parser) {
-		AppSetMode(AppMode_Editor, nullptr);
-		return Success();
+		if (g_active_game) {
+			g_active_game->SetGameMode(EditorGameMode::StaticClass());
+			return Success();
+		} else {
+			return Err("no active game");
+		}
 	}, "editor: open editor");
 
 	ConRegisterCommand("ed_tool", [](ConParser& parser) {
@@ -1517,7 +1524,8 @@ void EdInitialize() {
 	g_root->type = EdOpType_Stack;
 	g_root->global_transform = float4x4::Identity();
 
-	EntityManagerInit(g_entity_manager);
+	g_entity_manager.Reset();
+	g_entity_manager.Init();
 
 	g_editor_camera = new ECamera();
 	g_editor_camera->eid = EID_DefaultCamera;
