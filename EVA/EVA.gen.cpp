@@ -16,11 +16,11 @@
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Texture.hpp>
+#include <EVA/Editor/Tool.hpp>
+#include <EVA/Editor/BrushTool.hpp>
 #include <EVA/Entities/Entity.hpp>
-#include <EVA/Editor/Editor.hpp>
-#include <EVA/Editor/Editor.hpp>
-#include <EVA/Editor/Editor.hpp>
-#include <EVA/Editor/Editor.hpp>
+#include <EVA/Editor/EntityTool.hpp>
+#include <EVA/Editor/SelectTool.hpp>
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/ECharacter.hpp>
 #include <EVA/Entities/EMarker.hpp>
@@ -42,11 +42,11 @@ extern Type g_type_TextureInterpolation;
 extern Type g_type_TextureWrapMode;
 extern Type g_type_TextureProps;
 extern Type g_type_Texture;
-extern Type g_type_Entity;
 extern Type g_type_Tool;
-extern Type g_type_SelectTool;
-extern Type g_type_EntityTool;
 extern Type g_type_BrushTool;
+extern Type g_type_Entity;
+extern Type g_type_EntityTool;
+extern Type g_type_SelectTool;
 extern Type g_type_ECamera;
 extern Type g_type_ECharacter;
 extern Type g_type_EMarker;
@@ -60,8 +60,8 @@ Type g_type_Object = {
 	.parent_type = nullptr,
 	.subclasses = {
 		&g_type_Asset,
-		&g_type_Entity,
 		&g_type_Tool,
+		&g_type_Entity,
 		&g_type_GameMode,
 	},
 	.Instantiate = [](Allocator allocator) -> void* {
@@ -183,6 +183,24 @@ Type g_type_Texture = {
 		return ptr;
 	},
 };
+Type g_type_Tool = {
+	.name = "Tool",
+	.parent_type = &g_type_Object,
+	.subclasses = {
+		&g_type_BrushTool,
+		&g_type_EntityTool,
+		&g_type_SelectTool,
+	},
+};
+Type g_type_BrushTool = {
+	.name = "BrushTool",
+	.parent_type = &g_type_Tool,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(BrushTool), alignof(BrushTool));
+		new (ptr) BrushTool();
+		return ptr;
+	},
+};
 Type g_type_Entity = {
 	.name = "Entity",
 	.parent_type = &g_type_Object,
@@ -197,24 +215,6 @@ Type g_type_Entity = {
 		return ptr;
 	},
 };
-Type g_type_Tool = {
-	.name = "Tool",
-	.parent_type = &g_type_Object,
-	.subclasses = {
-		&g_type_SelectTool,
-		&g_type_EntityTool,
-		&g_type_BrushTool,
-	},
-};
-Type g_type_SelectTool = {
-	.name = "SelectTool",
-	.parent_type = &g_type_Tool,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(SelectTool), alignof(SelectTool));
-		new (ptr) SelectTool();
-		return ptr;
-	},
-};
 Type g_type_EntityTool = {
 	.name = "EntityTool",
 	.parent_type = &g_type_Tool,
@@ -224,12 +224,12 @@ Type g_type_EntityTool = {
 		return ptr;
 	},
 };
-Type g_type_BrushTool = {
-	.name = "BrushTool",
+Type g_type_SelectTool = {
+	.name = "SelectTool",
 	.parent_type = &g_type_Tool,
 	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(BrushTool), alignof(BrushTool));
-		new (ptr) BrushTool();
+		void* ptr = (void*)allocator.Allocate(sizeof(SelectTool), alignof(SelectTool));
+		new (ptr) SelectTool();
 		return ptr;
 	},
 };
@@ -314,16 +314,16 @@ Type* Sprite::StaticClass() { return &g_type_Sprite; }
 Type* Sprite::GetClass() { return &g_type_Sprite; }
 Type* Texture::StaticClass() { return &g_type_Texture; }
 Type* Texture::GetClass() { return &g_type_Texture; }
-Type* Entity::StaticClass() { return &g_type_Entity; }
-Type* Entity::GetClass() { return &g_type_Entity; }
 Type* Tool::StaticClass() { return &g_type_Tool; }
 Type* Tool::GetClass() { return &g_type_Tool; }
-Type* SelectTool::StaticClass() { return &g_type_SelectTool; }
-Type* SelectTool::GetClass() { return &g_type_SelectTool; }
-Type* EntityTool::StaticClass() { return &g_type_EntityTool; }
-Type* EntityTool::GetClass() { return &g_type_EntityTool; }
 Type* BrushTool::StaticClass() { return &g_type_BrushTool; }
 Type* BrushTool::GetClass() { return &g_type_BrushTool; }
+Type* Entity::StaticClass() { return &g_type_Entity; }
+Type* Entity::GetClass() { return &g_type_Entity; }
+Type* EntityTool::StaticClass() { return &g_type_EntityTool; }
+Type* EntityTool::GetClass() { return &g_type_EntityTool; }
+Type* SelectTool::StaticClass() { return &g_type_SelectTool; }
+Type* SelectTool::GetClass() { return &g_type_SelectTool; }
 Type* ECamera::StaticClass() { return &g_type_ECamera; }
 Type* ECamera::GetClass() { return &g_type_ECamera; }
 Type* ECharacter::StaticClass() { return &g_type_ECharacter; }
@@ -353,11 +353,11 @@ Type* Type::Find(String name) {
 		&g_type_TextureWrapMode,
 		&g_type_TextureProps,
 		&g_type_Texture,
-		&g_type_Entity,
 		&g_type_Tool,
-		&g_type_SelectTool,
-		&g_type_EntityTool,
 		&g_type_BrushTool,
+		&g_type_Entity,
+		&g_type_EntityTool,
+		&g_type_SelectTool,
 		&g_type_ECamera,
 		&g_type_ECharacter,
 		&g_type_EMarker,

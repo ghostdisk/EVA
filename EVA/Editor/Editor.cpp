@@ -1,6 +1,10 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Editor/Editor.hpp>
+#include <EVA/Editor/Tool.hpp>
+#include <EVA/Editor/SelectTool.hpp>
+#include <EVA/Editor/EntityTool.hpp>
+#include <EVA/Editor/BrushTool.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/App.hpp>
 #include <EVA/Platform.hpp>
@@ -710,6 +714,7 @@ void Editor::DrawGrid(float4 color) {
 	}
 }
 
+#if 0 // Tool implementations live in their own translation units.
 void SelectTool::Tick(double dt) {
 	Editor* ed = m_editor;
 	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
@@ -931,13 +936,14 @@ void EntityTool::DrawSidebar() {
 void BrushTool::OnDeactivate() {
 	m_phase = Phase_Inactive;
 }
+#endif
 
 void Editor::SetTool(Tool* tool) {
 	if (!tool || m_tool == tool) return;
 	if (m_tool) m_tool->OnDeactivate();
 	m_tool = tool;
 	m_tool->OnActivate();
-	ScreenLog("Tool: %s", m_tool->Name().c_str());
+	ScreenLog("Tool: %s", m_tool->m_name.c_str());
 }
 
 Editor::Editor(Game* game, EntityManager* entity_manager)
@@ -959,7 +965,7 @@ Editor::Editor(Game* game, EntityManager* entity_manager)
 		m_tools.push_back(tool);
 	}
 	std::sort(m_tools.begin(), m_tools.end(), [](Tool* a, Tool* b) {
-		return a->GetOrder() < b->GetOrder();
+		return a->m_order < b->m_order;
 	});
 
 	for (Tool* tool : m_tools) {
@@ -1045,7 +1051,7 @@ void Editor::Tick(double dt) {
 		for (Tool* tool : m_tools) {
 			UIButtonFlags flags = UIButtonFlags_Small;
 			if (tool == m_tool) flags |= UIButtonFlags_Toggle;
-			if (UIButton(tool->GetShortName().c_str(), flags)) SetTool(tool);
+			if (UIButton(tool->m_shortName.c_str(), flags)) SetTool(tool);
 		}
 
 		spacer();
