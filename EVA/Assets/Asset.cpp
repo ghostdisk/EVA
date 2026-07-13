@@ -7,6 +7,8 @@
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Texture.hpp>
+#include <EVA/Assets/Shader.hpp>
+#include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/EditorMap.hpp>
 #include <stdio.h>
@@ -39,17 +41,21 @@ Type* MapExtensionToType(String ext) {
 	if (ext == ".psd")     return Texture::StaticClass();
 	if (ext == ".map")     return Map::StaticClass();
 	if (ext == ".mpe")     return EditorMap::StaticClass();
+	if (ext == ".cshader") return Shader::StaticClass();
 	return nullptr;
 }
 
 void BuildAssets(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
 		String ext = FS::GetExtension(stat.filename);
+		String path_wo_ext = FS::WithoutExtension(stat.full_path);
+
 		if (ext == ".gltf" || ext == ".glb") {
 			Model* model = new Model();
 			BuildGLTF(model, stat.full_path);
-			String path_wo_ext = FS::WithoutExtension(stat.full_path);
 			model->SaveToDisk(Fmt(FrameArena, "%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
+		} else if (ext == ".shader") {
+			BuildShader(stat.full_path, Fmt(FrameArena, "%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
 		}
 	});
 }

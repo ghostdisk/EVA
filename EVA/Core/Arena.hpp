@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
+#include <EVA/Core/Allocator.hpp>
 
 #define NUM_FRAME_ARENAS 3
 
@@ -10,6 +11,8 @@ struct Arena {
 	U8* begin = nullptr;
 	U8* end   = nullptr;
 	U8* head  = nullptr;
+
+	Allocator Alloc();
 };
 
 void ArenaInitialize();

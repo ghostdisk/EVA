@@ -1,7 +1,8 @@
 #include <EVA/Core/Serialization.hpp>
+#include <EVA/Core/Base64.hpp>
 #include <stdio.h>
 
-TextSerializer::TextSerializer(FILE* out) : out(out) {
+TextSerializer::TextSerializer(FILE* out) : m_out(out) {
 }
 
 void TextSerializer::NextValue() {
@@ -11,7 +12,7 @@ void TextSerializer::NextValue() {
 	if (entry.type == '[') {
 		if (entry.oneline) {
 			if (entry.has_some)
-				fputc(' ', out);
+				fputc(' ', m_out);
 			entry.has_some = true;
 		}
 		else
@@ -20,84 +21,90 @@ void TextSerializer::NextValue() {
 }
 
 void TextSerializer::WriteNewLine() {
-	fprintf(out, "\n");
+	fprintf(m_out, "\n");
 	for (int i = 0; i < stack.size(); i++)
-		fprintf(out, "\t");
+		fprintf(m_out, "\t");
 }
 
 void TextSerializer::BeginObject() {
 	NextValue();
-	fprintf(out, "{");
+	fprintf(m_out, "{");
 	stack.push_back({ .type = '{' });
 }
 
 void TextSerializer::EndObject() {
 	stack.pop_back();
 	WriteNewLine();
-	fprintf(out, "}");
+	fprintf(m_out, "}");
 }
 
 void TextSerializer::Key(String key) {
 	WriteNewLine();
-	fprintf(out, "%.*s = ", STRING_PRINTF_ARGS(key));
+	fprintf(m_out, "%.*s = ", STRING_PRINTF_ARGS(key));
 }
 
 void TextSerializer::BeginArray(U32 size) {
-	fprintf(out, "[:%u", size);
+	fprintf(m_out, "[:%u", size);
 	stack.push_back({ .type = '[' });
 }
 
 void TextSerializer::EndArray() {
 	stack.pop_back();
 	WriteNewLine();
-	fprintf(out, "]");
+	fprintf(m_out, "]");
 }
 
 void TextSerializer::BeginFixedSizeArray(U32 size)  {
-	fprintf(out, "[");
+	fprintf(m_out, "[");
 	stack.push_back({ .type = '[', .oneline = true });
 }
 
 void TextSerializer::EndFixedSizeArray() {
 	stack.pop_back();
-	fprintf(out, "]");
+	fprintf(m_out, "]");
 }
 
 void TextSerializer::SerializeU64(U64 value) {
 	NextValue();
-	fprintf(out, "%llu", value);
+	fprintf(m_out, "%llu", value);
 }
 
 void TextSerializer::SerializeI64(I64 value) {
 	NextValue();
-	fprintf(out, "%lld", value);
+	fprintf(m_out, "%lld", value);
 }
 
 void TextSerializer::SerializeF32(F32 value) {
 	NextValue();
-	fprintf(out, "%f", value);
+	fprintf(m_out, "%f", value);
 }
 
 void TextSerializer::SerializeF64(F64 value) {
 	NextValue();
-	fprintf(out, "%f", value);
+	fprintf(m_out, "%f", value);
 }
 
 void TextSerializer::SerializeString(String value) {
-	fprintf(out, "\"%.*s\"", STRING_PRINTF_ARGS(value));
+	fprintf(m_out, "\"%.*s\"", STRING_PRINTF_ARGS(value));
 }
 
 void TextSerializer::SerializeBool(bool value) {
-	fprintf(out, "%s", (value ? "true" : "false"));
+	fprintf(m_out, "%s", (value ? "true" : "false"));
 }
 
 void TextSerializer::SerializeNull() {
-	fprintf(out, "null");
+	fprintf(m_out, "null");
 }
 
-void TextSerializer::SerializeBytes(U8* bytes, size_t size) {
-	fprintf(out, "B:%llu:", size);
-	fwrite(bytes, size, 1, out);
+void TextSerializer::SerializeBytes(const void* bytes, size_t size) {
+	size_t b64_size = Base64::GetEncodedBufferSize(size);
+	U8* b64 = (U8*)malloc(b64_size); // TODO: scratch arena
+	DEFER(free(b64));
+
+	Base64::Encode(b64, bytes, size);
+
+	fprintf(m_out, "B64:%llu:", size);
+	fwrite(b64, b64_size, 1, m_out);
 }
 
 void TextSerializer::SerializeU8(U8 value) { SerializeU64((U64)value); }
@@ -119,7 +126,7 @@ void TextDeserializer::SkipWhitespace() {
 	}
 }
 
-TextDeserializer::TextDeserializer(FILE* in) : in(in) {
+TextDeserializer::TextDeserializer(FILE* in, Arena* arena) : in(in), arena(arena) {
 }
 
 bool TextDeserializer::BeginObject() {
@@ -252,8 +259,24 @@ F64 TextDeserializer::DeserializeF64() {
 }
 
 ZTString TextDeserializer::DeserializeString() {
-	assert(0);
-	return {};
+	assert(arena);
+
+	SkipWhitespace();
+	if (fgetc(in) != '"')
+		SetError(Err("syntax error at DeserializeString"));
+
+	std::vector<U8> buffer;
+	for (;;) {
+		int c = (int)fgetc(in);
+		if (c == '"') break;
+		if (c == EOF) {
+			SetError(Err("unexpected EOF at DeserializeString"));
+			return {};
+		}
+		buffer.push_back((U8)c);
+	}
+	
+	return String(buffer.data(), buffer.size()).CopyToArena(arena);
 }
 
 bool TextDeserializer::DeserializeBool() {
@@ -268,11 +291,24 @@ bool TextDeserializer::DeserializeBool() {
 	return false;
 }
 
-size_t TextDeserializer::DeserializeBytes1() {
-	assert(0);
-	return 0;
-}
+void TextDeserializer::DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) {
+	*out_size = 0;
+	*out_data = nullptr;
 
-void TextDeserializer::DeserializeBytes2(U8* out_bytes) {
-	assert(0);
+	SkipWhitespace();
+
+	U64 size = 0;
+	if (fscanf(in, "B64:%llu:", &size) != 1) {
+		SetError(Err("syntax error at DeserializeBytes1"));
+		return;
+	}
+
+	U64 b64_size = Base64::GetEncodedBufferSize(size);
+	U8* b64 = (U8*)ArenaAllocate(FrameArena, b64_size);
+	fread(b64, b64_size, 1, in);
+
+	void* out = allocator.Allocate(size, 1);
+
+	*out_size = Base64::Decode(out, size, b64, b64_size);
+	*out_data = out;
 }

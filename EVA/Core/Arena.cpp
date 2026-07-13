@@ -59,6 +59,7 @@ void ArenaAlignHead(Arena* arena, size_t alignment) {
 }
 
 char* ArenaInternCString(Arena* arena, const char* cstring, int len) {
+	// TODO: Remove this function.
 	if (len < 0) len = strlen(cstring);
 
 	char* copy = (char*)ArenaAllocate(arena, len + 1);
@@ -110,4 +111,17 @@ Result Err(const char* fmt, ...) {
 	ZTString* error_string = (ZTString*)ArenaAllocate(arena, sizeof(ZTString), alignof(ZTString));
 	*error_string = Vfmt(arena, fmt, args);
 	return Result{ .error = error_string };
+}
+
+
+Allocator Arena::Alloc() {
+	static AllocatorVTable g_arena_allocator_vtable = {
+		.allocate = [](void* arena, size_t size, size_t alignment) -> void* {
+			return ArenaAllocate((Arena*)arena, size, alignment);
+		},
+	};
+	return Allocator{
+		.userdata = this,
+		.vtable = &g_arena_allocator_vtable,
+	};
 }

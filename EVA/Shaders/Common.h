@@ -1,6 +1,9 @@
 #ifndef EVA_SHADER_COMMON_H
 #define EVA_SHADER_COMMON_H
 
+#extension GL_EXT_nonuniform_qualifier : require
+#extension GL_EXT_scalar_block_layout : require
+
 struct FrameGlobals {
 	mat4 view;
 	mat4 viewProjection;

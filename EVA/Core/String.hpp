@@ -1,11 +1,14 @@
 #pragma once
-#include <EVA/Core/Basic.hpp>
+#include <EVA/Core/Common.hpp>
 #include <string.h>
+#include <vector>
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
 
+struct Arena;
 struct String;
 struct ZTString;
+struct StringBuilder;
 
 /**
  ** A non-owning string view.
@@ -40,7 +43,9 @@ struct String {
 		return String(data, n);
 	}
 
-	inline ZTString CopyToHeap() const;
+	// TODO: This should probably be a generic Copy(Allocator) once allocator doesn't suck.
+	ZTString CopyToHeap() const;
+	ZTString CopyToArena(Arena* arena) const;
 };
 
 /**
@@ -58,9 +63,10 @@ struct ZTString : String {
 	const char* c_str() const { return (char*)data; }
 };
 
-ZTString String::CopyToHeap() const {
-	U8* copy_buffer = (U8*)malloc(size + 1);
-	memcpy(copy_buffer, data, size);
-	copy_buffer[size] = '\0';
-	return ZTString(copy_buffer, size);
-}
+struct StringBuilder {
+	std::vector<U8> buffer;
+
+	void Push(String str);
+	void Push(const char* fmt, ...);
+	ZTString Build();
+};

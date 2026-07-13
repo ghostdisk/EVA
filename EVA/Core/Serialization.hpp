@@ -51,7 +51,7 @@ public:
 	virtual void SerializeString (String value) = 0;
 	virtual void SerializeBool   (bool value) = 0;
 	virtual void SerializeNull   () = 0;
-	virtual void SerializeBytes  (U8* bytes, size_t size) = 0;
+	virtual void SerializeBytes  (const void* bytes, size_t size) = 0;
 };
 
 class Deserializer {
@@ -89,8 +89,7 @@ public:
 	virtual F64      DeserializeF64    () = 0;
 	virtual ZTString DeserializeString () = 0;
 	virtual bool     DeserializeBool   () = 0;
-	virtual size_t   DeserializeBytes1 () = 0;
-	virtual void     DeserializeBytes2 (U8* out_bytes) = 0;
+	virtual void     DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) = 0;
 };
 
 class TextSerializer : public Serializer {
@@ -102,7 +101,7 @@ class TextSerializer : public Serializer {
 	};
 
 	std::vector<StackEntry> stack;
-	FILE* out = nullptr;
+	FILE* m_out = nullptr;
 
 	void WriteNewLine();
 	void NextValue();
@@ -133,12 +132,13 @@ public:
 	virtual void SerializeString (String value) override;
 	virtual void SerializeBool   (bool value) override;
 	virtual void SerializeNull   () override;
-	virtual void SerializeBytes  (U8* bytes, size_t size) override;
+	virtual void SerializeBytes  (const void* bytes, size_t size) override;
 };
 
 class TextDeserializer : public Deserializer {
 	Result result = {};
 	FILE* in = nullptr;
+	Arena* arena = nullptr;
 
 	struct StackEntry {
 		char type = '\0';
@@ -150,7 +150,7 @@ class TextDeserializer : public Deserializer {
 
 public:
 	void SkipWhitespace();
-	TextDeserializer(FILE* in);
+	TextDeserializer(FILE* in, Arena* arena = nullptr);
 
 	virtual bool     BeginObject() override;
 	virtual void     EndObject() override;
@@ -171,8 +171,7 @@ public:
 	virtual F64      DeserializeF64() override;
 	virtual ZTString DeserializeString() override;
 	virtual bool     DeserializeBool() override;
-	virtual size_t   DeserializeBytes1() override;
-	virtual void     DeserializeBytes2(U8* out_bytes) override;
+	virtual void     DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) override;
 };
 
 inline void Serialize(Serializer& s, const U8&     value)  { s.SerializeU8     (value); }
