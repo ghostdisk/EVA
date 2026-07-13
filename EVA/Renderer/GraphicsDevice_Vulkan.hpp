@@ -58,6 +58,8 @@ private:
 	std::vector<VkSemaphore>   m_renderDoneSemaphores           = {};
 	U32                        m_swapchainImageIndex            = 0;
 	Fence*                     m_frameFence                     = nullptr;
+	bool                       m_needsNewSwapchain              = true;
+	SwapchainDesc              m_swapchainDesc                  = {};
 
 public:
 	ECLASS_COMMON();
@@ -73,7 +75,6 @@ public:
 
 	virtual Image* GetCurrentBackbuffer() override;
 
-	virtual void SetVSync(bool enabled) override;
 	virtual void WaitIdle() override;
 
 	virtual CommandBuffer* CreateCommandBuffer() override;
@@ -103,6 +104,9 @@ public:
 	virtual GraphicsPipeline* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
 	virtual void DestroyGraphicsPipeline(GraphicsPipeline* pipeline) override;
 
+	virtual void SetSwapchainDesc(SwapchainDesc desc) override;
+	virtual SwapchainDesc GetSwapchainDesc() override;
+
 protected:
 	virtual bool BeginFrameImpl() override;
 
@@ -110,7 +114,8 @@ private:
 	Result CreateCommandPool(VkCommandPool* outCommandPool);
 	Result CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer);
 	Result BeginFrameCommandBuffers();
-	Result CreateSwapchain(const GraphicsDeviceInitDesc& desc);
+	Result CreateSwapchain();
+	void   DestroySwapchain();
 	Result CreateSemaphore(VkSemaphore* outSemaphore);
 	Result CreateBindlessResources();
 

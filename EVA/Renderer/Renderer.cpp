@@ -69,6 +69,21 @@ ConVar cvar_wireframe = {
 
 static GFX::GraphicsDevice* g_device;
 
+static void CreateBuffers() {
+	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
+
+	g_depthBuffer = g_device->CreateImage(GFX::ImageDesc{
+		.width = backbuffer->m_width,
+		.height = backbuffer->m_height,
+		.format = GFX::Format::D32_FLOAT,
+		.usage = GFX::ImageUsage_DepthAttachment,
+	});
+}
+
+static void DestroyBuffers() {
+	if (g_depthBuffer) { g_device->DestroyImage(g_depthBuffer); g_depthBuffer = nullptr; }
+}
+
 void RendererInitialize() {
 	shd_lines = Asset::Get<Shader>("shd_lines");
 	shd_main = Asset::Get<Shader>("shd_main");
@@ -100,13 +115,8 @@ void RendererInitialize() {
 		.memoryUsage = GFX::MemoryUsage::CPUToGPU,
 		.bindless = true,
 	});
-	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
-	g_depthBuffer = g_device->CreateImage(GFX::ImageDesc{
-		.width = backbuffer->m_width,
-		.height = backbuffer->m_height,
-		.format = GFX::Format::D32_FLOAT,
-		.usage = GFX::ImageUsage_DepthAttachment,
-	});
+
+	CreateBuffers();
 }
 
 void RendererShutdown() {
@@ -127,7 +137,21 @@ void DrawSetLineThickness() {
 }
 
 void RenderFrame() {
-	ZoneScopedN("RenderScene");
+	ZoneScopedN("RenderFrame");
+
+	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
+
+	bool buffersDirty = false;
+	if (!g_depthBuffer) buffersDirty = true;
+	else if (g_depthBuffer->m_width != backbuffer->m_width || g_depthBuffer->m_height != backbuffer->m_height) buffersDirty = true;
+
+	if (buffersDirty) {
+		DestroyBuffers();
+		CreateBuffers();
+	}
+
+
+
 	GFX::CommandBuffer* cmd = g_device->GetMainCommandBuffer();
 
 	ECamera* camera = nullptr;
@@ -144,7 +168,7 @@ void RenderFrame() {
 	memcpy(g_mainConstantBuffer->m_mapped, &cb, sizeof(cb));
 
 	GFX::AttachmentDesc colorAttachment = {
-		.image       = g_device->GetCurrentBackbuffer(),
+		.image       = backbuffer,
 		.loadOp      = GFX::LoadOp::Clear,
 		.storeOp     = GFX::StoreOp::Store,
 		.clearColor  = COLOR_BLACK,

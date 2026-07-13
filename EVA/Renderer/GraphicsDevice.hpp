@@ -544,13 +544,17 @@ struct SubmitDesc {
 	Fence*                fence                = nullptr;
 };
 
-struct GraphicsDeviceInitDesc {
-	GraphicsAPI api          = GraphicsAPI::Vulkan;
-	SDL_Window* window       = nullptr;
+struct SwapchainDesc {
 	U32         frameCount   = 2;
-	bool        enableDebug  = true;
 	bool        vsync        = true;
-	ImageUsage  swapchainImageUsage = ImageUsage_ColorAttachment;
+	ImageUsage  imageUsage   = ImageUsage_ColorAttachment;
+};
+
+struct GraphicsDeviceInitDesc {
+	GraphicsAPI     api             = GraphicsAPI::Vulkan;
+	SDL_Window*     window          = nullptr;
+	bool            enableDebug     = true;
+	SwapchainDesc   swapchaindesc   = {};
 };
 
 class GraphicsDevice : public Object {
@@ -571,7 +575,6 @@ public:
 
 	virtual Image* GetCurrentBackbuffer() = 0;
 
-	virtual void SetVSync(bool enabled) = 0;
 	virtual void WaitIdle() = 0;
 
 	virtual CommandBuffer* CreateCommandBuffer() = 0;
@@ -607,6 +610,9 @@ public:
 
 	virtual GraphicsPipeline* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
 	virtual void DestroyGraphicsPipeline(GraphicsPipeline* pipeline) = 0;
+
+	virtual void SetSwapchainDesc(SwapchainDesc desc) = 0;
+	virtual SwapchainDesc GetSwapchainDesc() = 0;
 
 protected:
 	virtual bool BeginFrameImpl() = 0;

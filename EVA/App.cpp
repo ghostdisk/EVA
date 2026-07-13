@@ -67,17 +67,18 @@ void QueueForNextFrame(void (*callback)(void* userdata), void* userdata) {
 	g_next_frame_callbacks.push_back({ callback, userdata });
 }
 
-int main() {
+Result RunProgram() {
 	ArenaInitialize();
 	RotateFrameArenas();
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();
-	Result graphicsResult = GFX::GraphicsDevice::Create(GFX::GraphicsDeviceInitDesc{
+
+	TRY(GFX::GraphicsDevice::Create({
 		.api = GFX::GraphicsAPI::Vulkan,
 		.window = g_game_window,
-	});
-	if (!graphicsResult) Fatal("GraphicsDevice::Create: %s", graphicsResult.error->c_str());
+	}));
+
 	GameInitialize();
 	FontInitialize();
 	AssetsLoad();
@@ -146,5 +147,12 @@ int main() {
 
 	RendererShutdown();
 	GFX::GraphicsDevice::Shutdown();
+	return Success();
+}
+
+int main() {
+	Result res = RunProgram();
+	if (res.error)
+		Fatal("RunProgram exited with %s", res.error->size);
 	return 0;
 }

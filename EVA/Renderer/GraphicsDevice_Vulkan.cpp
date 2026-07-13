@@ -358,9 +358,31 @@ Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::CreateSwapchain(const GraphicsDeviceInitDesc& desc) {
+void GraphicsDevice_Vulkan::DestroySwapchain() {
+	m_needsNewSwapchain = true;
+
+	for (Image* image : m_swapchainImages) {
+		DestroyImage(image);
+	}
+	m_swapchainImages.clear();
+
+	if (m_swapchain) {
+		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+		m_swapchain = nullptr;
+	}
+}
+
+Result GraphicsDevice_Vulkan::CreateSwapchain() {
+	assert(m_needsNewSwapchain);
+
 	VkSurfaceCapabilitiesKHR capabilities;
 	VK_TRY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &capabilities));
+
+	VkExtent2D extent = capabilities.currentExtent;
+	if (extent.width == 0 || extent.height == 0) {
+		// m_needsNewSwapchain remains true.
+		return Success();
+	}
 
 	U32 formatCount = 0;
 	VK_TRY(vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, nullptr));
@@ -378,15 +400,8 @@ Result GraphicsDevice_Vulkan::CreateSwapchain(const GraphicsDeviceInitDesc& desc
 		}
 	}
 
-	VkExtent2D extent = capabilities.currentExtent;
-	if (extent.width == UINT32_MAX) {
-		int width = 0, height = 0;
-		SDL_GetWindowSizeInPixels(desc.window, &width, &height);
-		extent.width = std::clamp((U32)width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-		extent.height = std::clamp((U32)height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-	}
 
-	U32 imageCount = std::max(capabilities.minImageCount, desc.frameCount);
+	U32 imageCount = std::max(capabilities.minImageCount, m_swapchainDesc.frameCount);
 	if (capabilities.maxImageCount) imageCount = std::min(imageCount, capabilities.maxImageCount);
 	VkSwapchainCreateInfoKHR createInfo{
 		.sType            = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -396,11 +411,11 @@ Result GraphicsDevice_Vulkan::CreateSwapchain(const GraphicsDeviceInitDesc& desc
 		.imageColorSpace  = surfaceFormat.colorSpace,
 		.imageExtent      = extent,
 		.imageArrayLayers = 1,
-		.imageUsage       = ToVkImageUsage(desc.swapchainImageUsage),
+		.imageUsage       = ToVkImageUsage(m_swapchainDesc.imageUsage),
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.preTransform     = capabilities.currentTransform,
 		.compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-		.presentMode      = desc.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
+		.presentMode      = m_swapchainDesc.vsync ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR,
 		.clipped          = VK_TRUE,
 	};
 
@@ -417,13 +432,15 @@ Result GraphicsDevice_Vulkan::CreateSwapchain(const GraphicsDeviceInitDesc& desc
 			.width            = extent.width,
 			.height           = extent.height,
 			.format           = swapchainFormat,
-			.usage            = desc.swapchainImageUsage,
+			.usage            = m_swapchainDesc.imageUsage,
 			.ownedBySwapchain = true,
 			.existingImage    = vkImage,
 		});
 		if (!image) return Err("Failed to create swapchain image view");
 		m_swapchainImages.push_back(image);
 	}
+
+	m_needsNewSwapchain = false;
 	return Success();
 }
 
@@ -682,7 +699,7 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 	}
 
 	{ // create a swapchain:
-		TRY(CreateSwapchain(desc));
+		TRY(CreateSwapchain());
 		m_renderDoneSemaphores.resize(m_swapchainImages.size());
 		for (VkSemaphore& semaphore : m_renderDoneSemaphores)
 			TRY(CreateSemaphore(&semaphore));
@@ -709,9 +726,7 @@ GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 		if (semaphore) vkDestroySemaphore(m_device, semaphore, nullptr);
 	m_renderDoneSemaphores.clear();
 	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
-	for (Image* image : m_swapchainImages) DestroyImage(image);
-	m_swapchainImages.clear();
-	if (m_swapchain) vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
+	DestroySwapchain();
 	delete m_mainCommandBuffer;
 	delete m_transferCommandBuffer;
 	if (m_mainCommandPool) vkDestroyCommandPool(m_device, m_mainCommandPool, nullptr);
@@ -902,12 +917,24 @@ void CommandBuffer_Vulkan::GenerateMipmaps(Image*) {
 }
 
 bool GraphicsDevice_Vulkan::BeginFrameImpl() {
-	WaitForFence(m_frameFence);
-	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
-	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+	if (m_needsNewSwapchain) {
+		WaitIdle();
+		DestroySwapchain();
+		CreateSwapchain();
+	}
+	if (m_needsNewSwapchain) {
 		return false;
 	}
-	return (bool)BeginFrameCommandBuffers();
+
+	WaitForFence(m_frameFence);
+	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
+
+	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		m_needsNewSwapchain = true;
+		return false;
+	}
+	BeginFrameCommandBuffers();
+	return true;
 }
 
 void GraphicsDevice_Vulkan::EndFrame() {
@@ -973,11 +1000,9 @@ CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() { return m_tran
 
 Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() { return m_swapchainImages.empty() ? nullptr : m_swapchainImages[m_swapchainImageIndex]; }
 
-void GraphicsDevice_Vulkan::SetVSync(bool) {
-	printf("STUB: SetVSync\n");
+void GraphicsDevice_Vulkan::WaitIdle() {
+	vkDeviceWaitIdle(m_device);
 }
-
-void GraphicsDevice_Vulkan::WaitIdle() { assert(0); }
 
 CommandBuffer* GraphicsDevice_Vulkan::CreateCommandBuffer() { assert(0); return {}; }
 
@@ -1406,6 +1431,15 @@ void GraphicsDevice_Vulkan::DestroyGraphicsPipeline(GraphicsPipeline* pipeline) 
 	if (!pipeline) return;
 	if (pipeline->m_vulkan.pipeline) vkDestroyPipeline(m_device, pipeline->m_vulkan.pipeline, nullptr);
 	delete pipeline;
+}
+
+SwapchainDesc GraphicsDevice_Vulkan::GetSwapchainDesc() {
+	return m_swapchainDesc;
+}
+
+void GraphicsDevice_Vulkan::SetSwapchainDesc(SwapchainDesc desc) {
+	m_swapchainDesc = desc;
+	m_needsNewSwapchain = true;
 }
 
 }
