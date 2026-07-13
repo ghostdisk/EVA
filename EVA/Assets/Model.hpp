@@ -18,4 +18,4 @@ public:
 Result BuildGLTF(Model* model, ZTString path);
 
 void Serialize(Serializer& s, Model* model);
-void Deserialize(Deserializer& s, Model* model);
+void Deserialize(Deserializer& d, Model* model);

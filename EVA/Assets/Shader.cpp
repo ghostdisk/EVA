@@ -2,6 +2,30 @@
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/OS.hpp>
 
+void Serialize(Serializer& s, const ShaderPipelineState& ps) {
+	s.BeginObject();
+	s.Key("version");
+	s.SerializeU32(1);
+	s.Key("cullMode");
+	s.SerializeU8((U8)ps.cullMode);
+	s.EndObject();
+}
+
+void Deserialize(Deserializer& d, ShaderPipelineState& ps) {
+	d.BeginObject();
+
+	d.Key("version");
+	U32 version = d.DeserializeU32();
+	if (version != 1) {
+		d.SetError(Err("Unsupported version"));
+		return;
+	}
+
+	d.Key("cullMode");
+	ps.cullMode = (GFX::CullMode)d.DeserializeU8();
+	d.EndObject();
+}
+
 static Result CompileShaderStage(String name, String stage, const std::vector<String>& defines, void** out_spv, size_t* out_spv_size) {
 	StringBuilder cmdline;
 	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
@@ -27,7 +51,7 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 
 	d.Key("version");
 	U32 version = d.DeserializeU8();
-	if (version != 1)
+	if (version > 2)
 		return Err("Unexpected version");
 
 	d.Key("vs");
@@ -45,6 +69,12 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 	}
 
 	d.EndArray();
+
+	ShaderPipelineState ps = {};
+	if (version >= 2) {
+		d.Key("pipelineState");
+		Deserialize(d, ps);
+	}
 	d.EndObject();
 
 	void *vs, *fs;
@@ -61,11 +91,13 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 
 	s.BeginObject();
 	s.Key("version");
-	s.SerializeU32(1);
+	s.SerializeU32(2);
 	s.Key("vs");
 	s.SerializeBytes(vs, vs_size);
 	s.Key("fs");
 	s.SerializeBytes(fs, fs_size);
+	s.Key("pipelineState");
+	Serialize(s, ps);
 	s.EndObject();
 
 	return d.res;
@@ -78,7 +110,7 @@ Result Shader::LoadImpl(FILE* f) {
 	d.Key("version");
 	U32 version = d.DeserializeU32();
 
-	if (version != 1) {
+	if (version > 2) {
 		return Err("Unsupported version");
 	}
 
@@ -89,6 +121,13 @@ Result Shader::LoadImpl(FILE* f) {
 	d.DeserializeBytes(FrameArena->Alloc(), &vs_size, &vs);
 	d.Key("fs");
 	d.DeserializeBytes(FrameArena->Alloc(), &fs_size, &fs);
+
+	ShaderPipelineState ps = {};
+	if (version >= 2) {
+		d.Key("pipelineState");
+		Deserialize(d, ps);
+	}
+
 	d.EndObject();
 
 	if (d.res.error) return d.res;
@@ -119,6 +158,7 @@ Result Shader::LoadImpl(FILE* f) {
 			.colorFormat = { device->GetCurrentBackbuffer()->m_format },
 			.depthFormat = GFX::Format::D32_FLOAT,
 		},
+		.cullMode = ps.cullMode,
 		.pushConstantSize = 128,
 	});
 	if (!m_pipeline) {

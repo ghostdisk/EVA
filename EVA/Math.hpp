@@ -31,7 +31,7 @@ struct float2 {
 };
 
 void Serialize(Serializer& s, const float2& f);
-void Deserialize(Deserializer& s, float2& f);
+void Deserialize(Deserializer& d, float2& f);
 
 inline float2 operator+(const float2& a, const float2& b) { return float2(a.x+b.x, a.y+b.y); }
 inline float2 operator-(const float2& a, const float2& b) { return float2(a.x-b.x, a.y-b.y); }
@@ -66,7 +66,7 @@ struct float3 {
 };
 
 void Serialize(Serializer& s, const float3& f);
-void Deserialize(Deserializer& s, float3& f);
+void Deserialize(Deserializer& d, float3& f);
 
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x, a.y+b.y, a.z+b.z); }
 inline float3 operator-(const float3& a, const float3& b) { return float3(a.x-b.x, a.y-b.y, a.z-b.z); }
@@ -98,7 +98,7 @@ struct __declspec(align(16)) float4 {
 };
 
 void Serialize(Serializer& s, const float4& f);
-void Deserialize(Deserializer& s, float4& f);
+void Deserialize(Deserializer& d, float4& f);
 
 struct __declspec(align(16)) float4x4 {
 	float data[4][4]; // column major, indexed as [col][row]

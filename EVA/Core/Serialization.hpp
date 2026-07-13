@@ -187,15 +187,15 @@ inline void Serialize(Serializer& s, const F64&    value)  { s.SerializeF64    (
 inline void Serialize(Serializer& s, const String& value)  { s.SerializeString (value); }
 inline void Serialize(Serializer& s, const bool&   value)  { s.SerializeBool   (value); }
 
-inline void Deserialize(Deserializer& s, U8&     out_value)  { out_value = s.DeserializeU8     ();  }
-inline void Deserialize(Deserializer& s, U16&    out_value)  { out_value = s.DeserializeU16    ();  }
-inline void Deserialize(Deserializer& s, U32&    out_value)  { out_value = s.DeserializeU32    ();  }
-inline void Deserialize(Deserializer& s, U64&    out_value)  { out_value = s.DeserializeU64    ();  }
-inline void Deserialize(Deserializer& s, I8&     out_value)  { out_value = s.DeserializeI8     ();  }
-inline void Deserialize(Deserializer& s, I16&    out_value)  { out_value = s.DeserializeI16    ();  }
-inline void Deserialize(Deserializer& s, I32&    out_value)  { out_value = s.DeserializeI32    ();  }
-inline void Deserialize(Deserializer& s, I64&    out_value)  { out_value = s.DeserializeI64    ();  }
-inline void Deserialize(Deserializer& s, F32&    out_value)  { out_value = s.DeserializeF32    ();  }
-inline void Deserialize(Deserializer& s, F64&    out_value)  { out_value = s.DeserializeF64    ();  }
-inline void Deserialize(Deserializer& s, String& out_value)  { out_value = s.DeserializeString ();  }
-inline void Deserialize(Deserializer& s, bool&   out_value)  { out_value = s.DeserializeBool   ();  }
+inline void Deserialize(Deserializer& d, U8&     out_value)  { out_value = d.DeserializeU8     ();  }
+inline void Deserialize(Deserializer& d, U16&    out_value)  { out_value = d.DeserializeU16    ();  }
+inline void Deserialize(Deserializer& d, U32&    out_value)  { out_value = d.DeserializeU32    ();  }
+inline void Deserialize(Deserializer& d, U64&    out_value)  { out_value = d.DeserializeU64    ();  }
+inline void Deserialize(Deserializer& d, I8&     out_value)  { out_value = d.DeserializeI8     ();  }
+inline void Deserialize(Deserializer& d, I16&    out_value)  { out_value = d.DeserializeI16    ();  }
+inline void Deserialize(Deserializer& d, I32&    out_value)  { out_value = d.DeserializeI32    ();  }
+inline void Deserialize(Deserializer& d, I64&    out_value)  { out_value = d.DeserializeI64    ();  }
+inline void Deserialize(Deserializer& d, F32&    out_value)  { out_value = d.DeserializeF32    ();  }
+inline void Deserialize(Deserializer& d, F64&    out_value)  { out_value = d.DeserializeF64    ();  }
+inline void Deserialize(Deserializer& d, String& out_value)  { out_value = d.DeserializeString ();  }
+inline void Deserialize(Deserializer& d, bool&   out_value)  { out_value = d.DeserializeBool   ();  }

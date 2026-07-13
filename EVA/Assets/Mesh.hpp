@@ -14,7 +14,7 @@ struct MeshVertex {
 };
 
 void Serialize(Serializer& s, const MeshVertex& f);
-void Deserialize(Deserializer& s, MeshVertex& f);
+void Deserialize(Deserializer& d, MeshVertex& f);
 
 class Mesh : public Asset {
 public:

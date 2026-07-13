@@ -312,7 +312,7 @@ static void WriteGenFile() {
 		if (!t->is_object && !t->is_serializable) continue;
 		if (t->is_serializable) {
 			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->qualified_name.c_str());
-			fprintf(f, "void Deserialize(Deserializer& s, %s& out_value);\n", t->qualified_name.c_str());
+			fprintf(f, "void Deserialize(Deserializer& d, %s& out_value);\n", t->qualified_name.c_str());
 		}
 	}
 	fprintf(f, "\n\n");
@@ -325,7 +325,7 @@ static void WriteGenFile() {
 				fprintf(f, "\tSerialize(s, (%s)value);\n", t->underlying_type.c_str());
 				fprintf(f, "}\n");
 
-				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->qualified_name.c_str());
+				fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\t%s tmp = {};\n", t->underlying_type.c_str());
 				fprintf(f, "\tDeserialize(s, tmp);\n");
 				fprintf(f, "\tout_value = (%s)tmp;\n", t->qualified_name.c_str());
@@ -340,7 +340,7 @@ static void WriteGenFile() {
 				fprintf(f, "\ts.EndObject();\n");
 				fprintf(f, "}\n");
 
-				fprintf(f, "\nvoid Deserialize(Deserializer& s, %s& out_value) {\n", t->qualified_name.c_str());
+				fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", t->qualified_name.c_str());
 				fprintf(f, "\ts.BeginObject();\n");
 				for (const std::string& p : t->properties) {
 					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());

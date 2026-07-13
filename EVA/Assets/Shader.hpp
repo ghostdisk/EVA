@@ -2,6 +2,10 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Renderer/GraphicsDevice.hpp>
 
+struct ShaderPipelineState {
+	GFX::CullMode cullMode = GFX::CullMode::Back;
+};
+
 class Shader : public Asset {
 public:
 	ECLASS_COMMON();
