@@ -40,7 +40,7 @@ Result Texture::LoadImpl(FILE* f) {
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 
-	Upload(width, height, pixels, GFX::Format::RGBA8_UNORM);
+	Upload(width, height, pixels, GFX::Format::RGBA8_SRGB);
 	return Success();
 }
 

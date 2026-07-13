@@ -22,8 +22,8 @@ struct LineVertex {
 
 struct DrawQuad {
 	int mode;
-	int pad0;
-	int pad1;
+	int textureId;
+	int samplerId;
 	int pad2;
 	vec4 positionRect;
 	vec4 uvRect;

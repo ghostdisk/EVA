@@ -55,7 +55,8 @@ void BuildAssets(String dir) {
 			BuildGLTF(model, stat.full_path);
 			model->SaveToDisk(Fmt(FrameArena, "%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
 		} else if (ext == ".shader") {
-			BuildShader(stat.full_path, Fmt(FrameArena, "%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
+			Result res = BuildShader(stat.full_path, Fmt(FrameArena, "%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
+			if (!res) Fatal("Failed to build %s: %s", stat.full_path.c_str(), res.error->c_str());
 		}
 	});
 }

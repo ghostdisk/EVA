@@ -133,9 +133,6 @@ void DrawSetLayer(Layer l) {
 	current_layer = &layers[l];
 }
 
-void DrawSetLineThickness() {
-}
-
 void RenderFrame() {
 	ZoneScopedN("RenderFrame");
 
@@ -269,57 +266,42 @@ void RenderFrame() {
 
 		// render quads:
 		{
-			int start = 0;
-			while (start < current_layer->quads.size()) {
-				Texture* texture = current_layer->quads[start].texture;
-
-				int end;
-				for (end = start; end < current_layer->quads.size(); end++) {
-					if (current_layer->quads[end].texture != texture) {
-						break;
-					}
-				}
-
-				std::vector<DrawQuad> quads(end - start);
-				for (int i = start; i < end; i++) {
-					DrawQuadRecord& record = current_layer->quads[i];
-					quads[i - start] = DrawQuad{
-						.mode          = record.mode,
-						.position_rect = record.position_rect,
-						.uv_rect       = record.uv_rect,
-						.tint          = record.tint,
-					};
-				}
-
-				GFX::GPUBuffer* quadBuffer = nullptr;
-				size_t quadBufferOffset = 0;
-				g_device->UploadFrameData(
-					quads.data(),
-					quads.size() * sizeof(DrawQuad),
-					&quadBuffer,
-					&quadBufferOffset);
-				struct QuadPushConstants {
-					float2 framebufferSize;
-					U32 quadBuffer;
-					U32 quadOffset;
-					U32 vertexBuffer;
-					U32 textureImage;
-					U32 textureSampler;
-				} constants = {
-					.framebufferSize = float2(colorAttachment.image->m_width, colorAttachment.image->m_height),
-					.quadBuffer = quadBuffer->m_bindlessIndex,
-					.quadOffset = (U32)(quadBufferOffset / sizeof(DrawQuad)),
-					.vertexBuffer = mesh_quad->vertex_buffer->m_bindlessIndex,
-					.textureImage = texture ? texture->image->m_bindlessIndex : UINT32_MAX,
-					.textureSampler = texture ? texture->sampler->m_bindlessIndex : UINT32_MAX,
+			std::vector<DrawQuad> quads(current_layer->quads.size());
+			for (int i = 0; i < current_layer->quads.size(); i++) {
+				DrawQuadRecord& record = current_layer->quads[i];
+				quads[i] = DrawQuad{
+					.mode          = record.mode,
+					.texture       = record.texture ? record.texture->image->m_bindlessIndex : 0,
+					.sampler       = record.texture ? record.texture->sampler->m_bindlessIndex : 0,
+					.position_rect = record.position_rect,
+					.uv_rect       = record.uv_rect,
+					.tint          = record.tint,
 				};
-				cmd->BindPipeline(shd_quad->m_pipeline);
-				cmd->PushConstants(shd_quad->m_pipeline, sizeof(constants), &constants);
-				cmd->BindIndexBuffer(mesh_quad->index_buffer, GFX::IndexType::U32);
-				cmd->DrawIndexed(6, (U32)quads.size());
-
-				start = end;
 			}
+
+			GFX::GPUBuffer* quadBuffer = nullptr;
+			size_t quadBufferOffset = 0;
+			g_device->UploadFrameData(
+				quads.data(),
+				quads.size() * sizeof(DrawQuad),
+				&quadBuffer,
+				&quadBufferOffset);
+			struct QuadPushConstants {
+				float2 framebufferSize;
+				U32 quadBuffer;
+				U32 quadOffset;
+				U32 vertexBuffer;
+			} constants = {
+				.framebufferSize = float2(colorAttachment.image->m_width, colorAttachment.image->m_height),
+				.quadBuffer = quadBuffer->m_bindlessIndex,
+				.quadOffset = (U32)(quadBufferOffset / sizeof(DrawQuad)),
+				.vertexBuffer = mesh_quad->vertex_buffer->m_bindlessIndex,
+			};
+			cmd->BindPipeline(shd_quad->m_pipeline);
+			cmd->PushConstants(shd_quad->m_pipeline, sizeof(constants), &constants);
+			cmd->BindIndexBuffer(mesh_quad->index_buffer, GFX::IndexType::U32);
+			cmd->DrawIndexed(6, (U32)quads.size());
+
 			current_layer->quads.clear();
 		}
 

@@ -26,8 +26,8 @@ enum DrawQuadMode {
 
 struct DrawQuad {
 	int mode;
-	int pad0;
-	int pad1;
+	U32 texture;
+	U32 sampler;
 	int pad2;
 	float4 position_rect;
 	float4 uv_rect;

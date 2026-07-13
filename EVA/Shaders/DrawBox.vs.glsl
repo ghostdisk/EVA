@@ -6,13 +6,13 @@ layout(push_constant) uniform PushConstants {
 	uint quadBuffer;
 	uint quadOffset;
 	uint vertexBuffer;
-	uint textureImage;
-	uint textureSampler;
 } push;
 
 layout(location = 0) out vec2 v_Texcoord;
 layout(location = 1) flat out uint v_Mode;
-layout(location = 2) out vec4 v_Tint;
+layout(location = 2) flat out uint v_Texture;
+layout(location = 3) flat out uint v_Sampler;
+layout(location = 4) out vec4 v_Tint;
 
 void main() {
 	vec2 mask = bindlessBuffers_MeshVertex[nonuniformEXT(push.vertexBuffer)].data[gl_VertexIndex].position.xy;
@@ -23,6 +23,8 @@ void main() {
 	position.y = -position.y;
 
 	gl_Position = vec4(position, 0.0, 1.0);
+	v_Texture = quad.textureId;
+	v_Sampler = quad.samplerId;
 	v_Texcoord = quad.uvRect.xy + mask * quad.uvRect.zw;
 	v_Mode = uint(quad.mode);
 	v_Tint = quad.tint;

@@ -1,18 +1,11 @@
 #version 460
 #include "Common.h"
 
-layout(push_constant) uniform PushConstants {
-	vec2 framebufferSize;
-	uint quadBuffer;
-	uint quadOffset;
-	uint vertexBuffer;
-	uint textureImage;
-	uint textureSampler;
-} push;
-
 layout(location = 0) in vec2 v_Texcoord;
 layout(location = 1) flat in uint v_Mode;
-layout(location = 2) in vec4 v_Tint;
+layout(location = 2) flat in uint v_Texture;
+layout(location = 3) flat in uint v_Sampler;
+layout(location = 4) in vec4 v_Tint;
 
 layout(location = 0) out vec4 o_Color;
 
@@ -24,8 +17,8 @@ void main() {
 
 	vec4 tex = texture(
 		sampler2D(
-			bindlessImages[nonuniformEXT(push.textureImage)],
-			bindlessSamplers[nonuniformEXT(push.textureSampler)]),
+			bindlessImages[nonuniformEXT(v_Texture)],
+			bindlessSamplers[nonuniformEXT(v_Sampler)]),
 		v_Texcoord);
 
 	if (v_Mode == 1) {
