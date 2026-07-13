@@ -28,6 +28,37 @@ public:
 };
 
 class GraphicsDevice_Vulkan final : public GraphicsDevice {
+
+private:
+	VkInstance                 m_instance                       = nullptr;
+	VkSurfaceKHR               m_surface                        = nullptr;
+	VkPhysicalDevice           m_physicalDevice                 = nullptr;
+	VkDevice                   m_device                         = nullptr;
+	VkQueue                    m_graphicsQueue                  = nullptr;
+	VkSwapchainKHR             m_swapchain                      = nullptr;
+	VkSemaphore                m_imageAcquiredSemaphore         = nullptr;
+	VkDescriptorSetLayout      m_bindlessDescriptorSetLayout    = nullptr;
+	VkDescriptorPool           m_bindlessDescriptorPool         = nullptr;
+	VkDescriptorSet            m_bindlessDescriptorSet          = nullptr;
+	VkPipelineLayout           m_pipelineLayout                 = nullptr;
+	VmaAllocator               m_allocator                      = nullptr;
+	U32                        m_bindlessBufferCount            = 0;
+	U32                        m_bindlessImageCount             = 0;
+	U32                        m_bindlessSamplerCount           = 0;
+	BindlessIndexAllocator     m_bindlessBufferIndices          = {};
+	BindlessIndexAllocator     m_bindlessImageIndices           = {};
+	BindlessIndexAllocator     m_bindlessSamplerIndices         = {};
+	U32                        m_graphicsFamily                 = UINT32_MAX;
+	VkCommandPool              m_mainCommandPool                = nullptr;
+	VkCommandPool              m_transferCommandPool            = nullptr;
+	CommandBuffer_Vulkan*      m_mainCommandBuffer              = nullptr;
+	CommandBuffer_Vulkan*      m_transferCommandBuffer          = nullptr;
+	bool                       m_frameCommandBuffersBegun       = false;
+	std::vector<Image*>        m_swapchainImages                = {};
+	std::vector<VkSemaphore>   m_renderDoneSemaphores           = {};
+	U32                        m_swapchainImageIndex            = 0;
+	Fence*                     m_frameFence                     = nullptr;
+
 public:
 	ECLASS_COMMON();
 
@@ -83,34 +114,6 @@ private:
 	Result CreateSemaphore(VkSemaphore* outSemaphore);
 	Result CreateBindlessResources();
 
-	VkInstance       m_instance       = nullptr;
-	VkSurfaceKHR     m_surface        = nullptr;
-	VkPhysicalDevice m_physicalDevice = nullptr;
-	VkDevice         m_device         = nullptr;
-	VkQueue          m_graphicsQueue  = nullptr;
-	VkSwapchainKHR   m_swapchain      = nullptr;
-	VkSemaphore      m_imageAcquiredSemaphore = nullptr;
-	VkDescriptorSetLayout m_bindlessDescriptorSetLayout = nullptr;
-	VkDescriptorPool m_bindlessDescriptorPool = nullptr;
-	VkDescriptorSet  m_bindlessDescriptorSet = nullptr;
-	VkPipelineLayout m_pipelineLayout = nullptr;
-	VmaAllocator     m_allocator      = nullptr;
-	U32              m_bindlessBufferCount = 0;
-	U32              m_bindlessImageCount = 0;
-	U32              m_bindlessSamplerCount = 0;
-	BindlessIndexAllocator m_bindlessBufferIndices;
-	BindlessIndexAllocator m_bindlessImageIndices;
-	BindlessIndexAllocator m_bindlessSamplerIndices;
-	U32              m_graphicsFamily = UINT32_MAX;
-	VkCommandPool    m_mainCommandPool = nullptr;
-	VkCommandPool    m_transferCommandPool = nullptr;
-	CommandBuffer_Vulkan* m_mainCommandBuffer = nullptr;
-	CommandBuffer_Vulkan* m_transferCommandBuffer = nullptr;
-	bool             m_frameCommandBuffersBegun = false;
-	std::vector<Image*> m_swapchainImages;
-	std::vector<VkSemaphore> m_renderDoneSemaphores;
-	U32              m_swapchainImageIndex = 0;
-	Fence*           m_frameFence = nullptr;
 };
 
 }
