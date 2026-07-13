@@ -70,14 +70,10 @@ ConVar cvar_wireframe = {
 static GFX::GraphicsDevice* g_device;
 
 void RendererInitialize() {
-	shd_lines = new Shader();
-	AssetInit(shd_lines, "Lines");
-	shd_main = new Shader();
-	AssetInit(shd_main, "Main");
-	shd_quad = new Shader();
-	AssetInit(shd_quad, "DrawBox");
-	shd_brush = new Shader();
-	AssetInit(shd_brush, "MainBrush");
+	shd_lines = Asset::Get<Shader>("shd_lines");
+	shd_main = Asset::Get<Shader>("shd_main");
+	shd_quad = Asset::Get<Shader>("shd_quad");
+	shd_brush = Asset::Get<Shader>("shd_brush");
 
 	{ // mesh_quad:
 		MeshVertex quad_vertices[] = {

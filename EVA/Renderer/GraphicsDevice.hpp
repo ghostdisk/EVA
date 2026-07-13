@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Math.hpp>
+#include <vector>
 
 struct SDL_Window;
 
@@ -29,6 +30,34 @@ using VkDeviceMemory   = VkDeviceMemory_T*;
 using VmaAllocation    = VmaAllocation_T*;
 
 namespace GFX {
+
+struct BindlessIndexAllocator {
+	U32 nextIndex = 0;
+	U32 capacity = 0;
+	std::vector<U32> freeList;
+
+	void Init(U32 newCapacity) {
+		nextIndex = 0;
+		capacity = newCapacity;
+		freeList.clear();
+		freeList.reserve(newCapacity);
+	}
+
+	U32 Allocate() {
+		if (!freeList.empty()) {
+			U32 index = freeList.back();
+			freeList.pop_back();
+			return index;
+		}
+		if (nextIndex >= capacity) Fatal("Bindless index allocator exhausted (%u entries)", capacity);
+		return nextIndex++;
+	}
+
+	void Free(U32 index) {
+		assert(index < nextIndex);
+		freeList.push_back(index);
+	}
+};
 
 class GPUBuffer;
 class Image;
@@ -256,15 +285,6 @@ enum class IndexType : U8 {
 	U32,
 };
 
-enum class ShaderStage : U8 {
-	Vertex,
-	Fragment,
-	Compute,
-	Geometry,
-	TessellationControl,
-	TessellationEvaluation,
-};
-
 enum class LoadOp : U8 {
 	Load,
 	Clear,
@@ -299,20 +319,20 @@ public:
 	ECLASS_COMMON();
 	Image() : m_vulkan{} {}
 
-	U32        m_width         = 0;
-	U32        m_height        = 0;
-	U32        m_mipCount      = 1;
-	U32        m_bindlessIndex = UINT32_MAX;
-	Format     m_format        = Format::None;
-	ImageState m_state         = ImageState::Undefined;
+	U32        m_width            = 0;
+	U32        m_height           = 0;
+	U32        m_mipCount         = 1;
+	U32        m_bindlessIndex    = UINT32_MAX;
+	Format     m_format           = Format::None;
+	ImageState m_state            = ImageState::Undefined;
 	bool       m_ownedBySwapchain = false;
 
 	union {
 		struct {
-			VkImage image = nullptr;
-			VkImageView imageView = nullptr;
-			VkDeviceMemory memory = nullptr;
-			VmaAllocation allocation = nullptr;
+			VkImage        image      = nullptr;
+			VkImageView    imageView  = nullptr;
+			VkDeviceMemory memory     = nullptr;
+			VmaAllocation  allocation = nullptr;
 		} m_vulkan;
 	};
 };
@@ -331,9 +351,6 @@ public:
 class ShaderModule : public Object {
 public:
 	ECLASS_COMMON();
-
-	ShaderStage m_stage = ShaderStage::Vertex;
-
 	union {
 		VkShaderModule m_vk = nullptr;
 	};
@@ -421,7 +438,6 @@ struct SamplerDesc {
 };
 
 struct ShaderModuleDesc {
-	ShaderStage stage     = ShaderStage::Vertex;
 	const U32*  code      = nullptr;
 	U64         codeSize  = 0;
 };

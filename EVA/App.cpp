@@ -79,9 +79,9 @@ int main() {
 	});
 	if (!graphicsResult) Fatal("GraphicsDevice::Create: %s", graphicsResult.error->c_str());
 	GameInitialize();
-	RendererInitialize();
 	FontInitialize();
 	AssetsLoad();
+	RendererInitialize();
 	LibraryInitialize();
 	InputInitialize();
 	UIInitialize();

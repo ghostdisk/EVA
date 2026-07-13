@@ -3,8 +3,12 @@
 #include <EVA/Core/OS.hpp>
 
 static Result CompileShaderStage(String name, String stage, const std::vector<String>& defines, void** out_spv, size_t* out_spv_size) {
-	TRY(ExecProcess(Fmt(FrameArena, "glslc -fshader-stage=%.*s %s/EVA/Shaders/%.*s -o tmp.spv",
-		STRING_PRINTF_ARGS(stage), EVA_BASE_DIR, STRING_PRINTF_ARGS(name))));
+	StringBuilder cmdline;
+	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
+	for (String define : defines)
+		cmdline.Push(" -D%.*s", STRING_PRINTF_ARGS(define));
+	cmdline.Push(" %s/EVA/Shaders/%.*s -o tmp.spv", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
+	TRY(ExecProcess(cmdline.Build()));
 
 	if (!ReadEntireFile("tmp.spv", out_spv, out_spv_size))
 		return Err("Failed to read spv");
@@ -88,6 +92,42 @@ Result Shader::LoadImpl(FILE* f) {
 	d.EndObject();
 
 	if (d.res.error) return d.res;
+	if (!vs_size || vs_size % sizeof(U32) != 0) return Err("Invalid vertex shader SPIR-V");
+	if (!fs_size || fs_size % sizeof(U32) != 0) return Err("Invalid fragment shader SPIR-V");
+
+	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
+	m_vertexModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
+		.code     = (const U32*)vs,
+		.codeSize = vs_size,
+	});
+	if (!m_vertexModule) return Err("Failed to create vertex shader module");
+
+	m_fragmentModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
+		.code     = (const U32*)fs,
+		.codeSize = fs_size,
+	});
+	if (!m_fragmentModule) {
+		device->DestroyShaderModule(m_vertexModule);
+		m_vertexModule = nullptr;
+		return Err("Failed to create fragment shader module");
+	}
+
+	m_pipeline = device->CreateGraphicsPipeline(GFX::GraphicsPipelineDesc{
+		.vertexShader   = m_vertexModule,
+		.fragmentShader = m_fragmentModule,
+		.format = {
+			.colorFormat = { device->GetCurrentBackbuffer()->m_format },
+			.depthFormat = GFX::Format::D32_FLOAT,
+		},
+		.pushConstantSize = 128,
+	});
+	if (!m_pipeline) {
+		device->DestroyShaderModule(m_fragmentModule);
+		device->DestroyShaderModule(m_vertexModule);
+		m_fragmentModule = nullptr;
+		m_vertexModule = nullptr;
+		return Err("Failed to create graphics pipeline");
+	}
 
 	return Success();
 }
