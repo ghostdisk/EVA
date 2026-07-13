@@ -450,10 +450,11 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 	}
 
 	{ // create a swapchain:
-	TRY(CreateSwapchain(desc));
-	TRY(CreateSemaphore(&m_renderSemaphore));
-	m_frameFence = CreateFence(true);
-	if (!m_frameFence) return Err("Failed to create frame fence");
+		TRY(CreateSwapchain(desc));
+		TRY(CreateSemaphore(&m_renderDoneSemaphore));
+		TRY(CreateSemaphore(&m_imageAcquiredSemaphore));
+		m_frameFence = CreateFence(true);
+		if (!m_frameFence) return Err("Failed to create frame fence");
 	}
 
 	{ // create frame command buffers:
@@ -470,7 +471,8 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_device) vkDeviceWaitIdle(m_device);
 	DestroyFence(m_frameFence);
-	if (m_renderSemaphore) vkDestroySemaphore(m_device, m_renderSemaphore, nullptr);
+	if (m_renderDoneSemaphore) vkDestroySemaphore(m_device, m_renderDoneSemaphore, nullptr);
+	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 	for (Image* image : m_swapchainImages) DestroyImage(image);
 	m_swapchainImages.clear();
 	if (m_swapchain) vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
@@ -662,15 +664,10 @@ void CommandBuffer_Vulkan::GenerateMipmaps(Image*) {
 
 bool GraphicsDevice_Vulkan::BeginFrameImpl() {
 	WaitForFence(m_frameFence);
-	ResetFence(m_frameFence);
-	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, VK_NULL_HANDLE, m_frameFence->m_vk, &m_swapchainImageIndex);
+	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-		DestroyFence(m_frameFence);
-		m_frameFence = CreateFence(true);
 		return false;
 	}
-	WaitForFence(m_frameFence);
-	ResetFence(m_frameFence);
 	return (bool)BeginFrameCommandBuffers();
 }
 
@@ -692,33 +689,35 @@ void GraphicsDevice_Vulkan::EndFrame() {
 	vkEndCommandBuffer(m_mainCommandBuffer->m_vk);
 
 	VkCommandBufferSubmitInfo commandBuffers[] = {
-	{
-		.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-		.commandBuffer = m_transferCommandBuffer->m_vk,
-	},
-	{
-		.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-		.commandBuffer = m_mainCommandBuffer->m_vk,
-	},
+		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_transferCommandBuffer->m_vk, },
+		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_mainCommandBuffer->m_vk, },
 	};
-	VkSemaphoreSubmitInfo renderSignal{
+	VkSemaphoreSubmitInfo imageAcquiredWait{
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = m_renderSemaphore,
+		.semaphore = m_imageAcquiredSemaphore,
+		.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+	};
+	VkSemaphoreSubmitInfo renderDoneSignal{
+		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		.semaphore = m_renderDoneSemaphore,
 		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 	};
 	VkSubmitInfo2 mainSubmit{
 		.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+		.waitSemaphoreInfoCount   = 1,
+		.pWaitSemaphoreInfos      = &imageAcquiredWait,
 		.commandBufferInfoCount   = 2,
 		.pCommandBufferInfos      = commandBuffers,
 		.signalSemaphoreInfoCount = 1,
-		.pSignalSemaphoreInfos    = &renderSignal,
+		.pSignalSemaphoreInfos    = &renderDoneSignal,
 	};
+	ResetFence(m_frameFence);
 	vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence->m_vk);
 
 	VkPresentInfoKHR presentInfo{
 		.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores    = &m_renderSemaphore,
+		.pWaitSemaphores    = &m_renderDoneSemaphore,
 		.swapchainCount     = 1,
 		.pSwapchains        = &m_swapchain,
 		.pImageIndices      = &m_swapchainImageIndex,

@@ -88,7 +88,8 @@ private:
 	VkDevice         m_device         = nullptr;
 	VkQueue          m_graphicsQueue  = nullptr;
 	VkSwapchainKHR   m_swapchain      = nullptr;
-	VkSemaphore      m_renderSemaphore = nullptr;
+	VkSemaphore      m_renderDoneSemaphore = nullptr;
+	VkSemaphore      m_imageAcquiredSemaphore = nullptr;
 	VmaAllocator     m_allocator      = nullptr;
 	U32              m_graphicsFamily = UINT32_MAX;
 	VkCommandPool    m_mainCommandPool = nullptr;
