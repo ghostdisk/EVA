@@ -1328,6 +1328,7 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 
 	VkFormat colorFormats[4] = {};
 	VkPipelineColorBlendAttachmentState colorBlendAttachments[4] = {};
+	BlendState blendState = BlendModeToBlendState(desc.blendMode);
 	U32 colorAttachmentCount = 0;
 	for (U32 i = 0; i < EVA_ARRAYSIZE(desc.format.colorFormat); i++) {
 		if (desc.format.colorFormat[i] == Format::None) {
@@ -1338,13 +1339,13 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 		colorFormats[colorAttachmentCount] = ToVkFormat(desc.format.colorFormat[i]);
 		if (colorFormats[colorAttachmentCount] == VK_FORMAT_UNDEFINED) return nullptr;
 		colorBlendAttachments[colorAttachmentCount] = VkPipelineColorBlendAttachmentState{
-			.blendEnable         = desc.blendEnable,
-			.srcColorBlendFactor = ToVkBlendFactor(desc.sourceColorBlend),
-			.dstColorBlendFactor = ToVkBlendFactor(desc.destColorBlend),
-			.colorBlendOp        = ToVkBlendOp(desc.colorBlendOp),
-			.srcAlphaBlendFactor = ToVkBlendFactor(desc.sourceAlphaBlend),
-			.dstAlphaBlendFactor = ToVkBlendFactor(desc.destAlphaBlend),
-			.alphaBlendOp        = ToVkBlendOp(desc.alphaBlendOp),
+			.blendEnable         = blendState.blendEnable,
+			.srcColorBlendFactor = ToVkBlendFactor(blendState.sourceColorBlend),
+			.dstColorBlendFactor = ToVkBlendFactor(blendState.destColorBlend),
+			.colorBlendOp        = ToVkBlendOp(blendState.colorBlendOp),
+			.srcAlphaBlendFactor = ToVkBlendFactor(blendState.sourceAlphaBlend),
+			.dstAlphaBlendFactor = ToVkBlendFactor(blendState.destAlphaBlend),
+			.alphaBlendOp        = ToVkBlendOp(blendState.alphaBlendOp),
 			.colorWriteMask      = 0x0F,
 		};
 		colorAttachmentCount++;

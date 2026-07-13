@@ -4,6 +4,7 @@
 
 struct ShaderPipelineState {
 	GFX::CullMode cullMode = GFX::CullMode::Back;
+	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
 };
 
 class Shader : public Asset {

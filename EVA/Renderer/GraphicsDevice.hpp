@@ -263,6 +263,26 @@ enum class BlendOp : U8 {
 	Max,
 };
 
+enum class BlendMode : U8 {
+	None,
+	Solid,
+	AlphaBlend,
+	Add,
+	Multiply,
+};
+
+struct BlendState {
+	bool        blendEnable      = false;
+	BlendFactor sourceColorBlend = BlendFactor::SourceAlpha;
+	BlendFactor destColorBlend   = BlendFactor::OneMinusSourceAlpha;
+	BlendOp     colorBlendOp     = BlendOp::Add;
+	BlendFactor sourceAlphaBlend = BlendFactor::One;
+	BlendFactor destAlphaBlend   = BlendFactor::OneMinusSourceAlpha;
+	BlendOp     alphaBlendOp     = BlendOp::Add;
+};
+
+BlendState BlendModeToBlendState(BlendMode mode);
+
 enum class Filter : U8 {
 	Nearest,
 	Linear,
@@ -460,13 +480,7 @@ struct GraphicsPipelineDesc {
 	bool      depthWriteEnable = false;
 	CompareOp depthCompare     = CompareOp::LessEqual;
 
-	bool        blendEnable      = false;
-	BlendFactor sourceColorBlend = BlendFactor::SourceAlpha;
-	BlendFactor destColorBlend   = BlendFactor::OneMinusSourceAlpha;
-	BlendOp     colorBlendOp     = BlendOp::Add;
-	BlendFactor sourceAlphaBlend = BlendFactor::One;
-	BlendFactor destAlphaBlend   = BlendFactor::OneMinusSourceAlpha;
-	BlendOp     alphaBlendOp     = BlendOp::Add;
+	BlendMode blendMode = BlendMode::Solid;
 
 	RenderPassFormat format = {};
 

@@ -3,6 +3,45 @@
 
 namespace GFX {
 
+BlendState BlendModeToBlendState(BlendMode mode) {
+	switch (mode) {
+		case BlendMode::None:
+		case BlendMode::Solid:
+			return BlendState{
+				.blendEnable      = false,
+				.sourceColorBlend = BlendFactor::One,
+				.destColorBlend   = BlendFactor::Zero,
+				.sourceAlphaBlend = BlendFactor::One,
+				.destAlphaBlend   = BlendFactor::Zero,
+			};
+		case BlendMode::AlphaBlend:
+			return BlendState{
+				.blendEnable      = true,
+				.sourceColorBlend = BlendFactor::SourceAlpha,
+				.destColorBlend   = BlendFactor::OneMinusSourceAlpha,
+				.sourceAlphaBlend = BlendFactor::One,
+				.destAlphaBlend   = BlendFactor::OneMinusSourceAlpha,
+			};
+		case BlendMode::Add:
+			return BlendState{
+				.blendEnable      = true,
+				.sourceColorBlend = BlendFactor::SourceAlpha,
+				.destColorBlend   = BlendFactor::One,
+				.sourceAlphaBlend = BlendFactor::Zero,
+				.destAlphaBlend   = BlendFactor::One,
+			};
+		case BlendMode::Multiply:
+			return BlendState{
+				.blendEnable      = true,
+				.sourceColorBlend = BlendFactor::DestColor,
+				.destColorBlend   = BlendFactor::Zero,
+				.sourceAlphaBlend = BlendFactor::Zero,
+				.destAlphaBlend   = BlendFactor::One,
+			};
+	}
+	return {};
+}
+
 static GraphicsDevice* g_graphicsDevice = nullptr;
 
 Result GraphicsDevice::Create(const GraphicsDeviceInitDesc& desc) {
