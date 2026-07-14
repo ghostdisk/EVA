@@ -1,5 +1,5 @@
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
 
 namespace GFX {
 

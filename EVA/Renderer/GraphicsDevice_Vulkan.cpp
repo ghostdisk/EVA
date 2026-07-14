@@ -1,5 +1,5 @@
 #include <volk.h>
-#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
+#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
 #include <EVA/Core/Common.hpp>
 #include <SDL3/SDL_vulkan.h>
 #include <vector>

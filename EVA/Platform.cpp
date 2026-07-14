@@ -1,6 +1,6 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
 #include <SDL3/SDL.h>
 
 #define FRAME_TIME_HISTORY_SIZE 50

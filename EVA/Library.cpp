@@ -3,7 +3,7 @@
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Mesh.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/Assets/Font.hpp>
 
 namespace Library {

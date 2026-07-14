@@ -1,4 +1,4 @@
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Assets/Font.hpp>

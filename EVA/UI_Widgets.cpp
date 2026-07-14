@@ -6,7 +6,7 @@
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <SDL3/SDL_events.h>
 
 UIBox* UILabel(const char* text, int text_len) {

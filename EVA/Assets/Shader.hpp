@@ -1,6 +1,6 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
 
 struct ShaderPipelineState {
 	GFX::CullMode  cullMode  = GFX::CullMode::Back;

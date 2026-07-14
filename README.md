@@ -12,7 +12,7 @@ The engine is actively being reorganized from procedural systems toward a more o
 - `EVA/Entities/` — entity types and `EntityManager`.
 - `EVA/GameModes/` — editor and playable game modes.
 - `EVA/Editor/` — CSG level editor and reflected editor tools.
-- `EVA/Renderer/` — OpenGL setup and drawing API.
+- `EVA/GFX/` — OpenGL setup and drawing API.
 - `EVA/Shaders/` — GLSL shaders.
 - `Assets/` — project content and editor/runtime maps.
 - `EVAGEN/` — Clang-based reflection/code-generation utility.

@@ -6,7 +6,7 @@
 #include <EVA/Assets/Material.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Game.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>

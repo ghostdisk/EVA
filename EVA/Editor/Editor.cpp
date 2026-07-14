@@ -11,7 +11,7 @@
 #include <EVA/GameModes/EditorGameMode.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Game.hpp>

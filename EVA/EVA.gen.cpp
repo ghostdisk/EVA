@@ -8,13 +8,13 @@
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/Material.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Shader.hpp>
@@ -31,8 +31,8 @@
 #include <EVA/GameModes/GameMode.hpp>
 #include <EVA/GameModes/BasePlayableGameMode.hpp>
 #include <EVA/GameModes/EditorGameMode.hpp>
-#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
-#include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
+#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
+#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;

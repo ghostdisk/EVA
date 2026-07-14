@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/Renderer/GraphicsDevice.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
 #include <volk.h>
 #include <vector>
 

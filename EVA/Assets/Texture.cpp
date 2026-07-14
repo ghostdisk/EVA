@@ -1,6 +1,6 @@
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Assets/Texture.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <Vendor/stb_image.h>

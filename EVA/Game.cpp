@@ -2,7 +2,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/GameServer.hpp>
 #include <EVA/GameClient.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/GameModes/GameMode.hpp>
 #include <EVA/Library.hpp>

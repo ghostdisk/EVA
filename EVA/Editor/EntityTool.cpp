@@ -3,7 +3,7 @@
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Input.hpp>
 #include <EVA/Platform.hpp>
-#include <EVA/Renderer/Renderer.hpp>
+#include <EVA/GFX/Renderer.hpp>
 #include <EVA/UI.hpp>
 
 EntityTool::EntityTool() {
