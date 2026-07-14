@@ -54,8 +54,6 @@ Shader* shd_main;
 Shader* shd_quad;
 Shader* shd_brush;
 
-GFX::Sampler* g_standardSamplers[(int)StandardSampler::ENUM_SIZE] = {};
-
 static Mesh* mesh_quad = nullptr;
 static GFX::GPUBuffer* g_mainConstantBuffer = nullptr;
 static GFX::Image* g_depthBuffer = nullptr;
@@ -105,7 +103,7 @@ void RendererInitialize1() {
 	}
 
 	{ // create standard samplers:
-		g_standardSamplers[(int)StandardSampler::PointClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.minFilter  = GFX::Filter::Nearest,
 			.magFilter  = GFX::Filter::Nearest,
 			.mipmapMode = GFX::MipmapMode::Nearest,
@@ -115,7 +113,7 @@ void RendererInitialize1() {
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointClamp,
 		});
-		g_standardSamplers[(int)StandardSampler::PointWrap] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.minFilter  = GFX::Filter::Nearest,
 			.magFilter  = GFX::Filter::Nearest,
 			.mipmapMode = GFX::MipmapMode::Nearest,
@@ -125,7 +123,7 @@ void RendererInitialize1() {
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointWrap,
 		});
-		g_standardSamplers[(int)StandardSampler::PointMirror] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.minFilter  = GFX::Filter::Nearest,
 			.magFilter  = GFX::Filter::Nearest,
 			.mipmapMode = GFX::MipmapMode::Nearest,
@@ -135,7 +133,7 @@ void RendererInitialize1() {
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointMirror,
 		});
-		g_standardSamplers[(int)StandardSampler::LinearClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.mipmapMode = GFX::MipmapMode::Nearest,
 			.addressU    = GFX::AddressMode::ClampToEdge,
 			.addressV    = GFX::AddressMode::ClampToEdge,
@@ -143,12 +141,12 @@ void RendererInitialize1() {
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearClamp,
 		});
-		g_standardSamplers[(int)StandardSampler::LinearWrap] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.mipmapMode = GFX::MipmapMode::Nearest,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearWrap,
 		});
-		g_standardSamplers[(int)StandardSampler::LinearMirror] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.mipmapMode = GFX::MipmapMode::Nearest,
 			.addressU    = GFX::AddressMode::MirroredRepeat,
 			.addressV    = GFX::AddressMode::MirroredRepeat,
@@ -156,25 +154,25 @@ void RendererInitialize1() {
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearMirror,
 		});
-		g_standardSamplers[(int)StandardSampler::TrilinearClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.addressU = GFX::AddressMode::ClampToEdge,
 			.addressV = GFX::AddressMode::ClampToEdge,
 			.addressW = GFX::AddressMode::ClampToEdge,
 			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearClamp,
 		});
-		g_standardSamplers[(int)StandardSampler::TrilinearWrap] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearWrap,
 		});
-		g_standardSamplers[(int)StandardSampler::TrilinearMirror] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.addressU = GFX::AddressMode::MirroredRepeat,
 			.addressV = GFX::AddressMode::MirroredRepeat,
 			.addressW = GFX::AddressMode::MirroredRepeat,
 			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearMirror,
 		});
-		g_standardSamplers[(int)StandardSampler::AnisoClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.addressU         = GFX::AddressMode::ClampToEdge,
 			.addressV         = GFX::AddressMode::ClampToEdge,
 			.addressW         = GFX::AddressMode::ClampToEdge,
@@ -183,13 +181,13 @@ void RendererInitialize1() {
 			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoClamp,
 		});
-		g_standardSamplers[(int)StandardSampler::AnisoWrap] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
 			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoWrap,
 		});
-		g_standardSamplers[(int)StandardSampler::AnisoMirror] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.addressU         = GFX::AddressMode::MirroredRepeat,
 			.addressV         = GFX::AddressMode::MirroredRepeat,
 			.addressW         = GFX::AddressMode::MirroredRepeat,
@@ -198,7 +196,7 @@ void RendererInitialize1() {
 			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoMirror,
 		});
-		g_standardSamplers[(int)StandardSampler::ShadowPointClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.minFilter     = GFX::Filter::Nearest,
 			.magFilter     = GFX::Filter::Nearest,
 			.mipmapMode    = GFX::MipmapMode::Nearest,
@@ -210,7 +208,7 @@ void RendererInitialize1() {
 			.bindless       = true,
 			.forcedBindlessIndex = (U32)StandardSampler::ShadowPointClamp,
 		});
-		g_standardSamplers[(int)StandardSampler::ShadowLinearClamp] = g_device->CreateSampler({
+		g_device->CreateSampler({
 			.addressU      = GFX::AddressMode::ClampToEdge,
 			.addressV      = GFX::AddressMode::ClampToEdge,
 			.addressW      = GFX::AddressMode::ClampToEdge,

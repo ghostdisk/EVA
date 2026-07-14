@@ -1190,6 +1190,10 @@ void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
 	delete sampler;
 }
 
+Sampler* GraphicsDevice_Vulkan::GetSampler(U32 index) {
+	return m_bindlessSamplers.Get(index);
+}
+
 ShaderModule* GraphicsDevice_Vulkan::CreateShaderModule(const ShaderModuleDesc& desc) {
 	if (!desc.code || !desc.codeSize || desc.codeSize % sizeof(U32) != 0) return nullptr;
 

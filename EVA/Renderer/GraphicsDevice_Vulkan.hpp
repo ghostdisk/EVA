@@ -90,6 +90,7 @@ public:
 
 	virtual Sampler* CreateSampler(const SamplerDesc& desc) override;
 	virtual void DestroySampler(Sampler* sampler) override;
+	virtual Sampler* GetSampler(U32 index) override;
 
 	virtual ShaderModule* CreateShaderModule(const ShaderModuleDesc& desc) override;
 	virtual void DestroyShaderModule(ShaderModule* shader) override;

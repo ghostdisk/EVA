@@ -33,7 +33,6 @@ enum class StandardSampler : uint8_t {
     ShadowLinearClamp   = 14,
     ENUM_SIZE
 };
-extern GFX::Sampler* g_standardSamplers[(int)StandardSampler::ENUM_SIZE];
 
 enum Layer {
 	Layer_Sky     = 0,

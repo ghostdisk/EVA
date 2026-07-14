@@ -6,7 +6,7 @@
 #include <Vendor/stb_image.h>
 
 Texture::Texture() {
-	m_sampler = g_standardSamplers[8];
+	m_sampler = GFX::GraphicsDevice::Get()->GetSampler((U32)StandardSampler::TrilinearWrap);
 }
 
 void Texture::LoadMetaImpl(Deserializer& d) {
@@ -21,7 +21,7 @@ void Texture::LoadMetaImpl(Deserializer& d) {
 	d.Key("generate_mipmaps");
 	m_generateMipmaps = d.DeserializeBool();
 
-	U32 samplerIdx =0 ;
+	U32 samplerIdx = 0;
 	if (version == 2) {
 		d.Key("interpolation");
 		d.DeserializeU8();
@@ -33,7 +33,7 @@ void Texture::LoadMetaImpl(Deserializer& d) {
 		samplerIdx = d.DeserializeU32();
 	}
 
-	m_sampler = g_standardSamplers[samplerIdx];
+	m_sampler = GFX::GraphicsDevice::Get()->GetSampler(samplerIdx);
 	d.EndObject();
 }
 

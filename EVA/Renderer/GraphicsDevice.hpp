@@ -70,6 +70,10 @@ public:
 		m_freeList.push_back(index);
 	}
 
+	T Get(size_t index) {
+		return m_values[index];
+	}
+
 };
 
 class GPUBuffer;
@@ -598,6 +602,7 @@ public:
 
 	virtual Sampler* CreateSampler(const SamplerDesc& desc) = 0;
 	virtual void DestroySampler(Sampler* sampler) = 0;
+	virtual Sampler* GetSampler(U32 index) = 0;
 
 	virtual ShaderModule* CreateShaderModule(const ShaderModuleDesc& desc) = 0;
 	virtual void DestroyShaderModule(ShaderModule* shader) = 0;
