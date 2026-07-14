@@ -72,7 +72,8 @@ void Texture::Upload(int width, int height, const U8* pixels, GFX::Format format
 	// }
 
 	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
-	image = device->CreateImage(GFX::ImageDesc{
+	image = device->CreateImage({
+		.name         = "texture image",
 		.width        = (U32)width,
 		.height       = (U32)height,
 		.mipCount     = mipCount,

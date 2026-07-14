@@ -72,7 +72,8 @@ ConVar cvar_wireframe = {
 static void CreateBuffers() {
 	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
 
-	g_depthBuffer = g_device->CreateImage(GFX::ImageDesc{
+	g_depthBuffer = g_device->CreateImage({
+		.name = "depth buffer",
 		.width = backbuffer->m_width,
 		.height = backbuffer->m_height,
 		.format = GFX::Format::D32_FLOAT,
@@ -221,11 +222,12 @@ void RendererInitialize1() {
 
 	ConRegisterVar(&cvar_wireframe);
 
-	g_mainConstantBuffer = g_device->CreateGPUBuffer(GFX::GPUBufferDesc{
-		.size = sizeof(MainConstantBuffer),
-		.usage = GFX::GPUBufferUsage_ConstantBuffer | GFX::GPUBufferUsage_StorageBuffer,
-		.memoryUsage = GFX::MemoryUsage::CPUToGPU,
-		.bindless = true,
+	g_mainConstantBuffer = g_device->CreateGPUBuffer({
+		.name        = "main constant buffer",
+		.size        = sizeof(MainConstantBuffer),
+		.usage       = GFX::GPUBufferUsage_StorageBuffer | GFX::GPUBufferUsage_TransferDest,
+		.memoryUsage = GFX::MemoryUsage::GPUOnly,
+		.bindless    = true,
 	});
 
 	CreateBuffers();
@@ -274,12 +276,11 @@ void RenderFrame() {
 	}
 
 	MainConstantBuffer cb = {};
-
 	if (camera) {
 		cb.view = camera->view_matrix;
 		cb.view_projection = camera->view_projection_matrix;
 	}
-	memcpy(g_mainConstantBuffer->m_mapped, &cb, sizeof(cb));
+	g_device->UploadBuffer(g_mainConstantBuffer, sizeof(cb), 0, &cb);
 
 	GFX::AttachmentDesc colorAttachment = {
 		.image       = backbuffer,

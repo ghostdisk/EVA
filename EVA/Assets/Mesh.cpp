@@ -88,7 +88,8 @@ void Mesh::Upload(bool keep_cpu_data) {
 
 	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
 	U64 vertexDataSize = sizeof(MeshVertex) * vertex_count;
-	vertex_buffer = device->CreateGPUBuffer(GFX::GPUBufferDesc{
+	vertex_buffer = device->CreateGPUBuffer({
+		.name = "vertex buffer",
 		.size = vertexDataSize,
 		.usage = GFX::GPUBufferUsage_TransferDest | GFX::GPUBufferUsage_StorageBuffer,
 		.memoryUsage = GFX::MemoryUsage::GPUOnly,
@@ -98,7 +99,8 @@ void Mesh::Upload(bool keep_cpu_data) {
 
 	if (index_count) {
 		U64 indexDataSize = sizeof(U32) * index_count;
-		index_buffer = device->CreateGPUBuffer(GFX::GPUBufferDesc{
+		index_buffer = device->CreateGPUBuffer({
+			.name = "index buffer",
 			.size = indexDataSize,
 			.usage = GFX::GPUBufferUsage_TransferDest | GFX::GPUBufferUsage_IndexBuffer,
 			.memoryUsage = GFX::MemoryUsage::GPUOnly,

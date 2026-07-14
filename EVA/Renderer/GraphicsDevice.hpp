@@ -437,6 +437,7 @@ public:
 };
 
 struct GPUBufferDesc {
+	String         name        = {};
 	U64            size        = 0;
 	GPUBufferUsage usage       = GPUBufferUsage_None;
 	MemoryUsage    memoryUsage = MemoryUsage::GPUOnly;
@@ -444,6 +445,7 @@ struct GPUBufferDesc {
 };
 
 struct ImageDesc {
+	String         name        = {};
 	U32         width            = 0;
 	U32         height           = 0;
 	U32         mipCount         = 1;

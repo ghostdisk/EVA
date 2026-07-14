@@ -1,13 +1,18 @@
 #include <volk.h>
-#define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
-#define VMA_IMPLEMENTATION
-#include <Vendor/vk_mem_alloc.h>
 #include <EVA/Renderer/GraphicsDevice_Vulkan.hpp>
 #include <EVA/Core/Common.hpp>
 #include <SDL3/SDL_vulkan.h>
 #include <vector>
 #include <algorithm>
+
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#define VMA_IMPLEMENTATION
+#define VMA_LEAK_LOG_FORMAT(format, ...) do { \
+        printf((format), __VA_ARGS__); \
+        printf("\n"); \
+    } while(false)
+#include <Vendor/vk_mem_alloc.h>
 
 #define VK_TRY(expr) \
 	do { \
@@ -423,7 +428,8 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 	Format swapchainFormat = FromVkFormat(surfaceFormat.format);
 	if (swapchainFormat == Format::None) return Err("Unsupported swapchain format: %u", (U32)surfaceFormat.format);
 	for (VkImage vkImage : images) {
-		Image* image = CreateImage(ImageDesc{
+		Image* image = CreateImage({
+			.name             = "swapchain image",
 			.width            = extent.width,
 			.height           = extent.height,
 			.format           = swapchainFormat,
@@ -1010,12 +1016,14 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 	};
 	GPUBuffer* buffer = new GPUBuffer();
 	VmaAllocationInfo allocationInfo{};
-	VkResult result = vmaCreateBuffer(m_allocator, &bufferCreateInfo, &allocationCreateInfo,
-		&buffer->m_vk, &buffer->m_vmaAllocation, &allocationInfo);
+	VkResult result = vmaCreateBuffer(m_allocator, &bufferCreateInfo, &allocationCreateInfo, &buffer->m_vk, &buffer->m_vmaAllocation, &allocationInfo);
 	if (result != VK_SUCCESS) {
 		delete buffer;
 		return nullptr;
 	}
+	if (desc.name.size)
+		vmaSetAllocationName(m_allocator, buffer->m_vmaAllocation, desc.name.CopyToArena(FrameArena));
+
 	buffer->m_size = desc.size;
 	buffer->m_mapped = allocationInfo.pMappedData;
 	if (desc.bindless) {
@@ -1076,6 +1084,8 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 		if (res != VK_SUCCESS) {
 			return nullptr;
 		}
+		if (desc.name.size)
+			vmaSetAllocationName(m_allocator, vmaAllocation, desc.name.CopyToArena(FrameArena));
 	}
 
 	Image* image = new Image();
@@ -1084,6 +1094,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 
 	VkImageAspectFlags aspect = FormatIsDepth(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	if (FormatHasStencil(desc.format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+
 	VkImageViewCreateInfo viewCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.image = image->m_vulkan.image,
@@ -1105,6 +1116,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	image->m_format = desc.format;
 	image->m_state = ImageState::Undefined;
 	image->m_ownedBySwapchain = desc.ownedBySwapchain;
+
 	if (desc.bindless) {
 		image->m_bindlessIndex = m_bindlessImages.Register(image);
 		VkDescriptorImageInfo imageInfo{
