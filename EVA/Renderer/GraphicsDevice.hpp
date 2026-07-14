@@ -431,15 +431,15 @@ struct GPUBufferDesc {
 };
 
 struct ImageDesc {
-	U32         width         = 0;
-	U32         height        = 0;
-	U32         mipCount      = 1;
-	Format      format        = Format::None;
-	ImageUsage  usage         = ImageUsage_None;
-	ImageState  initialState  = ImageState::Undefined;
-	bool        bindless      = false;
+	U32         width            = 0;
+	U32         height           = 0;
+	U32         mipCount         = 1;
+	Format      format           = Format::None;
+	ImageUsage  usage            = ImageUsage_None;
+	ImageState  initialState     = ImageState::Undefined;
+	bool        bindless         = false;
 	bool        ownedBySwapchain = false;
-	VkImage     existingImage = nullptr;
+	VkImage     existingImage    = nullptr;
 };
 
 struct SamplerDesc {

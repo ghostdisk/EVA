@@ -59,13 +59,13 @@ void Texture::Upload(int width, int height, const U8* pixels, GFX::Format format
 
 	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
 	image = device->CreateImage(GFX::ImageDesc{
-		.width = (U32)width,
-		.height = (U32)height,
-		.mipCount = mipCount,
-		.format = format,
-		.usage = GFX::ImageUsage_TransferSource | GFX::ImageUsage_TransferDest | GFX::ImageUsage_Sampled,
+		.width        = (U32)width,
+		.height       = (U32)height,
+		.mipCount     = mipCount,
+		.format       = format,
+		.usage        = GFX::ImageUsage_TransferSource | GFX::ImageUsage_TransferDest | GFX::ImageUsage_Sampled,
 		.initialState = GFX::ImageState::Undefined,
-		.bindless = true,
+		.bindless     = true,
 	});
 	device->UploadImage(image, (U64)width * height * (format == GFX::Format::R8_UNORM ? 1 : 4), pixels);
 

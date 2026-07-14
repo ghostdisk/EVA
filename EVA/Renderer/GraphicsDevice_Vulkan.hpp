@@ -30,6 +30,10 @@ public:
 class GraphicsDevice_Vulkan final : public GraphicsDevice {
 
 private:
+	U32                        m_bindlessBufferCount            = 4096;
+	U32                        m_bindlessImageCount             = 4096;
+	U32                        m_bindlessSamplerCount           = 128;
+
 	VkInstance                 m_instance                       = nullptr;
 	VkSurfaceKHR               m_surface                        = nullptr;
 	VkPhysicalDevice           m_physicalDevice                 = nullptr;
@@ -42,9 +46,6 @@ private:
 	VkDescriptorSet            m_bindlessDescriptorSet          = nullptr;
 	VkPipelineLayout           m_pipelineLayout                 = nullptr;
 	VmaAllocator               m_allocator                      = nullptr;
-	U32                        m_bindlessBufferCount            = 0;
-	U32                        m_bindlessImageCount             = 0;
-	U32                        m_bindlessSamplerCount           = 0;
 	BindlessIndexAllocator     m_bindlessBufferIndices          = {};
 	BindlessIndexAllocator     m_bindlessImageIndices           = {};
 	BindlessIndexAllocator     m_bindlessSamplerIndices         = {};
@@ -117,7 +118,6 @@ private:
 	Result CreateSwapchain();
 	void   DestroySwapchain();
 	Result CreateSemaphore(VkSemaphore* outSemaphore);
-	Result CreateBindlessResources();
 
 };
 

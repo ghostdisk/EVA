@@ -361,10 +361,13 @@ Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 void GraphicsDevice_Vulkan::DestroySwapchain() {
 	m_needsNewSwapchain = true;
 
-	for (Image* image : m_swapchainImages) {
+	for (Image* image : m_swapchainImages)
 		DestroyImage(image);
-	}
 	m_swapchainImages.clear();
+
+	for (VkSemaphore semaphore : m_renderDoneSemaphores)
+		vkDestroySemaphore(m_device, semaphore, nullptr);
+	m_renderDoneSemaphores.clear();
 
 	if (m_swapchain) {
 		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
@@ -440,6 +443,11 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 		m_swapchainImages.push_back(image);
 	}
 
+	m_renderDoneSemaphores.resize(m_swapchainImages.size());
+	for (VkSemaphore& semaphore : m_renderDoneSemaphores)
+		TRY(CreateSemaphore(&semaphore));
+	TRY(CreateSemaphore(&m_imageAcquiredSemaphore));
+
 	m_needsNewSwapchain = false;
 	return Success();
 }
@@ -449,129 +457,6 @@ Result GraphicsDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
 	VK_TRY(vkCreateSemaphore(m_device, &createInfo, nullptr, outSemaphore));
-	return Success();
-}
-
-Result GraphicsDevice_Vulkan::CreateBindlessResources() {
-	VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties{
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES,
-	};
-	VkPhysicalDeviceProperties2 properties{
-		.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
-		.pNext = &descriptorIndexingProperties,
-	};
-	vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
-
-	U32 perTypeResourceBudget = std::min(
-		descriptorIndexingProperties.maxPerStageUpdateAfterBindResources,
-		descriptorIndexingProperties.maxUpdateAfterBindDescriptorsInAllPools) / 3;
-	m_bindlessBufferCount = std::min({
-		4096u,
-		perTypeResourceBudget,
-		descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindStorageBuffers,
-		descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageBuffers,
-	});
-	m_bindlessImageCount = std::min({
-		4096u,
-		perTypeResourceBudget,
-		descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindSampledImages,
-		descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindSampledImages,
-	});
-	m_bindlessSamplerCount = std::min({
-		4096u,
-		perTypeResourceBudget,
-		descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindSamplers,
-		descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindSamplers,
-	});
-	if (!m_bindlessBufferCount || !m_bindlessImageCount || !m_bindlessSamplerCount)
-		return Err("Vulkan device has insufficient update-after-bind descriptor limits");
-
-	VkDescriptorSetLayoutBinding bindings[] = {
-		{
-			.binding         = 0,
-			.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.descriptorCount = m_bindlessBufferCount,
-			.stageFlags      = VK_SHADER_STAGE_ALL,
-		},
-		{
-			.binding         = 1,
-			.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			.descriptorCount = m_bindlessImageCount,
-			.stageFlags      = VK_SHADER_STAGE_ALL,
-		},
-		{
-			.binding         = 2,
-			.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER,
-			.descriptorCount = m_bindlessSamplerCount,
-			.stageFlags      = VK_SHADER_STAGE_ALL,
-		},
-	};
-	VkDescriptorBindingFlags bindingFlags[] = {
-		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-		VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
-	};
-	VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
-		.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
-		.bindingCount  = EVA_ARRAYSIZE(bindingFlags),
-		.pBindingFlags = bindingFlags,
-	};
-	VkDescriptorSetLayoutCreateInfo createInfo{
-		.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.pNext        = &bindingFlagsInfo,
-		.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
-		.bindingCount = EVA_ARRAYSIZE(bindings),
-		.pBindings    = bindings,
-	};
-	VK_TRY(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_bindlessDescriptorSetLayout));
-
-	VkDescriptorPoolSize poolSizes[] = {
-		{
-			.type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-			.descriptorCount = m_bindlessBufferCount,
-		},
-		{
-			.type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-			.descriptorCount = m_bindlessImageCount,
-		},
-		{
-			.type            = VK_DESCRIPTOR_TYPE_SAMPLER,
-			.descriptorCount = m_bindlessSamplerCount,
-		},
-	};
-	VkDescriptorPoolCreateInfo poolCreateInfo{
-		.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.flags         = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-		.maxSets       = 1,
-		.poolSizeCount = EVA_ARRAYSIZE(poolSizes),
-		.pPoolSizes    = poolSizes,
-	};
-	VK_TRY(vkCreateDescriptorPool(m_device, &poolCreateInfo, nullptr, &m_bindlessDescriptorPool));
-
-	VkDescriptorSetAllocateInfo allocateInfo{
-		.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool     = m_bindlessDescriptorPool,
-		.descriptorSetCount = 1,
-		.pSetLayouts        = &m_bindlessDescriptorSetLayout,
-	};
-	VK_TRY(vkAllocateDescriptorSets(m_device, &allocateInfo, &m_bindlessDescriptorSet));
-
-	VkPushConstantRange pushConstantRange{
-		.stageFlags = VK_SHADER_STAGE_ALL,
-		.offset     = 0,
-		.size       = properties.properties.limits.maxPushConstantsSize,
-	};
-	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
-		.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount         = 1,
-		.pSetLayouts            = &m_bindlessDescriptorSetLayout,
-		.pushConstantRangeCount = 1,
-		.pPushConstantRanges    = &pushConstantRange,
-	};
-	VK_TRY(vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
-	m_bindlessBufferIndices.Init(m_bindlessBufferCount);
-	m_bindlessImageIndices.Init(m_bindlessImageCount);
-	m_bindlessSamplerIndices.Init(m_bindlessSamplerCount);
 	return Success();
 }
 
@@ -680,7 +565,95 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 	}
 
 	{ // set up descriptors:
-		TRY(CreateBindlessResources());
+		VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES,
+		};
+		VkPhysicalDeviceProperties2 properties{
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
+			.pNext = &descriptorIndexingProperties,
+		};
+		vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
+
+		if (!m_bindlessBufferCount || !m_bindlessImageCount || !m_bindlessSamplerCount)
+			return Err("Vulkan device has insufficient update-after-bind descriptor limits");
+
+		VkDescriptorSetLayoutBinding bindings[] = {
+			{
+				.binding         = 0,
+				.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+				.descriptorCount = m_bindlessBufferCount,
+				.stageFlags      = VK_SHADER_STAGE_ALL,
+			},
+			{
+				.binding         = 1,
+				.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+				.descriptorCount = m_bindlessImageCount,
+				.stageFlags      = VK_SHADER_STAGE_ALL,
+			},
+			{
+				.binding         = 2,
+				.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER,
+				.descriptorCount = m_bindlessSamplerCount,
+				.stageFlags      = VK_SHADER_STAGE_ALL,
+			},
+		};
+		VkDescriptorBindingFlags bindingFlags[] = {
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+			VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT,
+		};
+		VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{
+			.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+			.bindingCount  = EVA_ARRAYSIZE(bindingFlags),
+			.pBindingFlags = bindingFlags,
+		};
+		VkDescriptorSetLayoutCreateInfo createInfo{
+			.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+			.pNext        = &bindingFlagsInfo,
+			.flags        = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT,
+			.bindingCount = EVA_ARRAYSIZE(bindings),
+			.pBindings    = bindings,
+		};
+		VK_TRY(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_bindlessDescriptorSetLayout));
+
+		VkDescriptorPoolSize poolSizes[] = {
+			{ .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = m_bindlessBufferCount,  },
+			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  .descriptorCount = m_bindlessImageCount,   },
+			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLER,        .descriptorCount = m_bindlessSamplerCount, },
+		};
+		VkDescriptorPoolCreateInfo poolCreateInfo{
+			.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			.flags         = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+			.maxSets       = 1,
+			.poolSizeCount = EVA_ARRAYSIZE(poolSizes),
+			.pPoolSizes    = poolSizes,
+		};
+		VK_TRY(vkCreateDescriptorPool(m_device, &poolCreateInfo, nullptr, &m_bindlessDescriptorPool));
+
+		VkDescriptorSetAllocateInfo allocateInfo{
+			.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.descriptorPool     = m_bindlessDescriptorPool,
+			.descriptorSetCount = 1,
+			.pSetLayouts        = &m_bindlessDescriptorSetLayout,
+		};
+		VK_TRY(vkAllocateDescriptorSets(m_device, &allocateInfo, &m_bindlessDescriptorSet));
+
+		VkPushConstantRange pushConstantRange{
+			.stageFlags = VK_SHADER_STAGE_ALL,
+			.offset     = 0,
+			.size       = properties.properties.limits.maxPushConstantsSize,
+		};
+		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{
+			.sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			.setLayoutCount         = 1,
+			.pSetLayouts            = &m_bindlessDescriptorSetLayout,
+			.pushConstantRangeCount = 1,
+			.pPushConstantRanges    = &pushConstantRange,
+		};
+		VK_TRY(vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+		m_bindlessBufferIndices.Init(m_bindlessBufferCount);
+		m_bindlessImageIndices.Init(m_bindlessImageCount);
+		m_bindlessSamplerIndices.Init(m_bindlessSamplerCount);
 	}
 
 	{ // create allocator:
@@ -700,10 +673,6 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 
 	{ // create a swapchain:
 		TRY(CreateSwapchain());
-		m_renderDoneSemaphores.resize(m_swapchainImages.size());
-		for (VkSemaphore& semaphore : m_renderDoneSemaphores)
-			TRY(CreateSemaphore(&semaphore));
-		TRY(CreateSemaphore(&m_imageAcquiredSemaphore));
 		m_frameFence = CreateFence(true);
 		if (!m_frameFence) return Err("Failed to create frame fence");
 	}
@@ -722,9 +691,6 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_device) vkDeviceWaitIdle(m_device);
 	DestroyFence(m_frameFence);
-	for (VkSemaphore semaphore : m_renderDoneSemaphores)
-		if (semaphore) vkDestroySemaphore(m_device, semaphore, nullptr);
-	m_renderDoneSemaphores.clear();
 	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 	DestroySwapchain();
 	delete m_mainCommandBuffer;
@@ -994,11 +960,17 @@ void GraphicsDevice_Vulkan::EndFrame() {
 	m_frameCommandBuffersBegun = false;
 }
 
-CommandBuffer* GraphicsDevice_Vulkan::GetMainCommandBuffer() { return m_mainCommandBuffer; }
+CommandBuffer* GraphicsDevice_Vulkan::GetMainCommandBuffer() {
+	return m_mainCommandBuffer;
+}
 
-CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() { return m_transferCommandBuffer; }
+CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() {
+	return m_transferCommandBuffer;
+}
 
-Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() { return m_swapchainImages.empty() ? nullptr : m_swapchainImages[m_swapchainImageIndex]; }
+Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() {
+	return m_swapchainImages.empty() ? nullptr : m_swapchainImages[m_swapchainImageIndex];
+}
 
 void GraphicsDevice_Vulkan::WaitIdle() {
 	vkDeviceWaitIdle(m_device);
