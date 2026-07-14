@@ -15,6 +15,22 @@ class Texture;
 class Sprite;
 class Font;
 
+struct EVERSION(2, Foo) Foo_v2 {
+	int x;
+	int y;
+	int garbage;
+};
+
+struct EVERSION(3) Foo {
+	int x;
+	int y;
+	int z;
+};
+
+void Convert(const Foo_v2& in, Foo& out);
+EAUTO void Serialize(Serializer& s, const Foo& foo);
+EAUTO void Deserialize(Serializer& s, Foo& foo);
+
 enum class StandardSampler : uint8_t {
     None                = 0,
     PointClamp          = 1,

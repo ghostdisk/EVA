@@ -20,11 +20,11 @@ public:
 };
 
 #ifdef EVAGEN
-#	define EPROPERTY(...) [[clang::annotate("eproperty " #__VA_ARGS__)]]
-#	define ESERIALIZABLE  [[clang::annotate("eserializable")]]
+#	define EAUTO          [[clang::annotate("eauto")]]
+#	define EVERSION(...)  [[clang::annotate("eversion " #__VA_ARGS__)]]
 #else
-#	define EPROPERTY(...)
-#	define ESERIALIZABLE
+#	define EVERSION(...)
+#	define EAUTO
 #endif
 
 #define ECLASS_COMMON() \

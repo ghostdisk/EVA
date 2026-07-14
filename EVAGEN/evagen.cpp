@@ -11,8 +11,109 @@
 
 namespace fs = std::filesystem;
 
+struct VersionChain;
+struct Type;
+
+struct Auto {
+	std::string name;
+	void (*ForwardDeclare)(FILE* f, Type* type) = 0;
+	void (*Declare)(FILE* f, Type* type) = 0;
+};
+
+struct Type {
+	std::string              name                  = "";
+	std::string              qualifiedName         = "";
+	std::string              symbolName            = "";
+	Type*                    parent                = nullptr;
+	std::vector<Type*>       subclasses            = {};
+	std::string              header                = "'";
+	std::vector<std::string> properties            = {};
+	std::vector<Auto*>       autos                 = {};
+	bool                     isObject              = false;
+	bool                     isAbstract            = false;
+	bool                     isEnum                = false;
+	std::string              enumUnderlyingType    = "";
+	int                      version               = 0;
+	VersionChain*            versionChain          = nullptr;
+	bool                     shouldEmitTypeInfo    = false;
+};
+
+struct VersionChain {
+	std::string typeName;
+	std::vector<Type*> versions;
+
+	void Set(int version, Type* type) {
+		if (versions.size() <= version) {
+			versions.resize(version + 1);
+		}
+		versions[version] = type;
+	}
+};
+
 // Root that <EVA/...> includes resolve against, and the dir we walk.
-static const char* g_baseDir    = "D:/EVA";
+static const char* g_baseDir = "D:/EVA";
+
+Auto g_serializeAuto = {
+	.name = "Serialize",
+	.ForwardDeclare = [](FILE* f, Type* type) {
+		fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", type->qualifiedName.c_str());
+	},
+	.Declare = [](FILE* f, Type* type) {
+
+		if (type->isEnum) {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\tSerialize(s, (%s)value);\n", type->enumUnderlyingType.c_str());
+			fprintf(f, "}\n");
+		} else {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\ts.BeginObject();\n");
+			for (const std::string& p : type->properties) {
+				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
+			}
+			fprintf(f, "\ts.EndObject();\n");
+			fprintf(f, "}\n");
+		}
+	},
+};
+
+Auto g_deserializeAuto = {
+	.name = "Deserialize",
+	.ForwardDeclare = [](FILE* f, Type* type) {
+		fprintf(f, "void Deserialize(Serializer& s, %s& value);\n", type->qualifiedName.c_str());
+	},
+	.Declare = [](FILE* f, Type* type) {
+		if (type->isEnum) {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\tSerialize(s, (%s)value);\n", type->enumUnderlyingType.c_str());
+			fprintf(f, "}\n");
+
+			fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\type%s tmp = {};\n", type->enumUnderlyingType.c_str());
+			fprintf(f, "\tDeserialize(s, tmp);\n");
+			fprintf(f, "\tout_value = (%s)tmp;\n", type->qualifiedName.c_str());
+			fprintf(f, "}\n");
+		} else {
+			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\ts.BeginObject();\n");
+			for (const std::string& p : type->properties) {
+				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
+			}
+			fprintf(f, "\ts.EndObject();\n");
+			fprintf(f, "}\n");
+
+			fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\ts.BeginObject();\n");
+			for (const std::string& p : type->properties) {
+				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
+				fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
+			}
+			fprintf(f, "\ts.EndObject();\n");
+			fprintf(f, "}\n");
+		}
+	},
+};
 
 std::vector<std::string> g_includes = {
 	"EVA/Core/Object.hpp",
@@ -25,8 +126,6 @@ static std::string ToForwardSlashes(std::string s) {
 	return s;
 }
 
-// Collect every .hpp under EVA/ as a path relative to g_baseDir, using forward
-// slashes so we can emit them as #include <EVA/...>.
 static std::vector<std::string> CollectHeaders() {
 	std::vector<std::string> headers;
 
@@ -37,29 +136,21 @@ static std::vector<std::string> CollectHeaders() {
 		if (!entry.is_regular_file()) continue;
 		if (entry.path().extension() != ".hpp") continue;
 
-		std::error_code t;
-		fs::path rel = fs::relative(entry.path(), base, t);
-		if (t) rel = entry.path();
-
+		fs::path rel = fs::relative(entry.path(), base);
 		headers.push_back(ToForwardSlashes(rel.string()));
 	}
 
-	// Deterministic ordering. #pragma once + explicit includes make the amalgam
-	// order-independent, but stable output is nicer to diff.
 	std::sort(headers.begin(), headers.end());
 	return headers;
 }
 
-// Write the amalgamated header that pulls in every collected .hpp. Returns the
-// path written, or empty on failure.
 static std::string WriteAmalgam(const std::vector<std::string>& headers) {
-	// Keep the generated file out of the source tree proper.
 	fs::path out = fs::path(g_baseDir) / "EVAGEN" / "_amalgam.generated.hpp";
 
 	FILE* f = fopen(out.string().c_str(), "wb");
 	if (!f) {
 		fprintf(stderr, "evagen: failed to open %s for writing\n", out.string().c_str());
-		return {};
+		exit(1);
 	}
 
 	fprintf(f, "// GENERATED BY EVAGEN. DO NOT EDIT.\n");
@@ -72,10 +163,10 @@ static std::string WriteAmalgam(const std::vector<std::string>& headers) {
 	return ToForwardSlashes(out.string());
 }
 
-static std::string CXStr(CXString s) {
-	const char* c = clang_getCString(s);
-	std::string out = c ? c : "";
-	clang_disposeString(s);
+static std::string CXStr(CXString clangString) {
+	const char* string = clang_getCString(clangString);
+	std::string out = string ? string : "";
+	clang_disposeString(clangString);
 	return out;
 }
 
@@ -92,23 +183,8 @@ static bool IsInOurTree(CXCursor cursor) {
 	return path.rfind(base, 0) == 0;
 }
 
-class Type {
-public:
-	std::string              name               = "";
-	std::string              qualified_name     = "";
-	std::string              symbol_name        = "";
-	Type*                    parent             = nullptr;
-	std::vector<Type*>       subclasses         = {};
-	std::string              header             = "'";
-	std::vector<std::string> properties         = {};
-	bool                     is_object          = false;
-	bool                     is_abstract        = false;
-	bool                     is_serializable    = false;
-	bool                     is_enum            = false;
-	std::string              underlying_type    = "";
-};
-
 static std::vector<Type*> g_types;
+static std::vector<Type*> g_typesWeCareAbout;
 
 static std::string SymbolName(std::string name) {
 	for (char& c : name) {
@@ -117,17 +193,23 @@ static std::string SymbolName(std::string name) {
 	return name;
 }
 
-static Type* GetType(const std::string& qualified_name) {
-	for (Type* t : g_types) {
-		if (t->qualified_name == qualified_name) return t;
+static Type* GetType(const std::string& qualifiedName, bool* out_alreadyVisited = nullptr) {
+	if (out_alreadyVisited) *out_alreadyVisited = false;
+
+	for (Type* type : g_types) {
+		if (type->qualifiedName == qualifiedName) {
+			if (out_alreadyVisited) *out_alreadyVisited = true;
+			return type;
+		}
 	}
-	Type* t = new Type();
-	t->qualified_name = qualified_name;
-	size_t separator = qualified_name.rfind("::");
-	t->name = separator == std::string::npos ? qualified_name : qualified_name.substr(separator + 2);
-	t->symbol_name = SymbolName(qualified_name);
-	g_types.push_back(t);
-	return t;
+
+	Type* type = new Type();
+	type->qualifiedName = qualifiedName;
+	size_t separator = qualifiedName.rfind("::");
+	type->name = separator == std::string::npos ? qualifiedName : qualifiedName.substr(separator + 2);
+	type->symbolName = SymbolName(qualifiedName);
+	g_types.push_back(type);
+	return type;
 }
 
 static std::string RelToBase(const std::string& path) {
@@ -145,12 +227,6 @@ static std::string StripRecordKeyword(std::string s) {
 	return s;
 }
 
-struct RecordInfo {
-	bool has_eserializable = false;
-	std::string parent;
-	std::vector<std::string> properties;
-};
-
 static CXChildVisitResult FieldAnnotationVisitor(CXCursor c, CXCursor, CXClientData data) {
 	bool* is_prop = (bool*)data;
 	if (clang_getCursorKind(c) == CXCursor_AnnotateAttr) {
@@ -160,36 +236,35 @@ static CXChildVisitResult FieldAnnotationVisitor(CXCursor c, CXCursor, CXClientD
 	return CXChildVisit_Continue;
 }
 
-static CXChildVisitResult RecordChildVisitor(CXCursor c, CXCursor, CXClientData data) {
-	RecordInfo* info = (RecordInfo*)data;
-	CXCursorKind k = clang_getCursorKind(c);
+static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _type) {
+	Type* type = (Type*)_type;
+	CXCursorKind kind = clang_getCursorKind(cursor);
 
-	if (k == CXCursor_AnnotateAttr) {
-		std::string s = CXStr(clang_getCursorSpelling(c));
-		if (s.rfind("eserializable", 0) == 0) {
-			info->has_eserializable = true;
-		}
-	} else if (k == CXCursor_CXXBaseSpecifier) {
-		CXType base_type = clang_getCanonicalType(clang_getCursorType(c));
-		info->parent = StripRecordKeyword(CXStr(clang_getTypeSpelling(base_type)));
-	} else if (k == CXCursor_FieldDecl) {
+	if (kind == CXCursor_AnnotateAttr) {
+		std::string s = CXStr(clang_getCursorSpelling(cursor));
+		// if (s.rfind("eserializable", 0) == 0) {
+		// 	info->has_eserializable = true;
+		// }
+	} else if (kind == CXCursor_CXXBaseSpecifier) {
+		CXType base_type = clang_getCanonicalType(clang_getCursorType(cursor));
+		type->parent = GetType(StripRecordKeyword(CXStr(clang_getTypeSpelling(base_type))));
+		type->parent->subclasses.push_back(type);
+	} else if (kind == CXCursor_FieldDecl) {
 		bool is_prop = false;
-		clang_visitChildren(c, FieldAnnotationVisitor, &is_prop);
-		if (is_prop) info->properties.push_back(CXStr(clang_getCursorSpelling(c)));
+		clang_visitChildren(cursor, FieldAnnotationVisitor, &is_prop);
+		if (is_prop) type->properties.push_back(CXStr(clang_getCursorSpelling(cursor)));
 	}
 	return CXChildVisit_Continue;
 }
 
-static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientData /*data*/) {
+static CXChildVisitResult Visit(CXCursor cursor, CXCursor parent, void* userdata) {
 	CXCursorKind kind = clang_getCursorKind(cursor);
 
-	bool is_record = kind == CXCursor_StructDecl ||
-	                 kind == CXCursor_ClassDecl;
-	bool is_enum   = kind == CXCursor_EnumDecl;
+	bool is_record = kind == CXCursor_StructDecl || kind == CXCursor_ClassDecl;
+	bool isEnum   = kind == CXCursor_EnumDecl;
 
 	// Only actual definitions (skip forward declarations), and only ours.
-	if ((is_record || is_enum) && clang_isCursorDefinition(cursor) && IsInOurTree(cursor)) {
-		const char* what = is_enum ? "enum" : (kind == CXCursor_ClassDecl ? "class" : "struct");
+	if ((is_record || isEnum) && clang_isCursorDefinition(cursor) && IsInOurTree(cursor)) {
 
 		CXSourceLocation loc = clang_getCursorLocation(cursor);
 		CXFile file;
@@ -197,40 +272,33 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor /*parent*/, CXClientDa
 		clang_getFileLocation(loc, &file, &line, nullptr, nullptr);
 
 		std::string name = CXStr(clang_getCursorSpelling(cursor));
-		std::string qualified_name = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(cursor))));
+		std::string qualifiedName = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(cursor))));
 		std::string filename = ToForwardSlashes(CXStr(clang_getFileName(file)));
 
-		RecordInfo info;
-		clang_visitChildren(cursor, RecordChildVisitor, &info);
-		bool is_abstract = is_record && clang_CXXRecord_isAbstract(cursor);
+		bool alreadyVisited = false;
+		Type* type = GetType(qualifiedName, &alreadyVisited);
+		clang_visitChildren(cursor, RecordChildVisitor, type);
+		type->isAbstract = clang_CXXRecord_isAbstract(cursor);
+		type->isObject = qualifiedName == "Object" || (type->parent && type->parent->isObject);
+		type->header = RelToBase(filename);
+		type->isEnum = isEnum;
 
-		printf("%-6s %-24s  %s:%u%s%s\n", what, name.c_str(), filename.c_str(), line,
-		       info.has_eserializable ? "  [ESERIALIZABLE]" : "",
-		       is_abstract ? "  [ABSTRACT]" : "");
-
-		if ((is_record || info.has_eserializable) && !name.empty()) {
-			Type* t = GetType(qualified_name);
-			if (info.parent.size()) {
-				t->parent = GetType(info.parent);
+		if (!alreadyVisited) {
+			if (type->isObject) {
+				g_typesWeCareAbout.push_back(type);
+				g_includes.push_back(filename);
 			}
-			t->is_object = qualified_name == "Object" || (t->parent && t->parent->is_object);
-			if (t->is_object && t->parent)
-				t->parent->subclasses.push_back(t);
-			t->header = RelToBase(filename);
-			t->properties = info.properties;
-			t->is_abstract = is_abstract;
-			t->is_serializable = info.has_eserializable;
-			t->is_enum = is_enum;
-			if (is_enum) 
-				t->underlying_type = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
 		}
+
+		if (isEnum) 
+			type->enumUnderlyingType = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
 	}
 
 	clang_visitChildren(cursor, Visit, nullptr);
 	return CXChildVisit_Continue;
 }
 
-static void WriteGenFile() {
+static void WriteOutput() {
 	fs::path out = fs::path(g_baseDir) / "EVA" / "EVA.gen.cpp";
 
 	FILE* f = fopen(out.string().c_str(), "wb");
@@ -238,11 +306,11 @@ static void WriteGenFile() {
 		fprintf(stderr, "evagen: failed to open %s for writing\n", out.string().c_str());
 		return;
 	}
+	
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		g_includes.push_back(t->header);
-	}
+	for (Type* type : g_types)
+		if (type->shouldEmitTypeInfo)
+			g_typesWeCareAbout.push_back(type);
 
 	fprintf(f, "// GENERATED BY EVAGEN. DO NOT EDIT.\n");
 	for (const std::string& inc : g_includes) {
@@ -250,57 +318,52 @@ static void WriteGenFile() {
 	}
 	fprintf(f, "\n");
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		fprintf(f, "extern Type g_type_%s;\n", t->symbol_name.c_str());
+	for (Type* type : g_typesWeCareAbout) {
+		fprintf(f, "extern Type g_type_%s;\n", type->symbolName.c_str());
 	}
-	fprintf(f, "\n\n");
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		std::string parent_ref = t->parent && t->parent->is_object ?
-			("&g_type_" + t->parent->symbol_name) : "nullptr";
+	for (Type* type : g_typesWeCareAbout) {
+		std::string parent_ref = type->parent && type->parent->isObject ?  ("&g_type_" + type->parent->symbolName) : "nullptr";
 
-		fprintf(f, "Type g_type_%s = {\n", t->symbol_name.c_str());
+		fprintf(f, "Type g_type_%s = {\n", type->symbolName.c_str());
 
-		fprintf(f, "\t.name = \"%s\",\n", t->qualified_name.c_str());
+		fprintf(f, "\t.name = \"%s\",\n", type->qualifiedName.c_str());
 		fprintf(f, "\t.parent_type = %s,\n", parent_ref.c_str());
 
-		if (t->subclasses.size()) {
+		if (type->subclasses.size()) {
 			fprintf(f, "\t.subclasses = {\n");
-			for (Type* subclass : t->subclasses) {
-				fprintf(f, "\t\t&g_type_%s,\n", subclass->symbol_name.c_str());
+			for (Type* subclass : type->subclasses) {
+				fprintf(f, "\t\t&g_type_%s,\n", subclass->symbolName.c_str());
 			};
 			fprintf(f, "\t},\n");
 		}
-		if (t->is_object && !t->is_abstract) {
+		if (type->isObject && !type->isAbstract) {
 			fprintf(f,
 				"\t.Instantiate = [](Allocator allocator) -> void* {\n"
 				"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"
 				"\t\tnew (ptr) %s();\n"
 				"\t\treturn ptr;\n"
 				"\t},\n",
-				t->qualified_name.c_str(), t->qualified_name.c_str(), t->qualified_name.c_str());
+				type->qualifiedName.c_str(), type->qualifiedName.c_str(), type->qualifiedName.c_str());
 		}
 		fprintf(f, "};\n");
 	}
-	fprintf(f, "\n");
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		if (t->is_object) {
-			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n",
-					t->qualified_name.c_str(), t->symbol_name.c_str());
-			fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n",
-					t->qualified_name.c_str(), t->symbol_name.c_str());
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
+
+	for (Type* type : g_types) {
+		if (type->isObject) {
+			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n", type->qualifiedName.c_str(), type->symbolName.c_str());
+			fprintf(f, "Type* %s::GetClass() { return &g_type_%s; }\n", type->qualifiedName.c_str(), type->symbolName.c_str());
 		}
 	}
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
 
-	fprintf(f, "\nType* Type::Find(String name) {\n");
+	fprintf(f, "Type* Type::Find(String name) {\n");
 	fprintf(f, "\tstatic Type* g_allTypes[] = {\n");
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		fprintf(f, "\t\t&g_type_%s,\n", t->symbol_name.c_str());
+	for (Type* t : g_typesWeCareAbout) {
+		fprintf(f, "\t\t&g_type_%s,\n", t->symbolName.c_str());
 	}
 	fprintf(f, "\t};\n");
 	fprintf(f, "\tfor (Type* t : g_allTypes)\n");
@@ -308,64 +371,19 @@ static void WriteGenFile() {
 	fprintf(f, "\treturn nullptr;\n");
 	fprintf(f, "}\n");
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		if (t->is_serializable) {
-			fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", t->qualified_name.c_str());
-			fprintf(f, "void Deserialize(Deserializer& d, %s& out_value);\n", t->qualified_name.c_str());
-		}
-	}
+	for (Type* type : g_typesWeCareAbout)
+		for (Auto* _auto : type->autos)
+			_auto->ForwardDeclare(f, type);
 	fprintf(f, "\n\n");
 
-	for (Type* t : g_types) {
-		if (!t->is_object && !t->is_serializable) continue;
-		if (t->is_serializable) {
-			if (t->is_enum) {
-				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->qualified_name.c_str());
-				fprintf(f, "\tSerialize(s, (%s)value);\n", t->underlying_type.c_str());
-				fprintf(f, "}\n");
-
-				fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", t->qualified_name.c_str());
-				fprintf(f, "\t%s tmp = {};\n", t->underlying_type.c_str());
-				fprintf(f, "\tDeserialize(s, tmp);\n");
-				fprintf(f, "\tout_value = (%s)tmp;\n", t->qualified_name.c_str());
-				fprintf(f, "}\n");
-			} else {
-				fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", t->qualified_name.c_str());
-				fprintf(f, "\ts.BeginObject();\n");
-				for (const std::string& p : t->properties) {
-					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-					fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
-				}
-				fprintf(f, "\ts.EndObject();\n");
-				fprintf(f, "}\n");
-
-				fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", t->qualified_name.c_str());
-				fprintf(f, "\ts.BeginObject();\n");
-				for (const std::string& p : t->properties) {
-					fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-					fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
-				}
-				fprintf(f, "\ts.EndObject();\n");
-				fprintf(f, "}\n");
-			}
-		}
-
-	}
-
 	fclose(f);
-	size_t reflected_type_count = std::count_if(g_types.begin(), g_types.end(), [](Type* t) {
-		return t->is_object || t->is_serializable;
-	});
-	printf("evagen: wrote %s (%zu reflected types)\n", out.string().c_str(), reflected_type_count);
 }
 
 int main() {
 	std::vector<std::string> headers = CollectHeaders();
-	printf("evagen: collected %zu headers\n", headers.size());
 
+	printf("evagen: collected %zu headers\n", headers.size());
 	std::string amalgam = WriteAmalgam(headers);
-	if (amalgam.empty()) return 1;
 
 	std::string base = g_baseDir;
 	std::vector<std::string> arg_strs = {
@@ -380,33 +398,28 @@ int main() {
 		"-I" + base + "/Vendor/enet-1.3.18/include",
 		"-I" + base + "/Vendor/volk",
 	};
+
 	if (const char* vulkanSdk = getenv("VULKAN_SDK"))
 		arg_strs.push_back("-I" + std::string(vulkanSdk) + "/Include");
 	std::vector<const char*> args;
 	for (const std::string& s : arg_strs) args.push_back(s.c_str());
 
-	CXIndex index = clang_createIndex(/*excludeDeclarationsFromPCH*/ 0,
-	                                  /*displayDiagnostics*/ 0);
+	CXIndex index = clang_createIndex(0, 0);
 
-	CXTranslationUnit tu = nullptr;
+	CXTranslationUnit translationUnit = nullptr;
 	CXErrorCode err = clang_parseTranslationUnit2(
-		index,
-		amalgam.c_str(),
-		args.data(), (int)args.size(),
-		nullptr, 0,
-		CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_KeepGoing,
-		&tu);
+		index, amalgam.c_str(), args.data(), (int)args.size(),
+		nullptr, 0, CXTranslationUnit_SkipFunctionBodies | CXTranslationUnit_KeepGoing, &translationUnit);
 
-	if (err != CXError_Success || !tu) {
+	if (err != CXError_Success || !translationUnit) {
 		fprintf(stderr, "evagen: failed to parse translation unit (err=%d)\n", (int)err);
-		clang_disposeIndex(index);
-		return 1;
+		exit(1);
 	}
 
 	// Surface parse errors so we notice when the amalgam doesn't compile.
-	unsigned num_diags = clang_getNumDiagnostics(tu);
+	unsigned num_diags = clang_getNumDiagnostics(translationUnit);
 	for (unsigned i = 0; i < num_diags; ++i) {
-		CXDiagnostic diag = clang_getDiagnostic(tu, i);
+		CXDiagnostic diag = clang_getDiagnostic(translationUnit, i);
 		CXDiagnosticSeverity sev = clang_getDiagnosticSeverity(diag);
 		if (sev >= CXDiagnostic_Error) {
 			std::string text = CXStr(clang_formatDiagnostic(
@@ -416,14 +429,9 @@ int main() {
 		clang_disposeDiagnostic(diag);
 	}
 
-	printf("----------------------------------------\n");
-	CXCursor root = clang_getTranslationUnitCursor(tu);
+	CXCursor root = clang_getTranslationUnitCursor(translationUnit);
 	clang_visitChildren(root, Visit, nullptr);
 
-	printf("----------------------------------------\n");
-	WriteGenFile();
-
-	clang_disposeTranslationUnit(tu);
-	clang_disposeIndex(index);
+	WriteOutput();
 	return 0;
 }

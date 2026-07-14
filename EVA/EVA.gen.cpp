@@ -2,37 +2,37 @@
 #include <EVA/Core/Object.hpp>
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/Allocator.hpp>
-#include <EVA/Core/Object.hpp>
-#include <EVA/Assets/Asset.hpp>
-#include <EVA/Assets/EditorMap.hpp>
-#include <EVA/Assets/Font.hpp>
-#include <EVA/Assets/Map.hpp>
-#include <EVA/Assets/Material.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
-#include <EVA/Assets/Mesh.hpp>
-#include <EVA/Assets/Model.hpp>
-#include <EVA/Assets/Shader.hpp>
-#include <EVA/Assets/Sprite.hpp>
-#include <EVA/Assets/Texture.hpp>
-#include <EVA/Editor/Tool.hpp>
-#include <EVA/Editor/BrushTool.hpp>
-#include <EVA/Entities/Entity.hpp>
-#include <EVA/Editor/EntityTool.hpp>
-#include <EVA/Editor/SelectTool.hpp>
-#include <EVA/Entities/ECamera.hpp>
-#include <EVA/Entities/ECharacter.hpp>
-#include <EVA/Entities/EMarker.hpp>
-#include <EVA/GameModes/GameMode.hpp>
-#include <EVA/GameModes/BasePlayableGameMode.hpp>
-#include <EVA/GameModes/EditorGameMode.hpp>
-#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
-#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
+#include <D:/EVA/EVA/Core/Object.hpp>
+#include <D:/EVA/EVA/Assets/Asset.hpp>
+#include <D:/EVA/EVA/Assets/EditorMap.hpp>
+#include <D:/EVA/EVA/Assets/Font.hpp>
+#include <D:/EVA/EVA/Assets/Map.hpp>
+#include <D:/EVA/EVA/Assets/Material.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice.hpp>
+#include <D:/EVA/EVA/Assets/Mesh.hpp>
+#include <D:/EVA/EVA/Assets/Model.hpp>
+#include <D:/EVA/EVA/Assets/Shader.hpp>
+#include <D:/EVA/EVA/Assets/Sprite.hpp>
+#include <D:/EVA/EVA/Assets/Texture.hpp>
+#include <D:/EVA/EVA/Editor/Tool.hpp>
+#include <D:/EVA/EVA/Editor/BrushTool.hpp>
+#include <D:/EVA/EVA/Entities/Entity.hpp>
+#include <D:/EVA/EVA/Editor/EntityTool.hpp>
+#include <D:/EVA/EVA/Editor/SelectTool.hpp>
+#include <D:/EVA/EVA/Entities/ECamera.hpp>
+#include <D:/EVA/EVA/Entities/ECharacter.hpp>
+#include <D:/EVA/EVA/Entities/EMarker.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice_Vulkan.hpp>
+#include <D:/EVA/EVA/GFX/GraphicsDevice_Vulkan.hpp>
+#include <D:/EVA/EVA/GameModes/GameMode.hpp>
+#include <D:/EVA/EVA/GameModes/BasePlayableGameMode.hpp>
+#include <D:/EVA/EVA/GameModes/EditorGameMode.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -60,12 +60,13 @@ extern Type g_type_SelectTool;
 extern Type g_type_ECamera;
 extern Type g_type_ECharacter;
 extern Type g_type_EMarker;
+extern Type g_type_GFX__CommandBuffer_Vulkan;
+extern Type g_type_GFX__GraphicsDevice_Vulkan;
 extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
 extern Type g_type_EditorGameMode;
-extern Type g_type_GFX__CommandBuffer_Vulkan;
-extern Type g_type_GFX__GraphicsDevice_Vulkan;
 
+//------------------------------------------------------------
 
 Type g_type_Object = {
 	.name = "Object",
@@ -326,6 +327,24 @@ Type g_type_EMarker = {
 		return ptr;
 	},
 };
+Type g_type_GFX__CommandBuffer_Vulkan = {
+	.name = "GFX::CommandBuffer_Vulkan",
+	.parent_type = &g_type_GFX__CommandBuffer,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::CommandBuffer_Vulkan), alignof(GFX::CommandBuffer_Vulkan));
+		new (ptr) GFX::CommandBuffer_Vulkan();
+		return ptr;
+	},
+};
+Type g_type_GFX__GraphicsDevice_Vulkan = {
+	.name = "GFX::GraphicsDevice_Vulkan",
+	.parent_type = &g_type_GFX__GraphicsDevice,
+	.Instantiate = [](Allocator allocator) -> void* {
+		void* ptr = (void*)allocator.Allocate(sizeof(GFX::GraphicsDevice_Vulkan), alignof(GFX::GraphicsDevice_Vulkan));
+		new (ptr) GFX::GraphicsDevice_Vulkan();
+		return ptr;
+	},
+};
 Type g_type_GameMode = {
 	.name = "GameMode",
 	.parent_type = &g_type_Object,
@@ -357,24 +376,8 @@ Type g_type_EditorGameMode = {
 		return ptr;
 	},
 };
-Type g_type_GFX__CommandBuffer_Vulkan = {
-	.name = "GFX::CommandBuffer_Vulkan",
-	.parent_type = &g_type_GFX__CommandBuffer,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(GFX::CommandBuffer_Vulkan), alignof(GFX::CommandBuffer_Vulkan));
-		new (ptr) GFX::CommandBuffer_Vulkan();
-		return ptr;
-	},
-};
-Type g_type_GFX__GraphicsDevice_Vulkan = {
-	.name = "GFX::GraphicsDevice_Vulkan",
-	.parent_type = &g_type_GFX__GraphicsDevice,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(GFX::GraphicsDevice_Vulkan), alignof(GFX::GraphicsDevice_Vulkan));
-		new (ptr) GFX::GraphicsDevice_Vulkan();
-		return ptr;
-	},
-};
+
+//------------------------------------------------------------
 
 Type* Object::StaticClass() { return &g_type_Object; }
 Type* Object::GetClass() { return &g_type_Object; }
@@ -428,16 +431,18 @@ Type* ECharacter::StaticClass() { return &g_type_ECharacter; }
 Type* ECharacter::GetClass() { return &g_type_ECharacter; }
 Type* EMarker::StaticClass() { return &g_type_EMarker; }
 Type* EMarker::GetClass() { return &g_type_EMarker; }
+Type* GFX::CommandBuffer_Vulkan::StaticClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
+Type* GFX::CommandBuffer_Vulkan::GetClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
+Type* GFX::GraphicsDevice_Vulkan::StaticClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
+Type* GFX::GraphicsDevice_Vulkan::GetClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
 Type* GameMode::StaticClass() { return &g_type_GameMode; }
 Type* GameMode::GetClass() { return &g_type_GameMode; }
 Type* BasePlayableGameMode::StaticClass() { return &g_type_BasePlayableGameMode; }
 Type* BasePlayableGameMode::GetClass() { return &g_type_BasePlayableGameMode; }
 Type* EditorGameMode::StaticClass() { return &g_type_EditorGameMode; }
 Type* EditorGameMode::GetClass() { return &g_type_EditorGameMode; }
-Type* GFX::CommandBuffer_Vulkan::StaticClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
-Type* GFX::CommandBuffer_Vulkan::GetClass() { return &g_type_GFX__CommandBuffer_Vulkan; }
-Type* GFX::GraphicsDevice_Vulkan::StaticClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
-Type* GFX::GraphicsDevice_Vulkan::GetClass() { return &g_type_GFX__GraphicsDevice_Vulkan; }
+
+//------------------------------------------------------------
 
 Type* Type::Find(String name) {
 	static Type* g_allTypes[] = {
@@ -467,11 +472,11 @@ Type* Type::Find(String name) {
 		&g_type_ECamera,
 		&g_type_ECharacter,
 		&g_type_EMarker,
+		&g_type_GFX__CommandBuffer_Vulkan,
+		&g_type_GFX__GraphicsDevice_Vulkan,
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
 		&g_type_EditorGameMode,
-		&g_type_GFX__CommandBuffer_Vulkan,
-		&g_type_GFX__GraphicsDevice_Vulkan,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;
