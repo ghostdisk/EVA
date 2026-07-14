@@ -643,9 +643,9 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 			.pPushConstantRanges    = &pushConstantRange,
 		};
 		VK_TRY(vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
-		m_bindlessBufferIndices.Init(m_bindlessBufferCount);
-		m_bindlessImageIndices.Init(m_bindlessImageCount);
-		m_bindlessSamplerIndices.Init(m_bindlessSamplerCount);
+		m_bindlessBuffers.Init(m_bindlessBufferCount);
+		m_bindlessImages.Init(m_bindlessImageCount);
+		m_bindlessSamplers.Init(m_bindlessSamplerCount);
 	}
 
 	{ // create allocator:
@@ -1019,7 +1019,7 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 	buffer->m_size = desc.size;
 	buffer->m_mapped = allocationInfo.pMappedData;
 	if (desc.bindless) {
-		buffer->m_bindlessIndex = m_bindlessBufferIndices.Allocate();
+		buffer->m_bindlessIndex = m_bindlessBuffers.Register(buffer);
 		VkDescriptorBufferInfo bufferInfo{
 			.buffer = buffer->m_vk,
 			.offset = 0,
@@ -1042,7 +1042,7 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
 	if (!buffer) return;
 	if (buffer->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessBufferIndices.Free(buffer->m_bindlessIndex);
+		m_bindlessBuffers.Free(buffer->m_bindlessIndex);
 		buffer->m_bindlessIndex = UINT32_MAX;
 	}
 	vmaDestroyBuffer(m_allocator, buffer->m_vk, buffer->m_vmaAllocation);
@@ -1106,7 +1106,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	image->m_state = ImageState::Undefined;
 	image->m_ownedBySwapchain = desc.ownedBySwapchain;
 	if (desc.bindless) {
-		image->m_bindlessIndex = m_bindlessImageIndices.Allocate();
+		image->m_bindlessIndex = m_bindlessImages.Register(image);
 		VkDescriptorImageInfo imageInfo{
 			.imageView   = image->m_vulkan.imageView,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1128,7 +1128,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 void GraphicsDevice_Vulkan::DestroyImage(Image* image) {
 	if (!image) return;
 	if (image->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessImageIndices.Free(image->m_bindlessIndex);
+		m_bindlessImages.Free(image->m_bindlessIndex);
 		image->m_bindlessIndex = UINT32_MAX;
 	}
 	if (image->m_vulkan.imageView) vkDestroyImageView(m_device, image->m_vulkan.imageView, nullptr);
@@ -1162,9 +1162,7 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 		return nullptr;
 	}
 	if (desc.bindless) {
-		sampler->m_bindlessIndex = desc.forcedBindlessIndex == 0xFFFFFFFF
-			? m_bindlessSamplerIndices.Allocate()
-			: m_bindlessSamplerIndices.Allocate(desc.forcedBindlessIndex);
+		sampler->m_bindlessIndex = m_bindlessSamplers.Register(sampler, desc.forcedBindlessIndex);
 		VkDescriptorImageInfo imageInfo{
 			.sampler = sampler->m_vk,
 		};
@@ -1185,7 +1183,7 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
 	if (!sampler) return;
 	if (sampler->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessSamplerIndices.Free(sampler->m_bindlessIndex);
+		m_bindlessSamplers.Free(sampler->m_bindlessIndex);
 		sampler->m_bindlessIndex = UINT32_MAX;
 	}
 	if (sampler->m_vk) vkDestroySampler(m_device, sampler->m_vk, nullptr);

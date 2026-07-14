@@ -46,9 +46,9 @@ private:
 	VkDescriptorSet            m_bindlessDescriptorSet          = nullptr;
 	VkPipelineLayout           m_pipelineLayout                 = nullptr;
 	VmaAllocator               m_allocator                      = nullptr;
-	BindlessIndexAllocator     m_bindlessBufferIndices          = {};
-	BindlessIndexAllocator     m_bindlessImageIndices           = {};
-	BindlessIndexAllocator     m_bindlessSamplerIndices         = {};
+	BindlessPool<GPUBuffer*>   m_bindlessBuffers                = {};
+	BindlessPool<Image*>       m_bindlessImages                 = {};
+	BindlessPool<Sampler*>     m_bindlessSamplers               = {};
 	U32                        m_graphicsFamily                 = UINT32_MAX;
 	VkCommandPool              m_mainCommandPool                = nullptr;
 	VkCommandPool              m_transferCommandPool            = nullptr;

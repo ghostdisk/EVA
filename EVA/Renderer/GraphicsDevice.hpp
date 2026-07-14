@@ -31,38 +31,45 @@ using VmaAllocation    = VmaAllocation_T*;
 
 namespace GFX {
 
-struct BindlessIndexAllocator {
-	U32 nextIndex = 0;
-	U32 capacity = 0;
-	std::vector<U32> freeList;
+template <typename T>
+class BindlessPool {
+	U32                 m_nextIndex  = 0;
+	U32                 m_capacity   = 0;
+	std::vector<T>      m_values     = {};
+	std::vector<U32>    m_freeList   = {};
 
+public:
 	void Init(U32 newCapacity) {
-		nextIndex = 0;
-		capacity = newCapacity;
-		freeList.clear();
-		freeList.reserve(newCapacity);
+		m_nextIndex = 0;
+		m_capacity = newCapacity;
+		m_freeList.clear();
+		m_freeList.reserve(newCapacity);
+		m_values.resize(newCapacity);
 	}
 
-	U32 Allocate() {
-		if (!freeList.empty()) {
-			U32 index = freeList.back();
-			freeList.pop_back();
-			return index;
+	U32 Register(T res, U32 fixedIndex = 0xFFFFFFFF) {
+		U32 index = 0;
+		if (fixedIndex != 0xFFFFFFFF) {
+			index = fixedIndex;
+		} else if (!m_freeList.empty()) {
+			index = m_freeList.back();
+			m_freeList.pop_back();
+		} else {
+			if (m_nextIndex >= m_capacity)
+				Fatal("Bindless index allocator exhausted (%u entries)", m_capacity);
+			index = m_nextIndex++;
 		}
-		if (nextIndex >= capacity) Fatal("Bindless index allocator exhausted (%u entries)", capacity);
-		return nextIndex++;
-	}
 
-	U32 Allocate(U32 forcedIndex) {
-		if (forcedIndex >= capacity) Fatal("Forced bindless index exceeds allocator capacity (%u >= %u)", forcedIndex, capacity);
-		if (nextIndex <= forcedIndex) nextIndex = forcedIndex + 1;
-		return forcedIndex;
+		m_values[index] = res;
+		return index;
 	}
 
 	void Free(U32 index) {
-		assert(index < nextIndex);
-		freeList.push_back(index);
+		assert(index < m_nextIndex);
+		m_values[index] = nullptr;
+		m_freeList.push_back(index);
 	}
+
 };
 
 class GPUBuffer;
