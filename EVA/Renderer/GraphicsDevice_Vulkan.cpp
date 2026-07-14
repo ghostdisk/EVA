@@ -65,14 +65,6 @@ static Format FromVkFormat(VkFormat format) {
 	return Format::None;
 }
 
-static bool IsDepthFormat(Format format) {
-	return format >= Format::D16_UNORM;
-}
-
-static bool HasStencil(Format format) {
-	return format == Format::D16_UNORM_S8_UINT || format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8_UINT;
-}
-
 static VkImageUsageFlags ToVkImageUsage(ImageUsage usage) {
 	VkImageUsageFlags result = 0;
 	if (usage & ImageUsage_TransferSource) result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -318,24 +310,24 @@ Result GraphicsDevice_Vulkan::CreateCommandPool(VkCommandPool* outCommandPool) {
 }
 
 Result GraphicsDevice_Vulkan::CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer) {
-	CommandBuffer_Vulkan* commandBuffer = new CommandBuffer_Vulkan();
 	VkCommandBufferAllocateInfo allocateInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = commandPool,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		.commandBufferCount = 1,
 	};
-	VkResult result = vkAllocateCommandBuffers(m_device, &allocateInfo, &commandBuffer->m_vk);
-	if (result != VK_SUCCESS) {
-		delete commandBuffer;
-		return Err("Vulkan Error %u at %s:%d", (U32)result, __FILE__, __LINE__);
-	}
+	VkCommandBuffer vkCmd;
+	VK_TRY(vkAllocateCommandBuffers(m_device, &allocateInfo, &vkCmd));
+	CommandBuffer_Vulkan* commandBuffer = new CommandBuffer_Vulkan();
+	commandBuffer->m_vk = vkCmd;
 	*outCommandBuffer = commandBuffer;
 	return Success();
 }
 
 Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 	if (m_frameCommandBuffersBegun) return Success();
+
+	m_frameUploadOffset = 0;
 
 	VK_TRY(vkResetCommandPool(m_device, m_mainCommandPool, 0));
 	VK_TRY(vkResetCommandPool(m_device, m_transferCommandPool, 0));
@@ -673,7 +665,7 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 
 	{ // create a swapchain:
 		TRY(CreateSwapchain());
-		m_frameFence = CreateFence(true);
+		TRY(CreateFence(true, &m_frameFence));
 		if (!m_frameFence) return Err("Failed to create frame fence");
 	}
 
@@ -690,7 +682,7 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 
 GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_device) vkDeviceWaitIdle(m_device);
-	DestroyFence(m_frameFence);
+	if (m_frameFence) vkDestroyFence(m_device, m_frameFence, nullptr);
 	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 	DestroySwapchain();
 	delete m_mainCommandBuffer;
@@ -760,7 +752,7 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 		.colorAttachmentCount = desc.colorAttachmentCount,
 		.pColorAttachments    = colorAttachments,
 		.pDepthAttachment     = desc.depthAttachment ? &depthAttachment : nullptr,
-		.pStencilAttachment   = desc.depthAttachment && HasStencil(desc.depthAttachment->image->m_format) ? &depthAttachment : nullptr,
+		.pStencilAttachment   = desc.depthAttachment && FormatHasStencil(desc.depthAttachment->image->m_format) ? &depthAttachment : nullptr,
 	};
 	vkCmdBeginRendering(m_vk, &renderingInfo);
 
@@ -834,7 +826,7 @@ void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destinati
 		.bufferRowLength = 0,
 		.bufferImageHeight = 0,
 		.imageSubresource = {
-			.aspectMask = (VkImageAspectFlags)(IsDepthFormat(destination->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT),
+			.aspectMask = (VkImageAspectFlags)(FormatIsDepth(destination->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT),
 			.mipLevel = copy.imageMip,
 			.baseArrayLayer = copy.imageLayer,
 			.layerCount = 1,
@@ -848,19 +840,19 @@ void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destinati
 
 void CommandBuffer_Vulkan::ImageBarrier(const GFX::ImageBarrier& barrier) {
 	Image* image = barrier.image;
-	VkImageAspectFlags aspect = IsDepthFormat(image->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	if (HasStencil(image->m_format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	VkImageAspectFlags aspect = FormatIsDepth(image->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	if (FormatHasStencil(image->m_format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageMemoryBarrier2 imageBarrier{
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-		.srcStageMask = ImageStateToPipelineStage(barrier.stateBefore),
-		.srcAccessMask = ImageStateToAccessFlags(barrier.stateBefore),
-		.dstStageMask = ImageStateToPipelineStage(barrier.stateAfter),
-		.dstAccessMask = ImageStateToAccessFlags(barrier.stateAfter),
-		.oldLayout = ImageStateToImageLayout(barrier.stateBefore),
-		.newLayout = ImageStateToImageLayout(barrier.stateAfter),
+		.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+		.srcStageMask        = ImageStateToPipelineStage(barrier.stateBefore),
+		.srcAccessMask       = ImageStateToAccessFlags(barrier.stateBefore),
+		.dstStageMask        = ImageStateToPipelineStage(barrier.stateAfter),
+		.dstAccessMask       = ImageStateToAccessFlags(barrier.stateAfter),
+		.oldLayout           = ImageStateToImageLayout(barrier.stateBefore),
+		.newLayout           = ImageStateToImageLayout(barrier.stateAfter),
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image->m_vulkan.image,
+		.image               = image->m_vulkan.image,
 		.subresourceRange = {
 			.aspectMask = aspect,
 			.baseMipLevel = barrier.baseMip,
@@ -882,7 +874,7 @@ void CommandBuffer_Vulkan::GenerateMipmaps(Image*) {
 	printf("STUB: GenerateMipmaps\n");
 }
 
-bool GraphicsDevice_Vulkan::BeginFrameImpl() {
+bool GraphicsDevice_Vulkan::BeginFrame() {
 	if (m_needsNewSwapchain) {
 		WaitIdle();
 		DestroySwapchain();
@@ -892,7 +884,7 @@ bool GraphicsDevice_Vulkan::BeginFrameImpl() {
 		return false;
 	}
 
-	WaitForFence(m_frameFence);
+	vkWaitForFences(m_device, 1, &m_frameFence, VK_TRUE, UINT64_MAX);
 	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
 
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -945,8 +937,8 @@ void GraphicsDevice_Vulkan::EndFrame() {
 		.signalSemaphoreInfoCount = 1,
 		.pSignalSemaphoreInfos    = &renderDoneSignal,
 	};
-	ResetFence(m_frameFence);
-	vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence->m_vk);
+	vkResetFences(m_device, 1, &m_frameFence);
+	vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence);
 
 	VkPresentInfoKHR presentInfo{
 		.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -976,55 +968,13 @@ void GraphicsDevice_Vulkan::WaitIdle() {
 	vkDeviceWaitIdle(m_device);
 }
 
-CommandBuffer* GraphicsDevice_Vulkan::CreateCommandBuffer() { assert(0); return {}; }
-
-void GraphicsDevice_Vulkan::DestroyCommandBuffer(CommandBuffer*) { assert(0); }
-
-void GraphicsDevice_Vulkan::BeginCommandBuffer(CommandBuffer*) { assert(0); }
-
-void GraphicsDevice_Vulkan::EndCommandBuffer(CommandBuffer*) { assert(0); }
-
-Fence* GraphicsDevice_Vulkan::CreateFence(bool signaled) {
+Result GraphicsDevice_Vulkan::CreateFence(bool signaled, VkFence* out_fence) {
 	VkFenceCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = signaled ? (VkFenceCreateFlags)VK_FENCE_CREATE_SIGNALED_BIT : 0,
 	};
-	Fence* fence = new Fence();
-	if (vkCreateFence(m_device, &createInfo, nullptr, &fence->m_vk) != VK_SUCCESS) {
-		delete fence;
-		return nullptr;
-	}
-	return fence;
-}
-
-void GraphicsDevice_Vulkan::DestroyFence(Fence* fence) {
-	if (!fence) return;
-	if (fence->m_vk) vkDestroyFence(m_device, fence->m_vk, nullptr);
-	delete fence;
-}
-
-void GraphicsDevice_Vulkan::WaitForFence(Fence* fence) {
-	vkWaitForFences(m_device, 1, &fence->m_vk, VK_TRUE, UINT64_MAX);
-}
-
-void GraphicsDevice_Vulkan::ResetFence(Fence* fence) {
-	vkResetFences(m_device, 1, &fence->m_vk);
-}
-
-void GraphicsDevice_Vulkan::Submit(const SubmitDesc& desc) {
-	std::vector<VkCommandBufferSubmitInfo> commandBuffers(desc.commandBufferCount);
-	for (U32 i = 0; i < desc.commandBufferCount; i++) {
-		commandBuffers[i] = VkCommandBufferSubmitInfo{
-			.sType         = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-			.commandBuffer = desc.commandBuffers[i]->m_vk,
-		};
-	}
-	VkSubmitInfo2 submitInfo{
-		.sType                  = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-		.commandBufferInfoCount = desc.commandBufferCount,
-		.pCommandBufferInfos    = commandBuffers.data(),
-	};
-	vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, desc.fence ? desc.fence->m_vk : VK_NULL_HANDLE);
+	VK_TRY(vkCreateFence(m_device, &createInfo, nullptr, out_fence));
+	return Success();
 }
 
 GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
@@ -1115,21 +1065,25 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	VmaAllocationCreateInfo allocationCreateInfo{};
 	allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-	Image* image = new Image();
+	VkImage vkImage = {};
+	VmaAllocation vmaAllocation = {};
+
 	VkResult result = VK_SUCCESS;
 	if (desc.existingImage) {
-		image->m_vulkan.image = desc.existingImage;
+		vkImage = desc.existingImage;
 	} else {
-		result = vmaCreateImage(m_allocator, &imageCreateInfo, &allocationCreateInfo,
-			&image->m_vulkan.image, &image->m_vulkan.allocation, nullptr);
-		if (result != VK_SUCCESS) {
-			delete image;
+		VkResult res = vmaCreateImage(m_allocator, &imageCreateInfo, &allocationCreateInfo, &vkImage, &vmaAllocation, nullptr);
+		if (res != VK_SUCCESS) {
 			return nullptr;
 		}
 	}
 
-	VkImageAspectFlags aspect = IsDepthFormat(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	if (HasStencil(desc.format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	Image* image = new Image();
+	image->m_vulkan.image = vkImage;
+	image->m_vulkan.allocation = vmaAllocation;
+
+	VkImageAspectFlags aspect = FormatIsDepth(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	if (FormatHasStencil(desc.format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageViewCreateInfo viewCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		.image = image->m_vulkan.image,
@@ -1195,8 +1149,8 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 		.mipLodBias = desc.mipLodBias,
 		.anisotropyEnable = desc.anisotropyEnable,
 		.maxAnisotropy = desc.maxAnisotropy,
-		.compareEnable = VK_FALSE,
-		.compareOp = VK_COMPARE_OP_ALWAYS,
+		.compareEnable = desc.compareEnable,
+		.compareOp = ToVkCompareOp(desc.compareOp),
 		.minLod = desc.minLod,
 		.maxLod = desc.maxLod,
 		.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
@@ -1208,7 +1162,9 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 		return nullptr;
 	}
 	if (desc.bindless) {
-		sampler->m_bindlessIndex = m_bindlessSamplerIndices.Allocate();
+		sampler->m_bindlessIndex = desc.forcedBindlessIndex == 0xFFFFFFFF
+			? m_bindlessSamplerIndices.Allocate()
+			: m_bindlessSamplerIndices.Allocate(desc.forcedBindlessIndex);
 		VkDescriptorImageInfo imageInfo{
 			.sampler = sampler->m_vk,
 		};
@@ -1372,7 +1328,7 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 		.colorAttachmentCount    = colorAttachmentCount,
 		.pColorAttachmentFormats = colorFormats,
 		.depthAttachmentFormat   = depthFormat,
-		.stencilAttachmentFormat = HasStencil(desc.format.depthFormat) ? depthFormat : VK_FORMAT_UNDEFINED,
+		.stencilAttachmentFormat = FormatHasStencil(desc.format.depthFormat) ? depthFormat : VK_FORMAT_UNDEFINED,
 	};
 	VkGraphicsPipelineCreateInfo createInfo{
 		.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -1412,6 +1368,36 @@ SwapchainDesc GraphicsDevice_Vulkan::GetSwapchainDesc() {
 void GraphicsDevice_Vulkan::SetSwapchainDesc(SwapchainDesc desc) {
 	m_swapchainDesc = desc;
 	m_needsNewSwapchain = true;
+}
+
+CommandBuffer* GraphicsDevice_Vulkan::BeginImmediateCommandBuffer() {
+	assert(0);
+	return {};
+	// CommandBuffer* cmd = CreateCommandBuffer();
+	// BeginCommandBuffer(cmd);
+	// return cmd;
+}
+
+void GraphicsDevice_Vulkan::FlushImmediateCommandBuffer(CommandBuffer* cmd) {
+	assert(0);
+	// EndCommandBuffer(cmd);
+	// VkFence fence;
+	// CreateFence(false, &fence);
+
+	// VkCommandBufferSubmitInfo commandBufferSubmitInfo[] = {
+	// 	{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = cmd->m_vk, },
+	// };
+	// VkSubmitInfo2 mainSubmit{
+	// 	.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+	// 	.commandBufferInfoCount   = EVA_ARRAYSIZE(commandBufferSubmitInfo),
+	// 	.pCommandBufferInfos      = commandBufferSubmitInfo,
+	// };
+	// vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence);
+	// vkWaitForFences(m_device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+	// vkDestroyFence(m_device, fence, nullptr);
+	
+	// DestroyCommandBuffer(cmd);
 }
 
 }

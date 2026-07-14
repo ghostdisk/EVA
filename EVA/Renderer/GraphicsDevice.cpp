@@ -3,6 +3,14 @@
 
 namespace GFX {
 
+bool FormatIsDepth(Format format) {
+	return format >= Format::DEPTH_FORMAT_START && format <= Format::DEPTH_FORMAT_END;
+}
+
+bool FormatHasStencil(Format format) {
+	return format == Format::D16_UNORM_S8_UINT || format == Format::D24_UNORM_S8_UINT || format == Format::D32_FLOAT_S8_UINT;
+}
+
 BlendState BlendModeToBlendState(BlendMode mode) {
 	switch (mode) {
 		case BlendMode::None:
@@ -80,14 +88,8 @@ GraphicsDevice* GraphicsDevice::Get() {
 	return g_graphicsDevice;
 }
 
-bool GraphicsDevice::BeginFrame() {
-	// TODO: Move m_frameUploadOffset to Renderer, and get rid of this Impl.
-	m_frameUploadOffset = 0;
-	return BeginFrameImpl();
-}
-
-void GraphicsDevice::UploadFrameData(const void* data, size_t size, GPUBuffer** outBuffer, size_t* outBufferOffset) {
-	constexpr size_t alignment = 448;
+void GraphicsDevice::UploadStagingData(const void* data, size_t size, GPUBuffer** outBuffer, size_t* outBufferOffset) {
+	size_t alignment = 64;
 	size_t offset = (m_frameUploadOffset + alignment - 1) & ~(alignment - 1);
 	if (offset + size > FrameUploadBufferSize)
 		Fatal("GraphicsDevice frame upload buffer exhausted (%zu requested, %zu available)", size, FrameUploadBufferSize - offset);
@@ -98,30 +100,10 @@ void GraphicsDevice::UploadFrameData(const void* data, size_t size, GPUBuffer** 
 	*outBufferOffset = offset;
 }
 
-CommandBuffer* GraphicsDevice::BeginImmediateCommandBuffer() {
-	CommandBuffer* cmd = CreateCommandBuffer();
-	BeginCommandBuffer(cmd);
-	return cmd;
-}
-
-void GraphicsDevice::FlushImmediateCommandBuffer(CommandBuffer* cmd) {
-	EndCommandBuffer(cmd);
-	Fence* fence = CreateFence();
-	CommandBuffer* commandBuffers[] = { cmd };
-	Submit(SubmitDesc{
-		.commandBufferCount = 1,
-		.commandBuffers = commandBuffers,
-		.fence = fence,
-	});
-	WaitForFence(fence);
-	DestroyFence(fence);
-	DestroyCommandBuffer(cmd);
-}
-
 void GraphicsDevice::UploadBuffer(GPUBuffer* dest, size_t size, size_t offset, const void* data) {
 	GPUBuffer* uploadBuffer = nullptr;
 	size_t uploadOffset = 0;
-	UploadFrameData(data, size, &uploadBuffer, &uploadOffset);
+	UploadStagingData(data, size, &uploadBuffer, &uploadOffset);
 	GetTransferCommandBuffer()->CopyBuffer(uploadBuffer, dest, BufferCopy{
 		.sourceOffset = uploadOffset,
 		.destOffset = offset,
@@ -132,7 +114,7 @@ void GraphicsDevice::UploadBuffer(GPUBuffer* dest, size_t size, size_t offset, c
 void GraphicsDevice::UploadImage(Image* dest, size_t size, const void* data) {
 	GPUBuffer* uploadBuffer = nullptr;
 	size_t uploadOffset = 0;
-	UploadFrameData(data, size, &uploadBuffer, &uploadOffset);
+	UploadStagingData(data, size, &uploadBuffer, &uploadOffset);
 
 	CommandBuffer* cmd = GetTransferCommandBuffer();
 	cmd->ImageBarrier(GFX::ImageBarrier{

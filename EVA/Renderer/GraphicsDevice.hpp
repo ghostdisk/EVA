@@ -53,6 +53,12 @@ struct BindlessIndexAllocator {
 		return nextIndex++;
 	}
 
+	U32 Allocate(U32 forcedIndex) {
+		if (forcedIndex >= capacity) Fatal("Forced bindless index exceeds allocator capacity (%u >= %u)", forcedIndex, capacity);
+		if (nextIndex <= forcedIndex) nextIndex = forcedIndex + 1;
+		return forcedIndex;
+	}
+
 	void Free(U32 index) {
 		assert(index < nextIndex);
 		freeList.push_back(index);
@@ -142,12 +148,17 @@ enum class Format : U16 {
 	RGBA32_SINT,
 	RGBA32_FLOAT,
 
+	DEPTH_FORMAT_START,
 	D16_UNORM,
 	D32_FLOAT,
 	D16_UNORM_S8_UINT,
 	D24_UNORM_S8_UINT,
 	D32_FLOAT_S8_UINT,
+	DEPTH_FORMAT_END,
 };
+
+bool FormatIsDepth(Format format);
+bool FormatHasStencil(Format format);
 
 enum class MemoryUsage : U8 {
 	GPUOnly,
@@ -414,15 +425,6 @@ public:
 	virtual void GenerateMipmaps(Image* image) = 0;
 };
 
-class Fence : public Object {
-public:
-	ECLASS_COMMON();
-
-	union {
-		VkFence m_vk = nullptr;
-	};
-};
-
 struct GPUBufferDesc {
 	U64            size        = 0;
 	GPUBufferUsage usage       = GPUBufferUsage_None;
@@ -454,7 +456,10 @@ struct SamplerDesc {
 	float       maxLod            = 1000.0f;
 	float       maxAnisotropy     = 1.0f;
 	bool        anisotropyEnable  = false;
+	bool        compareEnable     = false;
+	CompareOp   compareOp         = CompareOp::Always;
 	bool        bindless          = false;
+	U32         forcedBindlessIndex = 0xFFFFFFFF;
 };
 
 struct ShaderModuleDesc {
@@ -538,12 +543,6 @@ struct ImageBarrier {
 	U32 layerCount = 1;
 };
 
-struct SubmitDesc {
-	U32                  commandBufferCount = 0;
-	CommandBuffer* const* commandBuffers     = nullptr;
-	Fence*                fence                = nullptr;
-};
-
 struct SwapchainDesc {
 	U32         frameCount   = 2;
 	bool        vsync        = true;
@@ -567,7 +566,7 @@ public:
 	static void Shutdown();
 	static GraphicsDevice* Get();
 
-	bool BeginFrame();
+	virtual bool BeginFrame() = 0;
 	virtual void EndFrame() = 0;
 
 	virtual CommandBuffer* GetMainCommandBuffer() = 0;
@@ -577,20 +576,8 @@ public:
 
 	virtual void WaitIdle() = 0;
 
-	virtual CommandBuffer* CreateCommandBuffer() = 0;
-	virtual void DestroyCommandBuffer(CommandBuffer* cmd) = 0;
-	virtual void BeginCommandBuffer(CommandBuffer* cmd) = 0;
-	virtual void EndCommandBuffer(CommandBuffer* cmd) = 0;
-
-	CommandBuffer* BeginImmediateCommandBuffer();
-	void FlushImmediateCommandBuffer(CommandBuffer* cmd);
-
-	virtual Fence* CreateFence(bool signaled = false) = 0;
-	virtual void DestroyFence(Fence* fence) = 0;
-	virtual void WaitForFence(Fence* fence) = 0;
-	virtual void ResetFence(Fence* fence) = 0;
-
-	virtual void Submit(const SubmitDesc& desc) = 0;
+	virtual CommandBuffer* BeginImmediateCommandBuffer() = 0;
+	virtual void FlushImmediateCommandBuffer(CommandBuffer* cmd) = 0;
 
 	virtual GPUBuffer* CreateGPUBuffer(const GPUBufferDesc& desc) = 0;
 	virtual void DestroyGPUBuffer(GPUBuffer* buffer) = 0;
@@ -598,7 +585,7 @@ public:
 	virtual Image* CreateImage(const ImageDesc& desc) = 0;
 	virtual void DestroyImage(Image* image) = 0;
 
-	void UploadFrameData(const void* data, size_t size, GPUBuffer** outBuffer, size_t* outBufferOffset);
+	void UploadStagingData(const void* data, size_t size, GPUBuffer** outBuffer, size_t* outBufferOffset);
 	void UploadBuffer(GPUBuffer* dest, size_t size, size_t offset, const void* data);
 	void UploadImage(Image* dest, size_t size, const void* data);
 
@@ -615,7 +602,6 @@ public:
 	virtual SwapchainDesc GetSwapchainDesc() = 0;
 
 protected:
-	virtual bool BeginFrameImpl() = 0;
 
 	GPUBuffer* m_frameUploadBuffer = nullptr;
 	size_t     m_frameUploadOffset = 0;

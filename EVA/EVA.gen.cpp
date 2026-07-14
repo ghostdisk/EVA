@@ -15,14 +15,10 @@
 #include <EVA/Renderer/GraphicsDevice.hpp>
 #include <EVA/Renderer/GraphicsDevice.hpp>
 #include <EVA/Renderer/GraphicsDevice.hpp>
-#include <EVA/Renderer/GraphicsDevice.hpp>
 #include <EVA/Assets/Mesh.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Sprite.hpp>
-#include <EVA/Assets/Texture.hpp>
-#include <EVA/Assets/Texture.hpp>
-#include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Editor/Tool.hpp>
 #include <EVA/Editor/BrushTool.hpp>
@@ -50,15 +46,11 @@ extern Type g_type_GFX__Sampler;
 extern Type g_type_GFX__ShaderModule;
 extern Type g_type_GFX__GraphicsPipeline;
 extern Type g_type_GFX__CommandBuffer;
-extern Type g_type_GFX__Fence;
 extern Type g_type_GFX__GraphicsDevice;
 extern Type g_type_Mesh;
 extern Type g_type_Model;
 extern Type g_type_Shader;
 extern Type g_type_Sprite;
-extern Type g_type_TextureInterpolation;
-extern Type g_type_TextureWrapMode;
-extern Type g_type_TextureProps;
 extern Type g_type_Texture;
 extern Type g_type_Tool;
 extern Type g_type_BrushTool;
@@ -86,7 +78,6 @@ Type g_type_Object = {
 		&g_type_GFX__ShaderModule,
 		&g_type_GFX__GraphicsPipeline,
 		&g_type_GFX__CommandBuffer,
-		&g_type_GFX__Fence,
 		&g_type_GFX__GraphicsDevice,
 		&g_type_Tool,
 		&g_type_Entity,
@@ -206,15 +197,6 @@ Type g_type_GFX__CommandBuffer = {
 		&g_type_GFX__CommandBuffer_Vulkan,
 	},
 };
-Type g_type_GFX__Fence = {
-	.name = "GFX::Fence",
-	.parent_type = &g_type_Object,
-	.Instantiate = [](Allocator allocator) -> void* {
-		void* ptr = (void*)allocator.Allocate(sizeof(GFX::Fence), alignof(GFX::Fence));
-		new (ptr) GFX::Fence();
-		return ptr;
-	},
-};
 Type g_type_GFX__GraphicsDevice = {
 	.name = "GFX::GraphicsDevice",
 	.parent_type = &g_type_Object,
@@ -257,18 +239,6 @@ Type g_type_Sprite = {
 		new (ptr) Sprite();
 		return ptr;
 	},
-};
-Type g_type_TextureInterpolation = {
-	.name = "TextureInterpolation",
-	.parent_type = nullptr,
-};
-Type g_type_TextureWrapMode = {
-	.name = "TextureWrapMode",
-	.parent_type = nullptr,
-};
-Type g_type_TextureProps = {
-	.name = "TextureProps",
-	.parent_type = nullptr,
 };
 Type g_type_Texture = {
 	.name = "Texture",
@@ -430,8 +400,6 @@ Type* GFX::GraphicsPipeline::StaticClass() { return &g_type_GFX__GraphicsPipelin
 Type* GFX::GraphicsPipeline::GetClass() { return &g_type_GFX__GraphicsPipeline; }
 Type* GFX::CommandBuffer::StaticClass() { return &g_type_GFX__CommandBuffer; }
 Type* GFX::CommandBuffer::GetClass() { return &g_type_GFX__CommandBuffer; }
-Type* GFX::Fence::StaticClass() { return &g_type_GFX__Fence; }
-Type* GFX::Fence::GetClass() { return &g_type_GFX__Fence; }
 Type* GFX::GraphicsDevice::StaticClass() { return &g_type_GFX__GraphicsDevice; }
 Type* GFX::GraphicsDevice::GetClass() { return &g_type_GFX__GraphicsDevice; }
 Type* Mesh::StaticClass() { return &g_type_Mesh; }
@@ -485,15 +453,11 @@ Type* Type::Find(String name) {
 		&g_type_GFX__ShaderModule,
 		&g_type_GFX__GraphicsPipeline,
 		&g_type_GFX__CommandBuffer,
-		&g_type_GFX__Fence,
 		&g_type_GFX__GraphicsDevice,
 		&g_type_Mesh,
 		&g_type_Model,
 		&g_type_Shader,
 		&g_type_Sprite,
-		&g_type_TextureInterpolation,
-		&g_type_TextureWrapMode,
-		&g_type_TextureProps,
 		&g_type_Texture,
 		&g_type_Tool,
 		&g_type_BrushTool,
@@ -513,53 +477,5 @@ Type* Type::Find(String name) {
 		if (name == t->name) return t;
 	return nullptr;
 }
-void Serialize(Serializer& s, const TextureInterpolation& value);
-void Deserialize(Deserializer& s, TextureInterpolation& out_value);
-void Serialize(Serializer& s, const TextureWrapMode& value);
-void Deserialize(Deserializer& s, TextureWrapMode& out_value);
-void Serialize(Serializer& s, const TextureProps& value);
-void Deserialize(Deserializer& s, TextureProps& out_value);
 
 
-
-void Serialize(Serializer& s, const TextureInterpolation& value) {
-	Serialize(s, (U8)value);
-}
-
-void Deserialize(Deserializer& s, TextureInterpolation& out_value) {
-	U8 tmp = {};
-	Deserialize(s, tmp);
-	out_value = (TextureInterpolation)tmp;
-}
-
-void Serialize(Serializer& s, const TextureWrapMode& value) {
-	Serialize(s, (U8)value);
-}
-
-void Deserialize(Deserializer& s, TextureWrapMode& out_value) {
-	U8 tmp = {};
-	Deserialize(s, tmp);
-	out_value = (TextureWrapMode)tmp;
-}
-
-void Serialize(Serializer& s, const TextureProps& value) {
-	s.BeginObject();
-	s.Key("generate_mipmaps");
-	Serialize(s, value.generate_mipmaps);
-	s.Key("interpolation");
-	Serialize(s, value.interpolation);
-	s.Key("wrap_mode");
-	Serialize(s, value.wrap_mode);
-	s.EndObject();
-}
-
-void Deserialize(Deserializer& s, TextureProps& out_value) {
-	s.BeginObject();
-	s.Key("generate_mipmaps");
-	Deserialize(s, out_value.generate_mipmaps);
-	s.Key("interpolation");
-	Deserialize(s, out_value.interpolation);
-	s.Key("wrap_mode");
-	Deserialize(s, out_value.wrap_mode);
-	s.EndObject();
-}

@@ -5,8 +5,9 @@
 	defines = [:0
 	]
 	pipelineState = {
-		version = 2
+		version = 3
 		cullMode = 1
 		blendMode = 2
+		depthTest = false
 	}
 }

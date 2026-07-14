@@ -1,6 +1,12 @@
 #pragma once
 #include <EVA/Math.hpp>
 
+namespace GFX {
+
+class Sampler;
+
+}
+
 class Material;
 class Mesh;
 class Shader;
@@ -8,6 +14,26 @@ class Texture;
 
 class Sprite;
 class Font;
+
+enum class StandardSampler : uint8_t {
+    None                = 0,
+    PointClamp          = 1,
+    PointWrap           = 2,
+    PointMirror         = 3,
+    LinearClamp         = 4,
+    LinearWrap          = 5,
+    LinearMirror        = 6,
+    TrilinearClamp      = 7,
+    TrilinearWrap       = 8,
+    TrilinearMirror     = 9,
+    AnisoClamp          = 10,
+    AnisoWrap           = 11,
+    AnisoMirror         = 12,
+    ShadowPointClamp    = 13,
+    ShadowLinearClamp   = 14,
+    ENUM_SIZE
+};
+extern GFX::Sampler* g_standardSamplers[(int)StandardSampler::ENUM_SIZE];
 
 enum Layer {
 	Layer_Sky     = 0,
@@ -42,7 +68,8 @@ struct DrawQuadRecord {
 	float4       tint          = { 1,1,1,1 };
 };
 
-void RendererInitialize();
+void RendererInitialize1();
+void RendererInitialize2();
 void RendererShutdown();
 void RenderFrame();
 

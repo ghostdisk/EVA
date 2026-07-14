@@ -81,8 +81,9 @@ Result RunProgram() {
 
 	GameInitialize();
 	FontInitialize();
+	RendererInitialize1();
 	AssetsLoad();
-	RendererInitialize();
+	RendererInitialize2();
 	LibraryInitialize();
 	InputInitialize();
 	UIInitialize();

@@ -23,6 +23,7 @@ void main() {
 	position.y = -position.y;
 
 	gl_Position = vec4(position, 0.0, 1.0);
+
 	v_Texture = quad.textureId;
 	v_Sampler = quad.samplerId;
 	v_Texcoord = quad.uvRect.xy + mask * quad.uvRect.zw;

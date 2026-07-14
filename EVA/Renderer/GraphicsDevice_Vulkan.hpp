@@ -58,7 +58,7 @@ private:
 	std::vector<Image*>        m_swapchainImages                = {};
 	std::vector<VkSemaphore>   m_renderDoneSemaphores           = {};
 	U32                        m_swapchainImageIndex            = 0;
-	Fence*                     m_frameFence                     = nullptr;
+	VkFence                    m_frameFence                     = nullptr;
 	bool                       m_needsNewSwapchain              = true;
 	SwapchainDesc              m_swapchainDesc                  = {};
 
@@ -69,6 +69,7 @@ public:
 	virtual ~GraphicsDevice_Vulkan() override;
 	virtual Result Init(const GraphicsDeviceInitDesc& desc) override;
 
+	virtual bool BeginFrame() override;
 	virtual void EndFrame() override;
 
 	virtual CommandBuffer* GetMainCommandBuffer() override;
@@ -78,17 +79,8 @@ public:
 
 	virtual void WaitIdle() override;
 
-	virtual CommandBuffer* CreateCommandBuffer() override;
-	virtual void DestroyCommandBuffer(CommandBuffer* cmd) override;
-	virtual void BeginCommandBuffer(CommandBuffer* cmd) override;
-	virtual void EndCommandBuffer(CommandBuffer* cmd) override;
-
-	virtual Fence* CreateFence(bool signaled = false) override;
-	virtual void DestroyFence(Fence* fence) override;
-	virtual void WaitForFence(Fence* fence) override;
-	virtual void ResetFence(Fence* fence) override;
-
-	virtual void Submit(const SubmitDesc& desc) override;
+	virtual CommandBuffer* BeginImmediateCommandBuffer() override;
+	virtual void FlushImmediateCommandBuffer(CommandBuffer* cmd) override;
 
 	virtual GPUBuffer* CreateGPUBuffer(const GPUBufferDesc& desc) override;
 	virtual void DestroyGPUBuffer(GPUBuffer* buffer) override;
@@ -108,17 +100,14 @@ public:
 	virtual void SetSwapchainDesc(SwapchainDesc desc) override;
 	virtual SwapchainDesc GetSwapchainDesc() override;
 
-protected:
-	virtual bool BeginFrameImpl() override;
-
 private:
 	Result CreateCommandPool(VkCommandPool* outCommandPool);
 	Result CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer);
+	Result CreateFence(bool signaled, VkFence* outFence);
 	Result BeginFrameCommandBuffers();
 	Result CreateSwapchain();
 	void   DestroySwapchain();
 	Result CreateSemaphore(VkSemaphore* outSemaphore);
-
 };
 
 }

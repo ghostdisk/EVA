@@ -2,36 +2,15 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/Renderer/GraphicsDevice.hpp>
 
-enum class ESERIALIZABLE TextureInterpolation : U8 {
-	Point,
-	Bilinear,
-	Trilinear,
-};
-
-enum class ESERIALIZABLE TextureWrapMode : U8 {
-	Clamp,
-	Repeat,
-	MirroredRepeat,
-};
-
-struct ESERIALIZABLE TextureProps {
-	EPROPERTY()
-	bool generate_mipmaps = true;
-
-	EPROPERTY()
-	TextureInterpolation interpolation = TextureInterpolation::Bilinear;
-
-	EPROPERTY()
-	TextureWrapMode wrap_mode = TextureWrapMode::Repeat;
-};
-
 class Texture : public Asset {
 public:
 ECLASS_COMMON();
-	TextureProps props = {};
+	Texture();
+
+	bool          m_generateMipmaps = true;
+	GFX::Sampler* m_sampler = nullptr;
 
 	GFX::Image*   image   = nullptr;
-	GFX::Sampler* sampler = nullptr;
 	size_t        width   = 0;
 	size_t        height  = 0;
 

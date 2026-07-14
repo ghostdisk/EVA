@@ -3,8 +3,9 @@
 #include <EVA/Renderer/GraphicsDevice.hpp>
 
 struct ShaderPipelineState {
-	GFX::CullMode cullMode = GFX::CullMode::Back;
+	GFX::CullMode  cullMode  = GFX::CullMode::Back;
 	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
+	bool           depthTest = true;
 };
 
 class Shader : public Asset {

@@ -5,11 +5,13 @@
 void Serialize(Serializer& s, const ShaderPipelineState& ps) {
 	s.BeginObject();
 	s.Key("version");
-	s.SerializeU32(2);
+	s.SerializeU32(3);
 	s.Key("cullMode");
 	s.SerializeU8((U8)ps.cullMode);
 	s.Key("blendMode");
 	s.SerializeU8((U8)ps.blendMode);
+	s.Key("depthTest");
+	s.SerializeBool(ps.depthTest);
 	s.EndObject();
 }
 
@@ -18,7 +20,7 @@ void Deserialize(Deserializer& d, ShaderPipelineState& ps) {
 
 	d.Key("version");
 	U32 version = d.DeserializeU32();
-	if (version > 2) {
+	if (version < 2 || version > 3) {
 		d.SetError(Err("Unsupported version"));
 		return;
 	}
@@ -28,6 +30,10 @@ void Deserialize(Deserializer& d, ShaderPipelineState& ps) {
 	if (version >= 2) {
 		d.Key("blendMode");
 		ps.blendMode = (GFX::BlendMode)d.DeserializeU8();
+	}
+	if (version >= 3) {
+		d.Key("depthTest");
+		ps.depthTest = d.DeserializeBool();
 	}
 	d.EndObject();
 }
@@ -161,6 +167,8 @@ Result Shader::LoadImpl(FILE* f) {
 		.vertexShader   = m_vertexModule,
 		.fragmentShader = m_fragmentModule,
 		.cullMode       = ps.cullMode,
+		.depthTestEnable = ps.depthTest,
+		.depthWriteEnable = ps.depthTest,
 		.blendMode      = ps.blendMode,
 		.format = {
 			.colorFormat = { device->GetCurrentBackbuffer()->m_format },

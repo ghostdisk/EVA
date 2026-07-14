@@ -1,6 +1,5 @@
 {
-	version = 2
+	version = 3
 	generate_mipmaps = true
-	interpolation = 1
-	wrap_mode = 1
+	sampler = 8
 }
