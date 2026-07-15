@@ -1,8 +1,8 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <cglm/types.h>
-#include <string.h>
 #include <math.h>
+#include <string.h>
 
 class Serializer;
 class Deserializer;

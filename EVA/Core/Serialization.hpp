@@ -1,6 +1,5 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
-#include <stdio.h>
 
 /**
  ** Example usage - serialize an object to { "foo": { "a": 3, "b": 5, "c": [100,200,300] } }

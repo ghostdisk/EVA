@@ -1,5 +1,4 @@
 #include <EVA/Core/Basic.hpp>
-#include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 

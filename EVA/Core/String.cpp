@@ -4,7 +4,6 @@
 void StringBuilder::Push(String str) {
 	size_t start = buffer.size();
 	buffer.resize(buffer.size() + str.size);
-	memcpy(buffer.data() + start, str.data, str.size);
 }
 
 void StringBuilder::Push(const char* fmt, ...) {

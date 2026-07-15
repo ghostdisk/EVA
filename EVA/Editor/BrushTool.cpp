@@ -6,7 +6,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/GFX/Renderer.hpp>
 #include <EVA/UI.hpp>
-#include <algorithm>
+#include <float.h>
 
 BrushTool::BrushTool() {
 	m_name = "Brush";
@@ -76,9 +76,9 @@ void BrushTool::Tick(double dt) {
 			break;
 		}
 		case Phase_Finalize: {
-			if (m_end.x < m_start.x) std::swap(m_start.x, m_end.x);
-			if (m_end.y < m_start.y) std::swap(m_start.y, m_end.y);
-			if (m_end.z < m_start.z) std::swap(m_start.z, m_end.z);
+			if (m_end.x < m_start.x) Swap(m_start.x, m_end.x);
+			if (m_end.y < m_start.y) Swap(m_start.y, m_end.y);
+			if (m_end.z < m_start.z) Swap(m_start.z, m_end.z);
 			CSGBrush* cube = CSGCreateCube(m_end - m_start);
 			CSGBuildBrush(cube);
 			EdOp* op = new EdOp();

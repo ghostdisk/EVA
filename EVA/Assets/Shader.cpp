@@ -1,6 +1,7 @@
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/OS.hpp>
+#include <stdio.h>
 
 void Convert(const ShaderPipelineState_v1& v1, ShaderPipelineState_v2& v2) {
 	v2.cullMode = v1.cullMode;

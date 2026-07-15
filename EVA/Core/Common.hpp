@@ -1,8 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <assert.h>
+#include <EVA/Core/CommonIncludes.hpp>
 
 #define EVA_BASE_DIR "D:/EVA"
 
@@ -61,4 +59,3 @@ template<class T>
 constexpr typename remove_reference<T>::type&& Move(T&& value) noexcept {
     return static_cast<typename remove_reference<T>::type&&>(value);
 }
-//}
