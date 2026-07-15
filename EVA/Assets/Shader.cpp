@@ -2,40 +2,13 @@
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Core/OS.hpp>
 
-void Serialize(Serializer& s, const ShaderPipelineState& ps) {
-	s.BeginObject();
-	s.Key("version");
-	s.SerializeU32(3);
-	s.Key("cullMode");
-	s.SerializeU8((U8)ps.cullMode);
-	s.Key("blendMode");
-	s.SerializeU8((U8)ps.blendMode);
-	s.Key("depthTest");
-	s.SerializeBool(ps.depthTest);
-	s.EndObject();
+void Convert(const ShaderPipelineState_v1& v1, ShaderPipelineState_v2& v2) {
+	v2.cullMode = v1.cullMode;
 }
 
-void Deserialize(Deserializer& d, ShaderPipelineState& ps) {
-	d.BeginObject();
-
-	d.Key("version");
-	U32 version = d.DeserializeU32();
-	if (version < 2 || version > 3) {
-		d.SetError(Err("Unsupported version"));
-		return;
-	}
-
-	d.Key("cullMode");
-	ps.cullMode = (GFX::CullMode)d.DeserializeU8();
-	if (version >= 2) {
-		d.Key("blendMode");
-		ps.blendMode = (GFX::BlendMode)d.DeserializeU8();
-	}
-	if (version >= 3) {
-		d.Key("depthTest");
-		ps.depthTest = d.DeserializeBool();
-	}
-	d.EndObject();
+void Convert(const ShaderPipelineState_v2& v2, ShaderPipelineState& v3) {
+	v3.blendMode = v2.blendMode;
+	v3.cullMode = v2.cullMode;
 }
 
 static Result CompileShaderStage(String name, String stage, const std::vector<String>& defines, void** out_spv, size_t* out_spv_size) {

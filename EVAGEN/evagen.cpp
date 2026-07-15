@@ -14,10 +14,9 @@ namespace fs = std::filesystem;
 struct VersionChain;
 struct Type;
 
-struct Auto {
+struct Field {
+	std::string type;
 	std::string name;
-	void (*ForwardDeclare)(FILE* f, Type* type) = 0;
-	void (*Declare)(FILE* f, Type* type) = 0;
 };
 
 struct Type {
@@ -27,8 +26,7 @@ struct Type {
 	Type*                    parent                = nullptr;
 	std::vector<Type*>       subclasses            = {};
 	std::string              header                = "'";
-	std::vector<std::string> properties            = {};
-	std::vector<Auto*>       autos                 = {};
+	std::vector<Field>       fields                = {};
 	bool                     isObject              = false;
 	bool                     isAbstract            = false;
 	bool                     isEnum                = false;
@@ -52,74 +50,33 @@ struct VersionChain {
 
 // Root that <EVA/...> includes resolve against, and the dir we walk.
 static const char* g_baseDir = "D:/EVA";
-
-Auto g_serializeAuto = {
-	.name = "Serialize",
-	.ForwardDeclare = [](FILE* f, Type* type) {
-		fprintf(f, "void Serialize(Serializer& s, const %s& value);\n", type->qualifiedName.c_str());
-	},
-	.Declare = [](FILE* f, Type* type) {
-
-		if (type->isEnum) {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\tSerialize(s, (%s)value);\n", type->enumUnderlyingType.c_str());
-			fprintf(f, "}\n");
-		} else {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\ts.BeginObject();\n");
-			for (const std::string& p : type->properties) {
-				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
-			}
-			fprintf(f, "\ts.EndObject();\n");
-			fprintf(f, "}\n");
-		}
-	},
-};
-
-Auto g_deserializeAuto = {
-	.name = "Deserialize",
-	.ForwardDeclare = [](FILE* f, Type* type) {
-		fprintf(f, "void Deserialize(Serializer& s, %s& value);\n", type->qualifiedName.c_str());
-	},
-	.Declare = [](FILE* f, Type* type) {
-		if (type->isEnum) {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\tSerialize(s, (%s)value);\n", type->enumUnderlyingType.c_str());
-			fprintf(f, "}\n");
-
-			fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\type%s tmp = {};\n", type->enumUnderlyingType.c_str());
-			fprintf(f, "\tDeserialize(s, tmp);\n");
-			fprintf(f, "\tout_value = (%s)tmp;\n", type->qualifiedName.c_str());
-			fprintf(f, "}\n");
-		} else {
-			fprintf(f, "\nvoid Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\ts.BeginObject();\n");
-			for (const std::string& p : type->properties) {
-				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-				fprintf(f, "\tSerialize(s, value.%s);\n", p.c_str());
-			}
-			fprintf(f, "\ts.EndObject();\n");
-			fprintf(f, "}\n");
-
-			fprintf(f, "\nvoid Deserialize(Deserializer& d, %s& out_value) {\n", type->qualifiedName.c_str());
-			fprintf(f, "\ts.BeginObject();\n");
-			for (const std::string& p : type->properties) {
-				fprintf(f, "\ts.Key(\"%s\");\n", p.c_str());
-				fprintf(f, "\tDeserialize(s, out_value.%s);\n", p.c_str());
-			}
-			fprintf(f, "\ts.EndObject();\n");
-			fprintf(f, "}\n");
-		}
-	},
-};
-
 std::vector<std::string> g_includes = {
 	"EVA/Core/Object.hpp",
 	"EVA/Core/Serialization.hpp",
 	"EVA/Core/Allocator.hpp"
 };
+
+static std::vector<Type*> g_types;
+static std::vector<Type*> g_typesWeCareAbout;
+static std::vector<VersionChain*> g_versionChains;
+
+
+std::string TrimString(std::string s) {
+    auto not_space = [](unsigned char c) { return !std::isspace(c); };
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+    s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+    return s;
+}
+
+std::vector<std::string> SplitString(const std::string& s, char delimiter = ',') {
+    std::vector<std::string> parts;
+    std::stringstream ss(s);
+    std::string part;
+    while (std::getline(ss, part, delimiter))
+        parts.push_back(part);
+    return parts;
+}
+
 
 static std::string ToForwardSlashes(std::string s) {
 	for (char& c : s) if (c == '\\') c = '/';
@@ -147,6 +104,7 @@ static std::vector<std::string> CollectHeaders() {
 static std::string WriteAmalgam(const std::vector<std::string>& headers) {
 	fs::path out = fs::path(g_baseDir) / "EVAGEN" / "_amalgam.generated.hpp";
 
+	_unlink(out.string().c_str());
 	FILE* f = fopen(out.string().c_str(), "wb");
 	if (!f) {
 		fprintf(stderr, "evagen: failed to open %s for writing\n", out.string().c_str());
@@ -163,7 +121,7 @@ static std::string WriteAmalgam(const std::vector<std::string>& headers) {
 	return ToForwardSlashes(out.string());
 }
 
-static std::string CXStr(CXString clangString) {
+static std::string Str(CXString clangString) {
 	const char* string = clang_getCString(clangString);
 	std::string out = string ? string : "";
 	clang_disposeString(clangString);
@@ -178,13 +136,10 @@ static bool IsInOurTree(CXCursor cursor) {
 	clang_getFileLocation(loc, &file, nullptr, nullptr, nullptr);
 	if (!file) return false;
 
-	std::string path = ToForwardSlashes(CXStr(clang_getFileName(file)));
+	std::string path = ToForwardSlashes(Str(clang_getFileName(file)));
 	std::string base = ToForwardSlashes(std::string(g_baseDir) + "/EVA/");
 	return path.rfind(base, 0) == 0;
 }
-
-static std::vector<Type*> g_types;
-static std::vector<Type*> g_typesWeCareAbout;
 
 static std::string SymbolName(std::string name) {
 	for (char& c : name) {
@@ -193,15 +148,10 @@ static std::string SymbolName(std::string name) {
 	return name;
 }
 
-static Type* GetType(const std::string& qualifiedName, bool* out_alreadyVisited = nullptr) {
-	if (out_alreadyVisited) *out_alreadyVisited = false;
-
-	for (Type* type : g_types) {
-		if (type->qualifiedName == qualifiedName) {
-			if (out_alreadyVisited) *out_alreadyVisited = true;
+static Type* GetType(const std::string& qualifiedName) {
+	for (Type* type : g_types)
+		if (type->qualifiedName == qualifiedName)
 			return type;
-		}
-	}
 
 	Type* type = new Type();
 	type->qualifiedName = qualifiedName;
@@ -228,12 +178,24 @@ static std::string StripRecordKeyword(std::string s) {
 }
 
 static CXChildVisitResult FieldAnnotationVisitor(CXCursor c, CXCursor, CXClientData data) {
-	bool* is_prop = (bool*)data;
-	if (clang_getCursorKind(c) == CXCursor_AnnotateAttr) {
-		std::string s = CXStr(clang_getCursorSpelling(c));
-		if (s.rfind("eproperty", 0) == 0) *is_prop = true;
-	}
+	// bool* is_prop = (bool*)data;
+	// if (clang_getCursorKind(c) == CXCursor_AnnotateAttr) {
+	// 	std::string s = Str(clang_getCursorSpelling(c));
+	// 	if (s.rfind("eproperty", 0) == 0) *is_prop = true;
+	// }
 	return CXChildVisit_Continue;
+}
+
+VersionChain* GetVersionChain(const std::string& name) {
+	for (VersionChain* chain : g_versionChains) {
+		if (chain->typeName == name)
+			return chain;
+	}
+	VersionChain* chain = new VersionChain();
+	chain->typeName = name;
+	g_versionChains.push_back(chain);
+
+	return chain;
 }
 
 static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _type) {
@@ -241,18 +203,29 @@ static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _t
 	CXCursorKind kind = clang_getCursorKind(cursor);
 
 	if (kind == CXCursor_AnnotateAttr) {
-		std::string s = CXStr(clang_getCursorSpelling(cursor));
-		// if (s.rfind("eserializable", 0) == 0) {
-		// 	info->has_eserializable = true;
-		// }
+		std::string annotation = Str(clang_getCursorSpelling(cursor));
+		std::vector<std::string> args = SplitString(annotation, ',');
+		for (std::string& arg : args)
+			arg = TrimString(arg);
+
+		if (args[0] == "eversion") {
+			type->version = std::stoi(args[1]);
+			if (args.size() >= 3)
+				type->versionChain = GetVersionChain(args[2]);
+			else
+				type->versionChain = GetVersionChain(type->symbolName);
+			type->versionChain->Set(type->version, type);
+		}
 	} else if (kind == CXCursor_CXXBaseSpecifier) {
 		CXType base_type = clang_getCanonicalType(clang_getCursorType(cursor));
-		type->parent = GetType(StripRecordKeyword(CXStr(clang_getTypeSpelling(base_type))));
+		type->parent = GetType(StripRecordKeyword(Str(clang_getTypeSpelling(base_type))));
 		type->parent->subclasses.push_back(type);
 	} else if (kind == CXCursor_FieldDecl) {
-		bool is_prop = false;
-		clang_visitChildren(cursor, FieldAnnotationVisitor, &is_prop);
-		if (is_prop) type->properties.push_back(CXStr(clang_getCursorSpelling(cursor)));
+		// clang_visitChildren(cursor, FieldAnnotationVisitor, &is_prop);
+		type->fields.push_back(Field {
+			.type = "", // TODO
+			.name = Str(clang_getCursorSpelling(cursor)),
+		});
 	}
 	return CXChildVisit_Continue;
 }
@@ -263,35 +236,31 @@ static CXChildVisitResult Visit(CXCursor cursor, CXCursor parent, void* userdata
 	bool is_record = kind == CXCursor_StructDecl || kind == CXCursor_ClassDecl;
 	bool isEnum   = kind == CXCursor_EnumDecl;
 
-	// Only actual definitions (skip forward declarations), and only ours.
+	// only actual definitions, and only ours:
 	if ((is_record || isEnum) && clang_isCursorDefinition(cursor) && IsInOurTree(cursor)) {
-
 		CXSourceLocation loc = clang_getCursorLocation(cursor);
 		CXFile file;
 		unsigned line = 0;
 		clang_getFileLocation(loc, &file, &line, nullptr, nullptr);
 
-		std::string name = CXStr(clang_getCursorSpelling(cursor));
-		std::string qualifiedName = StripRecordKeyword(CXStr(clang_getTypeSpelling(clang_getCursorType(cursor))));
-		std::string filename = ToForwardSlashes(CXStr(clang_getFileName(file)));
+		std::string name          = Str(clang_getCursorSpelling(cursor));
+		std::string qualifiedName = StripRecordKeyword(Str(clang_getTypeSpelling(clang_getCursorType(cursor))));
+		std::string filename      = ToForwardSlashes(Str(clang_getFileName(file)));
 
-		bool alreadyVisited = false;
-		Type* type = GetType(qualifiedName, &alreadyVisited);
+		Type* type = GetType(qualifiedName);
 		clang_visitChildren(cursor, RecordChildVisitor, type);
 		type->isAbstract = clang_CXXRecord_isAbstract(cursor);
 		type->isObject = qualifiedName == "Object" || (type->parent && type->parent->isObject);
 		type->header = RelToBase(filename);
 		type->isEnum = isEnum;
 
-		if (!alreadyVisited) {
-			if (type->isObject) {
-				g_typesWeCareAbout.push_back(type);
-				g_includes.push_back(filename);
-			}
+		if (type->isObject) {
+			g_typesWeCareAbout.push_back(type);
+			g_includes.push_back(filename);
 		}
 
 		if (isEnum) 
-			type->enumUnderlyingType = CXStr(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
+			type->enumUnderlyingType = Str(clang_getTypeSpelling(clang_getEnumDeclIntegerType(cursor)));
 	}
 
 	clang_visitChildren(cursor, Visit, nullptr);
@@ -371,10 +340,69 @@ static void WriteOutput() {
 	fprintf(f, "\treturn nullptr;\n");
 	fprintf(f, "}\n");
 
-	for (Type* type : g_typesWeCareAbout)
-		for (Auto* _auto : type->autos)
-			_auto->ForwardDeclare(f, type);
-	fprintf(f, "\n\n");
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
+
+	for (VersionChain* chain : g_versionChains) {
+		Type* latest = chain->versions[chain->versions.size() - 1];
+
+		for (int i = 1; i < chain->versions.size(); i++) {
+			Type* current = chain->versions[i];
+			Type* prev = chain->versions[i - 1];
+
+			if (current && prev) {
+				fprintf(f, "void Convert(const %s& oldValue, %s& newValue);\n", prev->qualifiedName.c_str(), current->qualifiedName.c_str());
+			}
+		}
+	}
+	fprintf(f, "\n");
+
+	for (VersionChain* chain : g_versionChains) {
+		Type* latest = chain->versions[chain->versions.size() - 1];
+
+		fprintf(f, "void Serialize(Serializer& s, const %s& value) {\n", latest->qualifiedName.c_str());
+		fprintf(f, "	s.BeginObject();\n");
+		fprintf(f, "	s.Key(\"version\");\n");
+		fprintf(f, "	s.SerializeU32(%u);\n", latest->version);
+
+		for (const Field& field : latest->fields) {
+			fprintf(f, "	s.Key(\"%s\");\n", field.name.c_str());
+			fprintf(f, "	Serialize(s, value.%s);\n", field.name.c_str());
+		}
+		fprintf(f, "	s.EndObject();\n");
+		fprintf(f, "}\n");
+
+
+		fprintf(f, "void Deserialize(Deserializer& d, %s& v%u) {\n", latest->qualifiedName.c_str(), latest->version);
+		fprintf(f, "	d.BeginObject();\n");
+		fprintf(f, "	d.Key(\"version\");\n");
+		fprintf(f, "	U32 version = d.DeserializeU32();\n");
+		fprintf(f, "	switch (version) {\n");
+
+		for (Type* type : chain->versions) {
+			if (!type) continue;
+
+			fprintf(f, "		case %u: {\n", type->version);
+
+			for (int v = type->version; v < chain->versions.size() - 1; v++) {
+				fprintf(f, "			%s v%u;\n", chain->versions[v]->qualifiedName.c_str(), v);
+			};
+			for (const Field& field : type->fields) {
+				fprintf(f, "			d.Key(\"%s\");\n", field.name.c_str());
+				fprintf(f, "			Deserialize(d, v%u.%s);\n", type->version, field.name.c_str());
+			}
+			for (int v = type->version; v < chain->versions.size() - 1; v++) {
+				fprintf(f, "			Convert(v%u, v%u);\n", v, v + 1);
+			};
+
+			fprintf(f, "			break;\n");
+			fprintf(f, "		}\n");
+		}
+		fprintf(f, "	};\n");
+
+		fprintf(f, "	d.EndObject();\n");
+		fprintf(f, "}\n");
+
+	}
 
 	fclose(f);
 }
@@ -418,16 +446,18 @@ int main() {
 
 	// Surface parse errors so we notice when the amalgam doesn't compile.
 	unsigned num_diags = clang_getNumDiagnostics(translationUnit);
+	bool hasCompileError = false;
 	for (unsigned i = 0; i < num_diags; ++i) {
 		CXDiagnostic diag = clang_getDiagnostic(translationUnit, i);
 		CXDiagnosticSeverity sev = clang_getDiagnosticSeverity(diag);
 		if (sev >= CXDiagnostic_Error) {
-			std::string text = CXStr(clang_formatDiagnostic(
-				diag, clang_defaultDiagnosticDisplayOptions()));
+			std::string text = Str(clang_formatDiagnostic(diag, clang_defaultDiagnosticDisplayOptions()));
 			fprintf(stderr, "  %s\n", text.c_str());
+			hasCompileError = true;
 		}
 		clang_disposeDiagnostic(diag);
 	}
+	if (hasCompileError) exit(1);
 
 	CXCursor root = clang_getTranslationUnitCursor(translationUnit);
 	clang_visitChildren(root, Visit, nullptr);

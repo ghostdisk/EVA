@@ -483,4 +483,55 @@ Type* Type::Find(String name) {
 	return nullptr;
 }
 
+//------------------------------------------------------------
 
+void Convert(const ShaderPipelineState_v1& oldValue, ShaderPipelineState_v2& newValue);
+void Convert(const ShaderPipelineState_v2& oldValue, ShaderPipelineState& newValue);
+
+void Serialize(Serializer& s, const ShaderPipelineState& value) {
+	s.BeginObject();
+	s.Key("version");
+	s.SerializeU32(3);
+	s.Key("cullMode");
+	Serialize(s, value.cullMode);
+	s.Key("blendMode");
+	Serialize(s, value.blendMode);
+	s.Key("depthTest");
+	Serialize(s, value.depthTest);
+	s.EndObject();
+}
+void Deserialize(Deserializer& d, ShaderPipelineState& v3) {
+	d.BeginObject();
+	d.Key("version");
+	U32 version = d.DeserializeU32();
+	switch (version) {
+		case 1: {
+			ShaderPipelineState_v1 v1;
+			ShaderPipelineState_v2 v2;
+			d.Key("cullMode");
+			Deserialize(d, v1.cullMode);
+			Convert(v1, v2);
+			Convert(v2, v3);
+			break;
+		}
+		case 2: {
+			ShaderPipelineState_v2 v2;
+			d.Key("cullMode");
+			Deserialize(d, v2.cullMode);
+			d.Key("blendMode");
+			Deserialize(d, v2.blendMode);
+			Convert(v2, v3);
+			break;
+		}
+		case 3: {
+			d.Key("cullMode");
+			Deserialize(d, v3.cullMode);
+			d.Key("blendMode");
+			Deserialize(d, v3.blendMode);
+			d.Key("depthTest");
+			Deserialize(d, v3.depthTest);
+			break;
+		}
+	};
+	d.EndObject();
+}

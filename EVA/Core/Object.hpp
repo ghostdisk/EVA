@@ -21,7 +21,7 @@ public:
 
 #ifdef EVAGEN
 #	define EAUTO          [[clang::annotate("eauto")]]
-#	define EVERSION(...)  [[clang::annotate("eversion " #__VA_ARGS__)]]
+#	define EVERSION(...)  [[clang::annotate("eversion, " #__VA_ARGS__)]]
 #else
 #	define EVERSION(...)
 #	define EAUTO

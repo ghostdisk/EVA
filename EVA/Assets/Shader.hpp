@@ -2,11 +2,20 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/GFX/GraphicsDevice.hpp>
 
-struct ShaderPipelineState {
+struct EVERSION(1, ShaderPipelineState) ShaderPipelineState_v1 {
+	GFX::CullMode  cullMode  = GFX::CullMode::Back;
+};
+struct EVERSION(2, ShaderPipelineState) ShaderPipelineState_v2 {
+	GFX::CullMode  cullMode  = GFX::CullMode::Back;
+	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
+};
+struct EVERSION(3) ShaderPipelineState {
 	GFX::CullMode  cullMode  = GFX::CullMode::Back;
 	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
 	bool           depthTest = true;
 };
+void Serialize(Serializer& s, const ShaderPipelineState&);
+void Deserialize(Deserializer& s, ShaderPipelineState&);
 
 class Shader : public Asset {
 public:
