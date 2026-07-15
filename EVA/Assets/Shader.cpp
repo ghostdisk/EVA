@@ -89,7 +89,7 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 }
 
 Result Shader::LoadImpl(FILE* f) {
-	TextDeserializer d(f);
+	TextDeserializer d(f, FrameArena);
 
 	d.BeginObject();
 	d.Key("version");

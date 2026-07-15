@@ -28,6 +28,8 @@
 
 class Serializer {
 public:
+	virtual bool IsText() const = 0;
+
 	virtual void BeginObject() = 0;
 	virtual void EndObject() = 0;
 	virtual void Key(String key) = 0;
@@ -38,25 +40,26 @@ public:
 	virtual void BeginFixedSizeArray(U32 size) = 0; 
 	virtual void EndFixedSizeArray() = 0;
 
-	virtual void SerializeU8     (U8 value) = 0;
-	virtual void SerializeU16    (U16 value) = 0;
-	virtual void SerializeU32    (U32 value) = 0;
-	virtual void SerializeU64    (U64 value) = 0;
-	virtual void SerializeI8     (I8 value) = 0;
-	virtual void SerializeI16    (I16 value) = 0;
-	virtual void SerializeI32    (I32 value) = 0;
-	virtual void SerializeI64    (I64 value) = 0;
-	virtual void SerializeF32    (F32 value) = 0;
-	virtual void SerializeF64    (F64 value) = 0;
-	virtual void SerializeString (String value) = 0;
-	virtual void SerializeBool   (bool value) = 0;
-	virtual void SerializeNull   () = 0;
-	virtual void SerializeBytes  (const void* bytes, size_t size) = 0;
+	virtual void SerializeU8        (U8 value) = 0;
+	virtual void SerializeU16       (U16 value) = 0;
+	virtual void SerializeU32       (U32 value) = 0;
+	virtual void SerializeU64       (U64 value) = 0;
+	virtual void SerializeI8        (I8 value) = 0;
+	virtual void SerializeI16       (I16 value) = 0;
+	virtual void SerializeI32       (I32 value) = 0;
+	virtual void SerializeI64       (I64 value) = 0;
+	virtual void SerializeF32       (F32 value) = 0;
+	virtual void SerializeF64       (F64 value) = 0;
+	virtual void SerializeString    (String value) = 0;
+	virtual void SerializeBool      (bool value) = 0;
+	virtual void SerializeNull      () = 0;
+	virtual void SerializeBytes     (const void* bytes, size_t size) = 0;
 };
 
 class Deserializer {
 public:
 	Result res = {};
+	virtual bool IsText() const = 0;
 
 	void SetError(Result err) {
 		res = err;
@@ -77,19 +80,19 @@ public:
 	virtual void BeginFixedSizeArray(U32 size) = 0;
 	virtual void EndFixedSizeArray() = 0;
 
-	virtual U8       DeserializeU8     () = 0;
-	virtual U16      DeserializeU16    () = 0;
-	virtual U32      DeserializeU32    () = 0;
-	virtual U64      DeserializeU64    () = 0;
-	virtual I8       DeserializeI8     () = 0;
-	virtual I16      DeserializeI16    () = 0;
-	virtual I32      DeserializeI32    () = 0;
-	virtual I64      DeserializeI64    () = 0;
-	virtual F32      DeserializeF32    () = 0;
-	virtual F64      DeserializeF64    () = 0;
-	virtual ZTString DeserializeString () = 0;
-	virtual bool     DeserializeBool   () = 0;
-	virtual void     DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) = 0;
+	virtual U8       DeserializeU8        () = 0;
+	virtual U16      DeserializeU16       () = 0;
+	virtual U32      DeserializeU32       () = 0;
+	virtual U64      DeserializeU64       () = 0;
+	virtual I8       DeserializeI8        () = 0;
+	virtual I16      DeserializeI16       () = 0;
+	virtual I32      DeserializeI32       () = 0;
+	virtual I64      DeserializeI64       () = 0;
+	virtual F32      DeserializeF32       () = 0;
+	virtual F64      DeserializeF64       () = 0;
+	virtual ZTString DeserializeString    () = 0;
+	virtual bool     DeserializeBool      () = 0;
+	virtual void     DeserializeBytes     (Allocator allocator, size_t* out_size, void** out_data) = 0;
 };
 
 class TextSerializer : public Serializer {
@@ -108,6 +111,7 @@ class TextSerializer : public Serializer {
 
 public:
 	TextSerializer(FILE* out);
+	virtual bool IsText() const override { return true; }
 
 	virtual void BeginObject() override;
 	virtual void EndObject() override;
@@ -151,6 +155,7 @@ class TextDeserializer : public Deserializer {
 public:
 	void SkipWhitespace();
 	TextDeserializer(FILE* in, Arena* arena = nullptr);
+	virtual bool IsText() const override { return true; }
 
 	virtual bool     BeginObject() override;
 	virtual void     EndObject() override;

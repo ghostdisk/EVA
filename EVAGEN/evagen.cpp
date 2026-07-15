@@ -19,6 +19,11 @@ struct Field {
 	std::string name;
 };
 
+struct EnumValue {
+	std::string string;
+	long long   value;
+};
+
 struct Type {
 	std::string              name                  = "";
 	std::string              qualifiedName         = "";
@@ -31,9 +36,15 @@ struct Type {
 	bool                     isAbstract            = false;
 	bool                     isEnum                = false;
 	std::string              enumUnderlyingType    = "";
+	std::vector<EnumValue>   enumValues            = {};
+	std::vector<std::string> autos                 = {};
 	int                      version               = 0;
 	VersionChain*            versionChain          = nullptr;
 	bool                     shouldEmitTypeInfo    = false;
+
+	bool HasAuto(const std::string& name) const {
+		return std::find(autos.begin(), autos.end(), name) != autos.end();
+	}
 };
 
 struct VersionChain {
@@ -177,6 +188,83 @@ static std::string StripRecordKeyword(std::string s) {
 	return s;
 }
 
+static CXChildVisitResult AnnotationVisitor(CXCursor cursor, CXCursor, CXClientData data) {
+	if (clang_getCursorKind(cursor) != CXCursor_AnnotateAttr)
+		return CXChildVisit_Continue;
+
+	auto* annotations = static_cast<std::vector<std::string>*>(data);
+	annotations->push_back(Str(clang_getCursorSpelling(cursor)));
+	return CXChildVisit_Continue;
+}
+
+static bool HasAnnotation(CXCursor cursor, const std::string& annotation) {
+	std::vector<std::string> annotations;
+	clang_visitChildren(cursor, AnnotationVisitor, &annotations);
+	return std::find(annotations.begin(), annotations.end(), annotation) != annotations.end();
+}
+
+static Type* GetTypeFromCXType(CXType valueType) {
+	valueType = clang_getCanonicalType(valueType);
+	if (valueType.kind == CXType_LValueReference || valueType.kind == CXType_RValueReference)
+		valueType = clang_getPointeeType(valueType);
+
+	CXCursor declaration = clang_getTypeDeclaration(valueType);
+	if (clang_Cursor_isNull(declaration))
+		return nullptr;
+
+	std::string qualifiedName = StripRecordKeyword(Str(clang_getTypeSpelling(clang_getCursorType(declaration))));
+	return qualifiedName.empty() ? nullptr : GetType(qualifiedName);
+}
+
+static Type* GetAutoType(CXCursor cursor, const std::string& name) {
+	if (name == "Serialize" || name == "Deserialize") {
+		if (clang_Cursor_getNumArguments(cursor) < 2)
+			return nullptr;
+		return GetTypeFromCXType(clang_getCursorType(clang_Cursor_getArgument(cursor, 1)));
+	}
+	if (name == "ToString") {
+		if (clang_Cursor_getNumArguments(cursor) < 1)
+			return nullptr;
+		return GetTypeFromCXType(clang_getCursorType(clang_Cursor_getArgument(cursor, 0)));
+	}
+	if (name == "FromString")
+		return GetTypeFromCXType(clang_getCursorResultType(cursor));
+	return nullptr;
+}
+
+static void CollectAuto(CXCursor cursor) {
+	if (!HasAnnotation(cursor, "eauto"))
+		return;
+
+	std::string name = Str(clang_getCursorSpelling(cursor));
+	if (name != "Serialize" && name != "Deserialize" && name != "ToString" && name != "FromString")
+		return;
+
+	Type* type = GetAutoType(cursor, name);
+	if (type && std::find(type->autos.begin(), type->autos.end(), name) == type->autos.end())
+		type->autos.push_back(name);
+}
+
+static void FinalizeAutos() {
+	for (Type* type : g_types) {
+		bool hasSerialize = type->HasAuto("Serialize");
+		bool hasDeserialize = type->HasAuto("Deserialize");
+		bool hasToString = type->HasAuto("ToString");
+		bool hasFromString = type->HasAuto("FromString");
+		type->autos.clear();
+		if (hasSerialize && hasDeserialize)
+			type->autos.insert(type->autos.end(), { "Serialize", "Deserialize" });
+		if (type->isEnum && hasToString && hasFromString)
+			type->autos.insert(type->autos.end(), { "ToString", "FromString" });
+
+		if (type->isEnum && !type->autos.empty()) {
+			type->shouldEmitTypeInfo = true;
+			if (std::find(g_includes.begin(), g_includes.end(), type->header) == g_includes.end())
+				g_includes.push_back(type->header);
+		}
+	}
+}
+
 static CXChildVisitResult FieldAnnotationVisitor(CXCursor c, CXCursor, CXClientData data) {
 	// bool* is_prop = (bool*)data;
 	// if (clang_getCursorKind(c) == CXCursor_AnnotateAttr) {
@@ -222,9 +310,14 @@ static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _t
 		type->parent->subclasses.push_back(type);
 	} else if (kind == CXCursor_FieldDecl) {
 		// clang_visitChildren(cursor, FieldAnnotationVisitor, &is_prop);
-		type->fields.push_back(Field {
+			type->fields.push_back(Field {
 			.type = "", // TODO
 			.name = Str(clang_getCursorSpelling(cursor)),
+		});
+	} else if (kind == CXCursor_EnumConstantDecl) {
+		type->enumValues.push_back(EnumValue {
+			.string = Str(clang_getCursorSpelling(cursor)),
+			.value = clang_getEnumConstantDeclValue(cursor),
 		});
 	}
 	return CXChildVisit_Continue;
@@ -232,6 +325,8 @@ static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _t
 
 static CXChildVisitResult Visit(CXCursor cursor, CXCursor parent, void* userdata) {
 	CXCursorKind kind = clang_getCursorKind(cursor);
+	if (kind == CXCursor_FunctionDecl && IsInOurTree(cursor))
+		CollectAuto(cursor);
 
 	bool is_record = kind == CXCursor_StructDecl || kind == CXCursor_ClassDecl;
 	bool isEnum   = kind == CXCursor_EnumDecl;
@@ -288,12 +383,24 @@ static void WriteOutput() {
 	fprintf(f, "\n");
 
 	for (Type* type : g_typesWeCareAbout) {
-		fprintf(f, "extern Type g_type_%s;\n", type->symbolName.c_str());
+		fprintf(f, "extern %s g_type_%s;\n", type->isEnum ? "EnumType" : "Type", type->symbolName.c_str());
 	}
 	fprintf(f, "\n//------------------------------------------------------------\n\n");
 
 	for (Type* type : g_typesWeCareAbout) {
 		std::string parent_ref = type->parent && type->parent->isObject ?  ("&g_type_" + type->parent->symbolName) : "nullptr";
+		if (type->isEnum) {
+			fprintf(f, "EnumType g_type_%s = {\n", type->symbolName.c_str());
+			fprintf(f, "\t{\n");
+			fprintf(f, "\t\t.name = \"%s\",\n", type->qualifiedName.c_str());
+			fprintf(f, "\t},\n");
+			fprintf(f, "\t.values = {\n");
+			for (const EnumValue& value : type->enumValues)
+				fprintf(f, "\t\t{ \"%s\", %lld },\n", value.string.c_str(), value.value);
+			fprintf(f, "\t},\n");
+			fprintf(f, "};\n");
+			continue;
+		}
 
 		fprintf(f, "Type g_type_%s = {\n", type->symbolName.c_str());
 
@@ -321,6 +428,47 @@ static void WriteOutput() {
 
 	fprintf(f, "\n//------------------------------------------------------------\n\n");
 
+	for (Type* type : g_typesWeCareAbout) {
+		if (!type->isEnum || !type->HasAuto("ToString"))
+			continue;
+
+		fprintf(f, "ZTString ToString(%s& t) {\n", type->qualifiedName.c_str());
+		fprintf(f, "\tfor (const EnumValue& value : g_type_%s.values)\n", type->symbolName.c_str());
+		fprintf(f, "\t\tif (value.value == (I64)t) return value.string;\n");
+		fprintf(f, "\treturn {};\n");
+		fprintf(f, "}\n");
+
+		fprintf(f, "template<> %s FromString<%s>(String str) {\n", type->qualifiedName.c_str(), type->qualifiedName.c_str());
+		fprintf(f, "\tfor (const EnumValue& value : g_type_%s.values)\n", type->symbolName.c_str());
+		fprintf(f, "\t\tif (value.string == str) return (%s)value.value;\n", type->qualifiedName.c_str());
+		fprintf(f, "\treturn {};\n");
+		fprintf(f, "}\n");
+
+		if (type->HasAuto("Serialize")) {
+			fprintf(f, "void Serialize(Serializer& s, const %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\tif (s.IsText()) {\n");
+			fprintf(f, "\t\t%s textValue = value;\n", type->qualifiedName.c_str());
+			fprintf(f, "\t\ts.SerializeString(ToString(textValue));\n");
+			fprintf(f, "\t} else {\n");
+			fprintf(f, "\t\t%s underlyingValue = (%s)value;\n", type->enumUnderlyingType.c_str(), type->enumUnderlyingType.c_str());
+			fprintf(f, "\t\tSerialize(s, underlyingValue);\n");
+			fprintf(f, "\t}\n");
+			fprintf(f, "}\n");
+
+			fprintf(f, "void Deserialize(Deserializer& d, %s& value) {\n", type->qualifiedName.c_str());
+			fprintf(f, "\tif (d.IsText()) {\n");
+			fprintf(f, "\t\tvalue = FromString<%s>(d.DeserializeString());\n", type->qualifiedName.c_str());
+			fprintf(f, "\t} else {\n");
+			fprintf(f, "\t\t%s underlyingValue = {};\n", type->enumUnderlyingType.c_str());
+			fprintf(f, "\t\tDeserialize(d, underlyingValue);\n");
+			fprintf(f, "\t\tvalue = (%s)underlyingValue;\n", type->qualifiedName.c_str());
+			fprintf(f, "\t}\n");
+			fprintf(f, "}\n");
+		}
+	}
+
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
+
 	for (Type* type : g_types) {
 		if (type->isObject) {
 			fprintf(f, "Type* %s::StaticClass() { return &g_type_%s; }\n", type->qualifiedName.c_str(), type->symbolName.c_str());
@@ -344,6 +492,8 @@ static void WriteOutput() {
 
 	for (VersionChain* chain : g_versionChains) {
 		Type* latest = chain->versions[chain->versions.size() - 1];
+		if (!latest->HasAuto("Serialize"))
+			continue;
 
 		for (int i = 1; i < chain->versions.size(); i++) {
 			Type* current = chain->versions[i];
@@ -358,6 +508,8 @@ static void WriteOutput() {
 
 	for (VersionChain* chain : g_versionChains) {
 		Type* latest = chain->versions[chain->versions.size() - 1];
+		if (!latest->HasAuto("Serialize"))
+			continue;
 
 		fprintf(f, "void Serialize(Serializer& s, const %s& value) {\n", latest->qualifiedName.c_str());
 		fprintf(f, "	s.BeginObject();\n");
@@ -461,6 +613,7 @@ int main() {
 
 	CXCursor root = clang_getTranslationUnitCursor(translationUnit);
 	clang_visitChildren(root, Visit, nullptr);
+	FinalizeAutos();
 
 	WriteOutput();
 	return 0;

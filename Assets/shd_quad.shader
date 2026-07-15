@@ -6,8 +6,8 @@
 	]
 	pipelineState = {
 		version = 3
-		cullMode = Front
-		blendMode = AlphaBlend
+		cullMode = "Front"
+		blendMode = "AlphaBlend"
 		depthTest = false
 	}
 }

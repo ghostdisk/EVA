@@ -238,7 +238,6 @@ enum class CullMode : U8 {
 	Back         = 2,
 	FrontAndBack = 3,
 };
-EAUTO_SERIALIZE(CullMode);
 
 enum class FrontFace : U8 {
 	Clockwise,
@@ -293,7 +292,6 @@ enum class BlendMode : U8 {
 	Add,
 	Multiply,
 };
-EAUTO_SERIALIZE(BlendMode);
 
 struct BlendState {
 	bool        blendEnable      = false;
@@ -624,3 +622,6 @@ protected:
 };
 
 }
+
+EAUTO_ENUM(GFX::CullMode);
+EAUTO_ENUM(GFX::BlendMode);

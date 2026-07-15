@@ -33,6 +33,7 @@
 #include <D:/EVA/EVA/GameModes/GameMode.hpp>
 #include <D:/EVA/EVA/GameModes/BasePlayableGameMode.hpp>
 #include <D:/EVA/EVA/GameModes/EditorGameMode.hpp>
+#include <EVA/GFX/GraphicsDevice.hpp>
 
 extern Type g_type_Object;
 extern Type g_type_Asset;
@@ -65,6 +66,8 @@ extern Type g_type_GFX__GraphicsDevice_Vulkan;
 extern Type g_type_GameMode;
 extern Type g_type_BasePlayableGameMode;
 extern Type g_type_EditorGameMode;
+extern EnumType g_type_GFX__CullMode;
+extern EnumType g_type_GFX__BlendMode;
 
 //------------------------------------------------------------
 
@@ -376,6 +379,88 @@ Type g_type_EditorGameMode = {
 		return ptr;
 	},
 };
+EnumType g_type_GFX__CullMode = {
+	{
+		.name = "GFX::CullMode",
+	},
+	.values = {
+		{ "None", 0 },
+		{ "Front", 1 },
+		{ "Back", 2 },
+		{ "FrontAndBack", 3 },
+	},
+};
+EnumType g_type_GFX__BlendMode = {
+	{
+		.name = "GFX::BlendMode",
+	},
+	.values = {
+		{ "None", 0 },
+		{ "Solid", 1 },
+		{ "AlphaBlend", 2 },
+		{ "Add", 3 },
+		{ "Multiply", 4 },
+	},
+};
+
+//------------------------------------------------------------
+
+ZTString ToString(GFX::CullMode& t) {
+	for (const EnumValue& value : g_type_GFX__CullMode.values)
+		if (value.value == (I64)t) return value.string;
+	return {};
+}
+template<> GFX::CullMode FromString<GFX::CullMode>(String str) {
+	for (const EnumValue& value : g_type_GFX__CullMode.values)
+		if (value.string == str) return (GFX::CullMode)value.value;
+	return {};
+}
+void Serialize(Serializer& s, const GFX::CullMode& value) {
+	if (s.IsText()) {
+		GFX::CullMode textValue = value;
+		s.SerializeString(ToString(textValue));
+	} else {
+		U8 underlyingValue = (U8)value;
+		Serialize(s, underlyingValue);
+	}
+}
+void Deserialize(Deserializer& d, GFX::CullMode& value) {
+	if (d.IsText()) {
+		value = FromString<GFX::CullMode>(d.DeserializeString());
+	} else {
+		U8 underlyingValue = {};
+		Deserialize(d, underlyingValue);
+		value = (GFX::CullMode)underlyingValue;
+	}
+}
+ZTString ToString(GFX::BlendMode& t) {
+	for (const EnumValue& value : g_type_GFX__BlendMode.values)
+		if (value.value == (I64)t) return value.string;
+	return {};
+}
+template<> GFX::BlendMode FromString<GFX::BlendMode>(String str) {
+	for (const EnumValue& value : g_type_GFX__BlendMode.values)
+		if (value.string == str) return (GFX::BlendMode)value.value;
+	return {};
+}
+void Serialize(Serializer& s, const GFX::BlendMode& value) {
+	if (s.IsText()) {
+		GFX::BlendMode textValue = value;
+		s.SerializeString(ToString(textValue));
+	} else {
+		U8 underlyingValue = (U8)value;
+		Serialize(s, underlyingValue);
+	}
+}
+void Deserialize(Deserializer& d, GFX::BlendMode& value) {
+	if (d.IsText()) {
+		value = FromString<GFX::BlendMode>(d.DeserializeString());
+	} else {
+		U8 underlyingValue = {};
+		Deserialize(d, underlyingValue);
+		value = (GFX::BlendMode)underlyingValue;
+	}
+}
 
 //------------------------------------------------------------
 
@@ -477,6 +562,8 @@ Type* Type::Find(String name) {
 		&g_type_GameMode,
 		&g_type_BasePlayableGameMode,
 		&g_type_EditorGameMode,
+		&g_type_GFX__CullMode,
+		&g_type_GFX__BlendMode,
 	};
 	for (Type* t : g_allTypes)
 		if (name == t->name) return t;

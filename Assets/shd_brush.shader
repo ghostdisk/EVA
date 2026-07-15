@@ -7,7 +7,7 @@
 	]
 	pipelineState = {
 		version = 2
-		cullMode = Back
-		blendMode = Solid
+		cullMode = "Back"
+		blendMode = "Solid"
 	}
 }

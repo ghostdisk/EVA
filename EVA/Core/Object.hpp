@@ -9,6 +9,9 @@ class Object;
 class Serializer;
 class Deserializer;
 
+template<typename T>
+T FromString(String str);
+
 class Type {
 public:
 	ZTString           name        = {};
@@ -17,6 +20,16 @@ public:
 
 	void* (*Instantiate)(Allocator allocator) = nullptr;
 	static Type* Find(String name);
+};
+
+struct EnumValue {
+	ZTString string = {};
+	I64      value  = 0;
+};
+
+class EnumType : public Type {
+public:
+	std::vector<EnumValue> values = {};
 };
 
 #ifdef EVAGEN
@@ -30,6 +43,11 @@ public:
 #define EAUTO_SERIALIZE(T) \
 	EAUTO void Serialize(Serializer& s, const T& value); \
 	EAUTO void Deserialize(Deserializer& d, T& value); \
+
+#define EAUTO_ENUM(T) \
+	EAUTO_SERIALIZE(T) \
+	EAUTO ZTString ToString(T& t); \
+	template<> EAUTO T FromString<T>(String str); \
 
 #define ECLASS_COMMON() \
 	static Type* StaticClass(); \
