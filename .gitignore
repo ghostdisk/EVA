@@ -10,3 +10,4 @@ build
 .png~
 .webp~
 _amalgam.generated.hpp
+EVA/EVA.gen.cpp

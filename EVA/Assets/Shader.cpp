@@ -36,99 +36,39 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 	ShaderAssetSourceData data;
 	Deserialize(d, data);
 
-	/*
-	d.BeginObject();
-	d.Key("version");
-	U32 version = d.DeserializeU8();
-	if (version > 3)
-		return Err("Unexpected version");
-	d.Key("vs");
-	String vs_name = d.DeserializeString();
-	d.Key("fs");
-	String fs_name = d.DeserializeString();
-	d.Key("defines");
-	std::vector<String> defines;
-	defines.resize(d.BeginArray());
-	for (int i = 0; i < defines.size(); i++) {
-		defines[i] = d.DeserializeString();
-	}
-	d.EndArray();
-	ShaderPipelineState ps = {};
-	if (version >= 2) {
-		d.Key("pipelineState");
-		Deserialize(d, ps);
-	}
-	d.EndObject();
-	*/
-
-	void *vs, *fs;
-	size_t vs_size, fs_size;
-
-	TRY(CompileShaderStage(data.vs, "vertex", data.defines, &vs, &vs_size));
-	DEFER(free(vs));
-	TRY(CompileShaderStage(data.fs, "fragment", data.defines, &fs, &fs_size));
-	DEFER(free(fs));
+	ShaderAssetCompiledData compiledData = {}; 
+	TRY(CompileShaderStage(data.vs, "vertex", data.defines, &compiledData.vs.data, &compiledData.vs.size));
+	DEFER(free(compiledData.vs.data));
+	TRY(CompileShaderStage(data.fs, "fragment", data.defines, &compiledData.fs.data, &compiledData.fs.size));
+	DEFER(free(compiledData.fs.data));
+	compiledData.pipelineState = data.pipelineState;
 
 	FILE* out = fopen(output_path, "wb");
 	if (!out) return Err("Failed to open %s for writing", output_path.c_str());
 	DEFER(fclose(out));
 	TextSerializer s(out);
 
-	s.BeginObject();
-	s.Key("version");
-	s.SerializeU32(3);
-	s.Key("vs");
-	s.SerializeBytes(vs, vs_size);
-	s.Key("fs");
-	s.SerializeBytes(fs, fs_size);
-	s.Key("pipelineState");
-	Serialize(s, data.pipelineState);
-	s.EndObject();
-
+	Serialize(s, compiledData);
 	return d.res;
 }
 
 Result Shader::LoadImpl(FILE* f) {
 	TextDeserializer d(f, FrameArena);
 
-	d.BeginObject();
-	d.Key("version");
-	U32 version = d.DeserializeU32();
-
-	if (version > 3) {
-		return Err("Unsupported version");
-	}
-
-	size_t vs_size, fs_size;
-	void *vs, *fs;
-
-	d.Key("vs");
-	d.DeserializeBytes(FrameArena->Alloc(), &vs_size, &vs);
-	d.Key("fs");
-	d.DeserializeBytes(FrameArena->Alloc(), &fs_size, &fs);
-
-	ShaderPipelineState ps = {};
-	if (version >= 2) {
-		d.Key("pipelineState");
-		Deserialize(d, ps);
-	}
-
-	d.EndObject();
-
+	ShaderAssetCompiledData data;
+	Deserialize(d, data);
 	if (d.res.error) return d.res;
-	if (!vs_size || vs_size % sizeof(U32) != 0) return Err("Invalid vertex shader SPIR-V");
-	if (!fs_size || fs_size % sizeof(U32) != 0) return Err("Invalid fragment shader SPIR-V");
 
 	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
 	m_vertexModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
-		.code     = (const U32*)vs,
-		.codeSize = vs_size,
+		.code     = (const U32*)data.vs.data,
+		.codeSize = data.vs.size,
 	});
 	if (!m_vertexModule) return Err("Failed to create vertex shader module");
 
 	m_fragmentModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
-		.code     = (const U32*)fs,
-		.codeSize = fs_size,
+		.code     = (const U32*)data.fs.data,
+		.codeSize = data.fs.size,
 	});
 	if (!m_fragmentModule) {
 		device->DestroyShaderModule(m_vertexModule);
@@ -137,12 +77,12 @@ Result Shader::LoadImpl(FILE* f) {
 	}
 
 	m_pipeline = device->CreateGraphicsPipeline(GFX::GraphicsPipelineDesc{
-		.vertexShader   = m_vertexModule,
-		.fragmentShader = m_fragmentModule,
-		.cullMode       = ps.cullMode,
-		.depthTestEnable = ps.depthTest,
-		.depthWriteEnable = ps.depthTest,
-		.blendMode      = ps.blendMode,
+		.vertexShader     = m_vertexModule,
+		.fragmentShader   = m_fragmentModule,
+		.cullMode         = data.pipelineState.cullMode,
+		.depthTestEnable  = data.pipelineState.depthTest,
+		.depthWriteEnable = data.pipelineState.depthTest,
+		.blendMode        = data.pipelineState.blendMode,
 		.format = {
 			.colorFormat = { device->GetCurrentBackbuffer()->m_format },
 			.depthFormat = GFX::Format::D32_FLOAT,

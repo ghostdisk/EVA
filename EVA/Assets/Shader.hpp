@@ -25,6 +25,13 @@ struct EVERSION(3) ShaderAssetSourceData {
 };
 EAUTO_SERIALIZE(ShaderAssetSourceData);
 
+struct EVERSION(3) ShaderAssetCompiledData {
+	SerializableBytes   vs            = {};
+	SerializableBytes   fs            = {};
+	ShaderPipelineState pipelineState = {};
+};
+EAUTO_SERIALIZE(ShaderAssetCompiledData);
+
 class Shader : public Asset {
 public:
 	ECLASS_COMMON();
