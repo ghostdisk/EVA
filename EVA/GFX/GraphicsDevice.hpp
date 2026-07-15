@@ -233,11 +233,12 @@ enum class PolygonMode : U8 {
 };
 
 enum class CullMode : U8 {
-	None,
-	Front,
-	Back,
-	FrontAndBack,
+	None         = 0,
+	Front        = 1,
+	Back         = 2,
+	FrontAndBack = 3,
 };
+EAUTO_SERIALIZE(CullMode);
 
 enum class FrontFace : U8 {
 	Clockwise,
@@ -292,6 +293,7 @@ enum class BlendMode : U8 {
 	Add,
 	Multiply,
 };
+EAUTO_SERIALIZE(BlendMode);
 
 struct BlendState {
 	bool        blendEnable      = false;

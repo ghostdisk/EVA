@@ -27,6 +27,10 @@ public:
 #	define EAUTO
 #endif
 
+#define EAUTO_SERIALIZE(T) \
+	EAUTO void Serialize(Serializer& s, const T& value); \
+	EAUTO void Deserialize(Deserializer& d, T& value); \
+
 #define ECLASS_COMMON() \
 	static Type* StaticClass(); \
 	virtual Type* GetClass() override;

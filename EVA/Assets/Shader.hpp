@@ -14,8 +14,7 @@ struct EVERSION(3) ShaderPipelineState {
 	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
 	bool           depthTest = true;
 };
-void Serialize(Serializer& s, const ShaderPipelineState&);
-void Deserialize(Deserializer& s, ShaderPipelineState&);
+EAUTO_SERIALIZE(ShaderPipelineState);
 
 class Shader : public Asset {
 public:
