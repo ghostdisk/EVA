@@ -173,9 +173,9 @@ UIBox* UITextInput(Vector<char>& buffer) {
 
 	if (box->Focused()) {
 		box->SetColor(COLOR_BUTTON_ACTIVE);
-		if (InputGetButtonDown(SDL_SCANCODE_BACKSPACE)) text_edit->Backspace();
-		if (InputGetButtonDown(SDL_SCANCODE_LEFT)) text_edit->Move(-1);
-		if (InputGetButtonDown(SDL_SCANCODE_RIGHT)) text_edit->Move(1);
+		if (InputGetButtonDown(SCANCODE_BACKSPACE)) text_edit->Backspace();
+		if (InputGetButtonDown(SCANCODE_LEFT)) text_edit->Move(-1);
+		if (InputGetButtonDown(SCANCODE_RIGHT)) text_edit->Move(1);
 	} else {
 		box->SetColor(COLOR_BUTTON);
 	}

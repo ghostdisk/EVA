@@ -25,7 +25,7 @@ void BrushTool::Tick(double dt) {
 		if (ed->ShouldSnap()) p = ed->SnapToGrid(p);
 	}
 
-	if (InputGetButton(SDL_SCANCODE_ESCAPE)) m_phase = Phase_Inactive;
+	if (InputGetButton(SCANCODE_ESCAPE)) m_phase = Phase_Inactive;
 	if (hit) {
 		DrawSetLayer(Layer_Overlay);
 		DrawPoint(m_start, {0,0,1,0.1});

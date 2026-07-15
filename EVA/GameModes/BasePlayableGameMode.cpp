@@ -5,6 +5,7 @@
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/EntityManager.hpp>
 #include <stdio.h>
+#include <utility>
 
 void BasePlayableGameMode::OnBegin() {
 	m_camera = new ECamera();
@@ -65,8 +66,8 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	fscanf(f, "\n");
 
 	Mesh* level_mesh = new Mesh();
-	level_mesh->vertices = std::move(vertices);
-	level_mesh->indices = std::move(indices);
+	level_mesh->vertices = Move(vertices);
+	level_mesh->indices = Move(indices);
 	level_mesh->Upload(false);
 
 	int num_entities;

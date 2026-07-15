@@ -33,6 +33,13 @@
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "$env{VSINSTALLDIR}Common7/IDE/CommonExtensions/Microsoft/CMake/cmake/Microsoft/SegmentHeap.cmake"
             }
+        },
+        {
+            "name": "msvc-msbuild-debug",
+            "displayName": "x64 MSVC MSBuild Debug",
+            "generator": "Visual Studio 18 2026",
+            "binaryDir": "${sourceDir}/build/msvc-msbuild-debug",
+            "architecture": "x64"
         }
     ]
 }

@@ -44,7 +44,7 @@ void SelectTool::Tick(double dt) {
 		float3 old_center = m_gizmoCenter;
 		ed->TranslationGizmo(&m_gizmoCenter, m_gizmoCenter);
 		float3 d = m_gizmoCenter - old_center;
-		if (abs(d.Length()) > 0.0001f) {
+		if (fabs(d.Length()) > 0.0001f) {
 			for (EdOp* op : selected_ops) op->position += d;
 			dirty = true;
 		}
@@ -53,15 +53,15 @@ void SelectTool::Tick(double dt) {
 	if (!UICapturesMouse() && InputGetButtonDown(INPUT_BUTTON_MOUSE_LEFT) && !ed->m_activeGizmoState.id) {
 		float min_t = FLT_MAX;
 		EdOp* hit_op = nullptr;
-		bool hit = InputGetButton(SDL_SCANCODE_LALT)
+		bool hit = InputGetButton(SCANCODE_LALT)
 			? ed->RaycastAgainstSubtractOps(mouse_ray, &min_t, &hit_op)
 			: ed->RaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
 		float entity_t = FLT_MAX;
 		Entity* hit_entity = nullptr;
 		bool hit_ent = ed->RaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
-		if (hit_ent && (!hit || entity_t < min_t)) ed->SelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
-		else if (hit) ed->SelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
-		else if (!InputGetButton(SDL_SCANCODE_LSHIFT)) ed->Deselect();
+		if (hit_ent && (!hit || entity_t < min_t)) ed->SelectEntity(hit_entity, InputGetButton(SCANCODE_LSHIFT));
+		else if (hit) ed->SelectOp(hit_op, InputGetButton(SCANCODE_LSHIFT));
+		else if (!InputGetButton(SCANCODE_LSHIFT)) ed->Deselect();
 	}
 
 	if (dirty) ed->Build(ed->m_root);

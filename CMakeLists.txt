@@ -62,10 +62,14 @@ target_include_directories(EVA PRIVATE "${CMAKE_SOURCE_DIR}")
 find_package(Vulkan REQUIRED)
 target_link_libraries(EVA Vulkan::Headers)
 target_include_directories(EVA PRIVATE "Vendor/volk")
-target_compile_options(EVA PRIVATE
-	-Wno-nullability-completeness
-	-Wno-deprecated-declarations
-)
+
+if (NOT MSVC)
+	target_compile_options(EVA PRIVATE
+		-Wno-nullability-completeness
+		-Wno-deprecated-declarations
+	)
+endif()
+
 target_compile_definitions(EVA PRIVATE "-D_CRT_SECURE_NO_WARNINGS")
 
 #

@@ -113,7 +113,7 @@ void Game::Draw() {
 	DrawSetLayer(Layer_Main);
 
 	static float3 test1 = {};
-	if (InputGetButton(SDL_SCANCODE_X)) test1 = m_activeCamera->position;
+	if (InputGetButton(SCANCODE_X)) test1 = m_activeCamera->position;
 
 	if (level_mesh) {
 		DrawMesh(level_mesh, Library::mat_brush, float4x4::Identity());

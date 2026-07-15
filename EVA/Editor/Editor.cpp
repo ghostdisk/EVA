@@ -85,7 +85,7 @@ EdOp* EdCreateOp() {
 }
 
 bool Editor::ShouldSnap() const {
-	return m_snap && !InputGetButton(SDL_SCANCODE_LALT);
+	return m_snap && !InputGetButton(SCANCODE_LALT);
 }
 
 void Editor::Deselect() {
@@ -323,7 +323,7 @@ void EdUngroup(EdOp* group) {
 	EdOp* parent = group->parent;
 	int idx = EdGetSiblingIndex(group);
 
-	Vector<EdOp*> ops = std::move(group->children);
+	Vector<EdOp*> ops = Move(group->children);
 	group->children	 = {};
 	for (EdOp* child : ops) {
 		child->parent = group->parent;
@@ -533,7 +533,7 @@ void Editor::DrawOpGUI(EdOp* op) {
 		UIEndTreeNode();
 	}
 	if (tree_node->Clicked()) {
-		SelectOp(op, InputGetButton(SDL_SCANCODE_LCTRL));
+		SelectOp(op, InputGetButton(SCANCODE_LCTRL));
 	}
 }
 
@@ -765,7 +765,7 @@ void SelectTool::Tick(double dt) {
 		CSGBrush* hit_brush = nullptr;
 
 		bool hit = false;
-		if (InputGetButton(SDL_SCANCODE_LALT))
+		if (InputGetButton(SCANCODE_LALT))
 			hit = ed->RaycastAgainstSubtractOps(mouse_ray, &min_t, &hit_op);
 		else
 			hit = ed->RaycastAgainstBuiltBrushes(mouse_ray, &min_t, &hit_op, nullptr);
@@ -775,10 +775,10 @@ void SelectTool::Tick(double dt) {
 		bool hit_ent = ed->RaycastAgainstEntities(mouse_ray, &entity_t, &hit_entity);
 
 		if (hit_ent && (!hit || entity_t < min_t)) 
-			ed->SelectEntity(hit_entity, InputGetButton(SDL_SCANCODE_LSHIFT));
+			ed->SelectEntity(hit_entity, InputGetButton(SCANCODE_LSHIFT));
 		else if (hit)
-			ed->SelectOp(hit_op, InputGetButton(SDL_SCANCODE_LSHIFT));
-		else if (!InputGetButton(SDL_SCANCODE_LSHIFT))
+			ed->SelectOp(hit_op, InputGetButton(SCANCODE_LSHIFT));
+		else if (!InputGetButton(SCANCODE_LSHIFT))
 			ed->Deselect();
 	}
 
@@ -800,7 +800,7 @@ void BrushTool::Tick(double dt)
 		if (ed->ShouldSnap()) p = ed->SnapToGrid(p);
 	}
 
-	if (InputGetButton(SDL_SCANCODE_ESCAPE)) {
+	if (InputGetButton(SCANCODE_ESCAPE)) {
 		m_phase = Phase_Inactive;
 	}
 
@@ -1101,7 +1101,7 @@ void Editor::Tick(double dt) {
 
 				if (tree_node->Clicked())
 				{
-					ed->SelectEntity(entity, InputGetButton(SDL_SCANCODE_LCTRL));
+					ed->SelectEntity(entity, InputGetButton(SCANCODE_LCTRL));
 				}
 			});
 			UIEndTreeNode();

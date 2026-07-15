@@ -3,7 +3,6 @@
 #include <EVA/Core/String.hpp>
 #include <EVA/Core/Result.hpp>
 #include <EVA/Core/Vector.hpp>
-#include <utility>
 
 struct Allocator;
 class Object;
@@ -32,8 +31,7 @@ class EnumType : public Type {
 public:
 	Vector<EnumValue> values = {};
 
-	EnumType(ZTString name, Vector<EnumValue> values)
-		: values(std::move(values)) {
+	EnumType(ZTString name, Vector<EnumValue> values) : values(values) {
 		this->name = name;
 	}
 };

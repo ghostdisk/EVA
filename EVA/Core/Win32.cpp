@@ -1,6 +1,8 @@
 #include <EVA/Core/OS.hpp>
 #include <EVA/Core/FS.hpp>
 #include <Windows.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 U16* StringToUTF16(Arena* arena, String string, size_t* out_len) {
 	int src_len = (int)string.size;
@@ -98,3 +100,14 @@ Result ExecProcess(String cmdline) {
 	if (exit_code != 0) return Err("ExecProcess: process exited with code %lu", exit_code);
 	return Success();
 }
+
+[[noreturn]] void Fatal(const char* fmt, ...) {
+	char message_buffer[2048];
+	va_list args;
+	va_start(args, fmt);
+	vsnprintf(message_buffer, sizeof(message_buffer), fmt, args);
+	MessageBoxA(nullptr, message_buffer, "Fatal Error", MB_ICONERROR | MB_OK);
+	__debugbreak();
+	exit(1);
+}
+

@@ -16,7 +16,6 @@
 #include <EVA/Library.hpp>
 #include <EVA/Editor/Editor.hpp>
 #include <SDL3/SDL.h>
-#include <enet/enet.h>
 #include <tracy/Tracy.hpp>
 #undef DrawText
 

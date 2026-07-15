@@ -50,5 +50,15 @@ bool ReadEntireFile(const char* path, void** out_data, size_t* out_size);
 void ScreenLog(const char* fmt, ...);
 void QueueForNextFrame(void (*callback)(void* userdata), void* userdata);
 
-////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////
 
+//namespace std {
+template<class T> struct remove_reference      { using type = T; };
+template<class T> struct remove_reference<T&>  { using type = T; };
+template<class T> struct remove_reference<T&&> { using type = T; };
+
+template<class T>
+constexpr typename remove_reference<T>::type&& Move(T&& value) noexcept {
+    return static_cast<typename remove_reference<T>::type&&>(value);
+}
+//}

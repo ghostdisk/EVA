@@ -48,8 +48,8 @@ void CameraFly(ECamera& camera) {
 		camera.pitch -= g_mouse_delta.y * camera.mouse_sensitivity.y;
 	}
 
-	float speed = InputGetButton(SDL_SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
-	if (InputGetButton(SDL_SCANCODE_LALT)) speed = camera.fly_speed_slow;
+	float speed = InputGetButton(SCANCODE_LSHIFT) ? camera.fly_speed_sprint : camera.fly_speed;
+	if (InputGetButton(SCANCODE_LALT)) speed = camera.fly_speed_slow;
 
 	input = camera.forward * input.y + camera.right * input.x + camera.up * input.z;
 	input.z += cvar_flyup.fvalue - cvar_flydown.fvalue;
@@ -82,8 +82,8 @@ void CameraOrbit(ECamera& camera, Entity* entity) {
 			camera.pitch = 45 * DEG_TO_RAD;
 		}
 
-		if (InputGetButton(SDL_SCANCODE_KP_1)) camera.orbit_distance += 3 * g_delta_time;
-		if (InputGetButton(SDL_SCANCODE_KP_2)) camera.orbit_distance -= 3 * g_delta_time;
+		if (InputGetButton(SCANCODE_KP_1)) camera.orbit_distance += 3 * g_delta_time;
+		if (InputGetButton(SCANCODE_KP_2)) camera.orbit_distance -= 3 * g_delta_time;
 
 		CameraUpdateBasisVectors(camera);
 

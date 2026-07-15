@@ -1,7 +1,26 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
 #include <initializer_list>
-#include <new>
+
+#include <vcruntime_new.h>
+// #include <new>
+
+#ifndef __NOTHROW_T_DEFINED
+#define __NOTHROW_T_DEFINED
+    namespace std {
+        _VCRT_EXPORT_STD struct nothrow_t { explicit nothrow_t() = default; };
+        _VCRT_EXPORT_STD extern nothrow_t const nothrow;
+    }
+#endif
+
+_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+void* __CRTDECL operator new(size_t _Size);
+_VCRT_EXPORT_STD _NODISCARD _Ret_maybenull_ _Success_(return != NULL) _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+void* __CRTDECL operator new( size_t _Size, ::std::nothrow_t const& ) noexcept;
+_VCRT_EXPORT_STD _NODISCARD _Ret_notnull_ _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+void* __CRTDECL operator new[]( size_t _Size );
+_VCRT_EXPORT_STD _NODISCARD _Ret_maybenull_ _Success_(return != NULL) _Post_writable_byte_size_(_Size) _VCRT_ALLOCATOR
+void* __CRTDECL operator new[]( size_t _Size, ::std::nothrow_t const& ) noexcept;
 
 template <typename T>
 class Vector {
@@ -33,7 +52,7 @@ public:
 	}
 
 	Vector(Vector&& other) {
-		move_from(static_cast<Vector&&>(other));
+		move_from(Move(other));
 	}
 
 	void operator=(const Vector& other) {
@@ -45,7 +64,7 @@ public:
 	void operator=(Vector&& other) {
 		assert(this != &other);
 		destroy();
-		move_from(static_cast<Vector&&>(other));
+		move_from(Move(other));
 	}
 
 	~Vector() {
@@ -56,7 +75,7 @@ public:
 		if (m_size == m_capacity) {
 			set_capacity(m_capacity == 0 ? 8 : m_capacity * 2);
 		}
-		new (m_data + m_size) T(static_cast<T&&>(value));
+		new (m_data + m_size) T(Move(value));
 		m_size++;
 	}
 
@@ -74,7 +93,7 @@ public:
 
 		m_data[index].~T();
 		for (U32 i = index; i + 1 < m_size; i++) {
-			new (m_data + i) T(static_cast<T&&>(m_data[i + 1]));
+			new (m_data + i) T(Move(m_data[i + 1]));
 			m_data[i + 1].~T();
 		}
 		m_size--;
@@ -83,22 +102,22 @@ public:
 
 	T* insert(const T* position, const T& value) {
 		T copy(value);
-		return insert(position, static_cast<T&&>(copy));
+		return insert(position, Move(copy));
 	}
 
 	T* insert(const T* position, T&& value) {
 		assert((m_size == 0 && position == begin()) || (position >= begin() && position <= end()));
 		U32 index = m_size == 0 ? 0 : (U32)(position - begin());
-		T movedValue(static_cast<T&&>(value));
+		T movedValue(Move(value));
 
 		if (m_size == m_capacity) {
 			set_capacity(m_capacity == 0 ? 8 : m_capacity * 2);
 		}
 		for (U32 i = m_size; i > index; i--) {
-			new (m_data + i) T(static_cast<T&&>(m_data[i - 1]));
+			new (m_data + i) T(Move(m_data[i - 1]));
 			m_data[i - 1].~T();
 		}
-		new (m_data + index) T(static_cast<T&&>(movedValue));
+		new (m_data + index) T(Move(movedValue));
 		m_size++;
 		return m_data + index;
 	}
@@ -121,11 +140,11 @@ public:
 			set_capacity(newCapacity);
 		}
 		for (U32 i = m_size; i > index; i--) {
-			new (m_data + i - 1 + values.m_size) T(static_cast<T&&>(m_data[i - 1]));
+			new (m_data + i - 1 + values.m_size) T(Move(m_data[i - 1]));
 			m_data[i - 1].~T();
 		}
 		for (U32 i = 0; i < values.m_size; i++) {
-			new (m_data + index + i) T(static_cast<T&&>(values[i]));
+			new (m_data + index + i) T(Move(values[i]));
 		}
 		m_size += values.m_size;
 		return m_data + index;
@@ -133,7 +152,7 @@ public:
 
 	T pop_back() {
 		assert(m_size > 0);
-		T value = std::move(m_data[m_size - 1]);
+		T value = Move(m_data[m_size - 1]);
 		m_size--;
 		return value;
 	}
@@ -148,7 +167,7 @@ public:
 
 		T* newData = (T*)malloc(sizeof(T) * newCapacity);
 		for (U32 i = 0; i < newSize; i++) {
-			new (newData + i) T(static_cast<T&&>(oldData[i]));
+			new (newData + i) T(Move(oldData[i]));
 		}
 
 		for (U32 i = 0; i < oldSize; i++) {

@@ -196,7 +196,7 @@ Result ConExec(ConParser& parser) {
 void ConsoleDraw() {
 	bool just_opened = false;
 
-	if (InputGetButtonDown(SDL_SCANCODE_GRAVE)) {
+	if (InputGetButtonDown(SCANCODE_GRAVE)) {
 		console_open = !console_open;
 		just_opened = true;
 		g_console_input.clear();
@@ -266,11 +266,11 @@ void ConsoleDraw() {
 		}
 
 		if (text_input->flags & UIBoxFlags_Focus) {
-			if (InputGetButtonDown(SDL_SCANCODE_RETURN) || InputGetButtonDown(SDL_SCANCODE_KP_ENTER)) submit = true;
-			if (InputGetButtonDown(SDL_SCANCODE_L) && InputGetButton(SDL_SCANCODE_LCTRL)) ConExec("clear");
+			if (InputGetButtonDown(SCANCODE_RETURN) || InputGetButtonDown(SCANCODE_KP_ENTER)) submit = true;
+			if (InputGetButtonDown(SCANCODE_L) && InputGetButton(SCANCODE_LCTRL)) ConExec("clear");
 		}
 
-		if (InputGetButtonDown(SDL_SCANCODE_ESCAPE)) console_open = false;
+		if (InputGetButtonDown(SCANCODE_ESCAPE)) console_open = false;
 		if (submit) {
 			ConExec(ArenaInternCString(FrameArena, g_console_input.data(), g_console_input.size()));
 			g_console_input.clear();
