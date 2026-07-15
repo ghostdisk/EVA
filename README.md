@@ -15,10 +15,13 @@ The engine is actively being reorganized from procedural systems toward a more o
 - `EVA/GFX/` — OpenGL setup and drawing API.
 - `EVA/Shaders/` — GLSL shaders.
 - `Assets/` — project content and editor/runtime maps.
-- `EVAGEN/` — Clang-based reflection/code-generation utility.
+- `EVAGEN/` — libclanglang-based reflection/code-generation utility.
 - `Vendor/` — third-party dependencies.
 
 The main entry points are `EVA/App.cpp`, `EVA/Game.cpp`, and `EVA/Editor/Editor.cpp`.
+
+## Rules
+
 
 ## Building
 
@@ -28,8 +31,6 @@ cmake --build build/x64-debug
 ```
 
 `EVAGEN_generate` runs before the main target and rewrites `EVA/EVA.gen.cpp`.
-
-`EVA_BASE_DIR` is currently hard-coded in `EVA/Core/Common.hpp` as 'D:/EVA'.
 
 ## Core APIs
 
@@ -107,61 +108,22 @@ Result LoadSomething() {
 }
 ```
 
+## Reflection
+
+There's a custom clang-based reflection system. You can read EVAGEN/evagen.cpp to more or less see how it works if needed.
+
+## Rules
+
+1. Don't add CRT/libc/STL includes. Don't add Windows.h includes. Don't add any includes in .hpp files unless you have
+good reason to, prefer always forward declaring. We take compile times very seriously, to the point where we're
+forward declaring common libc operations in order to avoid project-wide includes to common stl/libc headers which otherwise
+
+2. Don't use the STL for anything, ever, unless prompted. No <algoritm>, no <vector>, no <unordered_map>
+
+3. Don't use libc either, unless there's already precedent in the codebase - e.g. we use math.h, FILE, and printf-based APIs
+currently - if you're about to use something for libc, grep first. If it's not yet used, it's not allowed.
+
 ## Object System and Reflection
-
-`Object` is the root of reflected runtime classes. A reflected class derives, directly or indirectly, from `Object`
-and declares `ECLASS_COMMON()`:
-
-```cpp
-// Object.hpp:
-#define ECLASS_COMMON() \
-	static Type* StaticClass(); \
-	virtual Type* GetClass() override;
-```
-
-```cpp
-class MyEntity : public Entity {
-public:
-    ECLASS_COMMON();
-};
-```
-
-EVAGEN discovers the class and emits `StaticClass()` and `GetClass()` definitions plus a global `Type`. `Type` exposes:
-
-- `name` — reflected type name.
-- `parent_type` — reflected base class.
-- `subclasses` — direct reflected subclasses.
-- `Instantiate(Allocator)` — default construction through a chosen allocator; absent for abstract types.
-- `Type* type = Type::Find(name)` — lookup by reflected name.
-
-Typical dynamic construction:
-
-```cpp
-for (Type* type : Tool::StaticClass()->subclasses) {
-    Tool* tool = (Tool*)type->Instantiate(Allocator::HeapAllocator);
-    // initialize fields not handled by the default constructor
-}
-```
-
-Reflection instantiation requires a usable default constructor. Initialize external context after construction,
-as editor tools do with their `Editor*`.
-
-For generated data serialization, mark a struct or enum `ESERIALIZABLE` and mark serialized fields with `EPROPERTY()`.
-These annotations are active while EVAGEN parses the source and compile away in the normal build. Serialization support
-is intentionally small and evolving.
-
-## Architecture at a glance
-
-- `Game` owns the active `GameMode` and switches modes through reflection.
-- `EntityManager` owns registered entities and their IDs.
-- `BasePlayableGameMode` loads compiled maps for play.
-- `EditorGameMode` owns `Editor`, which edits CSG operation trees and map entities.
-- Editor interactions are reflected `Tool` objects selected through `Editor::SetTool(Tool*)`.
-- `.mpe` files are editable maps; `.map` files are compiled runtime maps.
-- Rendering uses global draw submission helpers and explicit main/overlay layers.
-- Console commands and variables provide much of the current debugging/editor control surface.
-
-## Code style and ownership
 
 The codebase does not yet have one fully consistent style. Preserve the local style when making focused changes, while
 steering new systems toward the object-oriented direction already used by game modes, assets, entities, and editor tools.
@@ -179,4 +141,3 @@ Current broad conventions:
 
 When adding a new reflected class, place it in a header under `EVA/`, add `ECLASS_COMMON()`, ensure its base is publicly
 accessible to reflection, and let EVAGEN regenerate the implementation.
-

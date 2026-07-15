@@ -67,6 +67,7 @@ if (NOT MSVC)
 	target_compile_options(EVA PRIVATE
 		-Wno-nullability-completeness
 		-Wno-deprecated-declarations
+		-Wno-deprecated-enum-compare
 	)
 endif()
 
