@@ -8,6 +8,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_executable(EVA
 	"EVA/App.cpp"
 	"EVA/Core/Arena.cpp"
+	"EVA/Core/Result.cpp"
 	"EVA/Core/Serialization.cpp"
 	"EVA/Core/String.cpp"
 	"EVA/Core/Utils.cpp"
