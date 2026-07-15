@@ -1,4 +1,5 @@
 #pragma once
+#include <EVA/Core/Serialization.hpp>
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/GFX/GraphicsDevice.hpp>
 
@@ -15,6 +16,14 @@ struct EVERSION(3) ShaderPipelineState {
 	bool           depthTest = true;
 };
 EAUTO_SERIALIZE(ShaderPipelineState);
+
+struct EVERSION(3) ShaderAssetSourceData {
+	String              vs            = {};
+	String              fs            = {};
+	Vector<String>      defines       = {};
+	ShaderPipelineState pipelineState = {};
+};
+EAUTO_SERIALIZE(ShaderAssetSourceData);
 
 class Shader : public Asset {
 public:

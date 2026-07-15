@@ -113,7 +113,6 @@ Result Err(const char* fmt, ...) {
 	return Result{ .error = error_string };
 }
 
-
 Allocator Arena::Alloc() {
 	static AllocatorVTable g_arena_allocator_vtable = {
 		.allocate = [](void* arena, size_t size, size_t alignment) -> void* {

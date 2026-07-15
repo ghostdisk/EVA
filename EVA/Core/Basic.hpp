@@ -6,3 +6,4 @@
 #include <EVA/Core/Allocator.hpp>
 #include <EVA/Core/Object.hpp>
 #include <EVA/Core/Result.hpp>
+#include <EVA/Core/Vector.hpp>

@@ -615,6 +615,47 @@ void Deserialize(Deserializer& d, ShaderPipelineState& v3) {
 			Deserialize(d, v3.depthTest);
 			break;
 		}
+		default: {
+			d.res = Err("Deserialize: Unsupported version %d of ShaderPipelineState", version);
+			break;
+		};
+	};
+	d.EndObject();
+}
+void Serialize(Serializer& s, const ShaderAssetSourceData& value) {
+	s.BeginObject();
+	s.Key("version");
+	s.SerializeU32(3);
+	s.Key("vs");
+	Serialize(s, value.vs);
+	s.Key("fs");
+	Serialize(s, value.fs);
+	s.Key("defines");
+	Serialize(s, value.defines);
+	s.Key("pipelineState");
+	Serialize(s, value.pipelineState);
+	s.EndObject();
+}
+void Deserialize(Deserializer& d, ShaderAssetSourceData& v3) {
+	d.BeginObject();
+	d.Key("version");
+	U32 version = d.DeserializeU32();
+	switch (version) {
+		case 3: {
+			d.Key("vs");
+			Deserialize(d, v3.vs);
+			d.Key("fs");
+			Deserialize(d, v3.fs);
+			d.Key("defines");
+			Deserialize(d, v3.defines);
+			d.Key("pipelineState");
+			Deserialize(d, v3.pipelineState);
+			break;
+		}
+		default: {
+			d.res = Err("Deserialize: Unsupported version %d of ShaderAssetSourceData", version);
+			break;
+		};
 	};
 	d.EndObject();
 }

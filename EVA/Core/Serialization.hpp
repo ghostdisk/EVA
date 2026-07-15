@@ -58,6 +58,7 @@ public:
 
 class Deserializer {
 public:
+	Arena* arena = nullptr;
 	Result res = {};
 	virtual bool IsText() const = 0;
 
@@ -142,7 +143,6 @@ public:
 class TextDeserializer : public Deserializer {
 	Result result = {};
 	FILE* in = nullptr;
-	Arena* arena = nullptr;
 
 	struct StackEntry {
 		char type = '\0';
@@ -179,6 +179,15 @@ public:
 	virtual void     DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) override;
 };
 
+struct SerializableBytes {
+	void* data = nullptr;
+	size_t size = 0;
+};
+
+
+// Having Serialize(s, const T&) and Deserialize(d, T&) versions for the primitive types  makes automatic code generation
+// simpler. This way, when [de]serializing fields of a struct, we don't have to care about their type, and can just
+// emit Serialize(s, theStruct.field)
 inline void Serialize(Serializer& s, const U8&     value)  { s.SerializeU8     (value); }
 inline void Serialize(Serializer& s, const U16&    value)  { s.SerializeU16    (value); }
 inline void Serialize(Serializer& s, const U32&    value)  { s.SerializeU32    (value); }
@@ -204,3 +213,25 @@ inline void Deserialize(Deserializer& d, F32&    out_value)  { out_value = d.Des
 inline void Deserialize(Deserializer& d, F64&    out_value)  { out_value = d.DeserializeF64    ();  }
 inline void Deserialize(Deserializer& d, String& out_value)  { out_value = d.DeserializeString ();  }
 inline void Deserialize(Deserializer& d, bool&   out_value)  { out_value = d.DeserializeBool   ();  }
+
+template <typename T>
+inline void Serialize(Serializer& s, const Vector<T>& vec) {
+	s.BeginArray(vec.m_size);
+	for (const T& value : vec) {
+		Serialize(s, value);
+	}
+	s.EndArray();
+}
+
+template <typename T>
+inline void Deserialize(Deserializer& d, Vector<T>& out_vec) {
+	U32 size = d.BeginArray();
+	out_vec.SetSize(size);
+	for (U32 i = 0; i < size; i++) {
+		Deserialize(d, out_vec[i]);
+	}
+	d.EndArray();
+}
+
+void Serialize(Serializer& s, const SerializableBytes& bytes);
+void Deserialize(Deserializer& d, SerializableBytes& bytes);

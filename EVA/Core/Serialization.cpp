@@ -126,7 +126,8 @@ void TextDeserializer::SkipWhitespace() {
 	}
 }
 
-TextDeserializer::TextDeserializer(FILE* in, Arena* arena) : in(in), arena(arena) {
+TextDeserializer::TextDeserializer(FILE* in, Arena* arena) : in(in) {
+	this->arena = arena;
 }
 
 bool TextDeserializer::BeginObject() {
@@ -311,4 +312,12 @@ void TextDeserializer::DeserializeBytes(Allocator allocator, size_t* out_size, v
 
 	*out_size = Base64::Decode(out, size, b64, b64_size);
 	*out_data = out;
+}
+
+void Serialize(Serializer& s, const SerializableBytes& bytes) {
+	s.SerializeBytes(bytes.data, bytes.size);
+}
+
+void Deserialize(Deserializer& d, SerializableBytes& bytes) {
+	d.DeserializeBytes(d.arena->Alloc(), &bytes.size, &bytes.data);
 }

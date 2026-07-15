@@ -11,7 +11,7 @@ void Convert(const ShaderPipelineState_v2& v2, ShaderPipelineState& v3) {
 	v3.cullMode = v2.cullMode;
 }
 
-static Result CompileShaderStage(String name, String stage, const std::vector<String>& defines, void** out_spv, size_t* out_spv_size) {
+static Result CompileShaderStage(String name, String stage, const Vector<String>& defines, void** out_spv, size_t* out_spv_size) {
 	StringBuilder cmdline;
 	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
 	for (String define : defines)
@@ -26,47 +26,47 @@ static Result CompileShaderStage(String name, String stage, const std::vector<St
 }
 
 Result BuildShader(ZTString input_path, ZTString output_path) {
+	Result err = Success();
+
 	FILE* in = fopen(input_path.c_str(), "rb");
 	if (!in) return Err("Failed to open %s", input_path.c_str());
 	DEFER(fclose(in));
 
 	TextDeserializer d(in, FrameArena);
+	ShaderAssetSourceData data;
+	Deserialize(d, data);
 
+	/*
 	d.BeginObject();
-
 	d.Key("version");
 	U32 version = d.DeserializeU8();
 	if (version > 3)
 		return Err("Unexpected version");
-
 	d.Key("vs");
 	String vs_name = d.DeserializeString();
-
 	d.Key("fs");
 	String fs_name = d.DeserializeString();
-
 	d.Key("defines");
 	std::vector<String> defines;
 	defines.resize(d.BeginArray());
-
 	for (int i = 0; i < defines.size(); i++) {
 		defines[i] = d.DeserializeString();
 	}
-
 	d.EndArray();
-
 	ShaderPipelineState ps = {};
 	if (version >= 2) {
 		d.Key("pipelineState");
 		Deserialize(d, ps);
 	}
 	d.EndObject();
+	*/
 
 	void *vs, *fs;
 	size_t vs_size, fs_size;
-	TRY(CompileShaderStage(vs_name, "vertex", defines, &vs, &vs_size));
+
+	TRY(CompileShaderStage(data.vs, "vertex", data.defines, &vs, &vs_size));
 	DEFER(free(vs));
-	TRY(CompileShaderStage(fs_name, "fragment", defines, &fs, &fs_size));
+	TRY(CompileShaderStage(data.fs, "fragment", data.defines, &fs, &fs_size));
 	DEFER(free(fs));
 
 	FILE* out = fopen(output_path, "wb");
@@ -82,7 +82,7 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 	s.Key("fs");
 	s.SerializeBytes(fs, fs_size);
 	s.Key("pipelineState");
-	Serialize(s, ps);
+	Serialize(s, data.pipelineState);
 	s.EndObject();
 
 	return d.res;

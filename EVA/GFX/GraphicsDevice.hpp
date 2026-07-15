@@ -5,29 +5,17 @@
 
 struct SDL_Window;
 
-struct VkBuffer_T;
-struct VkImage_T;
-struct VkImageView_T;
-struct VkSampler_T;
-struct VkShaderModule_T;
-struct VkPipeline_T;
-struct VkPipelineLayout_T;
-struct VkCommandBuffer_T;
-struct VkFence_T;
-struct VkDeviceMemory_T;
-struct VmaAllocation_T;
-
-using VkBuffer         = VkBuffer_T*;
-using VkImage          = VkImage_T*;
-using VkImageView      = VkImageView_T*;
-using VkSampler        = VkSampler_T*;
-using VkShaderModule   = VkShaderModule_T*;
-using VkPipeline       = VkPipeline_T*;
-using VkPipelineLayout = VkPipelineLayout_T*;
-using VkCommandBuffer  = VkCommandBuffer_T*;
-using VkFence          = VkFence_T*;
-using VkDeviceMemory   = VkDeviceMemory_T*;
-using VmaAllocation    = VmaAllocation_T*;
+typedef struct VkBuffer_T*         VkBuffer;
+typedef struct VkImage_T*          VkImage;
+typedef struct VkImageView_T*      VkImageView;
+typedef struct VkSampler_T*        VkSampler;
+typedef struct VkShaderModule_T*   VkShaderModule;
+typedef struct VkPipeline_T*       VkPipeline;
+typedef struct VkPipelineLayout_T* VkPipelineLayout;
+typedef struct VkCommandBuffer_T*  VkCommandBuffer;
+typedef struct VkFence_T*          VkFence;
+typedef struct VkDeviceMemory_T*   VkDeviceMemory;
+typedef struct VmaAllocation_T*    VmaAllocation;
 
 namespace GFX {
 

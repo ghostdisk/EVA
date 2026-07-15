@@ -547,6 +547,11 @@ static void WriteOutput() {
 			fprintf(f, "			break;\n");
 			fprintf(f, "		}\n");
 		}
+
+		fprintf(f, "		default: {\n");
+		fprintf(f, "			d.res = Err(\"Deserialize: Unsupported version %%d of %s\", version);\n", latest->qualifiedName.c_str());
+		fprintf(f, "			break;\n");
+		fprintf(f, "		};\n");
 		fprintf(f, "	};\n");
 
 		fprintf(f, "	d.EndObject();\n");
