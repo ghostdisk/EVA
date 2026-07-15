@@ -379,22 +379,18 @@ Type g_type_EditorGameMode = {
 		return ptr;
 	},
 };
-EnumType g_type_GFX__CullMode = {
+EnumType g_type_GFX__CullMode {
+	"GFX::CullMode",
 	{
-		.name = "GFX::CullMode",
-	},
-	.values = {
 		{ "None", 0 },
 		{ "Front", 1 },
 		{ "Back", 2 },
 		{ "FrontAndBack", 3 },
 	},
 };
-EnumType g_type_GFX__BlendMode = {
+EnumType g_type_GFX__BlendMode {
+	"GFX::BlendMode",
 	{
-		.name = "GFX::BlendMode",
-	},
-	.values = {
 		{ "None", 0 },
 		{ "Solid", 1 },
 		{ "AlphaBlend", 2 },

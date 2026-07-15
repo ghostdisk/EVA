@@ -390,11 +390,9 @@ static void WriteOutput() {
 	for (Type* type : g_typesWeCareAbout) {
 		std::string parent_ref = type->parent && type->parent->isObject ?  ("&g_type_" + type->parent->symbolName) : "nullptr";
 		if (type->isEnum) {
-			fprintf(f, "EnumType g_type_%s = {\n", type->symbolName.c_str());
+			fprintf(f, "EnumType g_type_%s {\n", type->symbolName.c_str());
+			fprintf(f, "\t\"%s\",\n", type->qualifiedName.c_str());
 			fprintf(f, "\t{\n");
-			fprintf(f, "\t\t.name = \"%s\",\n", type->qualifiedName.c_str());
-			fprintf(f, "\t},\n");
-			fprintf(f, "\t.values = {\n");
 			for (const EnumValue& value : type->enumValues)
 				fprintf(f, "\t\t{ \"%s\", %lld },\n", value.string.c_str(), value.value);
 			fprintf(f, "\t},\n");

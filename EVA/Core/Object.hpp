@@ -2,6 +2,7 @@
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/String.hpp>
 #include <EVA/Core/Result.hpp>
+#include <utility>
 #include <vector>
 
 struct Allocator;
@@ -30,6 +31,11 @@ struct EnumValue {
 class EnumType : public Type {
 public:
 	std::vector<EnumValue> values = {};
+
+	EnumType(ZTString name, std::vector<EnumValue> values)
+		: values(std::move(values)) {
+		this->name = name;
+	}
 };
 
 #ifdef EVAGEN
