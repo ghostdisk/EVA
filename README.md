@@ -52,7 +52,7 @@ only the view. The referenced storage must outlive every view.
 `ZTString` extends `String` as a promise that the underlying storage is zero-terminated. It provides `c_str()` and
 conversions to C strings.
 ```cpp
-ZTString temporary = Fmt(FrameArena, "entity_%u", eid);
+ZTString temporary = FrameArena->Fmt("entity_%u", eid);
 UseImmediately(temporary.c_str());
 ```
 
@@ -66,15 +66,15 @@ OS apis - so a lot of our functions return a `ZTString`, which can be used anywh
 
 ### Arena
 
-An `Arena` is a linear allocator. Allocate quickly, then discard all allocations together with `ArenaReset` or
-`ArenaDestroy`; individual allocations cannot be freed.
+An `Arena` is a linear allocator. Allocate quickly, then discard all allocations together with `Reset` or
+`Destroy`; individual allocations cannot be freed.
 
 ```cpp
-Arena* arena = ArenaCreate();
-void* memory = ArenaAllocate(arena, size, alignment);
-ZTString label = Fmt(arena, "%s_%d", base, index);
-ArenaReset(arena);
-ArenaDestroy(arena);
+Arena* arena = Arena::Create();
+void* memory = arena->Allocate(size, alignment);
+ZTString label = arena->Fmt("%s_%d", base, index);
+arena->Reset();
+arena->Destroy();
 ```
 
 `FrameArena` is a global arena that rotates every frame. Memory allocated from it is guarenteed to survive the next 2

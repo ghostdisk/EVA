@@ -9,10 +9,10 @@
 #include <EVA/GFX/Renderer.hpp>
 #include <SDL3/SDL_events.h>
 
-UIBox* UILabel(const char* text, int text_len) {
+UIBox* UILabel(String text) {
 	UIBox* box = UIBeginBox(0);
 	box->layout = &UILayoutMode_Text;
-	box->text = ArenaInternCString(FrameArena, text, text_len);
+	box->text = text.CopyToArena(g_frameArena);
 	box->color = {1,1,1,1};
 	box->font = UI->default_font;
 	UIEndBox();
@@ -28,7 +28,7 @@ UIBox* UISprite(Sprite* sprite, U32 id) {
 	return box;
 }
 
-bool UIButton(const char* text, UIButtonFlags flags) {
+bool UIButton(String text, UIButtonFlags flags) {
 	UIPushId(text);
 	UIBox* button = UIBeginBox(1)->SetPadding(8, 16);
 

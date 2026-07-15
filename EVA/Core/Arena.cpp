@@ -4,70 +4,63 @@
 
 #define ARENA_SIZE (1 << 20u) // 1MB
 
-Arena* FrameArenas[NUM_FRAME_ARENAS] = {};
-Arena* FrameArena = nullptr;
+Arena* g_frameArenas[NUM_FRAME_ARENAS] = {};
+Arena* g_frameArena = nullptr;
+static Arena* g_scratchArena = nullptr;
 
 void ArenaInitialize() {
+	g_scratchArena = Arena::Create();
+
 	for (int i = 0; i < NUM_FRAME_ARENAS; i++) {
-		FrameArenas[i] = ArenaCreate();
+		g_frameArenas[i] = Arena::Create();
 	}
 }
 
-void RotateFrameArenas() {
+void Arena::RotateFrameArenas() {
 	static int k = 0;
 	k++;
 	if (k >= NUM_FRAME_ARENAS) k = 0;
 
-	FrameArena = FrameArenas[k];
-	ArenaReset(FrameArena);
+	g_frameArena = g_frameArenas[k];
+	g_frameArena->Reset();
 }
 
-Arena* ArenaCreate() {
+Arena* Arena::Create() {
 	Arena* arena = new Arena();
-	arena->begin = (U8*)malloc(ARENA_SIZE);
-	arena->head = arena->begin;
-	arena->end = arena->begin + ARENA_SIZE;
+	arena->m_begin = (U8*)malloc(ARENA_SIZE);
+	arena->m_head = arena->m_begin;
+	arena->m_end = arena->m_begin + ARENA_SIZE;
 	return arena;
 }
 
-void ArenaDestroy(Arena* arena) {
-	free(arena->begin);
-	delete arena;
+void Arena::Destroy() {
+	free(m_begin);
+	delete this;
 }
 
-void* ArenaAllocate(Arena* arena, size_t size) {
-	U8* ptr = arena->head;
-	if (size > (arena->end - arena->head)) {
-		Fatal("ArenaAllocate: out of memory");
+void* Arena::Allocate(size_t size) {
+	U8* ptr = m_head;
+	if (size > (m_end - m_head)) {
+		Fatal("Arena::Allocate: out of memory");
 	}
-	arena->head += size;
+	m_head += size;
 	return ptr;
 
 }
 
-void* ArenaAllocate(Arena* arena, size_t size, size_t alignment) {
-	ArenaAlignHead(arena, alignment);
-	return ArenaAllocate(arena, size);
+void* Arena::Allocate(size_t size, size_t alignment) {
+	AlignHead(alignment);
+	return Allocate(size);
 }
 
-void ArenaAlignHead(Arena* arena, size_t alignment) {
-	uintptr_t head = (uintptr_t)arena->head;
+void Arena::AlignHead(size_t alignment) {
+	uintptr_t head = (uintptr_t)m_head;
 	uintptr_t mask = (uintptr_t)alignment - 1;
 	head = (head + mask) & (~mask);
-	arena->head = (U8*)head;
+	m_head = (U8*)head;
 }
 
-char* ArenaInternCString(Arena* arena, const char* cstring, int len) {
-	// TODO: Remove this function.
-	if (len < 0) len = strlen(cstring);
-
-	char* copy = (char*)ArenaAllocate(arena, len + 1);
-	memcpy(copy, cstring, len);
-	copy[len] = '\0';
-	return copy;
-}
-
-ZTString Vfmt(Arena* arena, const char* fmt, va_list args) {
+ZTString Arena::Vfmt(const char* fmt, va_list args) {
 	va_list measure_args;
 	va_copy(measure_args, args);
 	char dummy_buffer[1];
@@ -78,7 +71,7 @@ ZTString Vfmt(Arena* arena, const char* fmt, va_list args) {
 		return {};
 	}
 
-	U8* buffer = (U8*)ArenaAllocate(arena, length + 1);
+	U8* buffer = (U8*)Allocate(length + 1);
 	if (buffer) {
 		va_list write_args;
 		va_copy(write_args, args);
@@ -89,26 +82,45 @@ ZTString Vfmt(Arena* arena, const char* fmt, va_list args) {
 	return ZTString(String(buffer, length));
 }
 
-ZTString Fmt(Arena* arena, const char* fmt, ...) {
+ZTString Arena::Fmt(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	ZTString result = Vfmt(arena, fmt, args);
+	ZTString result = Vfmt(fmt, args);
 	va_end(args);
 	return result;
 }
 
-void ArenaReset(Arena* arena) {
-	arena->head = arena->begin;
+void Arena::Reset() {
+	m_head = m_begin;
 }
 
-Allocator Arena::Alloc() {
-	static AllocatorVTable g_arena_allocator_vtable = {
-		.allocate = [](void* arena, size_t size, size_t alignment) -> void* {
-			return ArenaAllocate((Arena*)arena, size, alignment);
-		},
+ArenaResetPoint Arena::GetResetPoint() {
+	return ArenaResetPoint{
+		.head = m_head,
 	};
-	return Allocator{
-		.userdata = this,
-		.vtable = &g_arena_allocator_vtable,
-	};
+}
+
+void Arena::Reset(ArenaResetPoint resetPoint) {
+	m_head = resetPoint.head;
+}
+
+ScratchArena::ScratchArena() {
+	m_arena = g_scratchArena;
+	m_resetPoint = m_arena->GetResetPoint();
+}
+
+ScratchArena::~ScratchArena() {
+	m_arena->Reset(m_resetPoint);
+}
+
+ScratchArena::operator Arena*() {
+	return m_arena;
+}
+
+Arena* ScratchArena::operator->() {
+	return m_arena;
+}
+
+Arena* ScratchArena::operator*() {
+	return m_arena;
 }

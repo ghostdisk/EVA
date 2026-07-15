@@ -3,8 +3,8 @@
 #include <EVA/Input.hpp>
 #include <EVA/UI.hpp>
 #include <EVA/Platform.hpp>
-#include <string>
 #include <stdarg.h>
+#include <stdio.h>
 
 struct ConCommand {
 	const char* name;
@@ -13,7 +13,7 @@ struct ConCommand {
 };
 
 static Vector<char>        g_console_input   = {};
-static Vector<std::string> g_console_log     = {};
+static Vector<ZTString>    g_console_log     = {};
 static Vector<ConCommand>  g_commands        = {};
 static Vector<ConVar*>     g_cvars           = {};
 static bool                     console_open      = false;
@@ -32,8 +32,9 @@ Result Con_clear(ConParser& parser) {
 }
 
 Result Con_exec(ConParser& parser) {
+	ScratchArena scratch;
 	char path[256];
-	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, parser.StringArg());
+	snprintf(path, 256, "%s/%s", EVA_BASE_DIR, parser.StringArg(scratch).c_str());
 
 	char* data = nullptr;
 	ReadEntireFile(path, (void**)&data, nullptr);
@@ -60,16 +61,18 @@ ConVar* ConGetVar(const char* name) {
 }
 
 void ConLog(const char* fmt, ...) {
+	ScratchArena scratch;
 	va_list args;
 	va_start(args, fmt);
-	ZTString str = Vfmt(FrameArena, fmt, args);
+	ZTString str = scratch->Vfmt(fmt, args);
 	va_end(args);
 	g_console_log.push_back(str.c_str());
 }
 
 void ConError(Result err) {
-	assert(!err);
-	g_console_log.push_back(Fmt(FrameArena, "error: %s", err.error->c_str()).c_str());
+	assert(err.error);
+	ScratchArena scratch;
+	g_console_log.push_back(scratch->Fmt("error: %s", err.error->c_str()).CopyToHeap());
 }
 
 static bool ConSkipSpace(ConParser& parser) {
@@ -89,31 +92,32 @@ static bool ConSkipComment(ConParser& parser) {
 	return true;
 }
 
-const char* ConParser::StringArg() {
+ZTString ConParser::StringArg(Arena* arena) {
 	ConSkipSpace(*this);
-	if (ConSkipComment(*this)) return nullptr;
+	if (ConSkipComment(*this)) return {};
 
-	if (*head == '\n' || *head == '\r' || *head == '\r') return nullptr;
+	if (*head == '\n' || *head == '\r' || *head == '\r') return {};
 
-	const char* start = head;
+	U8* start = head;
 	while ((*head > ' ' && *head <= '~')) {
 		head++;
 	}
-	return *start ? ArenaInternCString(FrameArena, start, head - start) : nullptr;
+	return *start ? (String((U8*)start, head - start).CopyToArena(arena)) : ZTString();
 }
 
-const char* ConParser::RestArgs() {
+const char* ConParser::RestArgs(Arena* arena) {
 	ConSkipSpace(*this);
 
-	const char* start = head;
+	U8* start = head;
 	while (*head != '#' && *head != '\n' && *head != '\r' && *head != '\0') {
 		head++;
 	}
-	return ArenaInternCString(FrameArena, start, head - start);
+	return String(start, head - start).CopyToArena(arena);
 }
 
 float ConParser::FloatArg(float fallback) {
-	const char* s = StringArg();
+	ScratchArena scratch;
+	const char* s = StringArg(scratch);
 	if (!s) return fallback;
 
 	char* endptr = 0;
@@ -123,7 +127,8 @@ float ConParser::FloatArg(float fallback) {
 }
 
 int ConParser::IntArg(int fallback) {
-	const char* s = StringArg();
+	ScratchArena scratch;
+	const char* s = StringArg(scratch);
 	if (!s) return fallback;
 
 	char* endptr = 0;
@@ -132,17 +137,18 @@ int ConParser::IntArg(int fallback) {
 	else return fallback;
 }
 
-Result ConExec(const char* script, int button) {
+Result ConExec(String script, int button) {
 	ConParser parser;
-	parser.start = script;
-	parser.end = script + strlen(script);
-	parser.head = script;
+	parser.start  = script.data;
+	parser.end    = script.data + script.size;
+	parser.head   = script.data;
 	parser.button = button;
 	return ConExec(parser);
 }
 
 Result ConExecSingle(ConParser& parser) {
-	const char* cmd = parser.StringArg();
+	ScratchArena scratch;
+	const char* cmd = parser.StringArg(scratch);
 	if (!cmd) {
 		ConSkipLine(parser);
 		return Success();
@@ -158,7 +164,8 @@ Result ConExecSingle(ConParser& parser) {
 
 	ConVar* cvar = ConGetVar(cmd);
 	if (cvar) {
-		const char* value = parser.StringArg();
+		ScratchArena scratch;
+		const char* value = parser.StringArg(scratch);
 		if (value) {
 			snprintf(cvar->svalue, sizeof(cvar->svalue), "%s", value);
 			char* endptr = 0;
@@ -240,7 +247,7 @@ void ConsoleDraw() {
 				->SetGap(4)
 				->SetPadding(4);
 
-			for (const std::string& msg : g_console_log) {
+			for (ZTString msg : g_console_log) {
 				UILabel(msg.c_str());
 			}
 
@@ -272,7 +279,7 @@ void ConsoleDraw() {
 
 		if (InputGetButtonDown(SCANCODE_ESCAPE)) console_open = false;
 		if (submit) {
-			ConExec(ArenaInternCString(FrameArena, g_console_input.data(), g_console_input.size()));
+			ConExec(String(g_console_input.data(), g_console_input.size()));
 			g_console_input.clear();
 		}
 	}

@@ -3,16 +3,16 @@
 #include <EVA/Core/Basic.hpp>
 
 struct ConParser {
-	const char* start;
-	const char* end;
-	const char* head;
+	U8* start = nullptr;
+	U8* end = nullptr;
+	U8* head = nullptr;
 
 	int button = 0; // which button triggered this action, optional
 
-	const char* StringArg();
+	ZTString StringArg(Arena* arena);
 	float FloatArg(float fallback = 0.0f);
 	int IntArg(int fallback);
-	const char* RestArgs();
+	const char* RestArgs(Arena* arena);
 };
 
 struct ConVar {
@@ -24,7 +24,7 @@ struct ConVar {
 };
 
 Result  ConExec(ConParser& parser);
-Result  ConExec(const char* script, int button = 0);
+Result  ConExec(String, int button = 0);
 void    ConLog(const char* fmt, ...);
 void    ConError(Result res);
 ConVar* ConGetVar(const char* name);

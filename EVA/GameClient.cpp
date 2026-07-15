@@ -8,8 +8,9 @@
 #include <stdio.h>
 
 Result Con_connect(ConParser& parser) {
-	const char* address = parser.StringArg();
-	if (!address || !address[0]) return Err("usage: connect ip:port");
+	ScratchArena scratch;
+	const char* address = parser.StringArg(scratch);
+	if (!address) return Err("usage: connect ip:port");
 
 	int a, b, c, d, port;
 	if (sscanf(address, "%d.%d.%d.%d:%d", &a, &b, &c, &d, &port) != 5)

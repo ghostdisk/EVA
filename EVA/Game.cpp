@@ -57,22 +57,15 @@ Result Con_tp(ConParser& parser) {
 }
 
 Result Con_map(ConParser& parser) {
-	const char* map_name = parser.StringArg();
+	ScratchArena scratch;
+	ZTString map_name = parser.StringArg(scratch);
 
 	GameMode* gm = GameMode::GetCurrent();
-	if (gm) return gm->LoadMap(map_name);
-	else return Err("no active gamemode");
-
-	// if (g_app_mode == AppMode_Editor) {
-	// 	char ed_load_cmd_buf[64];
-	// 	snprintf(ed_load_cmd_buf, 64, "ed_load %s", map_name);
-	// 	return ConExec(ed_load_cmd_buf);
-	// } else {
-	// 	if (!g_active_game)
-	// 		ConExec("game 0");
-	// 	g_active_game->LoadMap(map_name);
-	// }
-	return Success();
+	if (gm) {
+		return gm->LoadMap(map_name);
+	} else {
+		return Err("no active gamemode");
+	}
 }
 
 void GameInitialize() {

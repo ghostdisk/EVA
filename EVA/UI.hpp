@@ -129,7 +129,7 @@ void UIContextInit(UIContext& ui, Font* default_font);
 UIBox* UIBeginBox(U32 id = 0, int data_size = 0, const void* data_default = nullptr);
 void UIEndBox();
 U32  UIPushId(U32 id);
-U32  UIPushId(const char* str);
+U32  UIPushId(String text);
 U32  UIPushId(const void* ptr);
 void UIPopId();
 void UIBeginFrame();
@@ -152,8 +152,8 @@ enum UIButtonFlagBits : U32 {
 };
 typedef U32 UIButtonFlags;
 
-bool UIButton(const char* text, UIButtonFlags flags = 0);
-UIBox* UILabel(const char* text, int text_len = -1);
+bool UIButton(String text, UIButtonFlags flags = 0);
+UIBox* UILabel(String string);
 UIBox* UISprite(Sprite* sprite, U32 id = 0);
 
 enum UITreeNodeFlagBits : U32 {

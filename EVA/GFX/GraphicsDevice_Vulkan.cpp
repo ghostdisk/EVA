@@ -982,6 +982,8 @@ Result GraphicsDevice_Vulkan::CreateFence(bool signaled, VkFence* out_fence) {
 }
 
 GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
+	ScratchArena scratch;
+
 	VkBufferUsageFlags usage = 0;
 	if (desc.usage & GPUBufferUsage_TransferSource) usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	if (desc.usage & GPUBufferUsage_TransferDest) usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -1020,7 +1022,7 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 		return nullptr;
 	}
 	if (desc.name.size)
-		vmaSetAllocationName(m_allocator, buffer->m_vmaAllocation, desc.name.CopyToArena(FrameArena));
+		vmaSetAllocationName(m_allocator, buffer->m_vmaAllocation, desc.name.CopyToArena(scratch));
 
 	buffer->m_size = desc.size;
 	buffer->m_mapped = allocationInfo.pMappedData;
@@ -1056,6 +1058,8 @@ void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
 }
 
 Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
+	ScratchArena scratch;
+
 	VkImageCreateInfo imageCreateInfo{
 		.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType     = VK_IMAGE_TYPE_2D,
@@ -1083,7 +1087,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 			return nullptr;
 		}
 		if (desc.name.size)
-			vmaSetAllocationName(m_allocator, vmaAllocation, desc.name.CopyToArena(FrameArena));
+			vmaSetAllocationName(m_allocator, vmaAllocation, desc.name.CopyToArena(scratch));
 	}
 
 	Image* image = new Image();

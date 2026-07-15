@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Core/String.hpp>
 
-struct Arena;
+class Arena;
 
 #define TRY(expr) \
 	do { \

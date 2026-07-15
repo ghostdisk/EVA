@@ -293,6 +293,7 @@ bool TextDeserializer::DeserializeBool() {
 }
 
 void TextDeserializer::DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) {
+	ScratchArena scratch;
 	*out_size = 0;
 	*out_data = nullptr;
 
@@ -305,7 +306,7 @@ void TextDeserializer::DeserializeBytes(Allocator allocator, size_t* out_size, v
 	}
 
 	U64 b64_size = Base64::GetEncodedBufferSize(size);
-	U8* b64 = (U8*)ArenaAllocate(FrameArena, b64_size);
+	U8* b64 = (U8*)scratch->Allocate(b64_size);
 	fread(b64, b64_size, 1, in);
 
 	void* out = allocator.Allocate(size, 1);
@@ -319,5 +320,5 @@ void Serialize(Serializer& s, const SerializableBytes& bytes) {
 }
 
 void Deserialize(Deserializer& d, SerializableBytes& bytes) {
-	d.DeserializeBytes(d.arena->Alloc(), &bytes.size, &bytes.data);
+	d.DeserializeBytes(d.arena, &bytes.size, &bytes.data);
 }

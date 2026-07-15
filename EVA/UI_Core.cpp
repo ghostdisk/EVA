@@ -99,8 +99,8 @@ U32 UIPushId(U32 id) {
 	return UI->id_stack.back();
 }
 
-U32 UIPushId(const char* str) {
-	return UIPushId(HashBytes(str, strlen(str)));
+U32 UIPushId(String text) {
+	return UIPushId(HashBytes(text.data, text.size));
 }
 
 U32 UIPushId(const void* ptr) {

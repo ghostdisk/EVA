@@ -2,6 +2,7 @@
 #include <EVA/Core/Common.hpp>
 
 struct AllocatorVTable;
+class Arena;
 
 struct Allocator {
 	using AllocateProc  = void* (*)(void* userdata, size_t size, size_t alignment);
@@ -15,6 +16,9 @@ struct Allocator {
 	inline void  FreeSized(void* ptr, size_t size);
 
 	static Allocator HeapAllocator;
+
+	Allocator(void* userdata, AllocatorVTable* vtable);
+	Allocator(Arena* arena);
 };
 
 struct AllocatorVTable {

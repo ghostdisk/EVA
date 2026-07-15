@@ -55,7 +55,7 @@ ZTString ReadBinString(BinaryReader& reader, Arena* arena, int max_size) {
 		reader.ok = false;
 		return {};
 	}
-	str.data = (U8*)ArenaAllocate(arena, str.size + 1);
+	str.data = (U8*)arena->Allocate(str.size + 1);
 	ReadBinBytes(reader, str.data, str.size);
 	if (!reader.ok) {
 		return {};

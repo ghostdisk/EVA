@@ -1,32 +1,52 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
-#include <EVA/Core/Allocator.hpp>
 
 #define NUM_FRAME_ARENAS 3
 
+class Arena;
 struct String;
 struct ZTString;
 
-struct Arena {
-	U8* begin = nullptr;
-	U8* end   = nullptr;
-	U8* head  = nullptr;
+// later on we'll probably add multiple blocks for arenas, and this will keep track of the block we're resetting to as well,
+// that's why we're not just working with head directly.
+struct ArenaResetPoint {
+	U8*    head  = nullptr;
+};
 
-	Allocator Alloc();
+class Arena {
+public:
+	U8* m_begin = nullptr;
+	U8* m_end   = nullptr;
+	U8* m_head  = nullptr;
+
+	static Arena* Create();
+	static void RotateFrameArenas();
+
+	void Destroy();
+	void* Allocate(size_t size);
+	void* Allocate(size_t size, size_t alignment);
+	void AlignHead(size_t alignment);
+
+	ZTString Fmt(const char* fmt, ...);
+	ZTString Vfmt(const char* fmt, va_list args);
+
+	ArenaResetPoint GetResetPoint();
+	void Reset();
+	void Reset(ArenaResetPoint resetPoint);
+};
+
+class ScratchArena {
+	ArenaResetPoint m_resetPoint;
+	Arena* m_arena;
+public:
+	ScratchArena();
+	~ScratchArena();
+	operator Arena*();
+	Arena* operator->();
+	Arena* operator*();
 };
 
 void ArenaInitialize();
-Arena* ArenaCreate();
-void ArenaDestroy(Arena* arena);
-void* ArenaAllocate(Arena* arena, size_t size);
-void* ArenaAllocate(Arena* arena, size_t size, size_t alignment);
-void ArenaAlignHead(Arena* arena, size_t alignment);
-void ArenaReset(Arena* arena);
-void RotateFrameArenas();
 
-char* ArenaInternCString(Arena* arena, const char* cstring, int len = -1); // TODO: Remove this
-ZTString Fmt(Arena* arena, const char* fmt, ...);
-ZTString Vfmt(Arena* arena, const char* fmt, va_list args);
-
-extern Arena* FrameArenas[NUM_FRAME_ARENAS];
-extern Arena* FrameArena; // TODO: Add a scratch arena and check most use-cases - a lot of them should be scratchbuffers instead.
+extern Arena* g_frameArenas[NUM_FRAME_ARENAS];
+extern Arena* g_frameArena;

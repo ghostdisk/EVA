@@ -46,15 +46,16 @@ Type* MapExtensionToType(String ext) {
 
 void BuildAssets(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
+		ScratchArena scratch;
 		String ext = FS::GetExtension(stat.filename);
 		String path_wo_ext = FS::WithoutExtension(stat.full_path);
 
 		if (ext == ".gltf" || ext == ".glb") {
 			Model* model = new Model();
 			BuildGLTF(model, stat.full_path);
-			model->SaveToDisk(Fmt(FrameArena, "%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
+			model->SaveToDisk(scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
 		} else if (ext == ".shader") {
-			Result res = BuildShader(stat.full_path, Fmt(FrameArena, "%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
+			Result res = BuildShader(stat.full_path, scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
 			if (!res) Fatal("Failed to build %s: %s", stat.full_path.c_str(), res.error->c_str());
 		}
 	});
@@ -62,6 +63,8 @@ void BuildAssets(String dir) {
 
 void LoadAssetsFromDir(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
+		ScratchArena scratch;
+
 		Type* asset_type = MapExtensionToType(FS::GetExtension(stat.filename));
 		if (!asset_type) return;
 
@@ -77,7 +80,7 @@ void LoadAssetsFromDir(String dir) {
 		}
 		DEFER(fclose(f));
 
-		ZTString meta_path = Fmt(FrameArena, "%.*s.meta", STRING_PRINTF_ARGS(stat.full_path));
+		ZTString meta_path = scratch->Fmt("%.*s.meta", STRING_PRINTF_ARGS(stat.full_path));
 		void* meta = nullptr;
 		size_t meta_size = 0;
 
@@ -109,8 +112,9 @@ void LoadAssetsFromDir(String dir) {
 }
 
 void AssetsLoad() {
-	String root = Fmt(FrameArena, "%s/Assets", EVA_BASE_DIR);
-	 BuildAssets(root);
+	ScratchArena scratch;
+	String root = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
+	BuildAssets(root);
 	LoadAssetsFromDir(root);
 }
 

@@ -1261,10 +1261,11 @@ void EdInitialize() {
 	}, "editor: increase/decrease grid size");
 
 	ConRegisterCommand("ed_save", [](ConParser& parser) {
+		ScratchArena scratch;
 		Editor* ed;
 		TRY(GetEditor(&ed));
 
-		const char* name = parser.StringArg();
+		const char* name = parser.StringArg(scratch);
 		if (!name) name = ed->m_loadedMapName;
 		if (!name[0]) return Err("no map opened");
 

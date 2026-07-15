@@ -4,12 +4,14 @@
 void StringBuilder::Push(String str) {
 	size_t start = buffer.size();
 	buffer.resize(buffer.size() + str.size);
+	memcpy(buffer.data() + start, str.data, str.size);
 }
 
 void StringBuilder::Push(const char* fmt, ...) {
+	ScratchArena scratch;
 	va_list args;
 	va_start(args, fmt);
-	String s = Vfmt(FrameArena, fmt, args);
+	String s = scratch->Vfmt(fmt, args);
 	Push(s);
 	va_end(args);
 }
@@ -20,7 +22,7 @@ ZTString StringBuilder::Build() {
 }
 
 ZTString String::CopyToArena(Arena* arena) const {
-	U8* copy = (U8*)ArenaAllocate(arena, size + 1);
+	U8* copy = (U8*)arena->Allocate(size + 1);
 	memcpy(copy, data, size);
 	copy[size] = '\0';
 	return ZTString(copy, size);

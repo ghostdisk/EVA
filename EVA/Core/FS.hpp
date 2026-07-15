@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 
-struct Arena;
+class Arena;
 
 namespace FS {
 

@@ -28,12 +28,13 @@ static Result CompileShaderStage(String name, String stage, const Vector<String>
 
 Result BuildShader(ZTString input_path, ZTString output_path) {
 	Result err = Success();
+	ScratchArena scratch;
 
 	FILE* in = fopen(input_path.c_str(), "rb");
 	if (!in) return Err("Failed to open %s", input_path.c_str());
 	DEFER(fclose(in));
 
-	TextDeserializer d(in, FrameArena);
+	TextDeserializer d(in, scratch);
 	ShaderAssetSourceData data;
 	Deserialize(d, data);
 
@@ -54,7 +55,8 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 }
 
 Result Shader::LoadImpl(FILE* f) {
-	TextDeserializer d(f, FrameArena);
+	ScratchArena scratch;
+	TextDeserializer d(f, scratch);
 
 	ShaderAssetCompiledData data;
 	Deserialize(d, data);

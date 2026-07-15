@@ -11,7 +11,7 @@ U16* StringToUTF16(Arena* arena, String string, size_t* out_len) {
 	if (src_len > 0)
 		wide_len = MultiByteToWideChar(CP_UTF8, 0, (LPCCH)string.data, src_len, nullptr, 0);
 
-	U16* out = (U16*)ArenaAllocate(arena, (wide_len + 1) * sizeof(U16), alignof(U16));
+	U16* out = (U16*)arena->Allocate((wide_len + 1) * sizeof(U16), alignof(U16));
 	if (wide_len > 0) 
 		MultiByteToWideChar(CP_UTF8, 0, (LPCCH)string.data, src_len, (LPWSTR)out, wide_len);
 	out[wide_len] = 0;
@@ -28,7 +28,7 @@ ZTString UTF16ToString(Arena* arena, U16* string, int len) {
 		byte_len = WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)string, len, nullptr, 0, nullptr, nullptr);
 	}
 
-	char* out = (char*)ArenaAllocate(arena, byte_len + 1);
+	char* out = (char*)arena->Allocate(byte_len + 1);
 	if (byte_len > 0) {
 		WideCharToMultiByte(CP_UTF8, 0, (LPCWCH)string, len, out, byte_len, nullptr, nullptr);
 	}
@@ -41,12 +41,12 @@ ZTString UTF16ToString(Arena* arena, U16* string, int len) {
 namespace FS {
 
 void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& stat, void* userdata)) {
-	Arena* arena = FrameArena;
+	ScratchArena scratch;
 
 	size_t path_units = 0;
-	U16*   path_w     = StringToUTF16(arena, path, &path_units);
+	U16*   path_w     = StringToUTF16(scratch, path, &path_units);
 
-	U16* pattern = (U16*)ArenaAllocate(arena, (path_units + 3) * sizeof(U16), alignof(U16));
+	U16* pattern = (U16*)scratch->Allocate((path_units + 3) * sizeof(U16), alignof(U16));
 	memcpy(pattern, path_w, path_units * sizeof(U16));
 	pattern[path_units + 0] = L'\\';
 	pattern[path_units + 1] = L'*';
@@ -59,8 +59,8 @@ void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& sta
 	do {
 		if (fd.cFileName[0] == '.') continue;
 
-		ZTString filename  = UTF16ToString(arena, (U16*)fd.cFileName, -1);
-		ZTString full_path = Fmt(arena, "%.*s/%s", STRING_PRINTF_ARGS(path), filename.c_str());
+		ZTString filename  = UTF16ToString(scratch, (U16*)fd.cFileName, -1);
+		ZTString full_path = scratch->Fmt("%.*s/%s", STRING_PRINTF_ARGS(path), filename.c_str());
 
 		Stat stat        = {};
 		stat.filename     = filename;
@@ -75,12 +75,13 @@ void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& sta
 }
 
 Result ExecProcess(String cmdline) {
+	ScratchArena scratch;
 	STARTUPINFOW startup_info{
 		.cb = sizeof(startup_info),
 	};
 	PROCESS_INFORMATION process_info{};
-	if (!CreateProcessW(nullptr, (LPWSTR)StringToUTF16(FrameArena, cmdline, nullptr), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup_info, &process_info)) {
-		return Err("ExecProcess: CreateProcessW failed (%lu)", GetLastError());
+	if (!CreateProcessW(nullptr, (LPWSTR)StringToUTF16(scratch, cmdline, nullptr), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup_info, &process_info)) {
+		return Err("ExecProcess: CreateProcessW failed (command line: %.*s, error code: %lu)", STRING_PRINTF_ARGS(cmdline), GetLastError());
 	}
 	DEFER(CloseHandle(process_info.hThread));
 	DEFER(CloseHandle(process_info.hProcess));
@@ -110,4 +111,3 @@ Result ExecProcess(String cmdline) {
 	__debugbreak();
 	exit(1);
 }
-

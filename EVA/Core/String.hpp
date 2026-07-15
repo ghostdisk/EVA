@@ -4,7 +4,7 @@
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
 
-struct Arena;
+class Arena;
 struct String;
 struct ZTString;
 struct StringBuilder;

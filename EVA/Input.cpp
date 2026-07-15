@@ -120,9 +120,10 @@ static const ButtonNameMapEntry button_names[] = {
 };
 
 Result Con_hold(ConParser& parser) {
+	ScratchArena scratch;
 	if (!parser.button) return Err("hold can only be called from a response to bind (e.g. bind w hold forward)");
 
-	const char* cvar_name = parser.StringArg();
+	ZTString cvar_name = parser.StringArg(scratch);
 	if (cvar_name) {
 		ConVar* cvar = ConGetVar(cvar_name);
 		if (cvar) {
@@ -140,14 +141,16 @@ Result Con_hold(ConParser& parser) {
 }
 
 Result Con_bind(ConParser& parser) {
-	const char* button = parser.StringArg();
-	const char* cmd = parser.RestArgs();
+	ScratchArena scratch;
+
+	ZTString button = parser.StringArg(scratch);
+	ZTString cmd = parser.RestArgs(scratch);
 
 	bool ctrl = false;
 	bool shift = false;
-	for (const char* c = button; *c; c++) {
+	for (const char* c = button.c_str(); *c; c++) {
 		if (*c == '-') {
-			for (const char* f = button; f < c; f++) {
+			for (const char* f = button.c_str(); f < c; f++) {
 				if (*f == 's') shift = true;
 				if (*f == 'c') ctrl = true;
 			}
@@ -159,7 +162,7 @@ Result Con_bind(ConParser& parser) {
 		if (strcmp(entry.name, button) == 0) {
 			g_keybinds.push_back({
 				.button = entry.button,
-				.command = strdup(cmd),
+				.command = cmd.CopyToHeap(),
 				.ctrl = ctrl,
 				.shift = shift,
 			});

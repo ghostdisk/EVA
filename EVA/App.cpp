@@ -46,7 +46,7 @@ float  g_screen_log_stagger = 0.0f;
 void ScreenLog(const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
-	char* copy = strdup(Vfmt(FrameArena, fmt, args).c_str());
+	char* copy = strdup(g_frameArena->Vfmt(fmt, args).c_str());
 	va_end(args);
 	g_screen_log_stagger = 2.0f;
 
@@ -68,7 +68,7 @@ void QueueForNextFrame(void (*callback)(void* userdata), void* userdata) {
 
 Result RunProgram() {
 	ArenaInitialize();
-	RotateFrameArenas();
+	Arena::RotateFrameArenas();
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();
@@ -94,7 +94,7 @@ Result RunProgram() {
 	ConExec("exec autoexec.cfg");
 
 	while (!g_quit) {
-		RotateFrameArenas();
+		Arena::RotateFrameArenas();
 		PlatformBeginFrame();
 
 		InputBeginFrame();
