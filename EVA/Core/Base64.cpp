@@ -45,12 +45,12 @@ void Encode(U8* outBuffer, const void* _inBuffer, size_t inBufferSize) {
 
 		outBuffer[out_idx + 0] = g_alphabet[(ab & 0b11111100'00000000) >> 10];
 		outBuffer[out_idx + 1] = g_alphabet[(ab & 0b00000011'11110000) >> 4];
-		outBuffer[out_idx + 2] = g_alphabet[(ab & 0b00000000'00001111)];
+		outBuffer[out_idx + 2] = g_alphabet[(ab & 0b00000000'00001111) << 2];
 		outBuffer[out_idx + 3] = '=';
 	} else if (rem == 1) {
 		U8 a = inBuffer[in_idx];
 		outBuffer[out_idx + 0] = g_alphabet[(a & 0b111100) >> 2];
-		outBuffer[out_idx + 1] = g_alphabet[(a & 0b000011)];
+		outBuffer[out_idx + 1] = g_alphabet[(a & 0b000011) << 4];
 		outBuffer[out_idx + 2] = '=';
 		outBuffer[out_idx + 3] = '=';
 	}
