@@ -125,7 +125,7 @@ void UIEndTreeList() {
 
 // @CONSTRUCTOR_NOT_CALLED
 struct TextEdit {
-	std::vector<char>* buffer;
+	Vector<char>* buffer;
 	int    cursor;
 
 	void FixCursor() {
@@ -162,7 +162,7 @@ struct TextEdit {
 	}
 };
 
-UIBox* UITextInput(std::vector<char>& buffer) {
+UIBox* UITextInput(Vector<char>& buffer) {
 	UIBox* box = UIBeginBox(1, sizeof(TextEdit))
 		->SetPadding(4);
 

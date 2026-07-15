@@ -5,6 +5,7 @@
 #include <EVA/Platform.hpp>
 #include <EVA/GFX/Renderer.hpp>
 #include <EVA/UI.hpp>
+#include <float.h>
 
 EntityTool::EntityTool() {
 	m_name = "Entity";

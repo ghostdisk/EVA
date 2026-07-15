@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Math.hpp>
-#include <vector>
 
 struct UIContext;
 struct UIBox;
@@ -116,9 +115,9 @@ struct UIBox {
 
 struct UIContext {
 	Font*               default_font     = nullptr;
-	std::vector<UIBox*> all_boxes        = {};
-	std::vector<U32>    id_stack         = {};
-	std::vector<UIBox*> box_stack        = {};
+	Vector<UIBox*>      all_boxes        = {};
+	Vector<U32>         id_stack         = {};
+	Vector<UIBox*>      box_stack        = {};
 	UIBox               root             = {};
 	U32                 pressed_id       = {};
 	UIBox*              focus_box        = nullptr;
@@ -172,6 +171,6 @@ void UIFocus(UIBox* box);
 bool UIProcessSDLEvent(SDL_Event* event);
 bool UICapturesMouse();
 
-UIBox* UITextInput(std::vector<char>& buffer);
+UIBox* UITextInput(Vector<char>& buffer);
 
 extern UIContext* UI; // the current context

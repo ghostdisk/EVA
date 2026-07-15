@@ -1,6 +1,5 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
-#include <vector>
 
 class Mesh;
 
@@ -8,7 +7,7 @@ class Model : public Asset {
 public:
 	ECLASS_COMMON()
 
-	std::vector<Mesh*> meshes;
+	Vector<Mesh*> meshes;
 
 	virtual Result LoadImpl(FILE* f) override;
 

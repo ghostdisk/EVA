@@ -4,7 +4,6 @@
 #include <EVA/UI.hpp>
 #include <EVA/Platform.hpp>
 #include <string>
-#include <vector>
 #include <stdarg.h>
 
 struct ConCommand {
@@ -13,10 +12,10 @@ struct ConCommand {
 	const char* help;
 };
 
-static std::vector<char>        g_console_input   = {};
-static std::vector<std::string> g_console_log     = {};
-static std::vector<ConCommand>  g_commands        = {};
-static std::vector<ConVar*>     g_cvars           = {};
+static Vector<char>        g_console_input   = {};
+static Vector<std::string> g_console_log     = {};
+static Vector<ConCommand>  g_commands        = {};
+static Vector<ConVar*>     g_cvars           = {};
 static bool                     console_open      = false;
 
 Result Con_help(ConParser& parser) {

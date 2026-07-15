@@ -4,7 +4,6 @@
 #include <SDL3/SDL.h>
 #include <EVA/Console.hpp>
 #include <EVA/Math.hpp>
-#include <vector>
 
 struct InputButtonState {
 	int  button        = 0;
@@ -34,9 +33,9 @@ struct Hold {
 float2 g_mouse_position = {};
 float2 g_mouse_delta    = {};
 
-static std::vector<InputButtonState>   g_button_states  = {};
-static std::vector<Keybind>            g_keybinds       = {};
-static std::vector<Hold>               g_holds          = {};
+static Vector<InputButtonState>   g_button_states  = {};
+static Vector<Keybind>            g_keybinds       = {};
+static Vector<Hold>               g_holds          = {};
 
 ConVar cvar_forward = { .name = "forward", .fvalue = 0 };
 ConVar cvar_right   = { .name = "right",   .fvalue = 0 };
@@ -265,7 +264,7 @@ bool InputProcessSDLEvent(SDL_Event* event) {
 }
 
 void InputUpdateAxes() {
-	std::vector<int> consumed_buttons = {};
+	Vector<int> consumed_buttons = {};
 
 	auto is_consumed = [&](int key) {
 		for (int k : consumed_buttons) if (key == k) return true;

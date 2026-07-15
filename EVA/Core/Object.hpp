@@ -2,8 +2,8 @@
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/String.hpp>
 #include <EVA/Core/Result.hpp>
+#include <EVA/Core/Vector.hpp>
 #include <utility>
-#include <vector>
 
 struct Allocator;
 class Object;
@@ -17,7 +17,7 @@ class Type {
 public:
 	ZTString           name        = {};
 	Type*              parent_type = nullptr;
-	std::vector<Type*> subclasses  = {};
+	Vector<Type*>      subclasses  = {};
 
 	void* (*Instantiate)(Allocator allocator) = nullptr;
 	static Type* Find(String name);
@@ -30,9 +30,9 @@ struct EnumValue {
 
 class EnumType : public Type {
 public:
-	std::vector<EnumValue> values = {};
+	Vector<EnumValue> values = {};
 
-	EnumType(ZTString name, std::vector<EnumValue> values)
+	EnumType(ZTString name, Vector<EnumValue> values)
 		: values(std::move(values)) {
 		this->name = name;
 	}

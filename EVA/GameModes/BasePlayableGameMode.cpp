@@ -5,7 +5,6 @@
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/EntityManager.hpp>
 #include <stdio.h>
-#include <vector>
 
 void BasePlayableGameMode::OnBegin() {
 	m_camera = new ECamera();

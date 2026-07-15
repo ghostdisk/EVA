@@ -2,7 +2,6 @@
 #include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
 #include <EVA/Core/Common.hpp>
 #include <SDL3/SDL_vulkan.h>
-#include <vector>
 #include <algorithm>
 
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
@@ -28,7 +27,7 @@ namespace GFX {
 static bool HasInstanceLayer(String name) {
 	U32 count = 0;
 	vkEnumerateInstanceLayerProperties(&count, nullptr);
-	std::vector<VkLayerProperties> layers(count);
+	Vector<VkLayerProperties> layers(count);
 	vkEnumerateInstanceLayerProperties(&count, layers.data());
 	for (const VkLayerProperties& layer : layers)
 		if (name == layer.layerName)
@@ -262,7 +261,7 @@ static I64 ScorePhysicalDevice(VkPhysicalDevice physicalDevice, U32* outGraphics
 
 	U32 queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+	Vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
 	U32 graphicsFamily = UINT32_MAX;
 	for (U32 i = 0; i < queueFamilyCount; i++) {
@@ -390,7 +389,7 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 		return Err("Vulkan surface has no supported formats");
 	}
 
-	std::vector<VkSurfaceFormatKHR> formats(formatCount);
+	Vector<VkSurfaceFormatKHR> formats(formatCount);
 	VK_TRY(vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &formatCount, formats.data()));
 	VkSurfaceFormatKHR surfaceFormat = formats[0];
 	for (const VkSurfaceFormatKHR& format : formats) {
@@ -422,7 +421,7 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 	VK_TRY(vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapchain));
 	VK_TRY(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, nullptr));
 
-	std::vector<VkImage> images(imageCount);
+	Vector<VkImage> images(imageCount);
 	VK_TRY(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, images.data()));
 
 	Format swapchainFormat = FromVkFormat(surfaceFormat.format);
@@ -467,10 +466,10 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 		U32 instanceExtensionCount = 0;
 		const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&instanceExtensionCount);
 		if (!sdlExtensions) return Err("SDL_Vulkan_GetInstanceExtensions: %s", SDL_GetError());
-		std::vector<const char*> instance_extensions(sdlExtensions, sdlExtensions + instanceExtensionCount);
+		Vector<const char*> instance_extensions(sdlExtensions, sdlExtensions + instanceExtensionCount);
 
 		const char* validationLayer = "VK_LAYER_KHRONOS_validation";
-		std::vector<const char*> layers;
+		Vector<const char*> layers;
 		if (desc.enableDebug && HasInstanceLayer(validationLayer)) layers.push_back(validationLayer);
 
 		VkApplicationInfo applicationInfo{
@@ -504,7 +503,7 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 		VK_TRY(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr));
 		if (physicalDeviceCount == 0) return Err("No Vulkan physical devices found");
 
-		std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+		Vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
 		VK_TRY(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices.data()));
 		I64 bestScore = -1;
 		for (VkPhysicalDevice physicalDevice : physicalDevices) {

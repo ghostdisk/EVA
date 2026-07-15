@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
+#include <EVA/Core/Vector.hpp>
 #include <string.h>
-#include <vector>
 
 #define STRING_PRINTF_ARGS(str) (int)(str).size, (const char*)(str).data
 
@@ -64,7 +64,7 @@ struct ZTString : String {
 };
 
 struct StringBuilder {
-	std::vector<U8> buffer;
+	Vector<U8> buffer;
 
 	void Push(String str);
 	void Push(const char* fmt, ...);

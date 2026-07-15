@@ -1,6 +1,5 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
-#include <vector>
 
 struct Arena;
 struct String;
@@ -14,7 +13,7 @@ struct BinaryReader {
 };
 
 struct BinaryWriter {
-	std::vector<U8> data;
+	Vector<U8> data;
 };
 
 inline void BinaryReaderInit(BinaryReader& reader, const U8* data, size_t size) {

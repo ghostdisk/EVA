@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <stdio.h>
-#include <vector>
 
 /**
  ** Example usage - serialize an object to { "foo": { "a": 3, "b": 5, "c": [100,200,300] } }
@@ -104,7 +103,7 @@ class TextSerializer : public Serializer {
 		bool has_some = false;
 	};
 
-	std::vector<StackEntry> stack;
+	Vector<StackEntry> stack;
 	FILE* m_out = nullptr;
 
 	void WriteNewLine();
@@ -148,7 +147,7 @@ class TextDeserializer : public Deserializer {
 		char type = '\0';
 	};
 
-	std::vector<StackEntry> stack;
+	Vector<StackEntry> stack;
 
 	void NextValue();
 

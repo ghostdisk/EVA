@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/Net.hpp>
 #include <EVA/Game.hpp>
-#include <vector>
 
 struct ECharacter;
 
@@ -13,7 +12,7 @@ struct GameServerPlayer {
 struct GameServer {
 	Game*                          game        = nullptr;
 	ENetHost*                      host        = 0;
-	std::vector<GameServerPlayer*> players     = {};
+	Vector<GameServerPlayer*>      players     = {};
 	EID                            next_eid    = EID_SyncedStart;
 
 	EID NewEID();

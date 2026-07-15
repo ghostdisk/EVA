@@ -4,7 +4,6 @@
 #include <EVA/Core/Hashing.hpp>
 #include <EVA/Math.hpp>
 #include <EVA/Entities/Entity.hpp> // TODO: EntityType
-#include <vector>
 
 class Entity;
 class EntityManager;
@@ -37,12 +36,12 @@ enum EdOpType {
 struct EdOp {
 	EdOp*                  parent           = nullptr;
 	EdOpType               type             = EdOpType_None;
-	std::vector<CSGBrush*> built            = {};
+	Vector<CSGBrush*> built            = {};
 	bool                   subtract         = false;
 	float3                 position         = {};
 	float4x4               global_transform = {};
 
-	std::vector<EdOp*>     children = {};      // for EdOpType_Stack
+	Vector<EdOp*>     children = {};      // for EdOpType_Stack
 	CSGBrush*              brush    = nullptr; // for EdOpType_Brush
 };
 
@@ -79,9 +78,9 @@ public:
 	EdGizmoState             m_newHoverGizmoState = {};
 	EID                      m_nextEID           = EID_MapStart;
 	EdOp*                    m_root              = nullptr;
-	std::vector<EdSelection> m_selection         = {};
+	Vector<EdSelection> m_selection         = {};
 	char                     m_loadedMapName[64] = {};
-	std::vector<Tool*>       m_tools             = {};
+	Vector<Tool*>       m_tools             = {};
 	Tool*                    m_tool              = nullptr;
 
 	void Tick(double dt);
@@ -97,7 +96,7 @@ public:
 	bool ShouldSnap() const;
 	bool IsSelected(EdOp* op) const;
 	bool IsSelected(Entity* entity) const;
-	std::vector<EdOp*> GetSelectedOps() const;
+	Vector<EdOp*> GetSelectedOps() const;
 	Entity* CreateEntity(Type* type, float3 pos);
 	void DestroyEntity(Entity* entity);
 	void OrderMove(int offset);

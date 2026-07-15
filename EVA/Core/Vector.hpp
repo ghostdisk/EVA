@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
+#include <initializer_list>
 #include <new>
 
 template <typename T>
@@ -11,6 +12,17 @@ public:
 
 	Vector() {
 	}
+
+
+	Vector(const T* data, U32 size) {
+		resize(size);
+		for (U32 i = 0; i < size; i++) {
+			m_data[i] = data[i];
+		}
+	}
+
+	Vector(std::initializer_list<T> list) : Vector(list.data(), list.size()) {}
+	Vector(const T* begin, const T* end) : Vector(begin, (U32)(end - begin)) {}
 
 	Vector(size_t size) {
 		resize(size);
@@ -54,6 +66,69 @@ public:
 		}
 		new (m_data + m_size) T(value);
 		m_size++;
+	}
+
+	T* erase(const T* position) {
+		assert(position >= begin() && position < end());
+		U32 index = (U32)(position - begin());
+
+		m_data[index].~T();
+		for (U32 i = index; i + 1 < m_size; i++) {
+			new (m_data + i) T(static_cast<T&&>(m_data[i + 1]));
+			m_data[i + 1].~T();
+		}
+		m_size--;
+		return m_data + index;
+	}
+
+	T* insert(const T* position, const T& value) {
+		T copy(value);
+		return insert(position, static_cast<T&&>(copy));
+	}
+
+	T* insert(const T* position, T&& value) {
+		assert((m_size == 0 && position == begin()) || (position >= begin() && position <= end()));
+		U32 index = m_size == 0 ? 0 : (U32)(position - begin());
+		T movedValue(static_cast<T&&>(value));
+
+		if (m_size == m_capacity) {
+			set_capacity(m_capacity == 0 ? 8 : m_capacity * 2);
+		}
+		for (U32 i = m_size; i > index; i--) {
+			new (m_data + i) T(static_cast<T&&>(m_data[i - 1]));
+			m_data[i - 1].~T();
+		}
+		new (m_data + index) T(static_cast<T&&>(movedValue));
+		m_size++;
+		return m_data + index;
+	}
+
+	T* insert(const T* position, const T* first, const T* last) {
+		assert((m_size == 0 && position == begin()) || (position >= begin() && position <= end()));
+		assert(first <= last);
+		U32 index = m_size == 0 ? 0 : (U32)(position - begin());
+
+		Vector<T> values;
+		for (const T* it = first; it != last; it++) {
+			values.push_back(*it);
+		}
+		if (values.empty()) return m_data + index;
+
+		U32 requiredCapacity = m_size + values.m_size;
+		if (requiredCapacity > m_capacity) {
+			U32 newCapacity = m_capacity == 0 ? 8 : m_capacity;
+			while (newCapacity < requiredCapacity) newCapacity *= 2;
+			set_capacity(newCapacity);
+		}
+		for (U32 i = m_size; i > index; i--) {
+			new (m_data + i - 1 + values.m_size) T(static_cast<T&&>(m_data[i - 1]));
+			m_data[i - 1].~T();
+		}
+		for (U32 i = 0; i < values.m_size; i++) {
+			new (m_data + index + i) T(static_cast<T&&>(values[i]));
+		}
+		m_size += values.m_size;
+		return m_data + index;
 	}
 
 	T pop_back() {
@@ -147,12 +222,26 @@ public:
 		return m_data;
 	}
 
-	size_t size() {
+	size_t size() const {
 		return m_size;
 	}
 
-	size_t capacity() {
+	size_t capacity() const {
 		return m_size;
+	}
+
+	bool empty() const {
+		return m_size == 0;
+	}
+
+	T& back() {
+		assert(m_size > 0);
+		return m_data[m_size - 1];
+	}
+
+	const T& back() const {
+		assert(m_size > 0);
+		return m_data[m_size - 1];
 	}
 
 private:

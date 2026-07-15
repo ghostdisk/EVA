@@ -150,9 +150,9 @@ bool Editor::IsSelected(Entity* entity) const {
 	return false;
 }
 
-std::vector<EdOp*> Editor::GetSelectedOps() const {
+Vector<EdOp*> Editor::GetSelectedOps() const {
 	if (m_selection.size() == 0 || m_selection[0].type != EdSelectionType_Node) return {};
-	std::vector<EdOp*> selection;
+	Vector<EdOp*> selection;
 	for (const EdSelection& sel : m_selection) {
 		assert(sel.type == EdSelectionType_Node);
 		assert(!selection.size() || selection[0]->parent == sel.op->parent);
@@ -265,7 +265,7 @@ int EdGetSiblingIndex(EdOp* op) {
 }
 
 void Editor::OrderMove(int offset) {
-	std::vector<EdOp*> selection = GetSelectedOps();
+	Vector<EdOp*> selection = GetSelectedOps();
 	if (selection.size() == 0) return;
 
 	EdOp* parent = selection[0]->parent;
@@ -293,7 +293,7 @@ void EdOpAddChild(EdOp* parent, EdOp* child, int idx = -1) {
 	child->parent = parent;
 }
 
-EdOp* EdGroup(std::vector<EdOp*> ops) {
+EdOp* EdGroup(Vector<EdOp*> ops) {
 	if (ops.size() == 0) return nullptr;
 	if (ops.size() == 1) return ops[0];
 
@@ -323,7 +323,7 @@ void EdUngroup(EdOp* group) {
 	EdOp* parent = group->parent;
 	int idx = EdGetSiblingIndex(group);
 
-	std::vector<EdOp*> ops = std::move(group->children);
+	Vector<EdOp*> ops = std::move(group->children);
 	group->children	 = {};
 	for (EdOp* child : ops) {
 		child->parent = group->parent;
@@ -355,7 +355,7 @@ void Editor::Build(EdOp* op) {
 				child->global_transform = child_transform * op->global_transform;
 				Build(child);
 				for (CSGBrush* b : child->built) {
-					std::vector<CSGBrush*> new_set;
+					Vector<CSGBrush*> new_set;
 					for (CSGBrush* a : op->built) {
 						int old_size = new_set.size();
 						CSGDifference(a, b, new_set);
@@ -720,7 +720,7 @@ void SelectTool::Tick(double dt) {
 	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 	bool dirty = false;
 
-	std::vector<EdOp*> selected_ops = {};
+	Vector<EdOp*> selected_ops = {};
 	for (const EdSelection& sel : ed->m_selection) {
 		if (sel.type == EdSelectionType_Node) {
 			if (sel.op->type == EdOpType_Brush) {
@@ -1312,8 +1312,8 @@ Result Editor::CompileMap() {
 	fprintf(f, "type map\n");
 	fprintf(f, "version 1\n");
 
-	std::vector<MeshVertex> mesh_vertices;
-	std::vector<U32> mesh_indices;
+	Vector<MeshVertex> mesh_vertices;
+	Vector<U32> mesh_indices;
 
 	for (CSGBrush* brush : m_root->built) {
 		for (const CSGPlane& plane : brush->planes) {
@@ -1449,7 +1449,7 @@ void EdInitialize() {
 	ConRegisterCommand("ed_clone", [](ConParser& parser) {
 		Editor* ed;
 		TRY(GetEditor(&ed));
-		std::vector<EdOp*> selection = ed->GetSelectedOps();
+		Vector<EdOp*> selection = ed->GetSelectedOps();
 		ed->Deselect();
 		for (EdOp* orig : selection)
 		{

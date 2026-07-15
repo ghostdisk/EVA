@@ -2,14 +2,15 @@
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Core/Allocator.hpp>
 #include <EVA/Entities/Entity.hpp>
-#include <vector>
+
+typedef struct _iobuf FILE;
 
 class EntityManager {
 public:
 	Game*                game                = nullptr;
-	std::vector<Entity*> entities            = {};
-	std::vector<Entity*> update_list         = {};
-	std::vector<Entity*> fixed_update_list   = {};
+	Vector<Entity*> entities            = {};
+	Vector<Entity*> update_list         = {};
+	Vector<Entity*> fixed_update_list   = {};
 
 	template <typename F> // TODO: remove this
 	void Iterate(F&& callback) {

@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Math.hpp>
-#include <vector>
 
 class Mesh;
 struct CSGPlane;
@@ -10,14 +9,14 @@ struct UIContext;
 struct EdOp;
 
 struct CSGPlane {
-	Plane               plane   = {};
-	std::vector<float3> points  = {};
+	Plane          plane   = {};
+	Vector<float3> points  = {};
 };
 
 struct CSGBrush {
-	std::vector<CSGPlane> planes  = {};
-	Mesh*                 mesh    = nullptr;
-	AABB                  aabb    = {};
+	Vector<CSGPlane>   planes  = {};
+	Mesh*              mesh    = nullptr;
+	AABB               aabb    = {};
 
 	// userdata
 	EdOp* sources[2] = {};
@@ -28,7 +27,7 @@ void        CSGDestroyBrush(CSGBrush* brush);
 void        CSGBuildBrushMesh(CSGBrush* brush);
 void        CSGBuildBrush(CSGBrush* brush);
 CSGBrush*   CSGCloneBrush(CSGBrush* orig);
-void        CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out);
+void        CSGDifference(CSGBrush* a, CSGBrush* b, Vector<CSGBrush*>& out);
 void        CSGBrushTransform(CSGBrush* brush, const float4x4& transform);
 
 CSGBrush*   CSGCreateCube(float3 size);

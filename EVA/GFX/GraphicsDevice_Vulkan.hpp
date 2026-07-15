@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/GFX/GraphicsDevice.hpp>
 #include <volk.h>
-#include <vector>
 
 typedef struct VmaAllocator_T* VmaAllocator;
 
@@ -55,8 +54,8 @@ private:
 	CommandBuffer_Vulkan*      m_mainCommandBuffer              = nullptr;
 	CommandBuffer_Vulkan*      m_transferCommandBuffer          = nullptr;
 	bool                       m_frameCommandBuffersBegun       = false;
-	std::vector<Image*>        m_swapchainImages                = {};
-	std::vector<VkSemaphore>   m_renderDoneSemaphores           = {};
+	Vector<Image*>        m_swapchainImages                = {};
+	Vector<VkSemaphore>   m_renderDoneSemaphores           = {};
 	U32                        m_swapchainImageIndex            = 0;
 	VkFence                    m_frameFence                     = nullptr;
 	bool                       m_needsNewSwapchain              = true;

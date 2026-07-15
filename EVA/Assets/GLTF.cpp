@@ -6,7 +6,6 @@
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Mesh.hpp>
-#include <vector>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>

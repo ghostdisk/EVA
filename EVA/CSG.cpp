@@ -202,7 +202,7 @@ CSGBrush* CSGIntersect(CSGBrush* a, CSGBrush* b) {
 }
 
 // Takes ownership of a. b is left intact.
-void CSGDifference(CSGBrush* a, CSGBrush* b, std::vector<CSGBrush*>& out) {
+void CSGDifference(CSGBrush* a, CSGBrush* b, Vector<CSGBrush*>& out) {
 	if (!Intersect(a->aabb, b->aabb)) {
 		out.push_back(a);
 		return;

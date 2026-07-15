@@ -10,7 +10,6 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Library.hpp>
 #include <EVA/Console.hpp>
-#include <vector>
 #include <tracy/Tracy.hpp>
 
 // ------------------------------------------------------------
@@ -35,9 +34,9 @@ enum DrawCommandType {
 };
 
 struct LayerData {
-	std::vector<LineVertex> lines;
-	std::vector<DrawMeshEntry> meshes;
-	std::vector<DrawQuadRecord> quads;
+	Vector<LineVertex> lines;
+	Vector<DrawMeshEntry> meshes;
+	Vector<DrawQuadRecord> quads;
 };
 
 struct MainConstantBuffer {
@@ -380,7 +379,7 @@ void RenderFrame() {
 
 		// render quads:
 		{
-			std::vector<DrawQuad> quads(current_layer->quads.size());
+			Vector<DrawQuad> quads(current_layer->quads.size());
 			for (int i = 0; i < current_layer->quads.size(); i++) {
 				DrawQuadRecord& record = current_layer->quads[i];
 				quads[i] = DrawQuad{

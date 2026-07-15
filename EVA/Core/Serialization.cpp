@@ -266,7 +266,7 @@ ZTString TextDeserializer::DeserializeString() {
 	if (fgetc(in) != '"')
 		SetError(Err("syntax error at DeserializeString"));
 
-	std::vector<U8> buffer;
+	Vector<U8> buffer;
 	for (;;) {
 		int c = (int)fgetc(in);
 		if (c == '"') break;

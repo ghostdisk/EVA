@@ -38,8 +38,8 @@ struct NextFrameCallback {
 
 // ------------------------------------------------------------
 
-static std::vector<NextFrameCallback> g_next_frame_callbacks;
-static std::vector<ScreenLogEntry>    g_screen_logs;
+static Vector<NextFrameCallback> g_next_frame_callbacks;
+static Vector<ScreenLogEntry>    g_screen_logs;
 float  g_screen_log_stagger = 0.0f;
 
 // ------------------------------------------------------------

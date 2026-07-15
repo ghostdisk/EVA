@@ -6,6 +6,7 @@
 #include <EVA/Input.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/UI.hpp>
+#include <float.h>
 
 SelectTool::SelectTool() {
 	m_name = "Select";
@@ -18,7 +19,7 @@ void SelectTool::Tick(double dt) {
 	Ray mouse_ray = CameraScreenToRay(*ed->m_camera, g_mouse_position);
 	bool dirty = false;
 
-	std::vector<EdOp*> selected_ops = {};
+	Vector<EdOp*> selected_ops = {};
 	for (const EdSelection& sel : ed->m_selection) {
 		if (sel.type == EdSelectionType_Node) {
 			if (sel.op->type == EdOpType_Brush) {

@@ -5,6 +5,7 @@
 #include <EVA/Game.hpp>
 #include <EVA/Console.hpp>
 #include <enet/enet.h>
+#include <stdio.h>
 
 Result Con_connect(ConParser& parser) {
 	const char* address = parser.StringArg();

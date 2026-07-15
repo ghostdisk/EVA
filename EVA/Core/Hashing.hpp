@@ -1,6 +1,5 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
-#include <vector>
 
 struct Hash {
 	U32 hash = 0;
@@ -15,7 +14,7 @@ struct Hash {
 };
 
 struct HashStack {
-	std::vector<U32> stack;
+	Vector<U32> stack;
 
 	void Reset();
 	U32 Push(Hash hash);

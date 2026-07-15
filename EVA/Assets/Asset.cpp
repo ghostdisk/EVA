@@ -12,11 +12,10 @@
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/EditorMap.hpp>
 #include <stdio.h>
-#include <vector>
 
-static std::vector<Asset*> assets_old = { nullptr };
-static std::vector<Asset*> g_assets = { };
-static std::vector<U32> free_ids = {};
+static Vector<Asset*> assets_old = { nullptr };
+static Vector<Asset*> g_assets = { };
+static Vector<U32> free_ids = {};
 
 void AssetsSkipToId(U32 id) {
 	if (assets_old.size() > id) Fatal("AssetsSkipToId: we're already past that.");

@@ -1,7 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Math.hpp>
-#include <vector>
 
 struct SDL_Window;
 
@@ -23,15 +22,14 @@ template <typename T>
 class BindlessPool {
 	U32                 m_nextIndex  = 0;
 	U32                 m_capacity   = 0;
-	std::vector<T>      m_values     = {};
-	std::vector<U32>    m_freeList   = {};
+	Vector<T>      m_values     = {};
+	Vector<U32>    m_freeList   = {};
 
 public:
 	void Init(U32 newCapacity) {
 		m_nextIndex = 0;
 		m_capacity = newCapacity;
 		m_freeList.clear();
-		m_freeList.reserve(newCapacity);
 		m_values.resize(newCapacity);
 	}
 
