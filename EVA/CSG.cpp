@@ -154,8 +154,8 @@ void CSGBuildBrushMesh(CSGBrush* brush) {
 	ZoneScopedN("CSGBuildBrushMesh");
 	CSGDestroyBrushMesh(brush);
 
-	std::vector<MeshVertex> vertices;
-	std::vector<U32> indices;
+	Vector<MeshVertex> vertices;
+	Vector<U32> indices;
 
 	for (int i = 0; i < brush->planes.size(); i++) {
 		CSGPlane& plane = brush->planes[i];

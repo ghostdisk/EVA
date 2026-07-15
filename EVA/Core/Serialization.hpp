@@ -226,7 +226,7 @@ inline void Serialize(Serializer& s, const Vector<T>& vec) {
 template <typename T>
 inline void Deserialize(Deserializer& d, Vector<T>& out_vec) {
 	U32 size = d.BeginArray();
-	out_vec.SetSize(size);
+	out_vec.resize(size);
 	for (U32 i = 0; i < size; i++) {
 		Deserialize(d, out_vec[i]);
 	}

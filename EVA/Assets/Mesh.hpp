@@ -23,8 +23,8 @@ public:
 	Material*     default_material = nullptr;
 
 	// cpu data:
-	std::vector<MeshVertex> vertices;
-	std::vector<U32>        indices;
+	Vector<MeshVertex> vertices;
+	Vector<U32>        indices;
 
 	// gpu data, initialized by Upload()
 	GFX::GPUBuffer* vertex_buffer = nullptr;

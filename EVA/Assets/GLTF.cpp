@@ -64,11 +64,11 @@ Result BuildGLTF(Model* model, ZTString path) {
 		}
 		if (!attr_pos || !primitive.indices) return Err("Invalid gltf");
 
-		std::vector<MeshVertex> vertices(attr_pos->data->count);
+		Vector<MeshVertex> vertices(attr_pos->data->count);
 
-		std::vector<float3> pos(attr_pos->data->count);
-		std::vector<float3> nrm(attr_pos->data->count);
-		std::vector<float2> uv0(attr_pos->data->count);
+		Vector<float3> pos(attr_pos->data->count);
+		Vector<float3> nrm(attr_pos->data->count);
+		Vector<float2> uv0(attr_pos->data->count);
 
 		if (1       ) cgltf_accessor_unpack_floats(attr_pos->data, (float*)pos.data(), pos.size() * 3);
 		if (attr_nrm) cgltf_accessor_unpack_floats(attr_nrm->data, (float*)nrm.data(), nrm.size() * 3);
@@ -80,7 +80,7 @@ Result BuildGLTF(Model* model, ZTString path) {
 			vertices[i].texcoord = uv0[i];
 		}
 
-		std::vector<U32> indices(primitive.indices->count);
+		Vector<U32> indices(primitive.indices->count);
 		cgltf_accessor_unpack_indices(primitive.indices, indices.data(), 4, indices.size());
 
 		/*

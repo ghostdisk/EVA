@@ -46,7 +46,7 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	n = fscanf(f, "vertices %d", &num_vertices);
 	assert(n == 1);
 
-	std::vector<MeshVertex> vertices(num_vertices);
+	Vector<MeshVertex> vertices(num_vertices);
 	for (int i = 0; i < num_vertices; i++) {
 		MeshVertex& vert = vertices[i];
 		vert.texcoord = {};
@@ -58,7 +58,7 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	n = fscanf(f, "\nindices %d", &num_indices);
 	assert(n == 1);
 
-	std::vector<U32> indices(num_indices);
+	Vector<U32> indices(num_indices);
 	for (int i = 0; i < num_indices; i++) {
 		n = fscanf(f, "%u", &indices[i]);
 		assert(n == 1);

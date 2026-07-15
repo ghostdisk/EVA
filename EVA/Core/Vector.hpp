@@ -12,31 +12,58 @@ public:
 	Vector() {
 	}
 
+	Vector(size_t size) {
+		resize(size);
+	}
+
 	Vector(const Vector& other) {
-		CopyFrom(other);
+		copy_from(other);
 	}
 
 	Vector(Vector&& other) {
-		MoveFrom(static_cast<Vector&&>(other));
+		move_from(static_cast<Vector&&>(other));
 	}
 
 	void operator=(const Vector& other) {
 		assert(this != &other);
-		Destroy();
-		CopyFrom(other);
+		destroy();
+		copy_from(other);
 	}
 
 	void operator=(Vector&& other) {
 		assert(this != &other);
-		Destroy();
-		MoveFrom(static_cast<Vector&&>(other));
+		destroy();
+		move_from(static_cast<Vector&&>(other));
 	}
 
 	~Vector() {
-		Destroy();
+		destroy();
 	}
 
-	void SetCapacity(U32 newCapacity) {
+	void push_back(T&& value) {
+		if (m_size == m_capacity) {
+			set_capacity(m_capacity == 0 ? 8 : m_capacity * 2);
+		}
+		new (m_data + m_size) T(static_cast<T&&>(value));
+		m_size++;
+	}
+
+	void push_back(const T& value) {
+		if (m_size == m_capacity) {
+			set_capacity(m_capacity == 0 ? 8 : m_capacity * 2);
+		}
+		new (m_data + m_size) T(value);
+		m_size++;
+	}
+
+	T pop_back() {
+		assert(m_size > 0);
+		T value = std::move(m_data[m_size - 1]);
+		m_size--;
+		return value;
+	}
+
+	void set_capacity(U32 newCapacity) {
 		U32 oldCapacity = m_capacity;
 		U32 oldSize = m_size;
 		T* oldData = m_data;
@@ -60,10 +87,10 @@ public:
 		m_capacity = newCapacity;
 	}
 
-	void SetSize(U32 newSize) {
+	void resize(U32 newSize) {
 		U32 oldSize = m_size;
 		if (m_capacity < newSize) {
-			SetCapacity(newSize);
+			set_capacity(newSize);
 		}
 
 		for (U32 i = oldSize; i < newSize; i++) {
@@ -72,15 +99,15 @@ public:
 		m_size = newSize;
 	}
 
-	void Clear() {
+	void clear() {
 		for (U32 i = 0; i < m_size; i++) {
 			m_data[i].~T();
 		}
 		m_size = 0;
 	}
 
-	void Destroy() {
-		Clear();
+	void destroy() {
+		clear();
 		if (m_data) {
 			free(m_data);
 			m_data = 0;
@@ -112,8 +139,24 @@ public:
 		return m_data + m_size;
 	}
 
+	T* data() {
+		return m_data;
+	}
+
+	const T* data() const {
+		return m_data;
+	}
+
+	size_t size() {
+		return m_size;
+	}
+
+	size_t capacity() {
+		return m_size;
+	}
+
 private:
-	void MoveFrom(Vector&& other) {
+	void move_from(Vector&& other) {
 		assert(!m_data);
 		m_data     = other.m_data;
 		m_capacity = other.m_capacity;
@@ -123,10 +166,10 @@ private:
 		other.m_size     = 0;
 	}
 
-	void CopyFrom(const Vector& other) {
+	void copy_from(const Vector& other) {
 		assert(!m_data);
 
-		SetCapacity(other.m_size);
+		set_capacity(other.m_size);
 		m_size = other.m_size;
 
 		for (U32 i = 0; i < m_size; i++) {
