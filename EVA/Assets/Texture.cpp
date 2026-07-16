@@ -6,7 +6,7 @@
 #include <Vendor/stb_image.h>
 
 Texture::Texture() {
-	m_sampler = GraphicsDevice::Get()->GetSampler((U32)StandardSampler::TrilinearWrap);
+	m_sampler = GPUDevice::Get()->GetSampler((U32)StandardSampler::TrilinearWrap);
 }
 
 void Texture::LoadMetaImpl(Deserializer& d) {
@@ -33,7 +33,7 @@ void Texture::LoadMetaImpl(Deserializer& d) {
 		samplerIdx = d.DeserializeU32();
 	}
 
-	m_sampler = GraphicsDevice::Get()->GetSampler(samplerIdx);
+	m_sampler = GPUDevice::Get()->GetSampler(samplerIdx);
 	d.EndObject();
 }
 
@@ -54,11 +54,11 @@ Result Texture::LoadImpl(FILE* f) {
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 
-	Upload(width, height, pixels, Format::RGBA8_SRGB);
+	Upload(width, height, pixels, GPUFormat::RGBA8_SRGB);
 	return Success();
 }
 
-void Texture::Upload(int width, int height, const U8* pixels, Format format) {
+void Texture::Upload(int width, int height, const U8* pixels, GPUFormat format) {
 	this->width = width;
 	this->height = height;
 
@@ -71,17 +71,17 @@ void Texture::Upload(int width, int height, const U8* pixels, Format format) {
 	// 	}
 	// }
 
-	GraphicsDevice* device = GraphicsDevice::Get();
+	GPUDevice* device = GPUDevice::Get();
 	image = device->CreateImage({
 		.name         = "texture image",
 		.width        = (U32)width,
 		.height       = (U32)height,
 		.mipCount     = mipCount,
 		.format       = format,
-		.usage        = ImageUsage_TransferSource | ImageUsage_TransferDest | ImageUsage_Sampled,
-		.initialState = ImageState::Undefined,
+		.usage        = GPUImageUsage_TransferSource | GPUImageUsage_TransferDest | GPUImageUsage_Sampled,
+		.initialState = GPUImageState::Undefined,
 		.bindless     = true,
 	});
-	device->UploadImage(image, (U64)width * height * (format == Format::R8_UNORM ? 1 : 4), pixels);
+	device->UploadImage(image, (U64)width * height * (format == GPUFormat::R8_UNORM ? 1 : 4), pixels);
 
 }

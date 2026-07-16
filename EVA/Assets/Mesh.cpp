@@ -86,24 +86,24 @@ void Mesh::Upload(bool keep_cpu_data) {
 	index_count = indices.size();
 	vertex_count = vertices.size();
 
-	GraphicsDevice* device = GraphicsDevice::Get();
+	GPUDevice* device = GPUDevice::Get();
 	U64 vertexDataSize = sizeof(MeshVertex) * vertex_count;
-	vertex_buffer = device->CreateGPUBuffer({
+	vertex_buffer = device->CreateBuffer({
 		.name = "vertex buffer",
 		.size = vertexDataSize,
 		.usage = GPUBufferUsage_TransferDest | GPUBufferUsage_StorageBuffer,
-		.memoryUsage = MemoryUsage::GPUOnly,
+		.memoryUsage = GPUMemoryUsage::GPUOnly,
 		.bindless = true,
 	});
 	device->UploadBuffer(vertex_buffer, vertexDataSize, 0, vertices.data());
 
 	if (index_count) {
 		U64 indexDataSize = sizeof(U32) * index_count;
-		index_buffer = device->CreateGPUBuffer({
+		index_buffer = device->CreateBuffer({
 			.name = "index buffer",
 			.size = indexDataSize,
 			.usage = GPUBufferUsage_TransferDest | GPUBufferUsage_IndexBuffer,
-			.memoryUsage = MemoryUsage::GPUOnly,
+			.memoryUsage = GPUMemoryUsage::GPUOnly,
 		});
 		device->UploadBuffer(index_buffer, indexDataSize, 0, indices.data());
 	}
@@ -115,9 +115,9 @@ void Mesh::Upload(bool keep_cpu_data) {
 }
 
 void Mesh::Deinit() {
-	GraphicsDevice* device = GraphicsDevice::Get();
-	if (vertex_buffer) device->DestroyGPUBuffer(vertex_buffer);
-	if (index_buffer) device->DestroyGPUBuffer(index_buffer);
+	GPUDevice* device = GPUDevice::Get();
+	if (vertex_buffer) device->DestroyBuffer(vertex_buffer);
+	if (index_buffer) device->DestroyBuffer(index_buffer);
 	vertex_buffer = nullptr;
 	index_buffer = nullptr;
 }

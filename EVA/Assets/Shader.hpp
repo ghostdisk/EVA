@@ -1,18 +1,18 @@
 #pragma once
 #include <EVA/Core/Serialization.hpp>
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GPUDevice.hpp>
 
 struct EVERSION(1, ShaderPipelineState) ShaderPipelineState_v1 {
-	CullMode  cullMode  = CullMode::Back;
+	GPUCullMode  cullMode  = GPUCullMode::Back;
 };
 struct EVERSION(2, ShaderPipelineState) ShaderPipelineState_v2 {
-	CullMode  cullMode  = CullMode::Back;
-	BlendMode blendMode = BlendMode::Solid;
+	GPUCullMode  cullMode  = GPUCullMode::Back;
+	GPUBlendMode blendMode = GPUBlendMode::Solid;
 };
 struct EVERSION(3) ShaderPipelineState {
-	CullMode  cullMode  = CullMode::Back;
-	BlendMode blendMode = BlendMode::Solid;
+	GPUCullMode  cullMode  = GPUCullMode::Back;
+	GPUBlendMode blendMode = GPUBlendMode::Solid;
 	bool           depthTest = true;
 };
 EAUTO_SERIALIZE(ShaderPipelineState);
@@ -35,7 +35,7 @@ EAUTO_SERIALIZE(ShaderAssetCompiledData);
 class Shader : public Asset {
 public:
 	ECLASS_COMMON();
-	GraphicsPipeline* m_pipeline       = nullptr;
+	GPUGraphicsPipeline* m_pipeline       = nullptr;
 
 	virtual Result LoadImpl(FILE* f) override;
 };

@@ -1,6 +1,6 @@
 #include <EVA/App.hpp>
 #include <EVA/Core/Basic.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GPUDevice.hpp>
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
 #include <EVA/Input.hpp>
@@ -73,8 +73,8 @@ Result RunProgram() {
 	NetInitialize();
 	ConsoleInitialize();
 
-	TRY(GraphicsDevice::Create({
-		.api = GraphicsAPI::Vulkan,
+	TRY(GPUDevice::Create({
+		.backend = GPUBackend::Vulkan,
 		.window = g_game_window,
 	}));
 
@@ -137,16 +137,16 @@ Result RunProgram() {
 			}
 		}
 
-		if (GraphicsDevice::Get()->BeginFrame()) {
+		if (GPUDevice::Get()->BeginFrame()) {
 			RenderFrame();
-			GraphicsDevice::Get()->EndFrame();
+			GPUDevice::Get()->EndFrame();
 		}
 
 		FrameMark;
 	}
 
 	RendererShutdown();
-	GraphicsDevice::Shutdown();
+	GPUDevice::Shutdown();
 	return Success();
 }
 

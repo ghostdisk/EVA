@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GPUDevice.hpp>
 
 class Material;
 

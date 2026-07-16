@@ -70,21 +70,21 @@ public:
 };
 
 class GPUBuffer;
-class Image;
-class Sampler;
-class ShaderModule;
-class GraphicsPipeline;
-struct RenderingDesc;
-struct BufferCopyDesc;
-struct BufferImageCopyDesc;
-struct ImageBarrierDesc;
+class GPUImage;
+class GPUSampler;
+class GPUShaderModule;
+class GPUGraphicsPipeline;
+struct GPURenderingDesc;
+struct GPUBufferCopyDesc;
+struct GPUBufferImageCopyDesc;
+struct GPUImageBarrierDesc;
 
-enum class GraphicsAPI : U8 {
+enum class GPUBackend : U8 {
 	None,
 	Vulkan,
 };
 
-enum class Format : U16 {
+enum class GPUFormat : U16 {
 	None,
 
 	R8_UNORM,
@@ -161,10 +161,10 @@ enum class Format : U16 {
 	DEPTH_FORMAT_END,
 };
 
-bool FormatIsDepth(Format format);
-bool FormatHasStencil(Format format);
+bool GPUFormatIsDepth(GPUFormat format);
+bool GPUFormatHasStencil(GPUFormat format);
 
-enum class MemoryUsage : U8 {
+enum class GPUMemoryUsage : U8 {
 	GPUOnly,
 	CPUToGPU,
 	GPUToCPU,
@@ -182,18 +182,18 @@ enum GPUBufferUsageBits : U32 {
 };
 using GPUBufferUsage = U32;
 
-enum ImageUsageBits : U32 {
-	ImageUsage_None            = 0,
-	ImageUsage_TransferSource  = 1 << 0,
-	ImageUsage_TransferDest    = 1 << 1,
-	ImageUsage_Sampled         = 1 << 2,
-	ImageUsage_Storage         = 1 << 3,
-	ImageUsage_ColorAttachment = 1 << 4,
-	ImageUsage_DepthAttachment = 1 << 5,
+enum GPUImageUsageBits : U32 {
+	GPUImageUsage_None            = 0,
+	GPUImageUsage_TransferSource  = 1 << 0,
+	GPUImageUsage_TransferDest    = 1 << 1,
+	GPUImageUsage_Sampled         = 1 << 2,
+	GPUImageUsage_Storage         = 1 << 3,
+	GPUImageUsage_ColorAttachment = 1 << 4,
+	GPUImageUsage_DepthAttachment = 1 << 5,
 };
-using ImageUsage = U32;
+using GPUImageUsage = U32;
 
-enum class ImageState : U8 {
+enum class GPUImageState : U8 {
 	Undefined,
 	General,
 	TransferSource,
@@ -205,7 +205,7 @@ enum class ImageState : U8 {
 	Present,
 };
 
-enum class PrimitiveTopology : U8 {
+enum class GPUPrimitiveTopology : U8 {
 	PointList,
 	LineList,
 	LineStrip,
@@ -219,26 +219,26 @@ enum class PrimitiveTopology : U8 {
 	PatchList,
 };
 
-enum class PolygonMode : U8 {
+enum class GPUPolygonMode : U8 {
 	Fill,
 	Line,
 	Point,
 };
 
-enum class CullMode : U8 {
+enum class GPUCullMode : U8 {
 	None         = 0,
 	Front        = 1,
 	Back         = 2,
 	FrontAndBack = 3,
 };
-EAUTO_ENUM(CullMode);
+EAUTO_ENUM(GPUCullMode);
 
-enum class FrontFace : U8 {
+enum class GPUFrontFace : U8 {
 	Clockwise,
 	CounterClockwise,
 };
 
-enum class CompareOp : U8 {
+enum class GPUCompareOp : U8 {
 	Never,
 	Less,
 	Equal,
@@ -249,7 +249,7 @@ enum class CompareOp : U8 {
 	Always,
 };
 
-enum class BlendFactor : U8 {
+enum class GPUBlendFactor : U8 {
 	Zero,
 	One,
 	SourceColor,
@@ -271,7 +271,7 @@ enum class BlendFactor : U8 {
 	OneMinusSource1Alpha,
 };
 
-enum class BlendOp : U8 {
+enum class GPUBlendOp : U8 {
 	Add,
 	Subtract,
 	ReverseSubtract,
@@ -279,56 +279,56 @@ enum class BlendOp : U8 {
 	Max,
 };
 
-enum class BlendMode : U8 {
+enum class GPUBlendMode : U8 {
 	None,
 	Solid,
 	AlphaBlend,
 	Add,
 	Multiply,
 };
-EAUTO_ENUM(BlendMode);
+EAUTO_ENUM(GPUBlendMode);
 
-struct BlendState {
+struct GPUBlendState {
 	bool        blendEnable      = false;
-	BlendFactor sourceColorBlend = BlendFactor::SourceAlpha;
-	BlendFactor destColorBlend   = BlendFactor::OneMinusSourceAlpha;
-	BlendOp     colorBlendOp     = BlendOp::Add;
-	BlendFactor sourceAlphaBlend = BlendFactor::One;
-	BlendFactor destAlphaBlend   = BlendFactor::OneMinusSourceAlpha;
-	BlendOp     alphaBlendOp     = BlendOp::Add;
+	GPUBlendFactor sourceColorBlend = GPUBlendFactor::SourceAlpha;
+	GPUBlendFactor destColorBlend   = GPUBlendFactor::OneMinusSourceAlpha;
+	GPUBlendOp     colorBlendOp     = GPUBlendOp::Add;
+	GPUBlendFactor sourceAlphaBlend = GPUBlendFactor::One;
+	GPUBlendFactor destAlphaBlend   = GPUBlendFactor::OneMinusSourceAlpha;
+	GPUBlendOp     alphaBlendOp     = GPUBlendOp::Add;
 };
 
-BlendState BlendModeToBlendState(BlendMode mode);
+GPUBlendState GPUBlendModeToBlendState(GPUBlendMode mode);
 
-enum class Filter : U8 {
+enum class GPUFilter : U8 {
 	Nearest,
 	Linear,
 };
 
-enum class MipmapMode : U8 {
+enum class GPUMipmapMode : U8 {
 	Nearest,
 	Linear,
 };
 
-enum class AddressMode : U8 {
+enum class GPUAddressMode : U8 {
 	Repeat,
 	MirroredRepeat,
 	ClampToEdge,
 	MirrorClampToEdge,
 };
 
-enum class IndexType : U8 {
+enum class GPUIndexType : U8 {
 	U16,
 	U32,
 };
 
-enum class LoadOp : U8 {
+enum class GPULoadOp : U8 {
 	Load,
 	Clear,
 	DontCare,
 };
 
-enum class StoreOp : U8 {
+enum class GPUStoreOp : U8 {
 	Store,
 	DontCare,
 };
@@ -351,17 +351,17 @@ public:
 	VmaAllocation m_vmaAllocation = nullptr;
 };
 
-class Image : public Object {
+class GPUImage : public Object {
 public:
 	ECLASS_COMMON();
-	Image() : m_vulkan{} {}
+	GPUImage() : m_vulkan{} {}
 
 	U32        m_width            = 0;
 	U32        m_height           = 0;
 	U32        m_mipCount         = 1;
 	U32        m_bindlessIndex    = UINT32_MAX;
-	Format     m_format           = Format::None;
-	ImageState m_state            = ImageState::Undefined;
+	GPUFormat     m_format           = GPUFormat::None;
+	GPUImageState m_state            = GPUImageState::Undefined;
 	bool       m_ownedBySwapchain = false;
 
 	union {
@@ -374,7 +374,7 @@ public:
 	};
 };
 
-class Sampler : public Object {
+class GPUSampler : public Object {
 public:
 	ECLASS_COMMON();
 
@@ -385,7 +385,7 @@ public:
 	};
 };
 
-class ShaderModule : public Object {
+class GPUShaderModule : public Object {
 public:
 	ECLASS_COMMON();
 	union {
@@ -393,10 +393,10 @@ public:
 	};
 };
 
-class GraphicsPipeline : public Object {
+class GPUGraphicsPipeline : public Object {
 public:
 	ECLASS_COMMON();
-	GraphicsPipeline() : m_vulkan{} {}
+	GPUGraphicsPipeline() : m_vulkan{} {}
 
 	union {
 		struct {
@@ -406,7 +406,7 @@ public:
 	};
 };
 
-class CommandBuffer : public Object {
+class GPUCommandBuffer : public Object {
 public:
 	ECLASS_COMMON();
 
@@ -414,119 +414,119 @@ public:
 		VkCommandBuffer m_vk = nullptr;
 	};
 
-	virtual void BeginRendering(const RenderingDesc& desc) = 0;
-	virtual void EndRendering(const RenderingDesc& desc) = 0;
+	virtual void BeginRendering(const GPURenderingDesc& desc) = 0;
+	virtual void EndRendering(const GPURenderingDesc& desc) = 0;
 
-	virtual void BindPipeline(GraphicsPipeline* pipeline) = 0;
-	virtual void BindIndexBuffer(GPUBuffer* buffer, IndexType type, U64 offset = 0) = 0;
-	virtual void PushConstants(GraphicsPipeline* pipeline, U32 size, const void* data) = 0;
+	virtual void BindPipeline(GPUGraphicsPipeline* pipeline) = 0;
+	virtual void BindIndexBuffer(GPUBuffer* buffer, GPUIndexType type, U64 offset = 0) = 0;
+	virtual void PushConstants(GPUGraphicsPipeline* pipeline, U32 size, const void* data) = 0;
 
 	virtual void Draw(U32 vertexCount, U32 instanceCount = 1, U32 firstVertex = 0, U32 firstInstance = 0) = 0;
 	virtual void DrawIndexed(U32 indexCount, U32 instanceCount = 1, U32 firstIndex = 0, I32 vertexOffset = 0, U32 firstInstance = 0) = 0;
 
-	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopyDesc& copy) = 0;
-	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopyDesc& copy) = 0;
+	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const GPUBufferCopyDesc& copy) = 0;
+	virtual void CopyBufferToImage(GPUBuffer* source, GPUImage* destination, const GPUBufferImageCopyDesc& copy) = 0;
 	// TODO: Make this API accept multiple basrriers
-	virtual void ImageBarrier(const ImageBarrierDesc& barrier) = 0;
-	virtual void GenerateMipmaps(Image* image) = 0;
+	virtual void ImageBarrier(const GPUImageBarrierDesc& barrier) = 0;
+	virtual void GenerateMipmaps(GPUImage* image) = 0;
 };
 
 struct GPUBufferDesc {
 	String         name        = {};
 	U64            size        = 0;
 	GPUBufferUsage usage       = GPUBufferUsage_None;
-	MemoryUsage    memoryUsage = MemoryUsage::GPUOnly;
+	GPUMemoryUsage    memoryUsage = GPUMemoryUsage::GPUOnly;
 	bool           bindless     = false;
 };
 
-struct ImageDesc {
+struct GPUImageDesc {
 	String         name        = {};
 	U32         width            = 0;
 	U32         height           = 0;
 	U32         mipCount         = 1;
-	Format      format           = Format::None;
-	ImageUsage  usage            = ImageUsage_None;
-	ImageState  initialState     = ImageState::Undefined;
+	GPUFormat      format           = GPUFormat::None;
+	GPUImageUsage  usage            = GPUImageUsage_None;
+	GPUImageState  initialState     = GPUImageState::Undefined;
 	bool        bindless         = false;
 	bool        ownedBySwapchain = false;
 	VkImage     existingImage    = nullptr;
 };
 
-struct SamplerDesc {
-	Filter      minFilter         = Filter::Linear;
-	Filter      magFilter         = Filter::Linear;
-	MipmapMode  mipmapMode        = MipmapMode::Linear;
-	AddressMode addressU          = AddressMode::Repeat;
-	AddressMode addressV          = AddressMode::Repeat;
-	AddressMode addressW          = AddressMode::Repeat;
+struct GPUSamplerDesc {
+	GPUFilter      minFilter         = GPUFilter::Linear;
+	GPUFilter      magFilter         = GPUFilter::Linear;
+	GPUMipmapMode  mipmapMode        = GPUMipmapMode::Linear;
+	GPUAddressMode addressU          = GPUAddressMode::Repeat;
+	GPUAddressMode addressV          = GPUAddressMode::Repeat;
+	GPUAddressMode addressW          = GPUAddressMode::Repeat;
 	float       mipLodBias        = 0.0f;
 	float       minLod            = 0.0f;
 	float       maxLod            = 1000.0f;
 	float       maxAnisotropy     = 1.0f;
 	bool        anisotropyEnable  = false;
 	bool        compareEnable     = false;
-	CompareOp   compareOp         = CompareOp::Always;
+	GPUCompareOp   compareOp         = GPUCompareOp::Always;
 	U32         forcedBindlessIndex = 0xFFFFFFFF;
 };
 
-struct ShaderModuleDesc {
+struct GPUShaderModuleDesc {
 	const U32*  code      = nullptr;
 	U64         codeSize  = 0;
 };
 
-struct RenderPassFormat {
-	Format colorFormat[4] = {};
-	Format depthFormat = Format::None;
+struct GPURenderPassFormat {
+	GPUFormat colorFormat[4] = {};
+	GPUFormat depthFormat = GPUFormat::None;
 };
 
-struct GraphicsPipelineDesc {
-	ShaderModule* vertexShader   = nullptr;
-	ShaderModule* fragmentShader = nullptr;
+struct GPUGraphicsPipelineDesc {
+	GPUShaderModule* vertexShader   = nullptr;
+	GPUShaderModule* fragmentShader = nullptr;
 
-	PrimitiveTopology topology     = PrimitiveTopology::TriangleList;
-	PolygonMode       polygonMode = PolygonMode::Fill;
-	CullMode          cullMode    = CullMode::Back;
-	FrontFace         frontFace   = FrontFace::CounterClockwise;
+	GPUPrimitiveTopology topology     = GPUPrimitiveTopology::TriangleList;
+	GPUPolygonMode       polygonMode = GPUPolygonMode::Fill;
+	GPUCullMode          cullMode    = GPUCullMode::Back;
+	GPUFrontFace         frontFace   = GPUFrontFace::CounterClockwise;
 
 	bool      depthTestEnable  = false;
 	bool      depthWriteEnable = false;
-	CompareOp depthCompare     = CompareOp::LessEqual;
+	GPUCompareOp depthCompare     = GPUCompareOp::LessEqual;
 
-	BlendMode blendMode = BlendMode::Solid;
+	GPUBlendMode blendMode = GPUBlendMode::Solid;
 
-	RenderPassFormat format = {};
+	GPURenderPassFormat format = {};
 
 	U32 pushConstantSize = 0;
 };
 
-struct AttachmentDesc {
-	Image* image = nullptr;
+struct GPUAttachmentDesc {
+	GPUImage* image = nullptr;
 
-	LoadOp  loadOp  = LoadOp::Load;
-	StoreOp storeOp = StoreOp::Store;
+	GPULoadOp  loadOp  = GPULoadOp::Load;
+	GPUStoreOp storeOp = GPUStoreOp::Store;
 
 	float4 clearColor   = {};
 	float  clearDepth   = 1.0f;
 	U32    clearStencil = 0;
 
-	ImageState stateBefore = ImageState::Undefined;
-	ImageState stateDuring = ImageState::ColorAttachment;
-	ImageState stateAfter  = ImageState::Undefined;
+	GPUImageState stateBefore = GPUImageState::Undefined;
+	GPUImageState stateDuring = GPUImageState::ColorAttachment;
+	GPUImageState stateAfter  = GPUImageState::Undefined;
 };
 
-struct RenderingDesc {
+struct GPURenderingDesc {
 	U32                   colorAttachmentCount = 0;
-	const AttachmentDesc* colorAttachments      = nullptr;
-	const AttachmentDesc* depthAttachment       = nullptr;
+	const GPUAttachmentDesc* colorAttachments      = nullptr;
+	const GPUAttachmentDesc* depthAttachment       = nullptr;
 };
 
-struct BufferCopyDesc {
+struct GPUBufferCopyDesc {
 	U64 sourceOffset = 0;
 	U64 destOffset   = 0;
 	U64 size          = 0;
 };
 
-struct BufferImageCopyDesc {
+struct GPUBufferImageCopyDesc {
 	U64 bufferOffset = 0;
 	U32 imageMip     = 0;
 	U32 imageLayer   = 0;
@@ -538,11 +538,11 @@ struct BufferImageCopyDesc {
 	U32 depth         = 1;
 };
 
-struct ImageBarrierDesc {
-	Image* image = nullptr;
+struct GPUImageBarrierDesc {
+	GPUImage* image = nullptr;
 
-	ImageState stateBefore = ImageState::Undefined;
-	ImageState stateAfter  = ImageState::Undefined;
+	GPUImageState stateBefore = GPUImageState::Undefined;
+	GPUImageState stateAfter  = GPUImageState::Undefined;
 
 	U32 baseMip    = 0;
 	U32 mipCount   = 1;
@@ -550,64 +550,64 @@ struct ImageBarrierDesc {
 	U32 layerCount = 1;
 };
 
-struct SwapchainDesc {
+struct GPUSwapchainDesc {
 	U32         frameCount   = 2;
 	bool        vsync        = true;
-	ImageUsage  imageUsage   = ImageUsage_ColorAttachment;
+	GPUImageUsage  imageUsage   = GPUImageUsage_ColorAttachment;
 };
 
-struct GraphicsDeviceInitDesc {
-	GraphicsAPI     api             = GraphicsAPI::Vulkan;
-	SDL_Window*     window          = nullptr;
-	bool            enableDebug     = true;
-	SwapchainDesc   swapchaindesc   = {};
+struct GPUDeviceInitDesc {
+	GPUBackend      backend       = GPUBackend::Vulkan;
+	SDL_Window*     window        = nullptr;
+	bool            enableDebug   = true;
+	GPUSwapchainDesc swapchainDesc = {};
 };
 
-class GraphicsDevice : public Object {
+class GPUDevice : public Object {
 public:
 	ECLASS_COMMON();
 	static constexpr size_t FrameUploadBufferSize = 16 * 1024 * 1024;
 
-	static Result Create(const GraphicsDeviceInitDesc& desc);
-	virtual Result Init(const GraphicsDeviceInitDesc& desc) = 0;
+	static Result Create(const GPUDeviceInitDesc& desc);
+	virtual Result Init(const GPUDeviceInitDesc& desc) = 0;
 	static void Shutdown();
-	static GraphicsDevice* Get();
+	static GPUDevice* Get();
 
 	virtual bool BeginFrame() = 0;
 	virtual void EndFrame() = 0;
 
-	virtual CommandBuffer* GetMainCommandBuffer() = 0;
-	virtual CommandBuffer* GetTransferCommandBuffer() = 0;
+	virtual GPUCommandBuffer* GetMainCommandBuffer() = 0;
+	virtual GPUCommandBuffer* GetTransferCommandBuffer() = 0;
 
-	virtual Image* GetCurrentBackbuffer() = 0;
+	virtual GPUImage* GetCurrentBackbuffer() = 0;
 
 	virtual void WaitIdle() = 0;
 
-	virtual CommandBuffer* BeginImmediateCommandBuffer() = 0;
-	virtual void FlushImmediateCommandBuffer(CommandBuffer* cmd) = 0;
+	virtual GPUCommandBuffer* BeginImmediateCommandBuffer() = 0;
+	virtual void FlushImmediateCommandBuffer(GPUCommandBuffer* cmd) = 0;
 
-	virtual GPUBuffer* CreateGPUBuffer(const GPUBufferDesc& desc) = 0;
-	virtual void DestroyGPUBuffer(GPUBuffer* buffer) = 0;
+	virtual GPUBuffer* CreateBuffer(const GPUBufferDesc& desc) = 0;
+	virtual void DestroyBuffer(GPUBuffer* buffer) = 0;
 
-	virtual Image* CreateImage(const ImageDesc& desc) = 0;
-	virtual void DestroyImage(Image* image) = 0;
+	virtual GPUImage* CreateImage(const GPUImageDesc& desc) = 0;
+	virtual void DestroyImage(GPUImage* image) = 0;
 
 	void UploadStagingData(const void* data, size_t size, GPUBuffer** outBuffer, size_t* outBufferOffset);
 	void UploadBuffer(GPUBuffer* dest, size_t size, size_t offset, const void* data);
-	void UploadImage(Image* dest, size_t size, const void* data);
+	void UploadImage(GPUImage* dest, size_t size, const void* data);
 
-	virtual Sampler* CreateSampler(const SamplerDesc& desc) = 0;
-	virtual void DestroySampler(Sampler* sampler) = 0;
-	virtual Sampler* GetSampler(U32 index) = 0;
+	virtual GPUSampler* CreateSampler(const GPUSamplerDesc& desc) = 0;
+	virtual void DestroySampler(GPUSampler* sampler) = 0;
+	virtual GPUSampler* GetSampler(U32 index) = 0;
 
-	virtual ShaderModule* CreateShaderModule(const ShaderModuleDesc& desc) = 0;
-	virtual void DestroyShaderModule(ShaderModule* shader) = 0;
+	virtual GPUShaderModule* CreateShaderModule(const GPUShaderModuleDesc& desc) = 0;
+	virtual void DestroyShaderModule(GPUShaderModule* shader) = 0;
 
-	virtual GraphicsPipeline* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
-	virtual void DestroyGraphicsPipeline(GraphicsPipeline* pipeline) = 0;
+	virtual GPUGraphicsPipeline* CreateGraphicsPipeline(const GPUGraphicsPipelineDesc& desc) = 0;
+	virtual void DestroyGraphicsPipeline(GPUGraphicsPipeline* pipeline) = 0;
 
-	virtual void SetSwapchainDesc(SwapchainDesc desc) = 0;
-	virtual SwapchainDesc GetSwapchainDesc() = 0;
+	virtual void SetSwapchainDesc(GPUSwapchainDesc desc) = 0;
+	virtual GPUSwapchainDesc GetSwapchainDesc() = 0;
 
 protected:
 	GPUBuffer* m_frameUploadBuffer = nullptr;

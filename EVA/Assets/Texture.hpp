@@ -1,6 +1,6 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GPUDevice.hpp>
 
 class Texture : public Asset {
 public:
@@ -8,9 +8,9 @@ ECLASS_COMMON();
 	Texture();
 
 	bool          m_generateMipmaps = true;
-	Sampler* m_sampler = nullptr;
+	GPUSampler* m_sampler = nullptr;
 
-	Image*   image   = nullptr;
+	GPUImage*   image   = nullptr;
 	size_t        width   = 0;
 	size_t        height  = 0;
 
@@ -18,5 +18,5 @@ ECLASS_COMMON();
 	virtual void SaveMetaImpl(Serializer& serializer) override;
 	virtual Result LoadImpl(FILE* f) override;
 
-	void Upload(int width, int height, const U8* pixels, Format format);
+	void Upload(int width, int height, const U8* pixels, GPUFormat format);
 };

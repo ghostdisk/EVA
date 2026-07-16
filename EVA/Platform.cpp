@@ -1,6 +1,6 @@
 #include <EVA/Platform.hpp>
 #include <EVA/Console.hpp>
-#include <EVA/GFX/GraphicsDevice.hpp>
+#include <EVA/GFX/GPUDevice.hpp>
 #include <SDL3/SDL.h>
 
 #define FRAME_TIME_HISTORY_SIZE 50
@@ -19,7 +19,7 @@ ConVar cvar_vsync = {
 	.help = "0 - no vsync, 1 - every vblank, 2 - every 2nd vblank",
 	.fvalue = 0,
 	.on_change = [](ConVar*) {
-		GraphicsDevice* device = GraphicsDevice::Get();
+		GPUDevice* device = GPUDevice::Get();
 		if (device) {
 			auto desc = device->GetSwapchainDesc();
 			desc.vsync = cvar_vsync.fvalue != 0;

@@ -1,5 +1,5 @@
 #include <volk.h>
-#include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
+#include <EVA/GFX/GPUDevice_Vulkan.hpp>
 #include <EVA/Core/Common.hpp>
 #include <SDL3/SDL_vulkan.h>
 
@@ -32,9 +32,9 @@ static bool HasInstanceLayer(String name) {
 	return false;
 }
 
-struct FormatMapping { Format format; VkFormat vkFormat; };
-#define FORMAT_MAP(format, vkFormat) { Format::format, VK_FORMAT_##vkFormat }
-static constexpr FormatMapping g_formatMappings[] = {
+struct GPUFormatMapping { GPUFormat format; VkFormat vkFormat; };
+#define FORMAT_MAP(format, vkFormat) { GPUFormat::format, VK_FORMAT_##vkFormat }
+static constexpr GPUFormatMapping g_formatMappings[] = {
 	FORMAT_MAP(None, UNDEFINED),
 	FORMAT_MAP(R8_UNORM, R8_UNORM), FORMAT_MAP(R8_SNORM, R8_SNORM), FORMAT_MAP(R8_UINT, R8_UINT), FORMAT_MAP(R8_SINT, R8_SINT), FORMAT_MAP(R8_SRGB, R8_SRGB),
 	FORMAT_MAP(RG8_UNORM, R8G8_UNORM), FORMAT_MAP(RG8_SNORM, R8G8_SNORM), FORMAT_MAP(RG8_UINT, R8G8_UINT), FORMAT_MAP(RG8_SINT, R8G8_SINT), FORMAT_MAP(RG8_SRGB, R8G8_SRGB),
@@ -54,199 +54,199 @@ static constexpr FormatMapping g_formatMappings[] = {
 };
 #undef FORMAT_MAP
 
-static VkFormat ToVkFormat(Format format) {
-	for (const FormatMapping& mapping : g_formatMappings)
+static VkFormat ToVkFormat(GPUFormat format) {
+	for (const GPUFormatMapping& mapping : g_formatMappings)
 		if (mapping.format == format) return mapping.vkFormat;
 	return VK_FORMAT_UNDEFINED;
 }
 
-static Format FromVkFormat(VkFormat format) {
-	for (const FormatMapping& mapping : g_formatMappings)
+static GPUFormat FromVkFormat(VkFormat format) {
+	for (const GPUFormatMapping& mapping : g_formatMappings)
 		if (mapping.vkFormat == format) return mapping.format;
-	return Format::None;
+	return GPUFormat::None;
 }
 
-static VkImageUsageFlags ToVkImageUsage(ImageUsage usage) {
+static VkImageUsageFlags ToVkImageUsage(GPUImageUsage usage) {
 	VkImageUsageFlags result = 0;
-	if (usage & ImageUsage_TransferSource) result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	if (usage & ImageUsage_TransferDest) result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	if (usage & ImageUsage_Sampled) result |= VK_IMAGE_USAGE_SAMPLED_BIT;
-	if (usage & ImageUsage_Storage) result |= VK_IMAGE_USAGE_STORAGE_BIT;
-	if (usage & ImageUsage_ColorAttachment) result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	if (usage & ImageUsage_DepthAttachment) result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	if (usage & GPUImageUsage_TransferSource) result |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	if (usage & GPUImageUsage_TransferDest) result |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	if (usage & GPUImageUsage_Sampled) result |= VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (usage & GPUImageUsage_Storage) result |= VK_IMAGE_USAGE_STORAGE_BIT;
+	if (usage & GPUImageUsage_ColorAttachment) result |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	if (usage & GPUImageUsage_DepthAttachment) result |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	return result;
 }
 
-static VkAccessFlags2 ImageStateToAccessFlags(ImageState state) {
+static VkAccessFlags2 ImageStateToAccessFlags(GPUImageState state) {
 	switch (state) {
-		case ImageState::Undefined:       return VK_ACCESS_2_NONE;
-		case ImageState::General:         return VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
-		case ImageState::TransferSource:  return VK_ACCESS_2_TRANSFER_READ_BIT;
-		case ImageState::TransferDest:    return VK_ACCESS_2_TRANSFER_WRITE_BIT;
-		case ImageState::ColorAttachment: return VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-		case ImageState::DepthAttachment: return VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		case ImageState::DepthReadOnly:   return VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT;
-		case ImageState::ShaderRead:      return VK_ACCESS_2_SHADER_READ_BIT;
-		case ImageState::Present:         return VK_ACCESS_2_NONE;
+		case GPUImageState::Undefined:       return VK_ACCESS_2_NONE;
+		case GPUImageState::General:         return VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+		case GPUImageState::TransferSource:  return VK_ACCESS_2_TRANSFER_READ_BIT;
+		case GPUImageState::TransferDest:    return VK_ACCESS_2_TRANSFER_WRITE_BIT;
+		case GPUImageState::ColorAttachment: return VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+		case GPUImageState::DepthAttachment: return VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		case GPUImageState::DepthReadOnly:   return VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+		case GPUImageState::ShaderRead:      return VK_ACCESS_2_SHADER_READ_BIT;
+		case GPUImageState::Present:         return VK_ACCESS_2_NONE;
 	}
 	return VK_ACCESS_2_NONE;
 }
 
-static VkImageLayout ImageStateToImageLayout(ImageState state) {
+static VkImageLayout ImageStateToImageLayout(GPUImageState state) {
 	switch (state) {
-		case ImageState::Undefined:       return VK_IMAGE_LAYOUT_UNDEFINED;
-		case ImageState::General:         return VK_IMAGE_LAYOUT_GENERAL;
-		case ImageState::TransferSource:  return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		case ImageState::TransferDest:    return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		case ImageState::ColorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		case ImageState::DepthAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		case ImageState::DepthReadOnly:   return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		case ImageState::ShaderRead:      return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		case ImageState::Present:         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		case GPUImageState::Undefined:       return VK_IMAGE_LAYOUT_UNDEFINED;
+		case GPUImageState::General:         return VK_IMAGE_LAYOUT_GENERAL;
+		case GPUImageState::TransferSource:  return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		case GPUImageState::TransferDest:    return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		case GPUImageState::ColorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		case GPUImageState::DepthAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		case GPUImageState::DepthReadOnly:   return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		case GPUImageState::ShaderRead:      return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		case GPUImageState::Present:         return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	}
 	return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-static VkPipelineStageFlags2 ImageStateToPipelineStage(ImageState state) {
+static VkPipelineStageFlags2 ImageStateToPipelineStage(GPUImageState state) {
 	switch (state) {
-		case ImageState::Undefined:       return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
-		case ImageState::General:         return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-		case ImageState::TransferSource:
-		case ImageState::TransferDest:    return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
-		case ImageState::ColorAttachment: return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-		case ImageState::DepthAttachment:
-		case ImageState::DepthReadOnly:   return VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-		case ImageState::ShaderRead:      return VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-		case ImageState::Present:         return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+		case GPUImageState::Undefined:       return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+		case GPUImageState::General:         return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+		case GPUImageState::TransferSource:
+		case GPUImageState::TransferDest:    return VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+		case GPUImageState::ColorAttachment: return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		case GPUImageState::DepthAttachment:
+		case GPUImageState::DepthReadOnly:   return VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+		case GPUImageState::ShaderRead:      return VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		case GPUImageState::Present:         return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
 	}
 	return VK_PIPELINE_STAGE_2_NONE;
 }
 
-static VkFilter ToVkFilter(Filter filter) {
-	return filter == Filter::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+static VkFilter ToVkFilter(GPUFilter filter) {
+	return filter == GPUFilter::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
 }
 
-static VkSamplerMipmapMode ToVkMipmapMode(MipmapMode mode) {
-	return mode == MipmapMode::Nearest ? VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR;
+static VkSamplerMipmapMode ToVkMipmapMode(GPUMipmapMode mode) {
+	return mode == GPUMipmapMode::Nearest ? VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR;
 }
 
-static VkSamplerAddressMode ToVkAddressMode(AddressMode mode) {
+static VkSamplerAddressMode ToVkAddressMode(GPUAddressMode mode) {
 	switch (mode) {
-		case AddressMode::Repeat:            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		case AddressMode::MirroredRepeat:    return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		case AddressMode::ClampToEdge:       return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		case AddressMode::MirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+		case GPUAddressMode::Repeat:            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		case GPUAddressMode::MirroredRepeat:    return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		case GPUAddressMode::ClampToEdge:       return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		case GPUAddressMode::MirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
 	}
 	return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 }
 
-static VkAttachmentLoadOp ToVkLoadOp(LoadOp op) {
+static VkAttachmentLoadOp ToVkLoadOp(GPULoadOp op) {
 	switch (op) {
-		case LoadOp::Load:     return VK_ATTACHMENT_LOAD_OP_LOAD;
-		case LoadOp::Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
-		case LoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		case GPULoadOp::Load:     return VK_ATTACHMENT_LOAD_OP_LOAD;
+		case GPULoadOp::Clear:    return VK_ATTACHMENT_LOAD_OP_CLEAR;
+		case GPULoadOp::DontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	}
 	return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 }
 
-static VkAttachmentStoreOp ToVkStoreOp(StoreOp op) {
+static VkAttachmentStoreOp ToVkStoreOp(GPUStoreOp op) {
 	switch (op) {
-		case StoreOp::Store:    return VK_ATTACHMENT_STORE_OP_STORE;
-		case StoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		case GPUStoreOp::Store:    return VK_ATTACHMENT_STORE_OP_STORE;
+		case GPUStoreOp::DontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	}
 	return VK_ATTACHMENT_STORE_OP_DONT_CARE;
 }
 
-static VkPrimitiveTopology ToVkPrimitiveTopology(PrimitiveTopology topology) {
+static VkPrimitiveTopology ToVkPrimitiveTopology(GPUPrimitiveTopology topology) {
 	switch (topology) {
-		case PrimitiveTopology::PointList:                   return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-		case PrimitiveTopology::LineList:                    return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-		case PrimitiveTopology::LineStrip:                   return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-		case PrimitiveTopology::TriangleList:                return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		case PrimitiveTopology::TriangleStrip:               return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-		case PrimitiveTopology::TriangleFan:                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
-		case PrimitiveTopology::LineListWithAdjacency:       return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
-		case PrimitiveTopology::LineStripWithAdjacency:      return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
-		case PrimitiveTopology::TriangleListWithAdjacency:   return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
-		case PrimitiveTopology::TriangleStripWithAdjacency:  return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY;
-		case PrimitiveTopology::PatchList:                   return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+		case GPUPrimitiveTopology::PointList:                   return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+		case GPUPrimitiveTopology::LineList:                    return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		case GPUPrimitiveTopology::LineStrip:                   return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+		case GPUPrimitiveTopology::TriangleList:                return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		case GPUPrimitiveTopology::TriangleStrip:               return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+		case GPUPrimitiveTopology::TriangleFan:                 return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+		case GPUPrimitiveTopology::LineListWithAdjacency:       return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
+		case GPUPrimitiveTopology::LineStripWithAdjacency:      return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
+		case GPUPrimitiveTopology::TriangleListWithAdjacency:   return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
+		case GPUPrimitiveTopology::TriangleStripWithAdjacency:  return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY;
+		case GPUPrimitiveTopology::PatchList:                   return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 	}
 	return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 }
 
-static VkPolygonMode ToVkPolygonMode(PolygonMode mode) {
+static VkPolygonMode ToVkPolygonMode(GPUPolygonMode mode) {
 	switch (mode) {
-		case PolygonMode::Fill:  return VK_POLYGON_MODE_FILL;
-		case PolygonMode::Line:  return VK_POLYGON_MODE_LINE;
-		case PolygonMode::Point: return VK_POLYGON_MODE_POINT;
+		case GPUPolygonMode::Fill:  return VK_POLYGON_MODE_FILL;
+		case GPUPolygonMode::Line:  return VK_POLYGON_MODE_LINE;
+		case GPUPolygonMode::Point: return VK_POLYGON_MODE_POINT;
 	}
 	return VK_POLYGON_MODE_FILL;
 }
 
-static VkCullModeFlags ToVkCullMode(CullMode mode) {
+static VkCullModeFlags ToVkCullMode(GPUCullMode mode) {
 	switch (mode) {
-		case CullMode::None:         return VK_CULL_MODE_NONE;
-		case CullMode::Front:        return VK_CULL_MODE_FRONT_BIT;
-		case CullMode::Back:         return VK_CULL_MODE_BACK_BIT;
-		case CullMode::FrontAndBack: return VK_CULL_MODE_FRONT_AND_BACK;
+		case GPUCullMode::None:         return VK_CULL_MODE_NONE;
+		case GPUCullMode::Front:        return VK_CULL_MODE_FRONT_BIT;
+		case GPUCullMode::Back:         return VK_CULL_MODE_BACK_BIT;
+		case GPUCullMode::FrontAndBack: return VK_CULL_MODE_FRONT_AND_BACK;
 	}
 	return VK_CULL_MODE_NONE;
 }
 
-static VkFrontFace ToVkFrontFace(FrontFace face) {
+static VkFrontFace ToVkFrontFace(GPUFrontFace face) {
 	switch (face) {
-		case FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
-		case FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		case GPUFrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
+		case GPUFrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	}
 	return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 }
 
-static VkCompareOp ToVkCompareOp(CompareOp op) {
+static VkCompareOp ToVkCompareOp(GPUCompareOp op) {
 	switch (op) {
-		case CompareOp::Never:        return VK_COMPARE_OP_NEVER;
-		case CompareOp::Less:         return VK_COMPARE_OP_LESS;
-		case CompareOp::Equal:        return VK_COMPARE_OP_EQUAL;
-		case CompareOp::LessEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
-		case CompareOp::Greater:      return VK_COMPARE_OP_GREATER;
-		case CompareOp::NotEqual:     return VK_COMPARE_OP_NOT_EQUAL;
-		case CompareOp::GreaterEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
-		case CompareOp::Always:       return VK_COMPARE_OP_ALWAYS;
+		case GPUCompareOp::Never:        return VK_COMPARE_OP_NEVER;
+		case GPUCompareOp::Less:         return VK_COMPARE_OP_LESS;
+		case GPUCompareOp::Equal:        return VK_COMPARE_OP_EQUAL;
+		case GPUCompareOp::LessEqual:    return VK_COMPARE_OP_LESS_OR_EQUAL;
+		case GPUCompareOp::Greater:      return VK_COMPARE_OP_GREATER;
+		case GPUCompareOp::NotEqual:     return VK_COMPARE_OP_NOT_EQUAL;
+		case GPUCompareOp::GreaterEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+		case GPUCompareOp::Always:       return VK_COMPARE_OP_ALWAYS;
 	}
 	return VK_COMPARE_OP_ALWAYS;
 }
 
-static VkBlendFactor ToVkBlendFactor(BlendFactor factor) {
+static VkBlendFactor ToVkBlendFactor(GPUBlendFactor factor) {
 	switch (factor) {
-		case BlendFactor::Zero:                     return VK_BLEND_FACTOR_ZERO;
-		case BlendFactor::One:                      return VK_BLEND_FACTOR_ONE;
-		case BlendFactor::SourceColor:              return VK_BLEND_FACTOR_SRC_COLOR;
-		case BlendFactor::OneMinusSourceColor:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-		case BlendFactor::DestColor:                return VK_BLEND_FACTOR_DST_COLOR;
-		case BlendFactor::OneMinusDestColor:        return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-		case BlendFactor::SourceAlpha:              return VK_BLEND_FACTOR_SRC_ALPHA;
-		case BlendFactor::OneMinusSourceAlpha:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		case BlendFactor::DestAlpha:                return VK_BLEND_FACTOR_DST_ALPHA;
-		case BlendFactor::OneMinusDestAlpha:        return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-		case BlendFactor::ConstantColor:            return VK_BLEND_FACTOR_CONSTANT_COLOR;
-		case BlendFactor::OneMinusConstantColor:    return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
-		case BlendFactor::ConstantAlpha:            return VK_BLEND_FACTOR_CONSTANT_ALPHA;
-		case BlendFactor::OneMinusConstantAlpha:    return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
-		case BlendFactor::SourceAlphaSaturate:      return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
-		case BlendFactor::Source1Color:             return VK_BLEND_FACTOR_SRC1_COLOR;
-		case BlendFactor::OneMinusSource1Color:     return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
-		case BlendFactor::Source1Alpha:             return VK_BLEND_FACTOR_SRC1_ALPHA;
-		case BlendFactor::OneMinusSource1Alpha:     return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+		case GPUBlendFactor::Zero:                     return VK_BLEND_FACTOR_ZERO;
+		case GPUBlendFactor::One:                      return VK_BLEND_FACTOR_ONE;
+		case GPUBlendFactor::SourceColor:              return VK_BLEND_FACTOR_SRC_COLOR;
+		case GPUBlendFactor::OneMinusSourceColor:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+		case GPUBlendFactor::DestColor:                return VK_BLEND_FACTOR_DST_COLOR;
+		case GPUBlendFactor::OneMinusDestColor:        return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+		case GPUBlendFactor::SourceAlpha:              return VK_BLEND_FACTOR_SRC_ALPHA;
+		case GPUBlendFactor::OneMinusSourceAlpha:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		case GPUBlendFactor::DestAlpha:                return VK_BLEND_FACTOR_DST_ALPHA;
+		case GPUBlendFactor::OneMinusDestAlpha:        return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+		case GPUBlendFactor::ConstantColor:            return VK_BLEND_FACTOR_CONSTANT_COLOR;
+		case GPUBlendFactor::OneMinusConstantColor:    return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+		case GPUBlendFactor::ConstantAlpha:            return VK_BLEND_FACTOR_CONSTANT_ALPHA;
+		case GPUBlendFactor::OneMinusConstantAlpha:    return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+		case GPUBlendFactor::SourceAlphaSaturate:      return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+		case GPUBlendFactor::Source1Color:             return VK_BLEND_FACTOR_SRC1_COLOR;
+		case GPUBlendFactor::OneMinusSource1Color:     return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+		case GPUBlendFactor::Source1Alpha:             return VK_BLEND_FACTOR_SRC1_ALPHA;
+		case GPUBlendFactor::OneMinusSource1Alpha:     return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
 	}
 	return VK_BLEND_FACTOR_ONE;
 }
 
-static VkBlendOp ToVkBlendOp(BlendOp op) {
+static VkBlendOp ToVkBlendOp(GPUBlendOp op) {
 	switch (op) {
-		case BlendOp::Add:             return VK_BLEND_OP_ADD;
-		case BlendOp::Subtract:        return VK_BLEND_OP_SUBTRACT;
-		case BlendOp::ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
-		case BlendOp::Min:             return VK_BLEND_OP_MIN;
-		case BlendOp::Max:             return VK_BLEND_OP_MAX;
+		case GPUBlendOp::Add:             return VK_BLEND_OP_ADD;
+		case GPUBlendOp::Subtract:        return VK_BLEND_OP_SUBTRACT;
+		case GPUBlendOp::ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+		case GPUBlendOp::Min:             return VK_BLEND_OP_MIN;
+		case GPUBlendOp::Max:             return VK_BLEND_OP_MAX;
 	}
 	return VK_BLEND_OP_ADD;
 }
@@ -300,7 +300,7 @@ static I64 ScorePhysicalDevice(VkPhysicalDevice physicalDevice, U32* outGraphics
 	return score;
 }
 
-Result GraphicsDevice_Vulkan::CreateCommandPool(VkCommandPool* outCommandPool) {
+Result GPUDevice_Vulkan::CreateCommandPool(VkCommandPool* outCommandPool) {
 	VkCommandPoolCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -310,7 +310,7 @@ Result GraphicsDevice_Vulkan::CreateCommandPool(VkCommandPool* outCommandPool) {
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::InitCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan* outCommandBuffer) {
+Result GPUDevice_Vulkan::InitCommandBuffer(VkCommandPool commandPool, GPUCommandBuffer_Vulkan* outCommandBuffer) {
 	VkCommandBufferAllocateInfo allocateInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = commandPool,
@@ -323,7 +323,7 @@ Result GraphicsDevice_Vulkan::InitCommandBuffer(VkCommandPool commandPool, Comma
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
+Result GPUDevice_Vulkan::BeginFrameCommandBuffers() {
 	if (m_frameCommandBuffersBegun) return Success();
 
 	m_frameUploadOffset = 0;
@@ -349,10 +349,10 @@ Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 	return Success();
 }
 
-void GraphicsDevice_Vulkan::DestroySwapchain() {
+void GPUDevice_Vulkan::DestroySwapchain() {
 	m_needsNewSwapchain = true;
 
-	for (Image* image : m_swapchainImages)
+	for (GPUImage* image : m_swapchainImages)
 		DestroyImage(image);
 	m_swapchainImages.clear();
 
@@ -366,7 +366,7 @@ void GraphicsDevice_Vulkan::DestroySwapchain() {
 	}
 }
 
-Result GraphicsDevice_Vulkan::CreateSwapchain() {
+Result GPUDevice_Vulkan::CreateSwapchain() {
 	assert(m_needsNewSwapchain);
 
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -419,10 +419,10 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 	Vector<VkImage> images(imageCount);
 	VK_TRY(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, images.data()));
 
-	Format swapchainFormat = FromVkFormat(surfaceFormat.format);
-	if (swapchainFormat == Format::None) return Err("Unsupported swapchain format: %u", (U32)surfaceFormat.format);
+	GPUFormat swapchainFormat = FromVkFormat(surfaceFormat.format);
+	if (swapchainFormat == GPUFormat::None) return Err("Unsupported swapchain format: %u", (U32)surfaceFormat.format);
 	for (VkImage vkImage : images) {
-		Image* image = CreateImage({
+		GPUImage* image = CreateImage({
 			.name             = "swapchain image",
 			.width            = extent.width,
 			.height           = extent.height,
@@ -444,7 +444,7 @@ Result GraphicsDevice_Vulkan::CreateSwapchain() {
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
+Result GPUDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
 	VkSemaphoreCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
@@ -452,7 +452,7 @@ Result GraphicsDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
+Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 	if (volkInitialize() != VK_SUCCESS) {
 		return Err("volkInitialize failed");
 	}
@@ -677,7 +677,7 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 	return Success();
 }
 
-GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
+GPUDevice_Vulkan::~GPUDevice_Vulkan() {
 	if (m_device) {
 		VkResult res = vkDeviceWaitIdle(m_device);
 		assert(res == VK_SUCCESS);
@@ -694,10 +694,10 @@ GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_transferCommandPool) vkDestroyCommandPool(m_device, m_transferCommandPool, nullptr);
 
 	for (GPUBuffer* buffer : m_buffers.m_values)
-		if (buffer) DestroyGPUBuffer(buffer);
-	for (Image* image : m_images.m_values)
+		if (buffer) DestroyBuffer(buffer);
+	for (GPUImage* image : m_images.m_values)
 		if (image) DestroyImage(image);
-	for (Sampler* sampler : m_samplers.m_values)
+	for (GPUSampler* sampler : m_samplers.m_values)
 		if (sampler) DestroySampler(sampler);
 
 	if (m_allocator) vmaDestroyAllocator(m_allocator);
@@ -709,16 +709,16 @@ GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
 	if (m_instance) vkDestroyInstance(m_instance, nullptr);
 }
 
-void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
+void GPUCommandBuffer_Vulkan::BeginRendering(const GPURenderingDesc& desc) {
 	assert(desc.colorAttachmentCount <= 4);
 	assert(desc.colorAttachmentCount || desc.depthAttachment);
 
-	Image* extentImage = desc.colorAttachmentCount ? desc.colorAttachments[0].image : desc.depthAttachment->image;
+	GPUImage* extentImage = desc.colorAttachmentCount ? desc.colorAttachments[0].image : desc.depthAttachment->image;
 	assert(extentImage);
 
 	VkRenderingAttachmentInfo colorAttachments[4] = {};
 	for (U32 i = 0; i < desc.colorAttachmentCount; i++) {
-		const AttachmentDesc& attachment = desc.colorAttachments[i];
+		const GPUAttachmentDesc& attachment = desc.colorAttachments[i];
 		assert(attachment.image);
 		ImageBarrier({
 			.image       = attachment.image,
@@ -739,7 +739,7 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 
 	VkRenderingAttachmentInfo depthAttachment{};
 	if (desc.depthAttachment) {
-		const AttachmentDesc& attachment = *desc.depthAttachment;
+		const GPUAttachmentDesc& attachment = *desc.depthAttachment;
 		assert(attachment.image);
 		ImageBarrier({
 			.image       = attachment.image,
@@ -763,7 +763,7 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 		.colorAttachmentCount = desc.colorAttachmentCount,
 		.pColorAttachments    = colorAttachments,
 		.pDepthAttachment     = desc.depthAttachment ? &depthAttachment : nullptr,
-		.pStencilAttachment   = desc.depthAttachment && FormatHasStencil(desc.depthAttachment->image->m_format) ? &depthAttachment : nullptr,
+		.pStencilAttachment   = desc.depthAttachment && GPUFormatHasStencil(desc.depthAttachment->image->m_format) ? &depthAttachment : nullptr,
 	};
 	vkCmdBeginRendering(m_vk, &renderingInfo);
 
@@ -773,11 +773,11 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 	vkCmdSetScissor(m_vk, 0, 1, &scissor);
 }
 
-void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
+void GPUCommandBuffer_Vulkan::EndRendering(const GPURenderingDesc& desc) {
 	vkCmdEndRendering(m_vk);
 
 	for (U32 i = 0; i < desc.colorAttachmentCount; i++) {
-		const AttachmentDesc& attachment = desc.colorAttachments[i];
+		const GPUAttachmentDesc& attachment = desc.colorAttachments[i];
 		assert(attachment.image);
 		if (attachment.stateDuring != attachment.stateAfter) {
 			ImageBarrier({
@@ -789,7 +789,7 @@ void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
 	}
 
 	if (desc.depthAttachment) {
-		const AttachmentDesc& attachment = *desc.depthAttachment;
+		const GPUAttachmentDesc& attachment = *desc.depthAttachment;
 		assert(attachment.image);
 		if (attachment.stateDuring != attachment.stateAfter) {
 			ImageBarrier({
@@ -801,28 +801,28 @@ void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
 	}
 }
 
-void CommandBuffer_Vulkan::BindPipeline(GraphicsPipeline* pipeline) {
+void GPUCommandBuffer_Vulkan::BindPipeline(GPUGraphicsPipeline* pipeline) {
 	vkCmdBindPipeline(m_vk, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->m_vulkan.pipeline);
 }
 
-void CommandBuffer_Vulkan::BindIndexBuffer(GPUBuffer* buffer, IndexType type, U64 offset) {
-	VkIndexType indexType = type == IndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+void GPUCommandBuffer_Vulkan::BindIndexBuffer(GPUBuffer* buffer, GPUIndexType type, U64 offset) {
+	VkIndexType indexType = type == GPUIndexType::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
 	vkCmdBindIndexBuffer(m_vk, buffer->m_vk, offset, indexType);
 }
 
-void CommandBuffer_Vulkan::PushConstants(GraphicsPipeline* pipeline, U32 size, const void* data) {
+void GPUCommandBuffer_Vulkan::PushConstants(GPUGraphicsPipeline* pipeline, U32 size, const void* data) {
 	vkCmdPushConstants(m_vk, pipeline->m_vulkan.layout, VK_SHADER_STAGE_ALL, 0, size, data);
 }
 
-void CommandBuffer_Vulkan::Draw(U32 vertexCount, U32 instanceCount, U32 firstVertex, U32 firstInstance) {
+void GPUCommandBuffer_Vulkan::Draw(U32 vertexCount, U32 instanceCount, U32 firstVertex, U32 firstInstance) {
 	vkCmdDraw(m_vk, vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void CommandBuffer_Vulkan::DrawIndexed(U32 indexCount, U32 instanceCount, U32 firstIndex, I32 vertexOffset, U32 firstInstance) {
+void GPUCommandBuffer_Vulkan::DrawIndexed(U32 indexCount, U32 instanceCount, U32 firstIndex, I32 vertexOffset, U32 firstInstance) {
 	vkCmdDrawIndexed(m_vk, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopyDesc& copy) {
+void GPUCommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const GPUBufferCopyDesc& copy) {
 	VkBufferCopy region{
 		.srcOffset = copy.sourceOffset,
 		.dstOffset = copy.destOffset,
@@ -831,13 +831,13 @@ void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination,
 	vkCmdCopyBuffer(m_vk, source->m_vk, destination->m_vk, 1, &region);
 }
 
-void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopyDesc& copy) {
+void GPUCommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, GPUImage* destination, const GPUBufferImageCopyDesc& copy) {
 	VkBufferImageCopy region{
 		.bufferOffset = copy.bufferOffset,
 		.bufferRowLength = 0,
 		.bufferImageHeight = 0,
 		.imageSubresource = {
-			.aspectMask = (VkImageAspectFlags)(FormatIsDepth(destination->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT),
+			.aspectMask = (VkImageAspectFlags)(GPUFormatIsDepth(destination->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT),
 			.mipLevel = copy.imageMip,
 			.baseArrayLayer = copy.imageLayer,
 			.layerCount = 1,
@@ -849,10 +849,10 @@ void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destinati
 		ImageStateToImageLayout(destination->m_state), 1, &region);
 }
 
-void CommandBuffer_Vulkan::ImageBarrier(const ImageBarrierDesc& barrier) {
-	Image* image = barrier.image;
-	VkImageAspectFlags aspect = FormatIsDepth(image->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	if (FormatHasStencil(image->m_format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+void GPUCommandBuffer_Vulkan::ImageBarrier(const GPUImageBarrierDesc& barrier) {
+	GPUImage* image = barrier.image;
+	VkImageAspectFlags aspect = GPUFormatIsDepth(image->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	if (GPUFormatHasStencil(image->m_format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageMemoryBarrier2 imageBarrier{
 		.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 		.srcStageMask        = ImageStateToPipelineStage(barrier.stateBefore),
@@ -881,11 +881,11 @@ void CommandBuffer_Vulkan::ImageBarrier(const ImageBarrierDesc& barrier) {
 	image->m_state = barrier.stateAfter;
 }
 
-void CommandBuffer_Vulkan::GenerateMipmaps(Image*) {
+void GPUCommandBuffer_Vulkan::GenerateMipmaps(GPUImage*) {
 	printf("STUB: GenerateMipmaps\n");
 }
 
-bool GraphicsDevice_Vulkan::BeginFrame() {
+bool GPUDevice_Vulkan::BeginFrame() {
 	if (m_needsNewSwapchain) {
 		WaitIdle();
 		DestroySwapchain();
@@ -906,7 +906,7 @@ bool GraphicsDevice_Vulkan::BeginFrame() {
 	return true;
 }
 
-void GraphicsDevice_Vulkan::EndFrame() {
+void GPUDevice_Vulkan::EndFrame() {
 	VkSemaphore renderDoneSemaphore = m_renderDoneSemaphores[m_swapchainImageIndex];
 
 	VkMemoryBarrier2 transferBarrier{
@@ -963,23 +963,23 @@ void GraphicsDevice_Vulkan::EndFrame() {
 	m_frameCommandBuffersBegun = false;
 }
 
-CommandBuffer* GraphicsDevice_Vulkan::GetMainCommandBuffer() {
+GPUCommandBuffer* GPUDevice_Vulkan::GetMainCommandBuffer() {
 	return &m_mainCommandBuffer;
 }
 
-CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() {
+GPUCommandBuffer* GPUDevice_Vulkan::GetTransferCommandBuffer() {
 	return &m_transferCommandBuffer;
 }
 
-Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() {
+GPUImage* GPUDevice_Vulkan::GetCurrentBackbuffer() {
 	return m_swapchainImages.empty() ? nullptr : m_swapchainImages[m_swapchainImageIndex];
 }
 
-void GraphicsDevice_Vulkan::WaitIdle() {
+void GPUDevice_Vulkan::WaitIdle() {
 	vkDeviceWaitIdle(m_device);
 }
 
-Result GraphicsDevice_Vulkan::CreateFence(bool signaled, VkFence* out_fence) {
+Result GPUDevice_Vulkan::CreateFence(bool signaled, VkFence* out_fence) {
 	VkFenceCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = signaled ? (VkFenceCreateFlags)VK_FENCE_CREATE_SIGNALED_BIT : 0,
@@ -988,7 +988,7 @@ Result GraphicsDevice_Vulkan::CreateFence(bool signaled, VkFence* out_fence) {
 	return Success();
 }
 
-GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
+GPUBuffer* GPUDevice_Vulkan::CreateBuffer(const GPUBufferDesc& desc) {
 	ScratchArena scratch;
 
 	VkBufferUsageFlags usage = 0;
@@ -1002,14 +1002,14 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 
 	VmaAllocationCreateInfo allocationCreateInfo{};
 	switch (desc.memoryUsage) {
-		case MemoryUsage::GPUOnly:
+		case GPUMemoryUsage::GPUOnly:
 			allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 			break;
-		case MemoryUsage::CPUToGPU:
+		case GPUMemoryUsage::CPUToGPU:
 			allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 			allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			break;
-		case MemoryUsage::GPUToCPU:
+		case GPUMemoryUsage::GPUToCPU:
 			allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 			allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 			break;
@@ -1054,7 +1054,7 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 	return buffer;
 }
 
-void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
+void GPUDevice_Vulkan::DestroyBuffer(GPUBuffer* buffer) {
 	if (!buffer) return;
 	if (buffer->m_bindlessIndex != UINT32_MAX) {
 		m_buffers.Free(buffer->m_bindlessIndex);
@@ -1064,7 +1064,7 @@ void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
 	delete buffer;
 }
 
-Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
+GPUImage* GPUDevice_Vulkan::CreateImage(const GPUImageDesc& desc) {
 	ScratchArena scratch;
 
 	VkImageCreateInfo imageCreateInfo{
@@ -1097,12 +1097,12 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 			vmaSetAllocationName(m_allocator, vmaAllocation, desc.name.CopyToArena(scratch));
 	}
 
-	Image* image = new Image();
+	GPUImage* image = new GPUImage();
 	image->m_vulkan.image = vkImage;
 	image->m_vulkan.allocation = vmaAllocation;
 
-	VkImageAspectFlags aspect = FormatIsDepth(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
-	if (FormatHasStencil(desc.format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	VkImageAspectFlags aspect = GPUFormatIsDepth(desc.format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	if (GPUFormatHasStencil(desc.format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
 	VkImageViewCreateInfo viewCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -1123,7 +1123,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	image->m_height = desc.height;
 	image->m_mipCount = desc.mipCount;
 	image->m_format = desc.format;
-	image->m_state = ImageState::Undefined;
+	image->m_state = GPUImageState::Undefined;
 	image->m_ownedBySwapchain = desc.ownedBySwapchain;
 	image->m_bindlessIndex = m_images.Register(image);
 
@@ -1146,7 +1146,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	return image;
 }
 
-void GraphicsDevice_Vulkan::DestroyImage(Image* image) {
+void GPUDevice_Vulkan::DestroyImage(GPUImage* image) {
 	if (!image) return;
 	if (image->m_bindlessIndex != UINT32_MAX) {
 		m_images.Free(image->m_bindlessIndex);
@@ -1158,7 +1158,7 @@ void GraphicsDevice_Vulkan::DestroyImage(Image* image) {
 	delete image;
 }
 
-Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
+GPUSampler* GPUDevice_Vulkan::CreateSampler(const GPUSamplerDesc& desc) {
 	VkSamplerCreateInfo createInfo{
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.magFilter = ToVkFilter(desc.magFilter),
@@ -1177,7 +1177,7 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 		.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
 		.unnormalizedCoordinates = VK_FALSE,
 	};
-	Sampler* sampler = new Sampler();
+	GPUSampler* sampler = new GPUSampler();
 	if (vkCreateSampler(m_device, &createInfo, nullptr, &sampler->m_vk) != VK_SUCCESS) {
 		delete sampler;
 		return nullptr;
@@ -1199,7 +1199,7 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 	return sampler;
 }
 
-void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
+void GPUDevice_Vulkan::DestroySampler(GPUSampler* sampler) {
 	if (!sampler) return;
 	if (sampler->m_bindlessIndex != UINT32_MAX) {
 		m_samplers.Free(sampler->m_bindlessIndex);
@@ -1209,14 +1209,14 @@ void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
 	delete sampler;
 }
 
-Sampler* GraphicsDevice_Vulkan::GetSampler(U32 index) {
+GPUSampler* GPUDevice_Vulkan::GetSampler(U32 index) {
 	return m_samplers.Get(index);
 }
 
-ShaderModule* GraphicsDevice_Vulkan::CreateShaderModule(const ShaderModuleDesc& desc) {
+GPUShaderModule* GPUDevice_Vulkan::CreateShaderModule(const GPUShaderModuleDesc& desc) {
 	if (!desc.code || !desc.codeSize || desc.codeSize % sizeof(U32) != 0) return nullptr;
 
-	ShaderModule* shader = new ShaderModule();
+	GPUShaderModule* shader = new GPUShaderModule();
 	VkShaderModuleCreateInfo createInfo{
 		.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.codeSize = desc.codeSize,
@@ -1229,13 +1229,13 @@ ShaderModule* GraphicsDevice_Vulkan::CreateShaderModule(const ShaderModuleDesc& 
 	return shader;
 }
 
-void GraphicsDevice_Vulkan::DestroyShaderModule(ShaderModule* shader) {
+void GPUDevice_Vulkan::DestroyShaderModule(GPUShaderModule* shader) {
 	if (!shader) return;
 	if (shader->m_vk) vkDestroyShaderModule(m_device, shader->m_vk, nullptr);
 	delete shader;
 }
 
-GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) {
+GPUGraphicsPipeline* GPUDevice_Vulkan::CreateGraphicsPipeline(const GPUGraphicsPipelineDesc& desc) {
 	if (!desc.vertexShader || !desc.vertexShader->m_vk || !desc.fragmentShader || !desc.fragmentShader->m_vk)
 		return nullptr;
 
@@ -1302,12 +1302,12 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 
 	VkFormat colorFormats[4] = {};
 	VkPipelineColorBlendAttachmentState colorBlendAttachments[4] = {};
-	BlendState blendState = BlendModeToBlendState(desc.blendMode);
+	GPUBlendState blendState = GPUBlendModeToBlendState(desc.blendMode);
 	U32 colorAttachmentCount = 0;
 	for (U32 i = 0; i < EVA_ARRAYSIZE(desc.format.colorFormat); i++) {
-		if (desc.format.colorFormat[i] == Format::None) {
+		if (desc.format.colorFormat[i] == GPUFormat::None) {
 			for (U32 j = i + 1; j < EVA_ARRAYSIZE(desc.format.colorFormat); j++)
-				if (desc.format.colorFormat[j] != Format::None) return nullptr;
+				if (desc.format.colorFormat[j] != GPUFormat::None) return nullptr;
 			break;
 		}
 		colorFormats[colorAttachmentCount] = ToVkFormat(desc.format.colorFormat[i]);
@@ -1340,7 +1340,7 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 		.pDynamicStates    = dynamicStates,
 	};
 
-	GraphicsPipeline* pipeline = new GraphicsPipeline();
+	GPUGraphicsPipeline* pipeline = new GPUGraphicsPipeline();
 	pipeline->m_vulkan.layout = m_pipelineLayout;
 
 	VkFormat depthFormat = ToVkFormat(desc.format.depthFormat);
@@ -1349,7 +1349,7 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 		.colorAttachmentCount    = colorAttachmentCount,
 		.pColorAttachmentFormats = colorFormats,
 		.depthAttachmentFormat   = depthFormat,
-		.stencilAttachmentFormat = FormatHasStencil(desc.format.depthFormat) ? depthFormat : VK_FORMAT_UNDEFINED,
+		.stencilAttachmentFormat = GPUFormatHasStencil(desc.format.depthFormat) ? depthFormat : VK_FORMAT_UNDEFINED,
 	};
 	VkGraphicsPipelineCreateInfo createInfo{
 		.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -1358,7 +1358,7 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 		.pStages             = shaderStages,
 		.pVertexInputState   = &vertexInputState,
 		.pInputAssemblyState = &inputAssemblyState,
-		.pTessellationState  = desc.topology == PrimitiveTopology::PatchList ? &tessellationState : nullptr,
+		.pTessellationState  = desc.topology == GPUPrimitiveTopology::PatchList ? &tessellationState : nullptr,
 		.pViewportState      = &viewportState,
 		.pRasterizationState = &rasterizationState,
 		.pMultisampleState   = &multisampleState,
@@ -1376,30 +1376,30 @@ GraphicsPipeline* GraphicsDevice_Vulkan::CreateGraphicsPipeline(const GraphicsPi
 	return pipeline;
 }
 
-void GraphicsDevice_Vulkan::DestroyGraphicsPipeline(GraphicsPipeline* pipeline) {
+void GPUDevice_Vulkan::DestroyGraphicsPipeline(GPUGraphicsPipeline* pipeline) {
 	if (!pipeline) return;
 	if (pipeline->m_vulkan.pipeline) vkDestroyPipeline(m_device, pipeline->m_vulkan.pipeline, nullptr);
 	delete pipeline;
 }
 
-SwapchainDesc GraphicsDevice_Vulkan::GetSwapchainDesc() {
+GPUSwapchainDesc GPUDevice_Vulkan::GetSwapchainDesc() {
 	return m_swapchainDesc;
 }
 
-void GraphicsDevice_Vulkan::SetSwapchainDesc(SwapchainDesc desc) {
+void GPUDevice_Vulkan::SetSwapchainDesc(GPUSwapchainDesc desc) {
 	m_swapchainDesc = desc;
 	m_needsNewSwapchain = true;
 }
 
-CommandBuffer* GraphicsDevice_Vulkan::BeginImmediateCommandBuffer() {
+GPUCommandBuffer* GPUDevice_Vulkan::BeginImmediateCommandBuffer() {
 	assert(0);
 	return {};
-	// CommandBuffer* cmd = CreateCommandBuffer();
+	// GPUCommandBuffer* cmd = CreateCommandBuffer();
 	// BeginCommandBuffer(cmd);
 	// return cmd;
 }
 
-void GraphicsDevice_Vulkan::FlushImmediateCommandBuffer(CommandBuffer* cmd) {
+void GPUDevice_Vulkan::FlushImmediateCommandBuffer(GPUCommandBuffer* cmd) {
 	assert(0);
 	// EndCommandBuffer(cmd);
 	// VkFence fence;

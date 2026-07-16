@@ -1,7 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 
-class Sampler;
+class GPUSampler;
 class Material;
 class Mesh;
 class Shader;
