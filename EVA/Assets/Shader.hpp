@@ -3,17 +3,11 @@
 #include <EVA/Assets/Asset.hpp>
 #include <EVA/GFX/GPUDevice.hpp>
 
-struct EVERSION(1, ShaderPipelineState) ShaderPipelineState_v1 {
-	GPUCullMode  cullMode  = GPUCullMode::Back;
-};
-struct EVERSION(2, ShaderPipelineState) ShaderPipelineState_v2 {
-	GPUCullMode  cullMode  = GPUCullMode::Back;
-	GPUBlendMode blendMode = GPUBlendMode::Solid;
-};
-struct EVERSION(3) ShaderPipelineState {
-	GPUCullMode  cullMode  = GPUCullMode::Back;
-	GPUBlendMode blendMode = GPUBlendMode::Solid;
-	bool           depthTest = true;
+struct EVERSION(4) ShaderPipelineState {
+	GPUCullMode          cullMode  = GPUCullMode::Back;
+	GPUBlendMode         blendMode = GPUBlendMode::Solid;
+	GPUPrimitiveTopology topology  = GPUPrimitiveTopology::TriangleList;
+	bool                 depthTest = true;
 };
 EAUTO_SERIALIZE(ShaderPipelineState);
 

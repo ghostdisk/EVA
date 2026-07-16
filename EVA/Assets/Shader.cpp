@@ -3,15 +3,6 @@
 #include <EVA/Core/OS.hpp>
 #include <stdio.h>
 
-void Convert(const ShaderPipelineState_v1& v1, ShaderPipelineState_v2& v2) {
-	v2.cullMode = v1.cullMode;
-}
-
-void Convert(const ShaderPipelineState_v2& v2, ShaderPipelineState& v3) {
-	v3.blendMode = v2.blendMode;
-	v3.cullMode = v2.cullMode;
-}
-
 static Result CompileShaderStage(String name, String stage, const Vector<String>& defines, ZTString intermediatePath, void** out_spv, size_t* out_spv_size) {
 	StringBuilder cmdline;
 	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
@@ -87,6 +78,7 @@ Result Shader::LoadImpl(FILE* f) {
 	m_pipeline = device->CreateGraphicsPipeline(GPUGraphicsPipelineDesc{
 		.vertexShader     = vertexModule,
 		.fragmentShader   = fragmentModule,
+		.topology         = data.pipelineState.topology,
 		.cullMode         = data.pipelineState.cullMode,
 		.depthTestEnable  = data.pipelineState.depthTest,
 		.depthWriteEnable = data.pipelineState.depthTest,

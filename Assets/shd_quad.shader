@@ -5,9 +5,10 @@
 	defines = [:0
 	]
 	pipelineState = {
-		version = 3
+		version = 4
 		cullMode = "Front"
 		blendMode = "AlphaBlend"
+		topology = "TriangleList"
 		depthTest = false
 	}
 }

@@ -220,6 +220,7 @@ enum class GPUPrimitiveTopology : U8 {
 	TriangleStripWithAdjacency,
 	PatchList,
 };
+EAUTO_ENUM(GPUPrimitiveTopology);
 
 enum class GPUPolygonMode : U8 {
 	Fill,
