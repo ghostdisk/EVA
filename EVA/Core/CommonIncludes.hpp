@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <sal.h>
 #include <corecrt_malloc.h>
-#include <stdlib.h>
+#include <tracy/Tracy.hpp>
 
 #define COMPILE_SPEED_OPTIMIZATIONS 1
 

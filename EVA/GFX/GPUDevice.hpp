@@ -4,10 +4,10 @@
 
 struct SDL_Window;
 
-#define GPU_MAX_BUFFERS                  4096
-#define GPU_MAX_IMAGES                   4096
-#define GPU_MAX_SAMPLERS                 128
-#define GPU_MAX_PIPELINES                128
+#define GPU_MAX_BUFFERS      4096
+#define GPU_MAX_IMAGES       4096
+#define GPU_MAX_SAMPLERS     128
+#define GPU_MAX_PIPELINES    128
 
 typedef struct VkBuffer_T*         VkBuffer;
 typedef struct VkImage_T*          VkImage;

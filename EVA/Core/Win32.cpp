@@ -75,6 +75,8 @@ void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& sta
 }
 
 Result ExecProcess(String cmdline) {
+	ZoneScopedN("ExecProcess");
+
 	ScratchArena scratch;
 	STARTUPINFOW startup_info{
 		.cb = sizeof(startup_info),

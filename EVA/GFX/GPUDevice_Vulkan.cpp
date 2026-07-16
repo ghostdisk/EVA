@@ -368,6 +368,8 @@ void GPUDevice_Vulkan::DestroySwapchain() {
 }
 
 Result GPUDevice_Vulkan::CreateSwapchain() {
+	ZoneScopedN("CreateSwapchain");
+
 	assert(m_needsNewSwapchain);
 
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -455,11 +457,15 @@ Result GPUDevice_Vulkan::CreateSemaphore(VkSemaphore* outSemaphore) {
 }
 
 Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
+	ZoneScopedN("GPUDevice_Vulkan::Init");
+
 	if (volkInitialize() != VK_SUCCESS) {
 		return Err("volkInitialize failed");
 	}
 
-	{ // create instance:
+	{
+		ZoneScopedN("create instance");
+
 		U32 instanceExtensionCount = 0;
 		const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&instanceExtensionCount);
 		if (!sdlExtensions) return Err("SDL_Vulkan_GetInstanceExtensions: %s", SDL_GetError());
@@ -490,12 +496,16 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		volkLoadInstance(m_instance);
 	}
 
-	{ // create surface:
+	{
+		ZoneScopedN("create surface");
+
 		if (!SDL_Vulkan_CreateSurface(desc.window, m_instance, nullptr, &m_surface))
 			return Err("SDL_Vulkan_CreateSurface: %s", SDL_GetError());
 	}
 
-	{ // pick physical device:
+	{
+		ZoneScopedN("pick physical device");
+
 		U32 physicalDeviceCount = 0;
 		VK_TRY(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr));
 		if (physicalDeviceCount == 0) return Err("No Vulkan physical devices found");
@@ -515,7 +525,9 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		if (!m_physicalDevice) return Err("No Vulkan 1.3 physical device with a graphics queue found");
 	}
 
-	{ // create device:
+	{
+		ZoneScopedN("create device");
+
 		float queuePriority = 1.0f;
 		VkDeviceQueueCreateInfo queueCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -558,7 +570,9 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		vkGetDeviceQueue(m_device, m_graphicsFamily, 0, &m_graphicsQueue);
 	}
 
-	{ // set up descriptors:
+	{
+		ZoneScopedN("set up descriptors");
+
 		VkPhysicalDeviceDescriptorIndexingProperties descriptorIndexingProperties{
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES,
 		};
@@ -648,7 +662,9 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		m_pipelines.Init(GPU_MAX_PIPELINES);
 	}
 
-	{ // create allocator:
+	{
+		ZoneScopedN("create allocator");
+
 		VmaVulkanFunctions functions{
 			.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
 			.vkGetDeviceProcAddr = vkGetDeviceProcAddr,
@@ -663,13 +679,17 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		VK_TRY(vmaCreateAllocator(&createInfo, &m_allocator));
 	}
 
-	{ // create a swapchain:
+	{
+		ZoneScopedN("create a swapchain");
+
 		TRY(CreateSwapchain());
 		TRY(CreateFence(true, &m_frameFence));
 		if (!m_frameFence) return Err("Failed to create frame fence");
 	}
 
-	{ // create frame command buffers:
+	{
+		ZoneScopedN("create frame command buffers");
+
 		TRY(CreateCommandPool(&m_mainCommandPool));
 		TRY(CreateCommandPool(&m_transferCommandPool));
 		TRY(InitCommandBuffer(m_mainCommandPool, &m_mainCommandBuffer));
@@ -890,7 +910,10 @@ void GPUCommandBuffer_Vulkan::GenerateMipmaps(GPUImage*) {
 }
 
 bool GPUDevice_Vulkan::BeginFrame() {
+	ZoneScopedN("BeginFrame");
+
 	if (m_needsNewSwapchain) {
+		ZoneScopedN("BeginFrame swapchain rebuild");
 		WaitIdle();
 		DestroySwapchain();
 		CreateSwapchain();
@@ -899,18 +922,27 @@ bool GPUDevice_Vulkan::BeginFrame() {
 		return false;
 	}
 
-	vkWaitForFences(m_device, 1, &m_frameFence, VK_TRUE, UINT64_MAX);
-	VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
+	{
+		ZoneScopedN("BeginFrame vkWaitForFences");
+		vkWaitForFences(m_device, 1, &m_frameFence, VK_TRUE, UINT64_MAX);
+	}
 
-	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-		m_needsNewSwapchain = true;
-		return false;
+	{
+		ZoneScopedN("BeginFrame vkAcquireNextImageKHR");
+		VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
+		if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+			m_needsNewSwapchain = true;
+			return false;
+		}
+
 	}
 	BeginFrameCommandBuffers();
 	return true;
 }
 
 void GPUDevice_Vulkan::EndFrame() {
+	ZoneScopedN("EndFrame");
+
 	VkSemaphore renderDoneSemaphore = m_renderDoneSemaphores[m_swapchainImageIndex];
 
 	VkMemoryBarrier2 transferBarrier{
@@ -980,6 +1012,7 @@ GPUImage* GPUDevice_Vulkan::GetCurrentBackbuffer() {
 }
 
 void GPUDevice_Vulkan::WaitIdle() {
+	ZoneScopedN("GPUDevice_Vulkan::WaitIdle");
 	vkDeviceWaitIdle(m_device);
 }
 

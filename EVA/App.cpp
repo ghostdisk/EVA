@@ -93,6 +93,8 @@ Result RunProgram() {
 	ConExec("game 0");
 	ConExec("exec autoexec.cfg");
 
+	g_quit = true;
+
 	while (!g_quit) {
 		Arena::RotateFrameArenas();
 		PlatformBeginFrame();

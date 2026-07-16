@@ -7,6 +7,7 @@
 #include <cstring>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -28,15 +29,15 @@ struct Type {
 	std::string              qualifiedName         = "";
 	std::string              symbolName            = "";
 	Type*                    parent                = nullptr;
-	Vector<Type*>       subclasses            = {};
+	std::vector<Type*>       subclasses            = {};
 	std::string              header                = "'";
-	Vector<Field>       fields                = {};
+	std::vector<Field>       fields                = {};
 	bool                     isObject              = false;
 	bool                     isAbstract            = false;
 	bool                     isEnum                = false;
 	std::string              enumUnderlyingType    = "";
-	Vector<EnumValue>   enumValues            = {};
-	Vector<std::string> autos                 = {};
+	std::vector<EnumValue>   enumValues            = {};
+	std::vector<std::string> autos                 = {};
 	int                      version               = 0;
 	VersionChain*            versionChain          = nullptr;
 	bool                     shouldEmitTypeInfo    = false;
@@ -48,7 +49,7 @@ struct Type {
 
 struct VersionChain {
 	std::string typeName;
-	Vector<Type*> versions;
+	std::vector<Type*> versions;
 
 	void Set(int version, Type* type) {
 		if (versions.size() <= version) {
@@ -60,15 +61,15 @@ struct VersionChain {
 
 // Root that <EVA/...> includes resolve against, and the dir we walk.
 static const char* g_baseDir = "D:/EVA";
-Vector<std::string> g_includes = {
+std::vector<std::string> g_includes = {
 	"EVA/Core/Object.hpp",
 	"EVA/Core/Serialization.hpp",
 	"EVA/Core/Allocator.hpp"
 };
 
-static Vector<Type*> g_types;
-static Vector<Type*> g_typesWeCareAbout;
-static Vector<VersionChain*> g_versionChains;
+static std::vector<Type*> g_types;
+static std::vector<Type*> g_typesWeCareAbout;
+static std::vector<VersionChain*> g_versionChains;
 
 
 std::string TrimString(std::string s) {
@@ -78,8 +79,8 @@ std::string TrimString(std::string s) {
     return s;
 }
 
-Vector<std::string> SplitString(const std::string& s, char delimiter = ',') {
-    Vector<std::string> parts;
+std::vector<std::string> SplitString(const std::string& s, char delimiter = ',') {
+    std::vector<std::string> parts;
     std::stringstream ss(s);
     std::string part;
     while (std::getline(ss, part, delimiter))
@@ -93,8 +94,8 @@ static std::string ToForwardSlashes(std::string s) {
 	return s;
 }
 
-static Vector<std::string> CollectHeaders() {
-	Vector<std::string> headers;
+static std::vector<std::string> CollectHeaders() {
+	std::vector<std::string> headers;
 
 	fs::path base = g_baseDir;
 	fs::path walk = base / "EVA";
@@ -111,7 +112,7 @@ static Vector<std::string> CollectHeaders() {
 	return headers;
 }
 
-static std::string WriteAmalgam(const Vector<std::string>& headers) {
+static std::string WriteAmalgam(const std::vector<std::string>& headers) {
 	fs::path out = fs::path(g_baseDir) / "EVAGEN" / "_amalgam.generated.hpp";
 
 	_unlink(out.string().c_str());
@@ -191,13 +192,13 @@ static CXChildVisitResult AnnotationVisitor(CXCursor cursor, CXCursor, CXClientD
 	if (clang_getCursorKind(cursor) != CXCursor_AnnotateAttr)
 		return CXChildVisit_Continue;
 
-	auto* annotations = static_cast<Vector<std::string>*>(data);
+	auto* annotations = static_cast<std::vector<std::string>*>(data);
 	annotations->push_back(Str(clang_getCursorSpelling(cursor)));
 	return CXChildVisit_Continue;
 }
 
 static bool HasAnnotation(CXCursor cursor, const std::string& annotation) {
-	Vector<std::string> annotations;
+	std::vector<std::string> annotations;
 	clang_visitChildren(cursor, AnnotationVisitor, &annotations);
 	return std::find(annotations.begin(), annotations.end(), annotation) != annotations.end();
 }
@@ -291,7 +292,7 @@ static CXChildVisitResult RecordChildVisitor(CXCursor cursor, CXCursor, void* _t
 
 	if (kind == CXCursor_AnnotateAttr) {
 		std::string annotation = Str(clang_getCursorSpelling(cursor));
-		Vector<std::string> args = SplitString(annotation, ',');
+		std::vector<std::string> args = SplitString(annotation, ',');
 		for (std::string& arg : args)
 			arg = TrimString(arg);
 
@@ -562,13 +563,13 @@ static void WriteOutput() {
 }
 
 int main() {
-	Vector<std::string> headers = CollectHeaders();
+	std::vector<std::string> headers = CollectHeaders();
 
 	printf("evagen: collected %zu headers\n", headers.size());
 	std::string amalgam = WriteAmalgam(headers);
 
 	std::string base = g_baseDir;
-	Vector<std::string> arg_strs = {
+	std::vector<std::string> arg_strs = {
 		"-x", "c++",
 		"-std=c++20",
 		"-DEVAGEN",
@@ -579,11 +580,12 @@ int main() {
 		"-I" + base + "/Vendor/freetype-2.14.3/include",
 		"-I" + base + "/Vendor/enet-1.3.18/include",
 		"-I" + base + "/Vendor/volk",
+		"-I" + base + "/Vendor/tracy-0.13.1/public",
 	};
 
 	if (const char* vulkanSdk = getenv("VULKAN_SDK"))
 		arg_strs.push_back("-I" + std::string(vulkanSdk) + "/Include");
-	Vector<const char*> args;
+	std::vector<const char*> args;
 	for (const std::string& s : arg_strs) args.push_back(s.c_str());
 
 	CXIndex index = clang_createIndex(0, 0);

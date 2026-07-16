@@ -46,15 +46,20 @@ Type* MapExtensionToType(String ext) {
 
 void BuildAssets(String dir) {
 	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
+
 		ScratchArena scratch;
 		String ext = FS::GetExtension(stat.filename);
 		String path_wo_ext = FS::WithoutExtension(stat.full_path);
 
 		if (ext == ".gltf" || ext == ".glb") {
+			ZoneScopedN("Build asset (gltf)");
+
 			Model* model = new Model();
 			BuildGLTF(model, stat.full_path);
 			model->SaveToDisk(scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
 		} else if (ext == ".shader") {
+			ZoneScopedN("Build asset (shader)");
+
 			Result res = BuildShader(stat.full_path, scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
 			if (!res) Fatal("Failed to build %s: %s", stat.full_path.c_str(), res.error->c_str());
 		}

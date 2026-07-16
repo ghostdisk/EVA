@@ -112,7 +112,7 @@ target_link_libraries(EVA enet "Ws2_32.lib")
 #
 target_sources(EVA PRIVATE "Vendor/tracy-0.13.1/public/TracyClient.cpp")
 target_include_directories(EVA PRIVATE "Vendor/tracy-0.13.1/public")
-# add_definitions(-DTRACY_ENABLE)
+add_definitions(-DTRACY_ENABLE)
 
 #
 # Box3D
