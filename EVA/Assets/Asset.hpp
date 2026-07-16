@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
+#include <EVA/Async/JobSystem.hpp>
 
 #ifndef _FILE_DEFINED
     #define _FILE_DEFINED
@@ -45,6 +46,11 @@ public:
 	}
 };
 
+struct AssetsInitDesc {
+	Promise gpuInitPromise;
+};
+
+Promise AssetsBuild();
 void    AssetInit(Asset* asset, const char* name);
 void    AssetDeinit(Asset* asset);
 Asset*  AssetGet(U32 id, Type* expected_type);

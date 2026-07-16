@@ -44,26 +44,81 @@ Type* MapExtensionToType(String ext) {
 	return nullptr;
 }
 
-void BuildAssets(String dir) {
-	FS::ReadDirectory(dir, nullptr, [](const FS::Stat& stat, void* ud) {
+Promise AssetsBuild() {
+	ScratchArena scratch;
+
+	Promise buildPromise = Promise::Create(0);
+	String dir = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
+
+	FS::ReadDirectory(dir, &buildPromise, [](const FS::Stat& stat, void* ud) {
+		Promise* signalPromise = (Promise*)ud;
 
 		ScratchArena scratch;
 		String ext = FS::GetExtension(stat.filename);
 		String path_wo_ext = FS::WithoutExtension(stat.full_path);
 
 		if (ext == ".gltf" || ext == ".glb") {
-			ZoneScopedN("Build asset (gltf)");
+			struct JobData {
+				Promise signalPromise;
+				ZTString full_path;
+				ZTString path_wo_ext;
+			};
+			JobData* jobData = new JobData {
+				.signalPromise = *signalPromise,
+				.full_path = stat.full_path.CopyToHeap(),
+				.path_wo_ext = path_wo_ext.CopyToHeap(),
+			};
+			signalPromise->Block();
 
-			Model* model = new Model();
-			BuildGLTF(model, stat.full_path);
-			model->SaveToDisk(scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(path_wo_ext)));
+			Job job = Job::Create([](void* _jobData) {
+				ZoneScopedN("Build asset (gltf)");
+
+				ScratchArena scratch;
+				JobData* jobData = (JobData*)_jobData;
+				Model* model = new Model();
+				BuildGLTF(model, jobData->full_path);
+				model->SaveToDisk(scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(jobData->path_wo_ext)));
+
+				jobData->signalPromise.Signal();
+				free(jobData->full_path.data);
+				free(jobData->path_wo_ext.data);
+				delete jobData;
+			}, jobData);
+			job.Schedule();
+
 		} else if (ext == ".shader") {
 			ZoneScopedN("Build asset (shader)");
 
-			Result res = BuildShader(stat.full_path, scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(path_wo_ext)));
-			if (!res) Fatal("Failed to build %s: %s", stat.full_path.c_str(), res.error->c_str());
+			struct JobData {
+				Promise signalPromise;
+				ZTString full_path;
+				ZTString path_wo_ext;
+			};
+			JobData* jobData = new JobData {
+				.signalPromise = *signalPromise,
+				.full_path = stat.full_path.CopyToHeap(),
+				.path_wo_ext = path_wo_ext.CopyToHeap(),
+			};
+			signalPromise->Block();
+
+			Job job = Job::Create([](void* _jobData) {
+				ZoneScopedN("Build asset (shader)");
+
+				ScratchArena scratch;
+				JobData* jobData = (JobData*)_jobData;
+				Result res = BuildShader(jobData->full_path, scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(jobData->path_wo_ext)));
+				if (!res) Fatal("Failed to build %s: %s", jobData->full_path.c_str(), res.error->c_str());
+
+				jobData->signalPromise.Signal();
+				free(jobData->full_path.data);
+				free(jobData->path_wo_ext.data);
+				delete jobData;
+			}, jobData);
+			job.Schedule();
 		}
 	});
+
+	return buildPromise;
 }
 
 void LoadAssetsFromDir(String dir) {
@@ -118,7 +173,6 @@ void LoadAssetsFromDir(String dir) {
 void AssetsLoad() {
 	ScratchArena scratch;
 	String root = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
-	BuildAssets(root);
 	LoadAssetsFromDir(root);
 }
 

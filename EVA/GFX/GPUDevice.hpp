@@ -1,8 +1,10 @@
 #pragma once
 #include <EVA/Core/Basic.hpp>
 #include <EVA/Math.hpp>
+#include <EVA/Async/JobSystem.hpp>
 
 struct SDL_Window;
+class Promise;
 
 #define GPU_MAX_BUFFERS      4096
 #define GPU_MAX_IMAGES       4096
@@ -560,10 +562,11 @@ struct GPUSwapchainDesc {
 };
 
 struct GPUDeviceInitDesc {
-	GPUBackend      backend       = GPUBackend::Vulkan;
-	SDL_Window*     window        = nullptr;
-	bool            enableDebug   = true;
+	GPUBackend       backend       = GPUBackend::Vulkan;
+	SDL_Window*      window        = nullptr;
+	bool             enableDebug   = true;
 	GPUSwapchainDesc swapchainDesc = {};
+	Promise          signalPromise = {};
 };
 
 class GPUDevice : public Object {
@@ -612,7 +615,10 @@ public:
 	virtual void SetSwapchainDesc(GPUSwapchainDesc desc) = 0;
 	virtual GPUSwapchainDesc GetSwapchainDesc() = 0;
 
+	Promise GetInitPromise();
+
 protected:
+	Promise    m_initPromise;
 	GPUBuffer* m_frameUploadBuffer = nullptr;
 	size_t     m_frameUploadOffset = 0;
 };

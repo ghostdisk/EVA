@@ -54,6 +54,7 @@ add_executable(EVA
 	"EVA/UI_Utils.cpp"
 	"EVA/UI_Widgets.cpp"
 	"EVA/EVA.gen.cpp"
+	"EVA/Async/JobSystem.cpp"
 	"EVA/EVA.natvis"
 )
 

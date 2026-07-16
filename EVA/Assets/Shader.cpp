@@ -12,16 +12,16 @@ void Convert(const ShaderPipelineState_v2& v2, ShaderPipelineState& v3) {
 	v3.cullMode = v2.cullMode;
 }
 
-static Result CompileShaderStage(String name, String stage, const Vector<String>& defines, void** out_spv, size_t* out_spv_size) {
+static Result CompileShaderStage(String name, String stage, const Vector<String>& defines, ZTString intermediatePath, void** out_spv, size_t* out_spv_size) {
 	StringBuilder cmdline;
 	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
 	for (String define : defines)
 		cmdline.Push(" -D%.*s", STRING_PRINTF_ARGS(define));
-	cmdline.Push(" %s/EVA/Shaders/%.*s -o tmp.spv", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
+	cmdline.Push(" \"%s/EVA/Shaders/%.*s\" -o \"%s\"", EVA_BASE_DIR, STRING_PRINTF_ARGS(name), intermediatePath.c_str());
 	TRY(ExecProcess(cmdline.Build()));
 
-	if (!ReadEntireFile("tmp.spv", out_spv, out_spv_size))
-		return Err("Failed to read spv");
+	if (!ReadEntireFile(intermediatePath, out_spv, out_spv_size))
+		return Err("Failed to read %s", intermediatePath.c_str());
 
 	return Success();
 }
@@ -38,10 +38,14 @@ Result BuildShader(ZTString input_path, ZTString output_path) {
 	ShaderAssetSourceData data;
 	Deserialize(d, data);
 
-	ShaderAssetCompiledData compiledData = {}; 
-	TRY(CompileShaderStage(data.vs, "vertex", data.defines, &compiledData.vs.data, &compiledData.vs.size));
+	ShaderAssetCompiledData compiledData = {};
+	ZTString vertexIntermediatePath = scratch->Fmt("%s.vertex.spv", output_path.c_str());
+	TRY(CompileShaderStage(data.vs, "vertex", data.defines, vertexIntermediatePath, &compiledData.vs.data, &compiledData.vs.size));
+	remove(vertexIntermediatePath.c_str());
 	DEFER(free(compiledData.vs.data));
-	TRY(CompileShaderStage(data.fs, "fragment", data.defines, &compiledData.fs.data, &compiledData.fs.size));
+	ZTString fragmentIntermediatePath = scratch->Fmt("%s.fragment.spv", output_path.c_str());
+	TRY(CompileShaderStage(data.fs, "fragment", data.defines, fragmentIntermediatePath, &compiledData.fs.data, &compiledData.fs.size));
+	remove(fragmentIntermediatePath.c_str());
 	DEFER(free(compiledData.fs.data));
 	compiledData.pipelineState = data.pipelineState;
 

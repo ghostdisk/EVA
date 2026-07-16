@@ -6,10 +6,9 @@
 
 Arena* g_frameArenas[NUM_FRAME_ARENAS] = {};
 Arena* g_frameArena = nullptr;
-static Arena* g_scratchArena = nullptr;
+static thread_local Arena* tl_scratchArena;
 
 void ArenaInitialize() {
-	g_scratchArena = Arena::Create();
 
 	for (int i = 0; i < NUM_FRAME_ARENAS; i++) {
 		g_frameArenas[i] = Arena::Create();
@@ -105,7 +104,10 @@ void Arena::Reset(ArenaResetPoint resetPoint) {
 }
 
 ScratchArena::ScratchArena() {
-	m_arena = g_scratchArena;
+	if (!tl_scratchArena) {
+		tl_scratchArena = Arena::Create();
+	}
+	m_arena = tl_scratchArena;
 	m_resetPoint = m_arena->GetResetPoint();
 }
 

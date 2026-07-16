@@ -1,4 +1,5 @@
 #include <EVA/App.hpp>
+#include <EVA/Async/JobSystem.hpp>
 #include <EVA/Core/Basic.hpp>
 #include <EVA/GFX/GPUDevice.hpp>
 #include <EVA/Platform.hpp>
@@ -66,18 +67,30 @@ void QueueForNextFrame(void (*callback)(void* userdata), void* userdata) {
 	g_next_frame_callbacks.push_back({ callback, userdata });
 }
 
+static void WaitPromise(Promise promise) {
+	while (!promise.Done()) {
+	}
+}
+
 Result RunProgram() {
 	ArenaInitialize();
+	JobInitialize();
 	Arena::RotateFrameArenas();
 	PlatformInitialize();
 	NetInitialize();
 	ConsoleInitialize();
 
-	TRY(GPUDevice::Create({
-		.backend = GPUBackend::Vulkan,
-		.window = g_game_window,
-	}));
+	Promise gpuInitPromise = Promise::Create();
+	Promise assetsBuildPromise = AssetsBuild();
 
+	TRY(GPUDevice::Create({
+		.backend       = GPUBackend::Vulkan,
+		.window        = g_game_window,
+		.signalPromise = gpuInitPromise,
+	}));
+	
+	WaitPromise(assetsBuildPromise);
+	
 	GameInitialize();
 	FontInitialize();
 	RendererInitialize1();
@@ -92,8 +105,6 @@ Result RunProgram() {
 
 	ConExec("game 0");
 	ConExec("exec autoexec.cfg");
-
-	g_quit = true;
 
 	while (!g_quit) {
 		Arena::RotateFrameArenas();
@@ -149,6 +160,7 @@ Result RunProgram() {
 
 	RendererShutdown();
 	GPUDevice::Shutdown();
+	JobShutdown();
 	return Success();
 }
 
