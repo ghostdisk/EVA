@@ -110,7 +110,6 @@ void RendererInitialize1() {
 			.addressU    = AddressMode::ClampToEdge,
 			.addressV    = AddressMode::ClampToEdge,
 			.addressW    = AddressMode::ClampToEdge,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointClamp,
 		});
 		g_device->CreateSampler({
@@ -120,7 +119,6 @@ void RendererInitialize1() {
 			.addressU    = AddressMode::Repeat,
 			.addressV    = AddressMode::Repeat,
 			.addressW    = AddressMode::Repeat,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointWrap,
 		});
 		g_device->CreateSampler({
@@ -130,7 +128,6 @@ void RendererInitialize1() {
 			.addressU    = AddressMode::MirroredRepeat,
 			.addressV    = AddressMode::MirroredRepeat,
 			.addressW    = AddressMode::MirroredRepeat,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointMirror,
 		});
 		g_device->CreateSampler({
@@ -138,12 +135,10 @@ void RendererInitialize1() {
 			.addressU    = AddressMode::ClampToEdge,
 			.addressV    = AddressMode::ClampToEdge,
 			.addressW    = AddressMode::ClampToEdge,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearClamp,
 		});
 		g_device->CreateSampler({
 			.mipmapMode = MipmapMode::Nearest,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearWrap,
 		});
 		g_device->CreateSampler({
@@ -151,25 +146,21 @@ void RendererInitialize1() {
 			.addressU    = AddressMode::MirroredRepeat,
 			.addressV    = AddressMode::MirroredRepeat,
 			.addressW    = AddressMode::MirroredRepeat,
-			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearMirror,
 		});
 		g_device->CreateSampler({
 			.addressU = AddressMode::ClampToEdge,
 			.addressV = AddressMode::ClampToEdge,
 			.addressW = AddressMode::ClampToEdge,
-			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearClamp,
 		});
 		g_device->CreateSampler({
-			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearWrap,
 		});
 		g_device->CreateSampler({
 			.addressU = AddressMode::MirroredRepeat,
 			.addressV = AddressMode::MirroredRepeat,
 			.addressW = AddressMode::MirroredRepeat,
-			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearMirror,
 		});
 		g_device->CreateSampler({
@@ -178,13 +169,11 @@ void RendererInitialize1() {
 			.addressW         = AddressMode::ClampToEdge,
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
-			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoClamp,
 		});
 		g_device->CreateSampler({
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
-			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoWrap,
 		});
 		g_device->CreateSampler({
@@ -193,7 +182,6 @@ void RendererInitialize1() {
 			.addressW         = AddressMode::MirroredRepeat,
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
-			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoMirror,
 		});
 		g_device->CreateSampler({
@@ -205,7 +193,6 @@ void RendererInitialize1() {
 			.addressW       = AddressMode::ClampToEdge,
 			.compareEnable  = true,
 			.compareOp      = CompareOp::LessEqual,
-			.bindless       = true,
 			.forcedBindlessIndex = (U32)StandardSampler::ShadowPointClamp,
 		});
 		g_device->CreateSampler({
@@ -214,7 +201,6 @@ void RendererInitialize1() {
 			.addressW      = AddressMode::ClampToEdge,
 			.compareEnable = true,
 			.compareOp     = CompareOp::LessEqual,
-			.bindless      = true,
 			.forcedBindlessIndex = (U32)StandardSampler::ShadowLinearClamp,
 		});
 	}
@@ -240,8 +226,11 @@ void RendererInitialize2() {
 }
 
 void RendererShutdown() {
-	g_device->DestroyImage(g_depthBuffer);
-	g_depthBuffer = nullptr;
+	if (g_device) {
+		g_device->WaitIdle();
+		g_device->DestroyImage(g_depthBuffer);
+		g_depthBuffer = nullptr;
+	}
 }
 
 void DrawLine(float3 a, float3 b, float4 color) {

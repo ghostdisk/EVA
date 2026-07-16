@@ -27,37 +27,33 @@ public:
 class GraphicsDevice_Vulkan final : public GraphicsDevice {
 
 private:
-	U32                        m_bindlessBufferCount            = 4096;
-	U32                        m_bindlessImageCount             = 4096;
-	U32                        m_bindlessSamplerCount           = 128;
-
-	VkInstance                 m_instance                       = nullptr;
-	VkSurfaceKHR               m_surface                        = nullptr;
-	VkPhysicalDevice           m_physicalDevice                 = nullptr;
-	VkDevice                   m_device                         = nullptr;
-	VkQueue                    m_graphicsQueue                  = nullptr;
-	VkSwapchainKHR             m_swapchain                      = nullptr;
-	VkSemaphore                m_imageAcquiredSemaphore         = nullptr;
-	VkDescriptorSetLayout      m_bindlessDescriptorSetLayout    = nullptr;
-	VkDescriptorPool           m_bindlessDescriptorPool         = nullptr;
-	VkDescriptorSet            m_bindlessDescriptorSet          = nullptr;
-	VkPipelineLayout           m_pipelineLayout                 = nullptr;
-	VmaAllocator               m_allocator                      = nullptr;
-	BindlessPool<GPUBuffer*>   m_bindlessBuffers                = {};
-	BindlessPool<Image*>       m_bindlessImages                 = {};
-	BindlessPool<Sampler*>     m_bindlessSamplers               = {};
-	U32                        m_graphicsFamily                 = UINT32_MAX;
-	VkCommandPool              m_mainCommandPool                = nullptr;
-	VkCommandPool              m_transferCommandPool            = nullptr;
-	CommandBuffer_Vulkan*      m_mainCommandBuffer              = nullptr;
-	CommandBuffer_Vulkan*      m_transferCommandBuffer          = nullptr;
-	bool                       m_frameCommandBuffersBegun       = false;
-	Vector<Image*>        m_swapchainImages                = {};
-	Vector<VkSemaphore>   m_renderDoneSemaphores           = {};
-	U32                        m_swapchainImageIndex            = 0;
-	VkFence                    m_frameFence                     = nullptr;
-	bool                       m_needsNewSwapchain              = true;
-	SwapchainDesc              m_swapchainDesc                  = {};
+	VkInstance                       m_instance                          = nullptr;
+	VkSurfaceKHR                     m_surface                           = nullptr;
+	VkPhysicalDevice                 m_physicalDevice                    = nullptr;
+	VkDevice                         m_device                            = nullptr;
+	VkQueue                          m_graphicsQueue                     = nullptr;
+	VkSwapchainKHR                   m_swapchain                         = nullptr;
+	VkSemaphore                      m_imageAcquiredSemaphore            = nullptr;
+	VkDescriptorSetLayout            m_bindlessDescriptorSetLayout       = nullptr;
+	VkDescriptorPool                 m_bindlessDescriptorPool            = nullptr;
+	VkDescriptorSet                  m_bindlessDescriptorSet             = nullptr;
+	VkPipelineLayout                 m_pipelineLayout                    = nullptr;
+	VmaAllocator                     m_allocator                         = nullptr;
+	GPUResourcePool<GPUBuffer*>      m_buffers                           = {};
+	GPUResourcePool<Image*>          m_images                            = {};
+	GPUResourcePool<Sampler*>        m_samplers                          = {};
+	U32                              m_graphicsFamily                    = UINT32_MAX;
+	VkCommandPool                    m_mainCommandPool                   = nullptr;
+	VkCommandPool                    m_transferCommandPool               = nullptr;
+	CommandBuffer_Vulkan             m_mainCommandBuffer                 = {};
+	CommandBuffer_Vulkan             m_transferCommandBuffer             = {};
+	bool                             m_frameCommandBuffersBegun          = false;
+	Vector<Image*>                   m_swapchainImages                   = {};
+	Vector<VkSemaphore>              m_renderDoneSemaphores              = {};
+	U32                              m_swapchainImageIndex               = 0;
+	VkFence                          m_frameFence                        = nullptr;
+	bool                             m_needsNewSwapchain                 = true;
+	SwapchainDesc                    m_swapchainDesc                     = {};
 
 public:
 	ECLASS_COMMON();
@@ -100,7 +96,7 @@ public:
 
 private:
 	Result CreateCommandPool(VkCommandPool* outCommandPool);
-	Result CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer);
+	Result InitCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan* outCommandBuffer);
 	Result CreateFence(bool signaled, VkFence* outFence);
 	Result BeginFrameCommandBuffers();
 	Result CreateSwapchain();

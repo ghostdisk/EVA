@@ -310,7 +310,7 @@ Result GraphicsDevice_Vulkan::CreateCommandPool(VkCommandPool* outCommandPool) {
 	return Success();
 }
 
-Result GraphicsDevice_Vulkan::CreateCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan** outCommandBuffer) {
+Result GraphicsDevice_Vulkan::InitCommandBuffer(VkCommandPool commandPool, CommandBuffer_Vulkan* outCommandBuffer) {
 	VkCommandBufferAllocateInfo allocateInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = commandPool,
@@ -319,9 +319,7 @@ Result GraphicsDevice_Vulkan::CreateCommandBuffer(VkCommandPool commandPool, Com
 	};
 	VkCommandBuffer vkCmd;
 	VK_TRY(vkAllocateCommandBuffers(m_device, &allocateInfo, &vkCmd));
-	CommandBuffer_Vulkan* commandBuffer = new CommandBuffer_Vulkan();
-	commandBuffer->m_vk = vkCmd;
-	*outCommandBuffer = commandBuffer;
+	outCommandBuffer->m_vk = vkCmd;
 	return Success();
 }
 
@@ -336,10 +334,10 @@ Result GraphicsDevice_Vulkan::BeginFrameCommandBuffers() {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
-	VK_TRY(vkBeginCommandBuffer(m_mainCommandBuffer->m_vk, &beginInfo));
-	VK_TRY(vkBeginCommandBuffer(m_transferCommandBuffer->m_vk, &beginInfo));
+	VK_TRY(vkBeginCommandBuffer(m_mainCommandBuffer.m_vk, &beginInfo));
+	VK_TRY(vkBeginCommandBuffer(m_transferCommandBuffer.m_vk, &beginInfo));
 	vkCmdBindDescriptorSets(
-		m_mainCommandBuffer->m_vk,
+		m_mainCommandBuffer.m_vk,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		m_pipelineLayout,
 		0,
@@ -568,26 +566,23 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 		};
 		vkGetPhysicalDeviceProperties2(m_physicalDevice, &properties);
 
-		if (!m_bindlessBufferCount || !m_bindlessImageCount || !m_bindlessSamplerCount)
-			return Err("Vulkan device has insufficient update-after-bind descriptor limits");
-
 		VkDescriptorSetLayoutBinding bindings[] = {
 			{
 				.binding         = 0,
 				.descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				.descriptorCount = m_bindlessBufferCount,
+				.descriptorCount = GPU_MAX_BUFFERS,
 				.stageFlags      = VK_SHADER_STAGE_ALL,
 			},
 			{
 				.binding         = 1,
 				.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-				.descriptorCount = m_bindlessImageCount,
+				.descriptorCount = GPU_MAX_IMAGES,
 				.stageFlags      = VK_SHADER_STAGE_ALL,
 			},
 			{
 				.binding         = 2,
 				.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER,
-				.descriptorCount = m_bindlessSamplerCount,
+				.descriptorCount = GPU_MAX_SAMPLERS,
 				.stageFlags      = VK_SHADER_STAGE_ALL,
 			},
 		};
@@ -611,9 +606,9 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 		VK_TRY(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_bindlessDescriptorSetLayout));
 
 		VkDescriptorPoolSize poolSizes[] = {
-			{ .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = m_bindlessBufferCount,  },
-			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  .descriptorCount = m_bindlessImageCount,   },
-			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLER,        .descriptorCount = m_bindlessSamplerCount, },
+			{ .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = GPU_MAX_BUFFERS,  },
+			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,  .descriptorCount = GPU_MAX_IMAGES,   },
+			{ .type            = VK_DESCRIPTOR_TYPE_SAMPLER,        .descriptorCount = GPU_MAX_SAMPLERS, },
 		};
 		VkDescriptorPoolCreateInfo poolCreateInfo{
 			.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
@@ -645,9 +640,9 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 			.pPushConstantRanges    = &pushConstantRange,
 		};
 		VK_TRY(vkCreatePipelineLayout(m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
-		m_bindlessBuffers.Init(m_bindlessBufferCount);
-		m_bindlessImages.Init(m_bindlessImageCount);
-		m_bindlessSamplers.Init(m_bindlessSamplerCount);
+		m_buffers.Init(GPU_MAX_BUFFERS);
+		m_images.Init(GPU_MAX_IMAGES);
+		m_samplers.Init(GPU_MAX_SAMPLERS);
 	}
 
 	{ // create allocator:
@@ -674,8 +669,8 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 	{ // create frame command buffers:
 		TRY(CreateCommandPool(&m_mainCommandPool));
 		TRY(CreateCommandPool(&m_transferCommandPool));
-		TRY(CreateCommandBuffer(m_mainCommandPool, &m_mainCommandBuffer));
-		TRY(CreateCommandBuffer(m_transferCommandPool, &m_transferCommandBuffer));
+		TRY(InitCommandBuffer(m_mainCommandPool, &m_mainCommandBuffer));
+		TRY(InitCommandBuffer(m_transferCommandPool, &m_transferCommandBuffer));
 		TRY(BeginFrameCommandBuffers());
 	}
 
@@ -683,14 +678,28 @@ Result GraphicsDevice_Vulkan::Init(const GraphicsDeviceInitDesc& desc) {
 }
 
 GraphicsDevice_Vulkan::~GraphicsDevice_Vulkan() {
-	if (m_device) vkDeviceWaitIdle(m_device);
+	if (m_device) {
+		VkResult res = vkDeviceWaitIdle(m_device);
+		assert(res == VK_SUCCESS);
+	}
+
 	if (m_frameFence) vkDestroyFence(m_device, m_frameFence, nullptr);
 	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 	DestroySwapchain();
-	delete m_mainCommandBuffer;
-	delete m_transferCommandBuffer;
+
+	if (m_mainCommandBuffer.m_vk) vkFreeCommandBuffers(m_device, m_mainCommandPool, 1, &m_mainCommandBuffer.m_vk);
+	if (m_transferCommandBuffer.m_vk) vkFreeCommandBuffers(m_device, m_transferCommandPool, 1, &m_transferCommandBuffer.m_vk);
+
 	if (m_mainCommandPool) vkDestroyCommandPool(m_device, m_mainCommandPool, nullptr);
 	if (m_transferCommandPool) vkDestroyCommandPool(m_device, m_transferCommandPool, nullptr);
+
+	for (GPUBuffer* buffer : m_buffers.m_values)
+		if (buffer) DestroyGPUBuffer(buffer);
+	for (Image* image : m_images.m_values)
+		if (image) DestroyImage(image);
+	for (Sampler* sampler : m_samplers.m_values)
+		if (sampler) DestroySampler(sampler);
+
 	if (m_allocator) vmaDestroyAllocator(m_allocator);
 	if (m_pipelineLayout) vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
 	if (m_bindlessDescriptorPool) vkDestroyDescriptorPool(m_device, m_bindlessDescriptorPool, nullptr);
@@ -912,13 +921,13 @@ void GraphicsDevice_Vulkan::EndFrame() {
 		.memoryBarrierCount = 1,
 		.pMemoryBarriers    = &transferBarrier,
 	};
-	vkCmdPipelineBarrier2(m_transferCommandBuffer->m_vk, &dependencyInfo);
-	vkEndCommandBuffer(m_transferCommandBuffer->m_vk);
-	vkEndCommandBuffer(m_mainCommandBuffer->m_vk);
+	vkCmdPipelineBarrier2(m_transferCommandBuffer.m_vk, &dependencyInfo);
+	vkEndCommandBuffer(m_transferCommandBuffer.m_vk);
+	vkEndCommandBuffer(m_mainCommandBuffer.m_vk);
 
 	VkCommandBufferSubmitInfo commandBuffers[] = {
-		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_transferCommandBuffer->m_vk, },
-		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_mainCommandBuffer->m_vk, },
+		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_transferCommandBuffer.m_vk, },
+		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_mainCommandBuffer.m_vk, },
 	};
 	VkSemaphoreSubmitInfo imageAcquiredWait{
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -955,11 +964,11 @@ void GraphicsDevice_Vulkan::EndFrame() {
 }
 
 CommandBuffer* GraphicsDevice_Vulkan::GetMainCommandBuffer() {
-	return m_mainCommandBuffer;
+	return &m_mainCommandBuffer;
 }
 
 CommandBuffer* GraphicsDevice_Vulkan::GetTransferCommandBuffer() {
-	return m_transferCommandBuffer;
+	return &m_transferCommandBuffer;
 }
 
 Image* GraphicsDevice_Vulkan::GetCurrentBackbuffer() {
@@ -1024,8 +1033,8 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 
 	buffer->m_size = desc.size;
 	buffer->m_mapped = allocationInfo.pMappedData;
+	buffer->m_bindlessIndex = m_buffers.Register(buffer);
 	if (desc.bindless) {
-		buffer->m_bindlessIndex = m_bindlessBuffers.Register(buffer);
 		VkDescriptorBufferInfo bufferInfo{
 			.buffer = buffer->m_vk,
 			.offset = 0,
@@ -1048,7 +1057,7 @@ GPUBuffer* GraphicsDevice_Vulkan::CreateGPUBuffer(const GPUBufferDesc& desc) {
 void GraphicsDevice_Vulkan::DestroyGPUBuffer(GPUBuffer* buffer) {
 	if (!buffer) return;
 	if (buffer->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessBuffers.Free(buffer->m_bindlessIndex);
+		m_buffers.Free(buffer->m_bindlessIndex);
 		buffer->m_bindlessIndex = UINT32_MAX;
 	}
 	vmaDestroyBuffer(m_allocator, buffer->m_vk, buffer->m_vmaAllocation);
@@ -1116,9 +1125,9 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 	image->m_format = desc.format;
 	image->m_state = ImageState::Undefined;
 	image->m_ownedBySwapchain = desc.ownedBySwapchain;
+	image->m_bindlessIndex = m_images.Register(image);
 
 	if (desc.bindless) {
-		image->m_bindlessIndex = m_bindlessImages.Register(image);
 		VkDescriptorImageInfo imageInfo{
 			.imageView   = image->m_vulkan.imageView,
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1140,7 +1149,7 @@ Image* GraphicsDevice_Vulkan::CreateImage(const ImageDesc& desc) {
 void GraphicsDevice_Vulkan::DestroyImage(Image* image) {
 	if (!image) return;
 	if (image->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessImages.Free(image->m_bindlessIndex);
+		m_images.Free(image->m_bindlessIndex);
 		image->m_bindlessIndex = UINT32_MAX;
 	}
 	if (image->m_vulkan.imageView) vkDestroyImageView(m_device, image->m_vulkan.imageView, nullptr);
@@ -1173,29 +1182,27 @@ Sampler* GraphicsDevice_Vulkan::CreateSampler(const SamplerDesc& desc) {
 		delete sampler;
 		return nullptr;
 	}
-	if (desc.bindless) {
-		sampler->m_bindlessIndex = m_bindlessSamplers.Register(sampler, desc.forcedBindlessIndex);
-		VkDescriptorImageInfo imageInfo{
-			.sampler = sampler->m_vk,
-		};
-		VkWriteDescriptorSet write{
-			.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-			.dstSet          = m_bindlessDescriptorSet,
-			.dstBinding      = 2,
-			.dstArrayElement = sampler->m_bindlessIndex,
-			.descriptorCount = 1,
-			.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER,
-			.pImageInfo      = &imageInfo,
-		};
-		vkUpdateDescriptorSets(m_device, 1, &write, 0, nullptr);
-	}
+	sampler->m_bindlessIndex = m_samplers.Register(sampler, desc.forcedBindlessIndex);
+	VkDescriptorImageInfo imageInfo{
+		.sampler = sampler->m_vk,
+	};
+	VkWriteDescriptorSet write{
+		.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+		.dstSet          = m_bindlessDescriptorSet,
+		.dstBinding      = 2,
+		.dstArrayElement = sampler->m_bindlessIndex,
+		.descriptorCount = 1,
+		.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER,
+		.pImageInfo      = &imageInfo,
+	};
+	vkUpdateDescriptorSets(m_device, 1, &write, 0, nullptr);
 	return sampler;
 }
 
 void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
 	if (!sampler) return;
 	if (sampler->m_bindlessIndex != UINT32_MAX) {
-		m_bindlessSamplers.Free(sampler->m_bindlessIndex);
+		m_samplers.Free(sampler->m_bindlessIndex);
 		sampler->m_bindlessIndex = UINT32_MAX;
 	}
 	if (sampler->m_vk) vkDestroySampler(m_device, sampler->m_vk, nullptr);
@@ -1203,7 +1210,7 @@ void GraphicsDevice_Vulkan::DestroySampler(Sampler* sampler) {
 }
 
 Sampler* GraphicsDevice_Vulkan::GetSampler(U32 index) {
-	return m_bindlessSamplers.Get(index);
+	return m_samplers.Get(index);
 }
 
 ShaderModule* GraphicsDevice_Vulkan::CreateShaderModule(const ShaderModuleDesc& desc) {

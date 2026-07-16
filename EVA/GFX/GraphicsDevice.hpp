@@ -4,6 +4,11 @@
 
 struct SDL_Window;
 
+#define GPU_MAX_BUFFERS                  4096
+#define GPU_MAX_IMAGES                   4096
+#define GPU_MAX_SAMPLERS                 128
+#define GPU_MAX_PIPELINES                128
+
 typedef struct VkBuffer_T*         VkBuffer;
 typedef struct VkImage_T*          VkImage;
 typedef struct VkImageView_T*      VkImageView;
@@ -17,13 +22,14 @@ typedef struct VkDeviceMemory_T*   VkDeviceMemory;
 typedef struct VmaAllocation_T*    VmaAllocation;
 
 template <typename T>
-class BindlessPool {
-	U32                 m_nextIndex  = 0;
-	U32                 m_capacity   = 0;
-	Vector<T>      m_values     = {};
+class GPUResourcePool {
+	U32            m_nextIndex  = 0;
+	U32            m_capacity   = 0;
 	Vector<U32>    m_freeList   = {};
 
 public:
+	Vector<T>      m_values     = {};
+
 	void Init(U32 newCapacity) {
 		m_nextIndex = 0;
 		m_capacity = newCapacity;
@@ -41,8 +47,11 @@ public:
 		} else {
 			if (m_nextIndex >= m_capacity)
 				Fatal("Bindless index allocator exhausted (%u entries)", m_capacity);
-			index = m_nextIndex++;
+			index = m_nextIndex;
 		}
+
+		if (m_nextIndex <= index)
+			m_nextIndex = index + 1;
 
 		m_values[index] = res;
 		return index;
@@ -457,7 +466,6 @@ struct SamplerDesc {
 	bool        anisotropyEnable  = false;
 	bool        compareEnable     = false;
 	CompareOp   compareOp         = CompareOp::Always;
-	bool        bindless          = false;
 	U32         forcedBindlessIndex = 0xFFFFFFFF;
 };
 

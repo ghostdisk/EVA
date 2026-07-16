@@ -35,9 +35,6 @@ EAUTO_SERIALIZE(ShaderAssetCompiledData);
 class Shader : public Asset {
 public:
 	ECLASS_COMMON();
-
-	ShaderModule*     m_vertexModule   = nullptr;
-	ShaderModule*     m_fragmentModule = nullptr;
 	GraphicsPipeline* m_pipeline       = nullptr;
 
 	virtual Result LoadImpl(FILE* f) override;

@@ -99,7 +99,6 @@ void LoadAssetsFromDir(String dir) {
 			return;
 		}
 		asset->state = AssetLoadState::Loaded;
-		printf("%.*s -> %p\n", STRING_PRINTF_ARGS(asset->name_new), asset);
 
 		meta_file = fopen(meta_path.c_str(), "wb");
 		if (meta_file) {

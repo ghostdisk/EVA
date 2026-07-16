@@ -63,25 +63,26 @@ Result Shader::LoadImpl(FILE* f) {
 	if (d.res.error) return d.res;
 
 	GraphicsDevice* device = GraphicsDevice::Get();
-	m_vertexModule = device->CreateShaderModule(ShaderModuleDesc{
+
+	ShaderModule* vertexModule = device->CreateShaderModule(ShaderModuleDesc{
 		.code     = (const U32*)data.vs.data,
 		.codeSize = data.vs.size,
 	});
-	if (!m_vertexModule) return Err("Failed to create vertex shader module");
+	if (!vertexModule) return Err("Failed to create vertex shader module");
+	DEFER(device->DestroyShaderModule(vertexModule));
 
-	m_fragmentModule = device->CreateShaderModule(ShaderModuleDesc{
+	ShaderModule* fragmentModule = device->CreateShaderModule(ShaderModuleDesc{
 		.code     = (const U32*)data.fs.data,
 		.codeSize = data.fs.size,
 	});
-	if (!m_fragmentModule) {
-		device->DestroyShaderModule(m_vertexModule);
-		m_vertexModule = nullptr;
+	if (!fragmentModule) {
 		return Err("Failed to create fragment shader module");
 	}
+	DEFER(device->DestroyShaderModule(fragmentModule));
 
 	m_pipeline = device->CreateGraphicsPipeline(GraphicsPipelineDesc{
-		.vertexShader     = m_vertexModule,
-		.fragmentShader   = m_fragmentModule,
+		.vertexShader     = vertexModule,
+		.fragmentShader   = fragmentModule,
 		.cullMode         = data.pipelineState.cullMode,
 		.depthTestEnable  = data.pipelineState.depthTest,
 		.depthWriteEnable = data.pipelineState.depthTest,
@@ -92,13 +93,8 @@ Result Shader::LoadImpl(FILE* f) {
 		},
 		.pushConstantSize = 128,
 	});
-	if (!m_pipeline) {
-		device->DestroyShaderModule(m_fragmentModule);
-		device->DestroyShaderModule(m_vertexModule);
-		m_fragmentModule = nullptr;
-		m_vertexModule = nullptr;
+	if (!m_pipeline)
 		return Err("Failed to create graphics pipeline");
-	}
 
 	return Success();
 }
