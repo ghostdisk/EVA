@@ -17,6 +17,7 @@ struct MeshVertex {
 
 struct LineVertex {
 	vec3 position;
+	float pad;
 	vec4 color;
 };
 

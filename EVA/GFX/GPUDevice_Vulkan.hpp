@@ -28,6 +28,7 @@ class GPUDevice_Vulkan final : public GPUDevice {
 
 private:
 	VkInstance                      m_instance                          = nullptr;
+	VkDebugUtilsMessengerEXT        m_debugMessenger                    = nullptr;
 	VkSurfaceKHR                    m_surface                           = nullptr;
 	VkPhysicalDevice                m_physicalDevice                    = nullptr;
 	VkDevice                        m_device                            = nullptr;
@@ -48,7 +49,8 @@ private:
 	VkCommandPool                   m_transferCommandPool               = nullptr;
 	GPUCommandBuffer_Vulkan         m_mainCommandBuffer                 = {};
 	GPUCommandBuffer_Vulkan         m_transferCommandBuffer             = {};
-	bool                            m_frameCommandBuffersBegun          = false;
+	bool                            m_transfersBegun                    = false;
+	bool                            m_frameBegun                        = false;
 	Vector<GPUImage*>               m_swapchainImages                   = {};
 	Vector<VkSemaphore>             m_renderDoneSemaphores              = {};
 	U32                             m_swapchainImageIndex               = 0;
@@ -63,6 +65,7 @@ public:
 	virtual ~GPUDevice_Vulkan() override;
 	virtual Result Init(const GPUDeviceInitDesc& desc) override;
 
+	virtual void BeginTransfers() override;
 	virtual bool BeginFrame() override;
 	virtual void EndFrame() override;
 
@@ -99,7 +102,6 @@ private:
 	Result CreateCommandPool(VkCommandPool* outCommandPool);
 	Result InitCommandBuffer(VkCommandPool commandPool, GPUCommandBuffer_Vulkan* outCommandBuffer);
 	Result CreateFence(bool signaled, VkFence* outFence);
-	Result BeginFrameCommandBuffers();
 	Result CreateSwapchain();
 	void   DestroySwapchain();
 	Result CreateSemaphore(VkSemaphore* outSemaphore);

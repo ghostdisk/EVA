@@ -32,6 +32,12 @@ static bool HasInstanceLayer(String name) {
 	return false;
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData) {
+	printf("Vulkan validation error [%s] (%d): %s\n", callbackData->pMessageIdName ? callbackData->pMessageIdName : "unknown", callbackData->messageIdNumber, callbackData->pMessage ? callbackData->pMessage : "unknown");
+	__debugbreak();
+	return VK_FALSE;
+}
+
 struct GPUFormatMapping { GPUFormat format; VkFormat vkFormat; };
 #define FORMAT_MAP(format, vkFormat) { GPUFormat::format, VK_FORMAT_##vkFormat }
 static constexpr GPUFormatMapping g_formatMappings[] = {
@@ -323,30 +329,19 @@ Result GPUDevice_Vulkan::InitCommandBuffer(VkCommandPool commandPool, GPUCommand
 	return Success();
 }
 
-Result GPUDevice_Vulkan::BeginFrameCommandBuffers() {
-	if (m_frameCommandBuffersBegun) return Success();
+void GPUDevice_Vulkan::BeginTransfers() {
+	WaitIdle(); // TODO: FIF
+	if (!m_transfersBegun) {
+		m_transfersBegun = true;
 
-	m_frameUploadOffset = 0;
-
-	VK_TRY(vkResetCommandPool(m_device, m_mainCommandPool, 0));
-	VK_TRY(vkResetCommandPool(m_device, m_transferCommandPool, 0));
-	VkCommandBufferBeginInfo beginInfo{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-	};
-	VK_TRY(vkBeginCommandBuffer(m_mainCommandBuffer.m_vk, &beginInfo));
-	VK_TRY(vkBeginCommandBuffer(m_transferCommandBuffer.m_vk, &beginInfo));
-	vkCmdBindDescriptorSets(
-		m_mainCommandBuffer.m_vk,
-		VK_PIPELINE_BIND_POINT_GRAPHICS,
-		m_pipelineLayout,
-		0,
-		1,
-		&m_bindlessDescriptorSet,
-		0,
-		nullptr);
-	m_frameCommandBuffersBegun = true;
-	return Success();
+		m_frameUploadOffset = 0;
+		vkResetCommandPool(m_device, m_transferCommandPool, 0);
+		VkCommandBufferBeginInfo beginInfo{
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+		vkBeginCommandBuffer(m_transferCommandBuffer.m_vk, &beginInfo);
+	}
 }
 
 void GPUDevice_Vulkan::DestroySwapchain() {
@@ -473,7 +468,11 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 
 		const char* validationLayer = "VK_LAYER_KHRONOS_validation";
 		Vector<const char*> layers;
-		if (desc.enableDebug && HasInstanceLayer(validationLayer)) layers.push_back(validationLayer);
+		bool validationEnabled = desc.enableDebug && HasInstanceLayer(validationLayer);
+		if (validationEnabled) {
+			layers.push_back(validationLayer);
+			instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
 
 		VkApplicationInfo applicationInfo{
 			.sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -494,6 +493,16 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 
 		VK_TRY(vkCreateInstance(&createInfo, nullptr, &m_instance));
 		volkLoadInstance(m_instance);
+
+		if (validationEnabled) {
+			VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{
+				.sType           = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+				.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+				.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT,
+				.pfnUserCallback = VulkanDebugCallback,
+			};
+			VK_TRY(vkCreateDebugUtilsMessengerEXT(m_instance, &debugCreateInfo, nullptr, &m_debugMessenger));
+		}
 	}
 
 	{
@@ -694,7 +703,7 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		TRY(CreateCommandPool(&m_transferCommandPool));
 		TRY(InitCommandBuffer(m_mainCommandPool, &m_mainCommandBuffer));
 		TRY(InitCommandBuffer(m_transferCommandPool, &m_transferCommandBuffer));
-		TRY(BeginFrameCommandBuffers());
+		BeginTransfers();
 	}
 
 	return Success();
@@ -730,6 +739,7 @@ GPUDevice_Vulkan::~GPUDevice_Vulkan() {
 	if (m_bindlessDescriptorSetLayout) vkDestroyDescriptorSetLayout(m_device, m_bindlessDescriptorSetLayout, nullptr);
 	if (m_device) vkDestroyDevice(m_device, nullptr);
 	if (m_surface) SDL_Vulkan_DestroySurface(m_instance, m_surface, nullptr);
+	if (m_debugMessenger) vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
 	if (m_instance) vkDestroyInstance(m_instance, nullptr);
 }
 
@@ -910,6 +920,7 @@ void GPUCommandBuffer_Vulkan::GenerateMipmaps(GPUImage*) {
 }
 
 bool GPUDevice_Vulkan::BeginFrame() {
+	assert(!m_frameBegun);
 	ZoneScopedN("BeginFrame");
 
 	if (m_needsNewSwapchain) {
@@ -927,6 +938,8 @@ bool GPUDevice_Vulkan::BeginFrame() {
 		vkWaitForFences(m_device, 1, &m_frameFence, VK_TRUE, UINT64_MAX);
 	}
 
+	BeginTransfers();
+
 	{
 		ZoneScopedN("BeginFrame vkAcquireNextImageKHR");
 		VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, m_imageAcquiredSemaphore, VK_NULL_HANDLE, &m_swapchainImageIndex);
@@ -936,35 +949,54 @@ bool GPUDevice_Vulkan::BeginFrame() {
 		}
 
 	}
-	BeginFrameCommandBuffers();
-	return true;
+
+	VK_TRY(vkResetCommandPool(m_device, m_mainCommandPool, 0));
+
+	VkCommandBufferBeginInfo beginInfo{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+	};
+	VK_TRY(vkBeginCommandBuffer(m_mainCommandBuffer.m_vk, &beginInfo));
+    vkCmdBindDescriptorSets(m_mainCommandBuffer.m_vk, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_bindlessDescriptorSet, 0, nullptr);
+
+	m_frameBegun = true;
+    return true;
 }
 
 void GPUDevice_Vulkan::EndFrame() {
 	ZoneScopedN("EndFrame");
+	Vector<VkCommandBufferSubmitInfo> commandBuffers;
 
-	VkSemaphore renderDoneSemaphore = m_renderDoneSemaphores[m_swapchainImageIndex];
+	if (m_frameBegun) {
+		assert(m_transfersBegun);
+		VkMemoryBarrier2 transferBarrier{
+			.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+			.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+			.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+			.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
+		};
+		VkDependencyInfo dependencyInfo{
+			.sType              = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.memoryBarrierCount = 1,
+			.pMemoryBarriers    = &transferBarrier,
+		};
+		vkCmdPipelineBarrier2(m_transferCommandBuffer.m_vk, &dependencyInfo);
+		vkEndCommandBuffer(m_transferCommandBuffer.m_vk);
+		commandBuffers.push_back({
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+			.commandBuffer = m_mainCommandBuffer.m_vk
+		});
+	}
 
-	VkMemoryBarrier2 transferBarrier{
-		.sType         = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
-		.srcStageMask  = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-		.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-		.dstStageMask  = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-		.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT,
-	};
-	VkDependencyInfo dependencyInfo{
-		.sType              = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-		.memoryBarrierCount = 1,
-		.pMemoryBarriers    = &transferBarrier,
-	};
-	vkCmdPipelineBarrier2(m_transferCommandBuffer.m_vk, &dependencyInfo);
-	vkEndCommandBuffer(m_transferCommandBuffer.m_vk);
-	vkEndCommandBuffer(m_mainCommandBuffer.m_vk);
+	if (m_frameBegun) {
+		commandBuffers.push_back({
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+			.commandBuffer = m_transferCommandBuffer.m_vk
+		});
+		vkEndCommandBuffer(m_mainCommandBuffer.m_vk);
+	}
 
-	VkCommandBufferSubmitInfo commandBuffers[] = {
-		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_transferCommandBuffer.m_vk, },
-		{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = m_mainCommandBuffer.m_vk, },
-	};
 	VkSemaphoreSubmitInfo imageAcquiredWait{
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		.semaphore = m_imageAcquiredSemaphore,
@@ -972,31 +1004,37 @@ void GPUDevice_Vulkan::EndFrame() {
 	};
 	VkSemaphoreSubmitInfo renderDoneSignal{
 		.sType     = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = renderDoneSemaphore,
+		.semaphore = m_renderDoneSemaphores[m_swapchainImageIndex],
 		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
 	};
-	VkSubmitInfo2 mainSubmit{
+	VkSubmitInfo2 submit{
 		.sType                    = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
-		.waitSemaphoreInfoCount   = 1,
-		.pWaitSemaphoreInfos      = &imageAcquiredWait,
-		.commandBufferInfoCount   = 2,
-		.pCommandBufferInfos      = commandBuffers,
-		.signalSemaphoreInfoCount = 1,
-		.pSignalSemaphoreInfos    = &renderDoneSignal,
+		.commandBufferInfoCount   = (U32)commandBuffers.size(),
+		.pCommandBufferInfos      = commandBuffers.data(),
 	};
+	if (m_frameBegun) {
+		submit.waitSemaphoreInfoCount   = 1;
+		submit.pWaitSemaphoreInfos      = &imageAcquiredWait;
+		submit.signalSemaphoreInfoCount = 1;
+		submit.pSignalSemaphoreInfos    = &renderDoneSignal;
+	}
 	vkResetFences(m_device, 1, &m_frameFence);
-	vkQueueSubmit2(m_graphicsQueue, 1, &mainSubmit, m_frameFence);
+	vkQueueSubmit2(m_graphicsQueue, 1, &submit, m_frameFence);
 
-	VkPresentInfoKHR presentInfo{
-		.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores    = &renderDoneSemaphore,
-		.swapchainCount     = 1,
-		.pSwapchains        = &m_swapchain,
-		.pImageIndices      = &m_swapchainImageIndex,
-	};
-	vkQueuePresentKHR(m_graphicsQueue, &presentInfo);
-	m_frameCommandBuffersBegun = false;
+	if (m_frameBegun) {
+
+		VkPresentInfoKHR presentInfo{
+			.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores    = &m_renderDoneSemaphores[m_swapchainImageIndex],
+			.swapchainCount     = 1,
+			.pSwapchains        = &m_swapchain,
+			.pImageIndices      = &m_swapchainImageIndex,
+		};
+		vkQueuePresentKHR(m_graphicsQueue, &presentInfo);
+	}
+	m_frameBegun = false;
+	m_transfersBegun = false;
 }
 
 GPUCommandBuffer* GPUDevice_Vulkan::GetMainCommandBuffer() {

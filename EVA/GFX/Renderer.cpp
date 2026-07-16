@@ -16,6 +16,7 @@
 
 struct LineVertex {
 	float3 position;
+	float  pad;
 	float4 color;
 };
 
@@ -24,13 +25,6 @@ struct DrawMeshEntry {
 	Material* material;
 	float4x4  matrix;
 	float4    color;
-};
-
-enum DrawCommandType {
-	DrawCommandType_None,
-	DrawCommandType_Lines,
-	DrawCommandType_Quads,
-	DrawCommandType_Meshes,
 };
 
 struct LayerData {
@@ -61,12 +55,6 @@ static LayerData layers[Layer_ENUM_SIZE] = {};
 static LayerData* current_layer = &layers[Layer_Main];
 
 // ------------------------------------------------------------
-
-ConVar cvar_wireframe = {
-	.name = "r_wireframe",
-	.help = "toggle wireframe rendering",
-	.fvalue = 0,
-};
 
 static void CreateBuffers() {
 	GPUImage* backbuffer = g_device->GetCurrentBackbuffer();
@@ -206,8 +194,6 @@ void RendererInitialize1() {
 		});
 	}
 
-	ConRegisterVar(&cvar_wireframe);
-
 	g_mainConstantBuffer = g_device->CreateBuffer({
 		.name        = "main constant buffer",
 		.size        = sizeof(MainConstantBuffer),
@@ -236,8 +222,8 @@ void RendererShutdown() {
 }
 
 void DrawLine(float3 a, float3 b, float4 color) {
-	current_layer->lines.push_back({ a, color });
-	current_layer->lines.push_back({ b, color });
+	current_layer->lines.push_back({ a, 0, color });
+	current_layer->lines.push_back({ b, 0, color });
 }
 
 void DrawSetLayer(Layer l) {

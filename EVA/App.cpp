@@ -113,6 +113,8 @@ Result RunProgram() {
 		InputBeginFrame();
 		UIBeginFrame();
 
+		GPUDevice::Get()->BeginTransfers();
+
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			if (PlatformProcessSDLEvent(&event)) continue;
@@ -152,8 +154,8 @@ Result RunProgram() {
 
 		if (GPUDevice::Get()->BeginFrame()) {
 			RenderFrame();
-			GPUDevice::Get()->EndFrame();
 		}
+		GPUDevice::Get()->EndFrame();
 
 		FrameMark;
 	}
