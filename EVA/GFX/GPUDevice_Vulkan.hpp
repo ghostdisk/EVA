@@ -27,33 +27,34 @@ public:
 class GPUDevice_Vulkan final : public GPUDevice {
 
 private:
-	VkInstance                       m_instance                          = nullptr;
-	VkSurfaceKHR                     m_surface                           = nullptr;
-	VkPhysicalDevice                 m_physicalDevice                    = nullptr;
-	VkDevice                         m_device                            = nullptr;
-	VkQueue                          m_graphicsQueue                     = nullptr;
-	VkSwapchainKHR                   m_swapchain                         = nullptr;
-	VkSemaphore                      m_imageAcquiredSemaphore            = nullptr;
-	VkDescriptorSetLayout            m_bindlessDescriptorSetLayout       = nullptr;
-	VkDescriptorPool                 m_bindlessDescriptorPool            = nullptr;
-	VkDescriptorSet                  m_bindlessDescriptorSet             = nullptr;
-	VkPipelineLayout                 m_pipelineLayout                    = nullptr;
-	VmaAllocator                     m_allocator                         = nullptr;
-	GPUResourcePool<GPUBuffer*>      m_buffers                           = {};
-	GPUResourcePool<GPUImage*>          m_images                            = {};
-	GPUResourcePool<GPUSampler*>        m_samplers                          = {};
-	U32                              m_graphicsFamily                    = UINT32_MAX;
-	VkCommandPool                    m_mainCommandPool                   = nullptr;
-	VkCommandPool                    m_transferCommandPool               = nullptr;
-	GPUCommandBuffer_Vulkan             m_mainCommandBuffer                 = {};
-	GPUCommandBuffer_Vulkan             m_transferCommandBuffer             = {};
-	bool                             m_frameCommandBuffersBegun          = false;
-	Vector<GPUImage*>                   m_swapchainImages                   = {};
-	Vector<VkSemaphore>              m_renderDoneSemaphores              = {};
-	U32                              m_swapchainImageIndex               = 0;
-	VkFence                          m_frameFence                        = nullptr;
-	bool                             m_needsNewSwapchain                 = true;
-	GPUSwapchainDesc                    m_swapchainDesc                     = {};
+	VkInstance                      m_instance                          = nullptr;
+	VkSurfaceKHR                    m_surface                           = nullptr;
+	VkPhysicalDevice                m_physicalDevice                    = nullptr;
+	VkDevice                        m_device                            = nullptr;
+	VkQueue                         m_graphicsQueue                     = nullptr;
+	VkSwapchainKHR                  m_swapchain                         = nullptr;
+	VkSemaphore                     m_imageAcquiredSemaphore            = nullptr;
+	VkDescriptorSetLayout           m_bindlessDescriptorSetLayout       = nullptr;
+	VkDescriptorPool                m_bindlessDescriptorPool            = nullptr;
+	VkDescriptorSet                 m_bindlessDescriptorSet             = nullptr;
+	VkPipelineLayout                m_pipelineLayout                    = nullptr;
+	VmaAllocator                    m_allocator                         = nullptr;
+	GPUResourcePool<GPUBuffer*>     m_buffers                           = {};
+	GPUResourcePool<GPUGraphicsPipeline*> m_pipelines                   = {};
+	GPUResourcePool<GPUImage*>      m_images                            = {};
+	GPUResourcePool<GPUSampler*>    m_samplers                          = {};
+	U32                             m_graphicsFamily                    = UINT32_MAX;
+	VkCommandPool                   m_mainCommandPool                   = nullptr;
+	VkCommandPool                   m_transferCommandPool               = nullptr;
+	GPUCommandBuffer_Vulkan         m_mainCommandBuffer                 = {};
+	GPUCommandBuffer_Vulkan         m_transferCommandBuffer             = {};
+	bool                            m_frameCommandBuffersBegun          = false;
+	Vector<GPUImage*>               m_swapchainImages                   = {};
+	Vector<VkSemaphore>             m_renderDoneSemaphores              = {};
+	U32                             m_swapchainImageIndex               = 0;
+	VkFence                         m_frameFence                        = nullptr;
+	bool                            m_needsNewSwapchain                 = true;
+	GPUSwapchainDesc                m_swapchainDesc                     = {};
 
 public:
 	ECLASS_COMMON();

@@ -359,6 +359,7 @@ void GPUDevice_Vulkan::DestroySwapchain() {
 	for (VkSemaphore semaphore : m_renderDoneSemaphores)
 		vkDestroySemaphore(m_device, semaphore, nullptr);
 	m_renderDoneSemaphores.clear();
+	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 
 	if (m_swapchain) {
 		vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
@@ -438,6 +439,7 @@ Result GPUDevice_Vulkan::CreateSwapchain() {
 	m_renderDoneSemaphores.resize(m_swapchainImages.size());
 	for (VkSemaphore& semaphore : m_renderDoneSemaphores)
 		TRY(CreateSemaphore(&semaphore));
+
 	TRY(CreateSemaphore(&m_imageAcquiredSemaphore));
 
 	m_needsNewSwapchain = false;
@@ -643,6 +645,7 @@ Result GPUDevice_Vulkan::Init(const GPUDeviceInitDesc& desc) {
 		m_buffers.Init(GPU_MAX_BUFFERS);
 		m_images.Init(GPU_MAX_IMAGES);
 		m_samplers.Init(GPU_MAX_SAMPLERS);
+		m_pipelines.Init(GPU_MAX_PIPELINES);
 	}
 
 	{ // create allocator:
@@ -684,7 +687,6 @@ GPUDevice_Vulkan::~GPUDevice_Vulkan() {
 	}
 
 	if (m_frameFence) vkDestroyFence(m_device, m_frameFence, nullptr);
-	if (m_imageAcquiredSemaphore) vkDestroySemaphore(m_device, m_imageAcquiredSemaphore, nullptr);
 	DestroySwapchain();
 
 	if (m_mainCommandBuffer.m_vk) vkFreeCommandBuffers(m_device, m_mainCommandPool, 1, &m_mainCommandBuffer.m_vk);
@@ -699,6 +701,8 @@ GPUDevice_Vulkan::~GPUDevice_Vulkan() {
 		if (image) DestroyImage(image);
 	for (GPUSampler* sampler : m_samplers.m_values)
 		if (sampler) DestroySampler(sampler);
+	for (GPUGraphicsPipeline* pipeline : m_pipelines.m_values)
+		if (pipeline) DestroyGraphicsPipeline(pipeline);
 
 	if (m_allocator) vmaDestroyAllocator(m_allocator);
 	if (m_pipelineLayout) vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
@@ -1373,12 +1377,15 @@ GPUGraphicsPipeline* GPUDevice_Vulkan::CreateGraphicsPipeline(const GPUGraphicsP
 		delete pipeline;
 		return nullptr;
 	}
+
+	pipeline->m_index = m_pipelines.Register(pipeline);
 	return pipeline;
 }
 
 void GPUDevice_Vulkan::DestroyGraphicsPipeline(GPUGraphicsPipeline* pipeline) {
 	if (!pipeline) return;
 	if (pipeline->m_vulkan.pipeline) vkDestroyPipeline(m_device, pipeline->m_vulkan.pipeline, nullptr);
+	if (pipeline->m_index) m_pipelines.Free(pipeline->m_index);
 	delete pipeline;
 }
 

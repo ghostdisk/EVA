@@ -31,7 +31,7 @@ public:
 	Vector<T>      m_values     = {};
 
 	void Init(U32 newCapacity) {
-		m_nextIndex = 0;
+		m_nextIndex = 1;
 		m_capacity = newCapacity;
 		m_freeList.clear();
 		m_values.resize(newCapacity);
@@ -395,15 +395,18 @@ public:
 
 class GPUGraphicsPipeline : public Object {
 public:
+	U32 m_index = 0;
+
 	ECLASS_COMMON();
-	GPUGraphicsPipeline() : m_vulkan{} {}
 
 	union {
 		struct {
-			VkPipeline pipeline = nullptr;
-			VkPipelineLayout layout = nullptr;
+			VkPipeline       pipeline = {};
+			VkPipelineLayout layout   = {};
 		} m_vulkan;
 	};
+
+	GPUGraphicsPipeline() : m_vulkan{} {}
 };
 
 class GPUCommandBuffer : public Object {
