@@ -1131,6 +1131,7 @@ Result Editor::CompileMap() {
 }
 
 void EdInitialize() {
+	ZoneScopedN("EdInitialize");
 	ConRegisterVar(&cvar_ed_show_sub);
 
 	ConRegisterCommand("ed_cube", [](ConParser& parser) {

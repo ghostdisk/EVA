@@ -30,6 +30,7 @@ Font* fnt_arial = 0;
 }
 
 void LibraryInitialize() {
+	ZoneScopedN("LibraryInitialize");
 	// @VOLATILE - The order these are loaded in defines their asset ids, which
 	//             are shared over the network.
 

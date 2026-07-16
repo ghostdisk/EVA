@@ -33,6 +33,7 @@ static UIContext g_main_ui = {};
 UIContext* UI = &g_main_ui;
 
 void UIInitialize() {
+	ZoneScopedN("UIInitialize");
 	g_main_ui.default_font = Library::fnt_arial;
 }
 

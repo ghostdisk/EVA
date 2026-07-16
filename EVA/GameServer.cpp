@@ -21,6 +21,7 @@ Result Con_host(ConParser& parser) {
 }
 
 void GameServerInitialize() {
+	ZoneScopedN("GameServerInitialize");
 	ConRegisterCommand("host", Con_host, "host a server on a port");
 }
 

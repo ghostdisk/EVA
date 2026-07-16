@@ -16,6 +16,8 @@ FT_Library FT;
 	} while (0)
 
 void FontInitialize() {
+	ZoneScopedN("FontInitialize");
+
 	FT_CHECK(FT_Init_FreeType(&FT));
 }
 

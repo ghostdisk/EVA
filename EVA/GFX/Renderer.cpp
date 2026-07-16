@@ -85,6 +85,7 @@ static void DestroyBuffers() {
 }
 
 void RendererInitialize1() {
+	ZoneScopedN("RendererInitialize1");
 	g_device = GPUDevice::Get();
 
 	{ // mesh_quad:
@@ -219,6 +220,7 @@ void RendererInitialize1() {
 }
 
 void RendererInitialize2() {
+	ZoneScopedN("RendererInitialize2");
 	shd_lines = Asset::Get<Shader>("shd_lines");
 	shd_main  = Asset::Get<Shader>("shd_main");
 	shd_quad  = Asset::Get<Shader>("shd_quad");

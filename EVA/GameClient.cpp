@@ -42,6 +42,7 @@ Result Con_disconnect(ConParser& parser) {
 }
 
 void GameClientInitialize() {
+	ZoneScopedN("GameClientInitialize");
 	ConRegisterCommand("connect", Con_connect, "connect to a server (ip:port)");
 	ConRegisterCommand("disconnect", Con_disconnect, "disconnect from the server");
 }

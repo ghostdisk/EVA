@@ -171,6 +171,7 @@ void LoadAssetsFromDir(String dir) {
 }
 
 void AssetsLoad() {
+	ZoneScopedN("AssetsLoad");
 	ScratchArena scratch;
 	String root = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
 	LoadAssetsFromDir(root);

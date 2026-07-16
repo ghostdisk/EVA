@@ -173,6 +173,7 @@ Result Con_bind(ConParser& parser) {
 }
 
 void InputInitialize() {
+	ZoneScopedN("InputInitialize");
 	ConRegisterCommand("bind", Con_bind, "bind an action to a button");
 	ConRegisterCommand("hold", Con_hold, "hold an action (use like this: bind w hold forward)");
 	ConRegisterVar(&cvar_forward);

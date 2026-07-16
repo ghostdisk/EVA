@@ -69,6 +69,8 @@ Result Con_map(ConParser& parser) {
 }
 
 void GameInitialize() {
+	ZoneScopedN("GameInitialize");
+
 	ConRegisterVar(&cvar_game);
 	ConRegisterVar(&cvar_show_fps);
 
