@@ -66,8 +66,8 @@ class Sampler;
 class ShaderModule;
 class GraphicsPipeline;
 struct RenderingDesc;
-struct BufferCopy;
-struct BufferImageCopy;
+struct BufferCopyDesc;
+struct BufferImageCopyDesc;
 struct ImageBarrierDesc;
 
 enum class GraphicsAPI : U8 {
@@ -222,6 +222,7 @@ enum class CullMode : U8 {
 	Back         = 2,
 	FrontAndBack = 3,
 };
+EAUTO_ENUM(CullMode);
 
 enum class FrontFace : U8 {
 	Clockwise,
@@ -276,6 +277,7 @@ enum class BlendMode : U8 {
 	Add,
 	Multiply,
 };
+EAUTO_ENUM(BlendMode);
 
 struct BlendState {
 	bool        blendEnable      = false;
@@ -413,8 +415,8 @@ public:
 	virtual void Draw(U32 vertexCount, U32 instanceCount = 1, U32 firstVertex = 0, U32 firstInstance = 0) = 0;
 	virtual void DrawIndexed(U32 indexCount, U32 instanceCount = 1, U32 firstIndex = 0, I32 vertexOffset = 0, U32 firstInstance = 0) = 0;
 
-	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) = 0;
-	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) = 0;
+	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopyDesc& copy) = 0;
+	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopyDesc& copy) = 0;
 	// TODO: Make this API accept multiple basrriers
 	virtual void ImageBarrier(const ImageBarrierDesc& barrier) = 0;
 	virtual void GenerateMipmaps(Image* image) = 0;
@@ -510,13 +512,13 @@ struct RenderingDesc {
 	const AttachmentDesc* depthAttachment       = nullptr;
 };
 
-struct BufferCopy {
+struct BufferCopyDesc {
 	U64 sourceOffset = 0;
 	U64 destOffset   = 0;
 	U64 size          = 0;
 };
 
-struct BufferImageCopy {
+struct BufferImageCopyDesc {
 	U64 bufferOffset = 0;
 	U32 imageMip     = 0;
 	U32 imageLayer   = 0;
@@ -600,10 +602,6 @@ public:
 	virtual SwapchainDesc GetSwapchainDesc() = 0;
 
 protected:
-
 	GPUBuffer* m_frameUploadBuffer = nullptr;
 	size_t     m_frameUploadOffset = 0;
 };
-
-EAUTO_ENUM(CullMode);
-EAUTO_ENUM(BlendMode);

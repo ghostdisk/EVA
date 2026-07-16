@@ -18,8 +18,8 @@ public:
 	virtual void Draw(U32 vertexCount, U32 instanceCount = 1, U32 firstVertex = 0, U32 firstInstance = 0) override;
 	virtual void DrawIndexed(U32 indexCount, U32 instanceCount = 1, U32 firstIndex = 0, I32 vertexOffset = 0, U32 firstInstance = 0) override;
 
-	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) override;
-	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) override;
+	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopyDesc& copy) override;
+	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopyDesc& copy) override;
 	virtual void ImageBarrier(const ImageBarrierDesc& barrier) override;
 	virtual void GenerateMipmaps(Image* image) override;
 };

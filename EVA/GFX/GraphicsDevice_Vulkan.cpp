@@ -813,7 +813,7 @@ void CommandBuffer_Vulkan::DrawIndexed(U32 indexCount, U32 instanceCount, U32 fi
 	vkCmdDrawIndexed(m_vk, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
 }
 
-void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) {
+void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopyDesc& copy) {
 	VkBufferCopy region{
 		.srcOffset = copy.sourceOffset,
 		.dstOffset = copy.destOffset,
@@ -822,7 +822,7 @@ void CommandBuffer_Vulkan::CopyBuffer(GPUBuffer* source, GPUBuffer* destination,
 	vkCmdCopyBuffer(m_vk, source->m_vk, destination->m_vk, 1, &region);
 }
 
-void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) {
+void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopyDesc& copy) {
 	VkBufferImageCopy region{
 		.bufferOffset = copy.bufferOffset,
 		.bufferRowLength = 0,

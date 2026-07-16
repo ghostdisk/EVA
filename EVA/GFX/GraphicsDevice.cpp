@@ -102,7 +102,7 @@ void GraphicsDevice::UploadBuffer(GPUBuffer* dest, size_t size, size_t offset, c
 	GPUBuffer* uploadBuffer = nullptr;
 	size_t uploadOffset = 0;
 	UploadStagingData(data, size, &uploadBuffer, &uploadOffset);
-	GetTransferCommandBuffer()->CopyBuffer(uploadBuffer, dest, BufferCopy{
+	GetTransferCommandBuffer()->CopyBuffer(uploadBuffer, dest, {
 		.sourceOffset = uploadOffset,
 		.destOffset = offset,
 		.size = size,
