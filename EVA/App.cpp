@@ -73,8 +73,8 @@ Result RunProgram() {
 	NetInitialize();
 	ConsoleInitialize();
 
-	TRY(GFX::GraphicsDevice::Create({
-		.api = GFX::GraphicsAPI::Vulkan,
+	TRY(GraphicsDevice::Create({
+		.api = GraphicsAPI::Vulkan,
 		.window = g_game_window,
 	}));
 
@@ -137,16 +137,16 @@ Result RunProgram() {
 			}
 		}
 
-		if (GFX::GraphicsDevice::Get()->BeginFrame()) {
+		if (GraphicsDevice::Get()->BeginFrame()) {
 			RenderFrame();
-			GFX::GraphicsDevice::Get()->EndFrame();
+			GraphicsDevice::Get()->EndFrame();
 		}
 
 		FrameMark;
 	}
 
 	RendererShutdown();
-	GFX::GraphicsDevice::Shutdown();
+	GraphicsDevice::Shutdown();
 	return Success();
 }
 

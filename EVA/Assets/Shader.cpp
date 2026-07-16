@@ -62,14 +62,14 @@ Result Shader::LoadImpl(FILE* f) {
 	Deserialize(d, data);
 	if (d.res.error) return d.res;
 
-	GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
-	m_vertexModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
+	GraphicsDevice* device = GraphicsDevice::Get();
+	m_vertexModule = device->CreateShaderModule(ShaderModuleDesc{
 		.code     = (const U32*)data.vs.data,
 		.codeSize = data.vs.size,
 	});
 	if (!m_vertexModule) return Err("Failed to create vertex shader module");
 
-	m_fragmentModule = device->CreateShaderModule(GFX::ShaderModuleDesc{
+	m_fragmentModule = device->CreateShaderModule(ShaderModuleDesc{
 		.code     = (const U32*)data.fs.data,
 		.codeSize = data.fs.size,
 	});
@@ -79,7 +79,7 @@ Result Shader::LoadImpl(FILE* f) {
 		return Err("Failed to create fragment shader module");
 	}
 
-	m_pipeline = device->CreateGraphicsPipeline(GFX::GraphicsPipelineDesc{
+	m_pipeline = device->CreateGraphicsPipeline(GraphicsPipelineDesc{
 		.vertexShader     = m_vertexModule,
 		.fragmentShader   = m_fragmentModule,
 		.cullMode         = data.pipelineState.cullMode,
@@ -88,7 +88,7 @@ Result Shader::LoadImpl(FILE* f) {
 		.blendMode        = data.pipelineState.blendMode,
 		.format = {
 			.colorFormat = { device->GetCurrentBackbuffer()->m_format },
-			.depthFormat = GFX::Format::D32_FLOAT,
+			.depthFormat = Format::D32_FLOAT,
 		},
 		.pushConstantSize = 128,
 	});

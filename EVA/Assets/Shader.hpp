@@ -4,15 +4,15 @@
 #include <EVA/GFX/GraphicsDevice.hpp>
 
 struct EVERSION(1, ShaderPipelineState) ShaderPipelineState_v1 {
-	GFX::CullMode  cullMode  = GFX::CullMode::Back;
+	CullMode  cullMode  = CullMode::Back;
 };
 struct EVERSION(2, ShaderPipelineState) ShaderPipelineState_v2 {
-	GFX::CullMode  cullMode  = GFX::CullMode::Back;
-	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
+	CullMode  cullMode  = CullMode::Back;
+	BlendMode blendMode = BlendMode::Solid;
 };
 struct EVERSION(3) ShaderPipelineState {
-	GFX::CullMode  cullMode  = GFX::CullMode::Back;
-	GFX::BlendMode blendMode = GFX::BlendMode::Solid;
+	CullMode  cullMode  = CullMode::Back;
+	BlendMode blendMode = BlendMode::Solid;
 	bool           depthTest = true;
 };
 EAUTO_SERIALIZE(ShaderPipelineState);
@@ -36,9 +36,9 @@ class Shader : public Asset {
 public:
 	ECLASS_COMMON();
 
-	GFX::ShaderModule*     m_vertexModule   = nullptr;
-	GFX::ShaderModule*     m_fragmentModule = nullptr;
-	GFX::GraphicsPipeline* m_pipeline       = nullptr;
+	ShaderModule*     m_vertexModule   = nullptr;
+	ShaderModule*     m_fragmentModule = nullptr;
+	GraphicsPipeline* m_pipeline       = nullptr;
 
 	virtual Result LoadImpl(FILE* f) override;
 };

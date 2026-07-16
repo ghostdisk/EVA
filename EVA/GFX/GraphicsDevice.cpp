@@ -1,8 +1,6 @@
 #include <EVA/GFX/GraphicsDevice.hpp>
 #include <EVA/GFX/GraphicsDevice_Vulkan.hpp>
 
-namespace GFX {
-
 bool FormatIsDepth(Format format) {
 	return format >= Format::DEPTH_FORMAT_START && format <= Format::DEPTH_FORMAT_END;
 }
@@ -117,13 +115,13 @@ void GraphicsDevice::UploadImage(Image* dest, size_t size, const void* data) {
 	UploadStagingData(data, size, &uploadBuffer, &uploadOffset);
 
 	CommandBuffer* cmd = GetTransferCommandBuffer();
-	cmd->ImageBarrier(GFX::ImageBarrier{
+	cmd->ImageBarrier({
 		.image = dest,
 		.stateBefore = dest->m_state,
 		.stateAfter = ImageState::TransferDest,
 		.mipCount = dest->m_mipCount,
 	});
-	cmd->CopyBufferToImage(uploadBuffer, dest, BufferImageCopy{
+	cmd->CopyBufferToImage(uploadBuffer, dest, {
 		.bufferOffset = uploadOffset,
 		.width = dest->m_width,
 		.height = dest->m_height,
@@ -131,12 +129,10 @@ void GraphicsDevice::UploadImage(Image* dest, size_t size, const void* data) {
 	if (dest->m_mipCount > 1) {
 		cmd->GenerateMipmaps(dest);
 	} else {
-		cmd->ImageBarrier(GFX::ImageBarrier{
+		cmd->ImageBarrier({
 			.image = dest,
 			.stateBefore = ImageState::TransferDest,
 			.stateAfter = ImageState::ShaderRead,
 		});
 	}
-}
-
 }

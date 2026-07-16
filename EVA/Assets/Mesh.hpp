@@ -26,8 +26,8 @@ public:
 	Vector<U32>        indices;
 
 	// gpu data, initialized by Upload()
-	GFX::GPUBuffer* vertex_buffer = nullptr;
-	GFX::GPUBuffer* index_buffer  = nullptr;
+	GPUBuffer* vertex_buffer = nullptr;
+	GPUBuffer* index_buffer  = nullptr;
 	U32             index_count   = 0;
 	U32             vertex_count  = 0;
 

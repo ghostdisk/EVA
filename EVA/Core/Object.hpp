@@ -44,6 +44,8 @@ public:
 #	define EAUTO
 #endif
 
+// TODO: The fact that these has to be outside the NS is fucking stupid.
+
 #define EAUTO_SERIALIZE(T) \
 	EAUTO void Serialize(Serializer& s, const T& value); \
 	EAUTO void Deserialize(Deserializer& d, T& value); \

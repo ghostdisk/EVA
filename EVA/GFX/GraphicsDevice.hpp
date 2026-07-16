@@ -16,8 +16,6 @@ typedef struct VkFence_T*          VkFence;
 typedef struct VkDeviceMemory_T*   VkDeviceMemory;
 typedef struct VmaAllocation_T*    VmaAllocation;
 
-namespace GFX {
-
 template <typename T>
 class BindlessPool {
 	U32                 m_nextIndex  = 0;
@@ -70,7 +68,7 @@ class GraphicsPipeline;
 struct RenderingDesc;
 struct BufferCopy;
 struct BufferImageCopy;
-struct ImageBarrier;
+struct ImageBarrierDesc;
 
 enum class GraphicsAPI : U8 {
 	None,
@@ -418,7 +416,7 @@ public:
 	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) = 0;
 	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) = 0;
 	// TODO: Make this API accept multiple basrriers
-	virtual void ImageBarrier(const GFX::ImageBarrier& barrier) = 0;
+	virtual void ImageBarrier(const ImageBarrierDesc& barrier) = 0;
 	virtual void GenerateMipmaps(Image* image) = 0;
 };
 
@@ -530,7 +528,7 @@ struct BufferImageCopy {
 	U32 depth         = 1;
 };
 
-struct ImageBarrier {
+struct ImageBarrierDesc {
 	Image* image = nullptr;
 
 	ImageState stateBefore = ImageState::Undefined;
@@ -607,7 +605,5 @@ protected:
 	size_t     m_frameUploadOffset = 0;
 };
 
-}
-
-EAUTO_ENUM(GFX::CullMode);
-EAUTO_ENUM(GFX::BlendMode);
+EAUTO_ENUM(CullMode);
+EAUTO_ENUM(BlendMode);

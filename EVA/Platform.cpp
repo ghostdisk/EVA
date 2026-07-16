@@ -19,7 +19,7 @@ ConVar cvar_vsync = {
 	.help = "0 - no vsync, 1 - every vblank, 2 - every 2nd vblank",
 	.fvalue = 0,
 	.on_change = [](ConVar*) {
-		GFX::GraphicsDevice* device = GFX::GraphicsDevice::Get();
+		GraphicsDevice* device = GraphicsDevice::Get();
 		if (device) {
 			auto desc = device->GetSwapchainDesc();
 			desc.vsync = cvar_vsync.fvalue != 0;

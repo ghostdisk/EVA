@@ -4,8 +4,6 @@
 
 typedef struct VmaAllocator_T* VmaAllocator;
 
-namespace GFX {
-
 class CommandBuffer_Vulkan final : public CommandBuffer {
 public:
 	ECLASS_COMMON();
@@ -22,7 +20,7 @@ public:
 
 	virtual void CopyBuffer(GPUBuffer* source, GPUBuffer* destination, const BufferCopy& copy) override;
 	virtual void CopyBufferToImage(GPUBuffer* source, Image* destination, const BufferImageCopy& copy) override;
-	virtual void ImageBarrier(const GFX::ImageBarrier& barrier) override;
+	virtual void ImageBarrier(const ImageBarrierDesc& barrier) override;
 	virtual void GenerateMipmaps(Image* image) override;
 };
 
@@ -109,5 +107,3 @@ private:
 	void   DestroySwapchain();
 	Result CreateSemaphore(VkSemaphore* outSemaphore);
 };
-
-}

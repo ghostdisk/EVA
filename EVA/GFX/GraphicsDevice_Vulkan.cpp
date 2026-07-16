@@ -21,8 +21,6 @@
 	} while (0)
 
 
-namespace GFX {
-
 static bool HasInstanceLayer(String name) {
 	U32 count = 0;
 	vkEnumerateInstanceLayerProperties(&count, nullptr);
@@ -713,7 +711,7 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 	for (U32 i = 0; i < desc.colorAttachmentCount; i++) {
 		const AttachmentDesc& attachment = desc.colorAttachments[i];
 		assert(attachment.image);
-		ImageBarrier(GFX::ImageBarrier{
+		ImageBarrier({
 			.image       = attachment.image,
 			.stateBefore = attachment.stateBefore,
 			.stateAfter  = attachment.stateDuring,
@@ -734,7 +732,7 @@ void CommandBuffer_Vulkan::BeginRendering(const RenderingDesc& desc) {
 	if (desc.depthAttachment) {
 		const AttachmentDesc& attachment = *desc.depthAttachment;
 		assert(attachment.image);
-		ImageBarrier(GFX::ImageBarrier{
+		ImageBarrier({
 			.image       = attachment.image,
 			.stateBefore = attachment.stateBefore,
 			.stateAfter  = attachment.stateDuring,
@@ -773,7 +771,7 @@ void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
 		const AttachmentDesc& attachment = desc.colorAttachments[i];
 		assert(attachment.image);
 		if (attachment.stateDuring != attachment.stateAfter) {
-			ImageBarrier(GFX::ImageBarrier{
+			ImageBarrier({
 				.image       = attachment.image,
 				.stateBefore = attachment.stateDuring,
 				.stateAfter  = attachment.stateAfter,
@@ -785,7 +783,7 @@ void CommandBuffer_Vulkan::EndRendering(const RenderingDesc& desc) {
 		const AttachmentDesc& attachment = *desc.depthAttachment;
 		assert(attachment.image);
 		if (attachment.stateDuring != attachment.stateAfter) {
-			ImageBarrier(GFX::ImageBarrier{
+			ImageBarrier({
 				.image       = attachment.image,
 				.stateBefore = attachment.stateDuring,
 				.stateAfter  = attachment.stateAfter,
@@ -842,7 +840,7 @@ void CommandBuffer_Vulkan::CopyBufferToImage(GPUBuffer* source, Image* destinati
 		ImageStateToImageLayout(destination->m_state), 1, &region);
 }
 
-void CommandBuffer_Vulkan::ImageBarrier(const GFX::ImageBarrier& barrier) {
+void CommandBuffer_Vulkan::ImageBarrier(const ImageBarrierDesc& barrier) {
 	Image* image = barrier.image;
 	VkImageAspectFlags aspect = FormatIsDepth(image->m_format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	if (FormatHasStencil(image->m_format)) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -1414,6 +1412,4 @@ void GraphicsDevice_Vulkan::FlushImmediateCommandBuffer(CommandBuffer* cmd) {
 	// vkDestroyFence(m_device, fence, nullptr);
 	
 	// DestroyCommandBuffer(cmd);
-}
-
 }

@@ -1,12 +1,7 @@
 #pragma once
 #include <EVA/Math.hpp>
 
-namespace GFX {
-
 class Sampler;
-
-}
-
 class Material;
 class Mesh;
 class Shader;

@@ -46,7 +46,7 @@ struct MainConstantBuffer {
 
 // ------------------------------------------------------------
 
-static GFX::GraphicsDevice* g_device;
+static GraphicsDevice* g_device;
 
 Shader* shd_lines;
 Shader* shd_main;
@@ -54,8 +54,8 @@ Shader* shd_quad;
 Shader* shd_brush;
 
 static Mesh* mesh_quad = nullptr;
-static GFX::GPUBuffer* g_mainConstantBuffer = nullptr;
-static GFX::Image* g_depthBuffer = nullptr;
+static GPUBuffer* g_mainConstantBuffer = nullptr;
+static Image* g_depthBuffer = nullptr;
 
 static LayerData layers[Layer_ENUM_SIZE] = {};
 static LayerData* current_layer = &layers[Layer_Main];
@@ -69,14 +69,14 @@ ConVar cvar_wireframe = {
 };
 
 static void CreateBuffers() {
-	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
+	Image* backbuffer = g_device->GetCurrentBackbuffer();
 
 	g_depthBuffer = g_device->CreateImage({
 		.name = "depth buffer",
 		.width = backbuffer->m_width,
 		.height = backbuffer->m_height,
-		.format = GFX::Format::D32_FLOAT,
-		.usage = GFX::ImageUsage_DepthAttachment,
+		.format = Format::D32_FLOAT,
+		.usage = ImageUsage_DepthAttachment,
 	});
 }
 
@@ -85,7 +85,7 @@ static void DestroyBuffers() {
 }
 
 void RendererInitialize1() {
-	g_device = GFX::GraphicsDevice::Get();
+	g_device = GraphicsDevice::Get();
 
 	{ // mesh_quad:
 		MeshVertex quad_vertices[] = {
@@ -104,60 +104,60 @@ void RendererInitialize1() {
 
 	{ // create standard samplers:
 		g_device->CreateSampler({
-			.minFilter  = GFX::Filter::Nearest,
-			.magFilter  = GFX::Filter::Nearest,
-			.mipmapMode = GFX::MipmapMode::Nearest,
-			.addressU    = GFX::AddressMode::ClampToEdge,
-			.addressV    = GFX::AddressMode::ClampToEdge,
-			.addressW    = GFX::AddressMode::ClampToEdge,
+			.minFilter  = Filter::Nearest,
+			.magFilter  = Filter::Nearest,
+			.mipmapMode = MipmapMode::Nearest,
+			.addressU    = AddressMode::ClampToEdge,
+			.addressV    = AddressMode::ClampToEdge,
+			.addressW    = AddressMode::ClampToEdge,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointClamp,
 		});
 		g_device->CreateSampler({
-			.minFilter  = GFX::Filter::Nearest,
-			.magFilter  = GFX::Filter::Nearest,
-			.mipmapMode = GFX::MipmapMode::Nearest,
-			.addressU    = GFX::AddressMode::Repeat,
-			.addressV    = GFX::AddressMode::Repeat,
-			.addressW    = GFX::AddressMode::Repeat,
+			.minFilter  = Filter::Nearest,
+			.magFilter  = Filter::Nearest,
+			.mipmapMode = MipmapMode::Nearest,
+			.addressU    = AddressMode::Repeat,
+			.addressV    = AddressMode::Repeat,
+			.addressW    = AddressMode::Repeat,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointWrap,
 		});
 		g_device->CreateSampler({
-			.minFilter  = GFX::Filter::Nearest,
-			.magFilter  = GFX::Filter::Nearest,
-			.mipmapMode = GFX::MipmapMode::Nearest,
-			.addressU    = GFX::AddressMode::MirroredRepeat,
-			.addressV    = GFX::AddressMode::MirroredRepeat,
-			.addressW    = GFX::AddressMode::MirroredRepeat,
+			.minFilter  = Filter::Nearest,
+			.magFilter  = Filter::Nearest,
+			.mipmapMode = MipmapMode::Nearest,
+			.addressU    = AddressMode::MirroredRepeat,
+			.addressV    = AddressMode::MirroredRepeat,
+			.addressW    = AddressMode::MirroredRepeat,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::PointMirror,
 		});
 		g_device->CreateSampler({
-			.mipmapMode = GFX::MipmapMode::Nearest,
-			.addressU    = GFX::AddressMode::ClampToEdge,
-			.addressV    = GFX::AddressMode::ClampToEdge,
-			.addressW    = GFX::AddressMode::ClampToEdge,
+			.mipmapMode = MipmapMode::Nearest,
+			.addressU    = AddressMode::ClampToEdge,
+			.addressV    = AddressMode::ClampToEdge,
+			.addressW    = AddressMode::ClampToEdge,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearClamp,
 		});
 		g_device->CreateSampler({
-			.mipmapMode = GFX::MipmapMode::Nearest,
+			.mipmapMode = MipmapMode::Nearest,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearWrap,
 		});
 		g_device->CreateSampler({
-			.mipmapMode = GFX::MipmapMode::Nearest,
-			.addressU    = GFX::AddressMode::MirroredRepeat,
-			.addressV    = GFX::AddressMode::MirroredRepeat,
-			.addressW    = GFX::AddressMode::MirroredRepeat,
+			.mipmapMode = MipmapMode::Nearest,
+			.addressU    = AddressMode::MirroredRepeat,
+			.addressV    = AddressMode::MirroredRepeat,
+			.addressW    = AddressMode::MirroredRepeat,
 			.bindless    = true,
 			.forcedBindlessIndex = (U32)StandardSampler::LinearMirror,
 		});
 		g_device->CreateSampler({
-			.addressU = GFX::AddressMode::ClampToEdge,
-			.addressV = GFX::AddressMode::ClampToEdge,
-			.addressW = GFX::AddressMode::ClampToEdge,
+			.addressU = AddressMode::ClampToEdge,
+			.addressV = AddressMode::ClampToEdge,
+			.addressW = AddressMode::ClampToEdge,
 			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearClamp,
 		});
@@ -166,16 +166,16 @@ void RendererInitialize1() {
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearWrap,
 		});
 		g_device->CreateSampler({
-			.addressU = GFX::AddressMode::MirroredRepeat,
-			.addressV = GFX::AddressMode::MirroredRepeat,
-			.addressW = GFX::AddressMode::MirroredRepeat,
+			.addressU = AddressMode::MirroredRepeat,
+			.addressV = AddressMode::MirroredRepeat,
+			.addressW = AddressMode::MirroredRepeat,
 			.bindless = true,
 			.forcedBindlessIndex = (U32)StandardSampler::TrilinearMirror,
 		});
 		g_device->CreateSampler({
-			.addressU         = GFX::AddressMode::ClampToEdge,
-			.addressV         = GFX::AddressMode::ClampToEdge,
-			.addressW         = GFX::AddressMode::ClampToEdge,
+			.addressU         = AddressMode::ClampToEdge,
+			.addressV         = AddressMode::ClampToEdge,
+			.addressW         = AddressMode::ClampToEdge,
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
 			.bindless         = true,
@@ -188,32 +188,32 @@ void RendererInitialize1() {
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoWrap,
 		});
 		g_device->CreateSampler({
-			.addressU         = GFX::AddressMode::MirroredRepeat,
-			.addressV         = GFX::AddressMode::MirroredRepeat,
-			.addressW         = GFX::AddressMode::MirroredRepeat,
+			.addressU         = AddressMode::MirroredRepeat,
+			.addressV         = AddressMode::MirroredRepeat,
+			.addressW         = AddressMode::MirroredRepeat,
 			.maxAnisotropy    = 16.0f,
 			.anisotropyEnable = true,
 			.bindless         = true,
 			.forcedBindlessIndex = (U32)StandardSampler::AnisoMirror,
 		});
 		g_device->CreateSampler({
-			.minFilter     = GFX::Filter::Nearest,
-			.magFilter     = GFX::Filter::Nearest,
-			.mipmapMode    = GFX::MipmapMode::Nearest,
-			.addressU       = GFX::AddressMode::ClampToEdge,
-			.addressV       = GFX::AddressMode::ClampToEdge,
-			.addressW       = GFX::AddressMode::ClampToEdge,
+			.minFilter     = Filter::Nearest,
+			.magFilter     = Filter::Nearest,
+			.mipmapMode    = MipmapMode::Nearest,
+			.addressU       = AddressMode::ClampToEdge,
+			.addressV       = AddressMode::ClampToEdge,
+			.addressW       = AddressMode::ClampToEdge,
 			.compareEnable  = true,
-			.compareOp      = GFX::CompareOp::LessEqual,
+			.compareOp      = CompareOp::LessEqual,
 			.bindless       = true,
 			.forcedBindlessIndex = (U32)StandardSampler::ShadowPointClamp,
 		});
 		g_device->CreateSampler({
-			.addressU      = GFX::AddressMode::ClampToEdge,
-			.addressV      = GFX::AddressMode::ClampToEdge,
-			.addressW      = GFX::AddressMode::ClampToEdge,
+			.addressU      = AddressMode::ClampToEdge,
+			.addressV      = AddressMode::ClampToEdge,
+			.addressW      = AddressMode::ClampToEdge,
 			.compareEnable = true,
-			.compareOp     = GFX::CompareOp::LessEqual,
+			.compareOp     = CompareOp::LessEqual,
 			.bindless      = true,
 			.forcedBindlessIndex = (U32)StandardSampler::ShadowLinearClamp,
 		});
@@ -224,8 +224,8 @@ void RendererInitialize1() {
 	g_mainConstantBuffer = g_device->CreateGPUBuffer({
 		.name        = "main constant buffer",
 		.size        = sizeof(MainConstantBuffer),
-		.usage       = GFX::GPUBufferUsage_StorageBuffer | GFX::GPUBufferUsage_TransferDest,
-		.memoryUsage = GFX::MemoryUsage::GPUOnly,
+		.usage       = GPUBufferUsage_StorageBuffer | GPUBufferUsage_TransferDest,
+		.memoryUsage = MemoryUsage::GPUOnly,
 		.bindless    = true,
 	});
 
@@ -256,7 +256,7 @@ void DrawSetLayer(Layer l) {
 void RenderFrame() {
 	ZoneScopedN("RenderFrame");
 
-	GFX::Image* backbuffer = g_device->GetCurrentBackbuffer();
+	Image* backbuffer = g_device->GetCurrentBackbuffer();
 
 	bool buffersDirty = false;
 	if (!g_depthBuffer) buffersDirty = true;
@@ -267,7 +267,7 @@ void RenderFrame() {
 		CreateBuffers();
 	}
 
-	GFX::CommandBuffer* cmd = g_device->GetMainCommandBuffer();
+	CommandBuffer* cmd = g_device->GetMainCommandBuffer();
 
 	ECamera* camera = nullptr;
 	if (g_active_game && g_active_game->m_activeCamera) {
@@ -281,25 +281,25 @@ void RenderFrame() {
 	}
 	g_device->UploadBuffer(g_mainConstantBuffer, sizeof(cb), 0, &cb);
 
-	GFX::AttachmentDesc colorAttachment = {
+	AttachmentDesc colorAttachment = {
 		.image       = backbuffer,
-		.loadOp      = GFX::LoadOp::Clear,
-		.storeOp     = GFX::StoreOp::Store,
+		.loadOp      = LoadOp::Clear,
+		.storeOp     = StoreOp::Store,
 		.clearColor  = COLOR_BLACK,
-		.stateBefore = GFX::ImageState::Undefined,
-		.stateDuring = GFX::ImageState::ColorAttachment,
-		.stateAfter  = GFX::ImageState::Present,
+		.stateBefore = ImageState::Undefined,
+		.stateDuring = ImageState::ColorAttachment,
+		.stateAfter  = ImageState::Present,
 	};
-	GFX::AttachmentDesc depthAttachment = {
+	AttachmentDesc depthAttachment = {
 		.image       = g_depthBuffer,
-		.loadOp      = GFX::LoadOp::Clear,
-		.storeOp     = GFX::StoreOp::Store,
+		.loadOp      = LoadOp::Clear,
+		.storeOp     = StoreOp::Store,
 		.clearDepth  = 1.0f,
 		.stateBefore = g_depthBuffer->m_state,
-		.stateDuring = GFX::ImageState::DepthAttachment,
-		.stateAfter  = GFX::ImageState::DepthAttachment,
+		.stateDuring = ImageState::DepthAttachment,
+		.stateAfter  = ImageState::DepthAttachment,
 	};
-	GFX::RenderingDesc renderingDesc = {
+	RenderingDesc renderingDesc = {
 		.colorAttachmentCount = 1,
 		.colorAttachments = &colorAttachment,
 		.depthAttachment = &depthAttachment,
@@ -346,7 +346,7 @@ void RenderFrame() {
 				cmd->PushConstants(shader->m_pipeline, sizeof(constants), &constants);
 
 				if (entry.mesh->index_count) {
-					cmd->BindIndexBuffer(entry.mesh->index_buffer, GFX::IndexType::U32);
+					cmd->BindIndexBuffer(entry.mesh->index_buffer, IndexType::U32);
 					cmd->DrawIndexed(entry.mesh->index_count);
 				} else {
 					cmd->Draw(entry.mesh->vertex_count);
@@ -358,7 +358,7 @@ void RenderFrame() {
 
 		// render pending lines:
 		if (current_layer->lines.size()) { 
-			GFX::GPUBuffer* lineBuffer = nullptr;
+			GPUBuffer* lineBuffer = nullptr;
 			size_t lineBufferOffset = 0;
 			g_device->UploadStagingData(current_layer->lines.data(), current_layer->lines.size() * sizeof(LineVertex), &lineBuffer, &lineBufferOffset);
 			struct LinePushConstants {
@@ -392,7 +392,7 @@ void RenderFrame() {
 				};
 			}
 
-			GFX::GPUBuffer* quadBuffer = nullptr;
+			GPUBuffer* quadBuffer = nullptr;
 			size_t quadBufferOffset = 0;
 			g_device->UploadStagingData(quads.data(), quads.size() * sizeof(DrawQuad), &quadBuffer, &quadBufferOffset);
 			struct QuadPushConstants {
@@ -408,7 +408,7 @@ void RenderFrame() {
 			};
 			cmd->BindPipeline(shd_quad->m_pipeline);
 			cmd->PushConstants(shd_quad->m_pipeline, sizeof(constants), &constants);
-			cmd->BindIndexBuffer(mesh_quad->index_buffer, GFX::IndexType::U32);
+			cmd->BindIndexBuffer(mesh_quad->index_buffer, IndexType::U32);
 			cmd->DrawIndexed(6, (U32)quads.size());
 
 			current_layer->quads.clear();
