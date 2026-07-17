@@ -98,6 +98,8 @@ void Promise::Block() {
 }
 
 void Promise::Signal() {
+	if (!m_data) return;
+
 	m_data->m_mutex.lock();
 	assert(!m_data->m_done);
 	assert(m_data->m_signalCount > 0);

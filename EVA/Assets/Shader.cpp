@@ -8,40 +8,46 @@ static Result CompileShaderStage(String name, String stage, const Vector<String>
 	cmdline.Push("glslc -fshader-stage=%.*s", STRING_PRINTF_ARGS(stage));
 	for (String define : defines)
 		cmdline.Push(" -D%.*s", STRING_PRINTF_ARGS(define));
-	cmdline.Push(" \"%s/EVA/Shaders/%.*s\" -o \"%s\"", EVA_BASE_DIR, STRING_PRINTF_ARGS(name), intermediatePath.c_str());
+	cmdline.Push(" \"%.*s\" -o \"%s\"", STRING_PRINTF_ARGS(name), intermediatePath.c_str());
 	TRY(ExecProcess(cmdline.Build()));
 
 	if (!ReadEntireFile(intermediatePath, out_spv, out_spv_size))
 		return Err("Failed to read %s", intermediatePath.c_str());
 
+	remove(intermediatePath.c_str());
 	return Success();
 }
 
-Result BuildShader(ZTString input_path, ZTString output_path) {
+Result ShaderSource::LoadImpl(FILE* in) {
 	Result err = Success();
 	ScratchArena scratch;
-
-	FILE* in = fopen(input_path.c_str(), "rb");
-	if (!in) return Err("Failed to open %s", input_path.c_str());
-	DEFER(fclose(in));
 
 	TextDeserializer d(in, scratch);
 	ShaderAssetSourceData data;
 	Deserialize(d, data);
 
+	String fsPathWithoutExt = FS::WithoutExtension(m_fsPath);
+	ZTString outputPath = scratch->Fmt("%.*s.shader", STRING_PRINTF_ARGS(fsPathWithoutExt));
+
 	ShaderAssetCompiledData compiledData = {};
-	ZTString vertexIntermediatePath = scratch->Fmt("%s.vertex.spv", output_path.c_str());
-	TRY(CompileShaderStage(data.vs, "vertex", data.defines, vertexIntermediatePath, &compiledData.vs.data, &compiledData.vs.size));
-	remove(vertexIntermediatePath.c_str());
-	DEFER(free(compiledData.vs.data));
-	ZTString fragmentIntermediatePath = scratch->Fmt("%s.fragment.spv", output_path.c_str());
-	TRY(CompileShaderStage(data.fs, "fragment", data.defines, fragmentIntermediatePath, &compiledData.fs.data, &compiledData.fs.size));
-	remove(fragmentIntermediatePath.c_str());
-	DEFER(free(compiledData.fs.data));
 	compiledData.pipelineState = data.pipelineState;
 
-	FILE* out = fopen(output_path, "wb");
-	if (!out) return Err("Failed to open %s for writing", output_path.c_str());
+	GLSLShader* vs = Asset::Get<GLSLShader>(data.vs);
+	GLSLShader* fs = Asset::Get<GLSLShader>(data.fs);
+	AddInput(vs);
+	AddInput(fs);
+	if (!AreAllInputsLoaded()) return Success();
+	
+	ZTString vsTempPath = scratch->Fmt("%s.fs.spv", outputPath.c_str());
+	TRY(CompileShaderStage(vs->m_fsPath, "vertex", data.defines, vsTempPath, &compiledData.vs.data, &compiledData.vs.size));
+	DEFER(free(compiledData.vs.data));
+
+	ZTString fsTempPath = scratch->Fmt("%s.fs.spv", outputPath.c_str());
+	TRY(CompileShaderStage(fs->m_fsPath, "fragment", data.defines, fsTempPath, &compiledData.fs.data, &compiledData.fs.size));
+	DEFER(free(compiledData.fs.data));
+
+	FILE* out = fopen(outputPath.c_str(), "wb");
+	if (!out) return Err("Failed to open %s for writing", outputPath.c_str());
 	DEFER(fclose(out));
 	TextSerializer s(out);
 

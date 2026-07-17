@@ -23,6 +23,16 @@ typedef struct VkFence_T*          VkFence;
 typedef struct VkDeviceMemory_T*   VkDeviceMemory;
 typedef struct VmaAllocation_T*    VmaAllocation;
 
+class GPUBuffer;
+class GPUImage;
+class GPUSampler;
+class GPUShaderModule;
+class GPUGraphicsPipeline;
+struct GPURenderingDesc;
+struct GPUBufferCopyDesc;
+struct GPUBufferImageCopyDesc;
+struct GPUImageBarrierDesc;
+
 template <typename T>
 class GPUResourcePool {
 	U32            m_nextIndex  = 0;
@@ -68,18 +78,8 @@ public:
 	T Get(size_t index) {
 		return m_values[index];
 	}
-
 };
 
-class GPUBuffer;
-class GPUImage;
-class GPUSampler;
-class GPUShaderModule;
-class GPUGraphicsPipeline;
-struct GPURenderingDesc;
-struct GPUBufferCopyDesc;
-struct GPUBufferImageCopyDesc;
-struct GPUImageBarrierDesc;
 
 enum class GPUBackend : U8 {
 	None,
@@ -292,7 +292,7 @@ enum class GPUBlendMode : U8 {
 EAUTO_ENUM(GPUBlendMode);
 
 struct GPUBlendState {
-	bool        blendEnable      = false;
+	bool           blendEnable      = false;
 	GPUBlendFactor sourceColorBlend = GPUBlendFactor::SourceAlpha;
 	GPUBlendFactor destColorBlend   = GPUBlendFactor::OneMinusSourceAlpha;
 	GPUBlendOp     colorBlendOp     = GPUBlendOp::Add;
@@ -340,18 +340,12 @@ class GPUBuffer : public Object {
 public:
 	ECLASS_COMMON();
 
-	U64   m_size          = 0;
-	U32   m_bindlessIndex = UINT32_MAX;
-	void* m_mapped        = nullptr;
-
-	union {
-		VkBuffer m_vk = nullptr;
-	};
-
-	union {
-		VkDeviceMemory m_vkMemory = nullptr;
-	};
-	VmaAllocation m_vmaAllocation = nullptr;
+	U64            m_size           = 0;
+	U32            m_bindlessIndex  = UINT32_MAX;
+	void*          m_mapped         = nullptr;
+	VkBuffer       m_vk             = nullptr;
+	VkDeviceMemory m_vkMemory       = nullptr;
+	VmaAllocation  m_vmaAllocation  = nullptr;
 };
 
 class GPUImage : public Object {
@@ -359,41 +353,34 @@ public:
 	ECLASS_COMMON();
 	GPUImage() : m_vulkan{} {}
 
-	U32        m_width            = 0;
-	U32        m_height           = 0;
-	U32        m_mipCount         = 1;
-	U32        m_bindlessIndex    = UINT32_MAX;
-	GPUFormat     m_format           = GPUFormat::None;
-	GPUImageState m_state            = GPUImageState::Undefined;
-	bool       m_ownedBySwapchain = false;
+	U32           m_width              = 0;
+	U32           m_height             = 0;
+	U32           m_mipCount           = 1;
+	U32           m_bindlessIndex      = UINT32_MAX;
+	GPUFormat     m_format             = GPUFormat::None;
+	GPUImageState m_state              = GPUImageState::Undefined;
+	bool          m_ownedBySwapchain   = false;
 
-	union {
-		struct {
-			VkImage        image      = nullptr;
-			VkImageView    imageView  = nullptr;
-			VkDeviceMemory memory     = nullptr;
-			VmaAllocation  allocation = nullptr;
-		} m_vulkan;
-	};
+	struct {
+		VkImage        image      = nullptr;
+		VkImageView    imageView  = nullptr;
+		VkDeviceMemory memory     = nullptr;
+		VmaAllocation  allocation = nullptr;
+	} m_vulkan;
 };
 
 class GPUSampler : public Object {
 public:
 	ECLASS_COMMON();
 
-	U32 m_bindlessIndex = UINT32_MAX;
-
-	union {
-		VkSampler m_vk = nullptr;
-	};
+	U32       m_bindlessIndex = UINT32_MAX;
+	VkSampler m_vk            = nullptr;
 };
 
 class GPUShaderModule : public Object {
 public:
 	ECLASS_COMMON();
-	union {
-		VkShaderModule m_vk = nullptr;
-	};
+	VkShaderModule m_vk = nullptr;
 };
 
 class GPUGraphicsPipeline : public Object {
@@ -402,12 +389,10 @@ public:
 
 	ECLASS_COMMON();
 
-	union {
-		struct {
-			VkPipeline       pipeline = {};
-			VkPipelineLayout layout   = {};
-		} m_vulkan;
-	};
+	struct {
+		VkPipeline       pipeline = {};
+		VkPipelineLayout layout   = {};
+	} m_vulkan;
 
 	GPUGraphicsPipeline() : m_vulkan{} {}
 };
@@ -415,10 +400,7 @@ public:
 class GPUCommandBuffer : public Object {
 public:
 	ECLASS_COMMON();
-
-	union {
-		VkCommandBuffer m_vk = nullptr;
-	};
+	VkCommandBuffer m_vk = nullptr;
 
 	virtual void BeginRendering(const GPURenderingDesc& desc) = 0;
 	virtual void EndRendering(const GPURenderingDesc& desc) = 0;
@@ -494,8 +476,8 @@ struct GPUGraphicsPipelineDesc {
 	GPUCullMode          cullMode    = GPUCullMode::Back;
 	GPUFrontFace         frontFace   = GPUFrontFace::CounterClockwise;
 
-	bool      depthTestEnable  = false;
-	bool      depthWriteEnable = false;
+	bool         depthTestEnable  = false;
+	bool         depthWriteEnable = false;
 	GPUCompareOp depthCompare     = GPUCompareOp::LessEqual;
 
 	GPUBlendMode blendMode = GPUBlendMode::Solid;
@@ -508,37 +490,35 @@ struct GPUGraphicsPipelineDesc {
 struct GPUAttachmentDesc {
 	GPUImage* image = nullptr;
 
-	GPULoadOp  loadOp  = GPULoadOp::Load;
-	GPUStoreOp storeOp = GPUStoreOp::Store;
-
-	float4 clearColor   = {};
-	float  clearDepth   = 1.0f;
-	U32    clearStencil = 0;
-
-	GPUImageState stateBefore = GPUImageState::Undefined;
-	GPUImageState stateDuring = GPUImageState::ColorAttachment;
-	GPUImageState stateAfter  = GPUImageState::Undefined;
+	GPULoadOp       loadOp         = GPULoadOp::Load;
+	GPUStoreOp      storeOp        = GPUStoreOp::Store;
+	float4          clearColor     = {};
+	float           clearDepth     = 1.0f;
+	U32             clearStencil   = 0;
+	GPUImageState   stateBefore    = GPUImageState::Undefined;
+	GPUImageState   stateDuring    = GPUImageState::ColorAttachment;
+	GPUImageState   stateAfter     = GPUImageState::Undefined;
 };
 
 struct GPURenderingDesc {
-	U32                   colorAttachmentCount = 0;
-	const GPUAttachmentDesc* colorAttachments      = nullptr;
-	const GPUAttachmentDesc* depthAttachment       = nullptr;
+	U32                  colorAttachmentCount  = 0;
+	GPUAttachmentDesc*   colorAttachments      = nullptr;
+	GPUAttachmentDesc*   depthAttachment       = nullptr;
 };
 
 struct GPUBufferCopyDesc {
-	U64 sourceOffset = 0;
-	U64 destOffset   = 0;
+	U64 sourceOffset  = 0;
+	U64 destOffset    = 0;
 	U64 size          = 0;
 };
 
 struct GPUBufferImageCopyDesc {
-	U64 bufferOffset = 0;
-	U32 imageMip     = 0;
-	U32 imageLayer   = 0;
-	U32 imageX       = 0;
-	U32 imageY       = 0;
-	U32 imageZ       = 0;
+	U64 bufferOffset  = 0;
+	U32 imageMip      = 0;
+	U32 imageLayer    = 0;
+	U32 imageX        = 0;
+	U32 imageY        = 0;
+	U32 imageZ        = 0;
 	U32 width         = 0;
 	U32 height        = 0;
 	U32 depth         = 1;

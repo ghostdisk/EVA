@@ -207,10 +207,10 @@ void RendererInitialize1() {
 
 void RendererInitialize2() {
 	ZoneScopedN("RendererInitialize2");
-	shd_lines = Asset::Get<Shader>("shd_lines");
-	shd_main  = Asset::Get<Shader>("shd_main");
-	shd_quad  = Asset::Get<Shader>("shd_quad");
-	shd_brush = Asset::Get<Shader>("shd_brush");
+	// shd_lines = Asset::Get<Shader>("shd_lines");
+	// shd_main  = Asset::Get<Shader>("shd_main");
+	// shd_quad  = Asset::Get<Shader>("shd_quad");
+	// shd_brush = Asset::Get<Shader>("shd_brush");
 }
 
 void RendererShutdown() {
@@ -283,6 +283,7 @@ void RenderFrame() {
 	};
 	cmd->BeginRendering(renderingDesc);
 
+	if (0) // TODO - we're skipping everything
 	for (Layer layer = (Layer)0; layer < Layer_ENUM_SIZE; layer = (Layer)(layer + 1)) {
 		DrawSetLayer(layer);
 

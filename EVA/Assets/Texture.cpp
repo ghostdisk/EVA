@@ -9,6 +9,11 @@ Texture::Texture() {
 	m_sampler = GPUDevice::Get()->GetSampler((U32)StandardSampler::TrilinearWrap);
 }
 
+bool Texture::HasMeta() {
+	return true;
+}
+
+// @TODO @CLEANUP: Use the new auitoserializer for TextureMeta
 void Texture::LoadMetaImpl(Deserializer& d) {
 	d.BeginObject();
 	d.Key("version");
@@ -54,6 +59,7 @@ Result Texture::LoadImpl(FILE* f) {
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 
+	// @TODO @THREADING - As it is right now, Upload should only be ever called from MT. We're not on MT.
 	Upload(width, height, pixels, GPUFormat::RGBA8_SRGB);
 	return Success();
 }

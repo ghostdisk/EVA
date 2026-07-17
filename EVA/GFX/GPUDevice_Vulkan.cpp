@@ -34,7 +34,7 @@ static bool HasInstanceLayer(String name) {
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugCallback( VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* callbackData, void* userData) {
 	printf("Vulkan validation error [%s] (%d): %s\n", callbackData->pMessageIdName ? callbackData->pMessageIdName : "unknown", callbackData->messageIdNumber, callbackData->pMessage ? callbackData->pMessage : "unknown");
-	__debugbreak();
+	// __debugbreak();
 	return VK_FALSE;
 }
 

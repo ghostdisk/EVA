@@ -70,6 +70,7 @@ void ConLog(const char* fmt, ...) {
 }
 
 void ConError(Result err) {
+	// @TODO @THREADING - ConError is not threadsafe
 	assert(err.error);
 	ScratchArena scratch;
 	g_console_log.push_back(scratch->Fmt("error: %s", err.error->c_str()).CopyToHeap());

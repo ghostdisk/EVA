@@ -26,12 +26,37 @@ struct EVERSION(3) ShaderAssetCompiledData {
 };
 EAUTO_SERIALIZE(ShaderAssetCompiledData);
 
-class Shader : public Asset {
+/**
+ ** GLSLShader corresponds to a .glsl file. They're fed as inputs to ShaderSource.
+ **
+ ** This class is a dumb node that exists just so the asset system can track changes in .glsl files,
+ ** so we can do shader hot-reloading.
+ **/
+class GLSLShader : public Asset {
 public:
 	ECLASS_COMMON();
-	GPUGraphicsPipeline* m_pipeline       = nullptr;
+};
+
+/**
+ ** ShaderSource corresponds to a .shader file. It references to its GLSL shader stage source files and pipeline state.
+ ** LoadImpl builds the compiled runtime file (.shader)
+ **/
+class ShaderSource : public Asset {
+public:
+	ECLASS_COMMON();
 
 	virtual Result LoadImpl(FILE* f) override;
 };
 
-Result BuildShader(ZTString input_path, ZTString output_path);
+/**
+ ** Shader corresponds to a .cshader file - this is the runtime shader asset class.
+ ** It's built from a corresponding .shader file.
+ **/
+class Shader : public Asset {
+public:
+	ECLASS_COMMON();
+
+	GPUGraphicsPipeline* m_pipeline = nullptr;
+
+	virtual Result LoadImpl(FILE* f) override;
+};

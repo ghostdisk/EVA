@@ -10,6 +10,7 @@ bool PlatformProcessSDLEvent(SDL_Event* event);
 
 
 extern double      g_delta_time;
+extern double      g_time;
 extern float2      g_window_size;
 extern float       g_fps;
 extern bool        g_quit;

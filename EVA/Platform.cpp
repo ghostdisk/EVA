@@ -9,6 +9,7 @@ float2 g_window_size    = { 1600, 900 };
 float  g_fps            = 0;
 bool   g_quit           = false;
 double g_delta_time     = 0.01;
+double g_time           = 0;
 
 static U64   g_frame_start_ns = 0;
 static float g_frame_time_history[FRAME_TIME_HISTORY_SIZE] = {};
@@ -44,10 +45,10 @@ void PlatformInitialize() {
 
 void PlatformBeginFrame() {
 	{ // Update delta time:
-
 		U64 new_time = SDL_GetTicksNS();
 		U64 dt_ns = new_time - g_frame_start_ns;
 		g_delta_time = double(dt_ns) / 1'000'000'000;
+		g_time = double(new_time) / 1'000'000'000;
 		g_frame_start_ns = new_time;
 	}
 

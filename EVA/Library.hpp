@@ -11,7 +11,6 @@ void LibraryInitialize();
 
 namespace Library {
 
-extern Mesh* mesh_cube;
 extern Mesh* mesh_cone;
 
 extern Texture* tex_test;

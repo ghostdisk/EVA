@@ -1,8 +1,8 @@
 #include <EVA/Assets/Sprite.hpp>
 
 Sprite* SpriteCreate(const char* name, Texture* texture, int x, int y, int w, int h) {
+	printf("[asset] SpriteCreate uses old style\n");
 	Sprite* sprite = new Sprite();
-	AssetInit(sprite, name);
 	sprite->texture = texture;
 	sprite->x = x;
 	sprite->y = y;

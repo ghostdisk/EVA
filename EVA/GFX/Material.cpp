@@ -2,8 +2,8 @@
 
 // TODO
 Material* MaterialCreate(const char* name, Shader* shader, Texture* texture) {
+	printf("[asset] MaterialCreate uses old style\n");
 	Material* material = new Material();
-	AssetInit(material, name);
 
 	material->shader = shader;
 	material->color_texture = texture;

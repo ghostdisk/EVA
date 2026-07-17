@@ -32,8 +32,8 @@ static void Blit( U8* dst, int dst_width, int dst_x, int dst_y, U8* src, int src
 }
 
 Font* FontLoad(const char* name, int size, int atlas_size) {
+	printf("[asset] FontLoad uses old style\n");
 	Font* font = new Font();
-	AssetInit(font, name);
 
 	char path[256];
 	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);

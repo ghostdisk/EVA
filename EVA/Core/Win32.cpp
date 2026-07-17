@@ -40,6 +40,12 @@ ZTString UTF16ToString(Arena* arena, U16* string, int len) {
 
 namespace FS {
 
+static Timestamp TimestampFromFileTime(FILETIME time) {
+	return Timestamp{
+		.value = ((U64)time.dwHighDateTime << 32) | time.dwLowDateTime,
+	};
+}
+
 void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& stat, void* userdata)) {
 	ScratchArena scratch;
 
@@ -62,10 +68,14 @@ void ReadDirectory(String path, void* userdata, void (*callback)(const Stat& sta
 		ZTString filename  = UTF16ToString(scratch, (U16*)fd.cFileName, -1);
 		ZTString full_path = scratch->Fmt("%.*s/%s", STRING_PRINTF_ARGS(path), filename.c_str());
 
-		Stat stat        = {};
-		stat.filename     = filename;
-		stat.full_path    = full_path;
-		stat.is_directory = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+		Stat stat = {
+			.filename     = filename,
+			.fullPath     = full_path,
+			.ctime        = TimestampFromFileTime(fd.ftCreationTime),
+			.atime        = TimestampFromFileTime(fd.ftLastAccessTime),
+			.mtime        = TimestampFromFileTime(fd.ftLastWriteTime),
+			.isDirectory  = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
+		};
 		callback(stat, userdata);
 	} while (FindNextFileW(handle, &fd));
 
