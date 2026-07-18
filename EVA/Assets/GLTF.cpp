@@ -1,25 +1,41 @@
+#include <EVA/Core/Serialization.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Material.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Model.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
+#include <EVA/Assets/GLTF.hpp>
 
 #define CGLTF_IMPLEMENTATION
 #include <Vendor/cgltf.h>
 
-Result BuildGLTF(Model* model, ZTString path) {
+Result GLTF::LoadImpl(Deserializer& d) {
+	ScratchArena scratch;
+
 	cgltf_options options = {};
 	cgltf_data* data = nullptr;
-	if (cgltf_parse_file(&options, path, &data) != cgltf_result_success)
-		return Err("cgltf_parse_file: failed to load %s", path.c_str());
-	DEFER(cgltf_free(data));
 
-	if (cgltf_load_buffers(&options, data, path) != cgltf_result_success) {
-		return Err("cgltf_load_buffers: failed to load %s", path.c_str());
+	if (cgltf_parse_file(&options, m_fsPath.c_str(), &data) != cgltf_result_success)
+		return Err("cgltf_parse_file: failed to load %s", m_fsPath.c_str());
+	// DEFER(cgltf_free(data));
+
+	if (cgltf_load_buffers(&options, data, m_fsPath.c_str()) != cgltf_result_success) {
+		return Err("cgltf_load_buffers: failed to load %s", m_fsPath.c_str());
 	}
+
+	// String nameWithoutExt = FS::WithoutExtension(m_name);
+	String fsPathWithoutExt = FS::WithoutExtension(m_fsPath);
+
+	// String mdlName = scratch->Fmt("%s.mdl", STRING_PRINTF_ARGS(nameWithoutExt));
+	ZTString mdlFsPath = scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(fsPathWithoutExt));
+
+	ModelData modelData;
+
+	// Model* model = Asset::Get<Model>(mdlName);
+	// model->meshes.clear();
 
 	/*
 	for (int material_idx = 0; material_idx < data->materials_count; material_idx++) {
@@ -63,7 +79,9 @@ Result BuildGLTF(Model* model, ZTString path) {
 		}
 		if (!attr_pos || !primitive.indices) return Err("Invalid gltf");
 
-		Vector<MeshVertex> vertices(attr_pos->data->count);
+		MeshData meshData = {};
+
+		meshData.vertices.resize(attr_pos->data->count);
 
 		Vector<float3> pos(attr_pos->data->count);
 		Vector<float3> nrm(attr_pos->data->count);
@@ -73,14 +91,14 @@ Result BuildGLTF(Model* model, ZTString path) {
 		if (attr_nrm) cgltf_accessor_unpack_floats(attr_nrm->data, (float*)nrm.data(), nrm.size() * 3);
 		if (attr_uv0) cgltf_accessor_unpack_floats(attr_uv0->data, (float*)uv0.data(), uv0.size() * 2);
 
-		for (int i = 0; i < vertices.size(); i++) {
-			vertices[i].position = pos[i];
-			vertices[i].normal   = nrm[i];
-			vertices[i].texcoord = uv0[i];
+		for (int i = 0; i < meshData.vertices.size(); i++) {
+			meshData.vertices[i].position = pos[i];
+			meshData.vertices[i].normal   = nrm[i];
+			meshData.vertices[i].texcoord = uv0[i];
 		}
 
-		Vector<U32> indices(primitive.indices->count);
-		cgltf_accessor_unpack_indices(primitive.indices, indices.data(), 4, indices.size());
+		meshData.indices.resize(primitive.indices->count);
+		cgltf_accessor_unpack_indices(primitive.indices, meshData.indices.data(), 4, meshData.indices.size());
 
 		/*
 		char mesh_name[64];
@@ -91,10 +109,10 @@ Result BuildGLTF(Model* model, ZTString path) {
 		}
 		*/
 
-		Mesh* mesh = new Mesh(); 
-		mesh->vertices = vertices;
-		mesh->indices = indices;
-		model->meshes.push_back(mesh);
+		modelData.meshes.push_back({
+			.name = "mesh123",
+			.meshData = Move(meshData),
+		});
 		/*
 		if (primitive.material) {
 			mesh->default_material = gltf->materials[cgltf_material_index(data, primitive.material)];
@@ -138,5 +156,12 @@ Result BuildGLTF(Model* model, ZTString path) {
 	}
 	*/
 
+	FILE* outFile = fopen(mdlFsPath.c_str(), "wb");
+	if (!outFile) {
+		return Err("GLTF: Failed to open %s for writing", mdlFsPath.c_str());
+	}
+	TextSerializer s(outFile);
+	Serialize(s, modelData);
+	fclose(outFile);
 	return Success();
 }

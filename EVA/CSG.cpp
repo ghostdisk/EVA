@@ -1,5 +1,5 @@
 #include <EVA/CSG.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/UI.hpp>
 #include <cglm/vec3.h>
 #include <algorithm>
@@ -9,7 +9,7 @@ void CSGDestroyBrushMesh(CSGBrush* brush) {
 	if (brush->mesh) {
 		QueueForNextFrame([](void* _mesh) {
 			Mesh* mesh = (Mesh*)_mesh;
-			mesh->Deinit();
+			mesh->Unload();
 			delete mesh;
 		}, brush->mesh);
 		brush->mesh = nullptr;
@@ -154,8 +154,7 @@ void CSGBuildBrushMesh(CSGBrush* brush) {
 	ZoneScopedN("CSGBuildBrushMesh");
 	CSGDestroyBrushMesh(brush);
 
-	Vector<MeshVertex> vertices;
-	Vector<U32> indices;
+	MeshData meshData = {};
 
 	for (int i = 0; i < brush->planes.size(); i++) {
 		CSGPlane& plane = brush->planes[i];
@@ -164,24 +163,22 @@ void CSGBuildBrushMesh(CSGBrush* brush) {
 		}
 
 		// triangulate:
-		U32 vertex_start = vertices.size();
+		U32 vertex_start = meshData.vertices.size();
 		for (const float3& p : plane.points) {
-			vertices.push_back(MeshVertex{
+			meshData.vertices.push_back(MeshVertex{
 				.position = p,
 				.normal = plane.plane.normal,
 				.texcoord = {},
 			});
 		}
 		for (int i = 2; i < plane.points.size(); i++) {
-			indices.push_back(vertex_start);
-			indices.push_back(vertex_start + i - 1);
-			indices.push_back(vertex_start + i);
+			meshData.indices.push_back(vertex_start);
+			meshData.indices.push_back(vertex_start + i - 1);
+			meshData.indices.push_back(vertex_start + i);
 		}
 	}
 	brush->mesh = new Mesh(); 
-	brush->mesh->vertices = Move(vertices);
-	brush->mesh->indices = Move(indices);
-	brush->mesh->Upload(false);
+	brush->mesh->Upload(meshData);
 }
 
 CSGBrush* CSGCloneBrush(CSGBrush* orig) {

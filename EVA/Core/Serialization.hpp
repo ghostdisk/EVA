@@ -177,10 +177,19 @@ public:
 	virtual void     DeserializeBytes(Allocator allocator, size_t* out_size, void** out_data) override;
 };
 
+
+/**
+ ** SerializableBytes is a simple byte array that provides Serialize/Deserialize methods that save/load via
+ ** SerializeBytes/DeserializeBytes.
+ **
+ ** When deserializing, the memory will be allocated via the deserializer's arena.
+ **/
 struct SerializableBytes {
 	void* data = nullptr;
 	size_t size = 0;
 };
+void Serialize(Serializer& s, const SerializableBytes& bytes);
+void Deserialize(Deserializer& d, SerializableBytes& bytes);
 
 
 // Having Serialize(s, const T&) and Deserialize(d, T&) versions for the primitive types  makes automatic code generation
@@ -231,5 +240,3 @@ inline void Deserialize(Deserializer& d, Vector<T>& out_vec) {
 	d.EndArray();
 }
 
-void Serialize(Serializer& s, const SerializableBytes& bytes);
-void Deserialize(Deserializer& d, SerializableBytes& bytes);

@@ -4,7 +4,7 @@
 #include <EVA/Assets/Font.hpp>
 #include <EVA/Assets/Shader.hpp>
 #include <EVA/Assets/Material.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/Game.hpp>
 #include <EVA/GFX/Renderer.hpp>
 #include <EVA/Platform.hpp>
@@ -77,18 +77,19 @@ void RendererInitialize1() {
 	g_device = GPUDevice::Get();
 
 	{ // mesh_quad:
-		MeshVertex quad_vertices[] = {
-			MeshVertex { .position = float3(0, 0, 0) },
-			MeshVertex { .position = float3(1, 0, 0) },
-			MeshVertex { .position = float3(1, 1, 0) },
-			MeshVertex { .position = float3(0, 1, 0) },
+		MeshData meshData = {
+			.vertices = {
+				MeshVertex { .position = float3(0, 0, 0) },
+				MeshVertex { .position = float3(1, 0, 0) },
+				MeshVertex { .position = float3(1, 1, 0) },
+				MeshVertex { .position = float3(0, 1, 0) },
+			},
+			.indices = {
+		 		0, 1, 2, 0, 2, 3,
+			}
 		};
-		U32 quad_indices[] = { 0, 1, 2, 0, 2, 3 };
 		mesh_quad = new Mesh();
-		mesh_quad->InitCPUData(
-			EVA_ARRAYSIZE(quad_vertices), quad_vertices,
-			EVA_ARRAYSIZE(quad_indices), quad_indices);
-		mesh_quad->Upload(false);
+		mesh_quad->Upload(meshData);
 	}
 
 	{ // create standard samplers:
@@ -207,10 +208,10 @@ void RendererInitialize1() {
 
 void RendererInitialize2() {
 	ZoneScopedN("RendererInitialize2");
-	shd_lines = Asset::Get<Shader>("/Shaders/shd_lines.shader");
-	shd_main  = Asset::Get<Shader>("/Shaders/shd_main.shader");
-	shd_quad  = Asset::Get<Shader>("/Shaders/shd_quad.shader");
-	shd_brush = Asset::Get<Shader>("/Shaders/shd_brush.shader");
+	shd_lines = Asset::Get<Shader>("/Shaders/shd_lines.cshader");
+	shd_main  = Asset::Get<Shader>("/Shaders/shd_main.cshader");
+	shd_quad  = Asset::Get<Shader>("/Shaders/shd_quad.cshader");
+	shd_brush = Asset::Get<Shader>("/Shaders/shd_brush.cshader");
 }
 
 void RendererShutdown() {
@@ -294,7 +295,7 @@ void RenderFrame() {
 				Texture*  color_texture = Library::tex_proto;
 
 				if (!material) {
-					material = entry.mesh->default_material;
+					material = entry.mesh->m_defaultMaterial;
 				}
 				if (material) {
 					shader = material->shader;
@@ -316,18 +317,18 @@ void RenderFrame() {
 						.color = entry.color,
 						.textureScale = material ? material->texture_scale : 1.0f,
 						.cameraBuffer = g_mainConstantBuffer->m_bindlessIndex,
-						.vertexBuffer = entry.mesh->vertex_buffer->m_bindlessIndex,
+						.vertexBuffer = entry.mesh->m_vertexBuffer->m_bindlessIndex,
 						.colorImage = color_texture->image->m_bindlessIndex,
 						.colorSampler = color_texture->m_sampler->m_bindlessIndex,
 					};
 					cmd->BindPipeline(shader->m_pipeline);
 					cmd->PushConstants(shader->m_pipeline, sizeof(constants), &constants);
 
-					if (entry.mesh->index_count) {
-						cmd->BindIndexBuffer(entry.mesh->index_buffer, GPUIndexType::U32);
-						cmd->DrawIndexed(entry.mesh->index_count);
+					if (entry.mesh->m_indexCount) {
+						cmd->BindIndexBuffer(entry.mesh->m_indexBuffer, GPUIndexType::U32);
+						cmd->DrawIndexed(entry.mesh->m_indexCount);
 					} else {
-						cmd->Draw(entry.mesh->vertex_count);
+						cmd->Draw(entry.mesh->m_vertexCount);
 					}
 				}
 
@@ -385,11 +386,11 @@ void RenderFrame() {
 				.framebufferSize = float2(colorAttachment.image->m_width, colorAttachment.image->m_height),
 				.quadBuffer = quadBuffer->m_bindlessIndex,
 				.quadOffset = (U32)(quadBufferOffset / sizeof(DrawQuad)),
-				.vertexBuffer = mesh_quad->vertex_buffer->m_bindlessIndex,
+				.vertexBuffer = mesh_quad->m_vertexBuffer->m_bindlessIndex,
 			};
 			cmd->BindPipeline(shd_quad->m_pipeline);
 			cmd->PushConstants(shd_quad->m_pipeline, sizeof(constants), &constants);
-			cmd->BindIndexBuffer(mesh_quad->index_buffer, GPUIndexType::U32);
+			cmd->BindIndexBuffer(mesh_quad->m_indexBuffer, GPUIndexType::U32);
 			cmd->DrawIndexed(6, (U32)quads.size());
 
 			current_layer->quads.clear();

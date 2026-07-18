@@ -1,5 +1,5 @@
 #include <EVA/Assets/Asset.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/Editor/Editor.hpp>
 #include <EVA/Editor/Tool.hpp>
 #include <EVA/Editor/SelectTool.hpp>

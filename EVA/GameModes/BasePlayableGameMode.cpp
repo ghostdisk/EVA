@@ -1,11 +1,10 @@
 #include <EVA/Game.hpp>
 #include <EVA/GameModes/BasePlayableGameMode.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/Entities/Entity.hpp>
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Entities/EntityManager.hpp>
 #include <stdio.h>
-#include <utility>
 
 void BasePlayableGameMode::OnBegin() {
 	m_camera = new ECamera();
@@ -46,9 +45,11 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	n = fscanf(f, "vertices %d", &num_vertices);
 	assert(n == 1);
 
-	Vector<MeshVertex> vertices(num_vertices);
+	MeshData levelMeshData = {};
+	levelMeshData.vertices.resize(num_vertices);
+
 	for (int i = 0; i < num_vertices; i++) {
-		MeshVertex& vert = vertices[i];
+		MeshVertex& vert = levelMeshData.vertices[i];
 		vert.texcoord = {};
 		n = fscanf(f, "%f %f %f %f %f %f", XYZ(&vert.position), XYZ(&vert.normal));
 		assert(n == 6);
@@ -58,17 +59,16 @@ Result BasePlayableGameMode::LoadMap(String name) {
 	n = fscanf(f, "\nindices %d", &num_indices);
 	assert(n == 1);
 
-	Vector<U32> indices(num_indices);
+	levelMeshData.indices.resize(num_indices);
 	for (int i = 0; i < num_indices; i++) {
-		n = fscanf(f, "%u", &indices[i]);
+		n = fscanf(f, "%u", &levelMeshData.indices[i]);
 		assert(n == 1);
 	}
 	fscanf(f, "\n");
 
-	Mesh* level_mesh = new Mesh();
-	level_mesh->vertices = Move(vertices);
-	level_mesh->indices = Move(indices);
-	level_mesh->Upload(false);
+	Mesh* levelMesh = new Mesh();
+	levelMeshData.indices = Move(levelMeshData.indices);
+	levelMesh->Upload(levelMeshData);
 
 	int num_entities;
 	n = fscanf(f, "entities %d\n", &num_entities);

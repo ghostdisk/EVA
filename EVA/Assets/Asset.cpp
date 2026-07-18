@@ -12,6 +12,7 @@
 #include <EVA/Assets/ShaderSource.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/EditorMap.hpp>
+#include <EVA/Assets/GLTF.hpp>
 #include <stdio.h>
 #include <mutex>
 
@@ -23,7 +24,8 @@ static double g_lastScanTime = -100000;
 
 Type* MapExtensionToType(String ext) {
 	if (ext == ".ttf")     return Font::StaticClass();
-	// if (ext == ".glb")     return GLTF::StaticClass();
+	if (ext == ".glb")     return GLTF::StaticClass();
+	if (ext == ".gltf")    return GLTF::StaticClass();
 	if (ext == ".png")     return Texture::StaticClass();
 	if (ext == ".mdl")     return Model::StaticClass();
 	if (ext == ".jpg")     return Texture::StaticClass();
@@ -188,15 +190,24 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 			}
 		}
 
-		FILE* f = fopen(asset->m_fsPath, "rb");
-		if (!f) {
-			ConError(Err("[assets] failed to load %s: failed to open file", asset->m_name.c_str()));
-			asset->m_loadState = AssetLoadState::Failed;
-			return;
-		}
-		DEFER(fclose(f));
 
-		Result res = asset->LoadImpl(f);
+		Result res;
+		if (asset->GetLoadType() == AssetLoadType::Deserializer) {
+			FILE* f = fopen(asset->m_fsPath, "rb");
+			if (!f) {
+				ConError(Err("[assets] failed to load %s: failed to open file", asset->m_name.c_str()));
+				asset->m_loadState = AssetLoadState::Failed;
+				return;
+			}
+			TextDeserializer deserializer(f, scratch);
+			res = asset->LoadImpl(deserializer);
+			fclose(f);
+		} else {
+			TextDeserializer d(nullptr);
+			d.SetError(Err("this deserializer is a dummy and should not be used."));
+			res = asset->LoadImpl(d);
+		}
+
 		if (res.error) {
 			asset->m_loadState = AssetLoadState::Failed;
 			ConError(Err("[assets] failed to load %s: %s", asset->m_name.c_str(), res.error->c_str()));

@@ -1,7 +1,17 @@
 #pragma once
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/GFX/Mesh.hpp>
 
-class Mesh;
+struct EVERSION(1) ModelDataMesh {
+	String name;
+	MeshData meshData;
+};
+EAUTO_SERIALIZE(ModelDataMesh);
+
+struct EVERSION(1) ModelData {
+	Vector<ModelDataMesh> meshes;
+};
+EAUTO_SERIALIZE(ModelData);
 
 class Model : public Asset {
 public:
@@ -9,12 +19,5 @@ public:
 
 	Vector<Mesh*> meshes;
 
-	virtual Result LoadImpl(FILE* f) override;
-
-	Result SaveToDisk(ZTString path);
+	virtual Result LoadImpl(Deserializer& d) override;
 };
-
-Result BuildGLTF(Model* model, ZTString path);
-
-void Serialize(Serializer& s, Model* model);
-void Deserialize(Deserializer& d, Model* model);

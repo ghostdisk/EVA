@@ -53,9 +53,9 @@ void Texture::SaveMetaImpl(Serializer& s) {
 	s.EndObject();
 }
 
-Result Texture::LoadImpl(FILE* f) {
+Result Texture::LoadImpl(Deserializer& d) {
 	int width, height, num_channels_in_file;
-	U8* pixels = stbi_load_from_file(f, &width, &height, &num_channels_in_file, 4);
+	U8* pixels = stbi_load(m_fsPath.c_str(), &width, &height, &num_channels_in_file, 4);
 	if (!pixels) return Err("failed to parse image");
 	DEFER(free(pixels));
 
@@ -68,6 +68,7 @@ void Texture::Upload(int width, int height, const U8* pixels, GPUFormat format) 
 	this->width = width;
 	this->height = height;
 
+	// @TODO - Mipmaps are not implemented
 	U32 mipCount = 1;
 	// if (props.generate_mipmaps) {
 	// 	U32 size = width > height ? width : height;

@@ -18,11 +18,10 @@ static Result CompileShaderStage(String name, String stage, const Vector<String>
 	return Success();
 }
 
-Result ShaderSource::LoadImpl(FILE* in) {
+Result ShaderSource::LoadImpl(Deserializer& d) {
 	Result err = Success();
 	ScratchArena scratch;
 
-	TextDeserializer d(in, scratch);
 	ShaderAssetSourceData data;
 	Deserialize(d, data);
 
@@ -55,9 +54,8 @@ Result ShaderSource::LoadImpl(FILE* in) {
 	return d.res;
 }
 
-Result Shader::LoadImpl(FILE* f) {
+Result Shader::LoadImpl(Deserializer& d) {
 	ScratchArena scratch;
-	TextDeserializer d(f, scratch);
 
 	ShaderAssetCompiledData data;
 	Deserialize(d, data);

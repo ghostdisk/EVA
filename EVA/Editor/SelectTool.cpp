@@ -1,6 +1,6 @@
 #include <EVA/Editor/SelectTool.hpp>
 #include <EVA/Editor/Editor.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/CSG.hpp>
 #include <EVA/Entities/ECamera.hpp>
 #include <EVA/Input.hpp>

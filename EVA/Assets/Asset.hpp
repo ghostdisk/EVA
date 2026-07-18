@@ -19,6 +19,18 @@ enum class AssetLoadState {
 	WaitingForInputs,
 };
 
+/**
+ ** AssetLoadType - specify how the asset should be laoded
+ **/
+enum class AssetLoadType {
+	// Deserializer mode means a valid Deserializer is passed to LoadImpl, and we load the asset off that.
+	// This is used for all our custom formats.
+	Deserializer,
+
+	// File mode means that you'll manually load the file from disk (this asset type does not use our serialization
+	// system). This is used for filetypes which we don't control - png, gtlf, ...
+	File,
+};
 
 class Asset : public Object {
 public:
@@ -36,7 +48,6 @@ public:
 	 ** The asset's PRECISE type is required -- if does not yet exist, it will be created.
 	 **/
 	static Asset* Get(String name, Type* type);
-
 
 	/**
 	 ** Get the pointer to an asset.
@@ -103,6 +114,8 @@ public:
 	virtual void SaveMetaImpl(Serializer& serializer) {}
 
 	/**
+	 ** @TODO: This is currently ignored.
+	 **
 	 ** If true, the FS path Assets/Foos/asset.foo will correspond to "/Foos/asset.foo"
 	 ** If false, the FS path Assets/Foos/asset.foo will correspond to "/Foos/asset"
 	 **
@@ -113,10 +126,14 @@ public:
 		return false;
 	}
 
+	virtual AssetLoadType GetLoadType() {
+		return AssetLoadType::Deserializer;
+	}
+
 	/**
 	 ** LoadImpl is called when the asset is ready to load or build.
 	 **/
-	virtual Result LoadImpl(FILE* f) {
+	virtual Result LoadImpl(Deserializer& d) {
 		return Success();
 	}
 

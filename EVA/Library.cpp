@@ -2,7 +2,8 @@
 #include <EVA/Assets/Sprite.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Model.hpp>
-#include <EVA/Assets/Mesh.hpp>
+#include <EVA/Assets/MeshAsset.hpp>
+#include <EVA/GFX/Mesh.hpp>
 #include <EVA/GFX/Renderer.hpp>
 #include <EVA/Assets/Font.hpp>
 
@@ -28,7 +29,7 @@ void LibraryInitialize() {
 	printf("LibraryInitialize deprecated\n");
 
 	Library::tex_proto          = Asset::Get<Texture>("/Textures/proto.png");
-	Library::mesh_cone          = Asset::Get<Mesh>("/cone/mesh0");
+	Library::mesh_cone          = Asset::Get<MeshAsset>("/cone/mesh0")->m_mesh;
 
 	Texture* ui_atlas = Asset::Get<Texture>("/Textures/ui_assets.psd"); // TODO: disable mips!
 	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);
