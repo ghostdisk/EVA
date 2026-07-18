@@ -1041,7 +1041,7 @@ Result Editor::LoadMap(String name) {
 	char path[256];
 	snprintf(path, 256, "%s/Assets/%.*s.mpe", EVA_BASE_DIR, STRING_PRINTF_ARGS(name));
 	FILE* f = fopen(path, "rb");
-	if (!f) return Err("Failed to open %s", name);
+	if (!f) return Err("Failed to open map %.*s", STRING_PRINTF_ARGS(name));
 	DEFER(fclose(f));
 
 	UnloadMap();

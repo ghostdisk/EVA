@@ -55,7 +55,12 @@ public:
 	/**
 	 ** Returns true if all registered inputs are fully loaded, which means this asset is ready to load as well.
 	 **/
-	bool AreAllInputsLoaded();
+	bool AreAllInputsLoaded() {
+		for (Asset* input : m_inputs)
+			if (!input->Loaded())
+				return false;
+		return true;
+	}
 
 	/**
 	 ** AddInput registers another asset as an input (dependency) to this one.
@@ -113,6 +118,10 @@ public:
 	 **/
 	virtual Result LoadImpl(FILE* f) {
 		return Success();
+	}
+
+	inline bool Loaded() {
+		return m_loadState == AssetLoadState::Loaded;
 	}
 };
 

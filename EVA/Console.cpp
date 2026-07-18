@@ -70,10 +70,11 @@ void ConLog(const char* fmt, ...) {
 }
 
 void ConError(Result err) {
+	fprintf(stderr, "ConError: %s\n", err.error->c_str());
 	// @TODO @THREADING - ConError is not threadsafe
-	assert(err.error);
-	ScratchArena scratch;
-	g_console_log.push_back(scratch->Fmt("error: %s", err.error->c_str()).CopyToHeap());
+	// assert(err.error);
+	// ScratchArena scratch;
+	// g_console_log.push_back(scratch->Fmt("error: %s", err.error->c_str()).CopyToHeap());
 }
 
 static bool ConSkipSpace(ConParser& parser) {

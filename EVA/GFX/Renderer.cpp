@@ -207,10 +207,10 @@ void RendererInitialize1() {
 
 void RendererInitialize2() {
 	ZoneScopedN("RendererInitialize2");
-	// shd_lines = Asset::Get<Shader>("shd_lines");
-	// shd_main  = Asset::Get<Shader>("shd_main");
-	// shd_quad  = Asset::Get<Shader>("shd_quad");
-	// shd_brush = Asset::Get<Shader>("shd_brush");
+	shd_lines = Asset::Get<Shader>("/Shaders/shd_lines.shader");
+	shd_main  = Asset::Get<Shader>("/Shaders/shd_main.shader");
+	shd_quad  = Asset::Get<Shader>("/Shaders/shd_quad.shader");
+	shd_brush = Asset::Get<Shader>("/Shaders/shd_brush.shader");
 }
 
 void RendererShutdown() {
@@ -283,7 +283,6 @@ void RenderFrame() {
 	};
 	cmd->BeginRendering(renderingDesc);
 
-	if (0) // TODO - we're skipping everything
 	for (Layer layer = (Layer)0; layer < Layer_ENUM_SIZE; layer = (Layer)(layer + 1)) {
 		DrawSetLayer(layer);
 
@@ -303,39 +302,42 @@ void RenderFrame() {
 						color_texture = material->color_texture;
 				}
 
-				struct MeshPushConstants {
-					float4x4 model;
-					float4 color;
-					float textureScale;
-					U32 cameraBuffer;
-					U32 vertexBuffer;
-					U32 colorImage;
-					U32 colorSampler;
-				} constants = {
-					.model = entry.matrix,
-					.color = entry.color,
-					.textureScale = material ? material->texture_scale : 1.0f,
-					.cameraBuffer = g_mainConstantBuffer->m_bindlessIndex,
-					.vertexBuffer = entry.mesh->vertex_buffer->m_bindlessIndex,
-					.colorImage = color_texture->image->m_bindlessIndex,
-					.colorSampler = color_texture->m_sampler->m_bindlessIndex,
-				};
-				cmd->BindPipeline(shader->m_pipeline);
-				cmd->PushConstants(shader->m_pipeline, sizeof(constants), &constants);
+				if (shader->Loaded()) {
+					struct MeshPushConstants {
+						float4x4 model;
+						float4 color;
+						float textureScale;
+						U32 cameraBuffer;
+						U32 vertexBuffer;
+						U32 colorImage;
+						U32 colorSampler;
+					} constants = {
+						.model = entry.matrix,
+						.color = entry.color,
+						.textureScale = material ? material->texture_scale : 1.0f,
+						.cameraBuffer = g_mainConstantBuffer->m_bindlessIndex,
+						.vertexBuffer = entry.mesh->vertex_buffer->m_bindlessIndex,
+						.colorImage = color_texture->image->m_bindlessIndex,
+						.colorSampler = color_texture->m_sampler->m_bindlessIndex,
+					};
+					cmd->BindPipeline(shader->m_pipeline);
+					cmd->PushConstants(shader->m_pipeline, sizeof(constants), &constants);
 
-				if (entry.mesh->index_count) {
-					cmd->BindIndexBuffer(entry.mesh->index_buffer, GPUIndexType::U32);
-					cmd->DrawIndexed(entry.mesh->index_count);
-				} else {
-					cmd->Draw(entry.mesh->vertex_count);
+					if (entry.mesh->index_count) {
+						cmd->BindIndexBuffer(entry.mesh->index_buffer, GPUIndexType::U32);
+						cmd->DrawIndexed(entry.mesh->index_count);
+					} else {
+						cmd->Draw(entry.mesh->vertex_count);
+					}
 				}
+
 			}
 
 			current_layer->meshes.clear();
 		}
 
 		// render pending lines:
-		if (current_layer->lines.size()) { 
+		if (current_layer->lines.size() && shd_lines->Loaded()) { 
 			GPUBuffer* lineBuffer = nullptr;
 			size_t lineBufferOffset = 0;
 			g_device->UploadStagingData(current_layer->lines.data(), current_layer->lines.size() * sizeof(LineVertex), &lineBuffer, &lineBufferOffset);
@@ -348,6 +350,7 @@ void RenderFrame() {
 				lineBuffer->m_bindlessIndex,
 				(U32)(lineBufferOffset / sizeof(LineVertex)),
 			};
+
 			cmd->BindPipeline(shd_lines->m_pipeline);
 			cmd->PushConstants(shd_lines->m_pipeline, sizeof(constants), &constants);
 			cmd->Draw((U32)current_layer->lines.size());
@@ -356,7 +359,7 @@ void RenderFrame() {
 		}
 
 		// render quads:
-		{
+		if (shd_quad->Loaded()) {
 			Vector<DrawQuad> quads(current_layer->quads.size());
 			for (int i = 0; i < current_layer->quads.size(); i++) {
 				DrawQuadRecord& record = current_layer->quads[i];
@@ -391,7 +394,6 @@ void RenderFrame() {
 
 			current_layer->quads.clear();
 		}
-
 	}
 	cmd->EndRendering(renderingDesc);
 }

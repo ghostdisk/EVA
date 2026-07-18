@@ -53,7 +53,9 @@ Result Model::LoadImpl(FILE* f) {
 
 Result Model::SaveToDisk(ZTString path) {
 	FILE* f = fopen(path, "wb");
-	if (!f) return Err("Failed to open %s", path.c_str());
+	if (!f) {
+		return Err("Failed to open %s", path.c_str());
+	}
 	DEFER(fclose(f));
 
 	TextSerializer s(f);

@@ -127,19 +127,16 @@ Result RunProgram() {
 		for (auto& cb : g_next_frame_callbacks) cb.callback(cb.userdata);
 		g_next_frame_callbacks.clear();
 
-		/*
 		Game::TickAll(g_delta_time);
 		if (g_active_game) {
 			g_active_game->Draw();
 		}
-		*/
 
 		ConsoleDraw();
 		UIEndFrame();
 		UIDraw();
 
 		// --- screen logs --------------------------------------------
-		/*
 		for (int i = 0; i < g_screen_logs.size(); i++) {
 			ScreenLogEntry& entry = g_screen_logs[i];
 			float2 size = MeasureText(Library::fnt_arial, entry.text);
@@ -154,7 +151,6 @@ Result RunProgram() {
 				i--;
 			}
 		}
-		*/
 
 		if (GPUDevice::Get()->BeginFrame()) {
 			RenderFrame();

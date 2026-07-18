@@ -90,7 +90,7 @@ Result Shader::LoadImpl(FILE* f) {
 		.depthWriteEnable = data.pipelineState.depthTest,
 		.blendMode        = data.pipelineState.blendMode,
 		.format = {
-			.colorFormat = { device->GetCurrentBackbuffer()->m_format },
+			.colorFormat = { GPUFormat::BGRA8_SRGB }, // @TODO Unhardcode this
 			.depthFormat = GPUFormat::D32_FLOAT,
 		},
 		.pushConstantSize = 128,

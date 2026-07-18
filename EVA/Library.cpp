@@ -10,13 +10,7 @@ namespace Library {
 
 Mesh* mesh_cone = nullptr;
 
-Texture* tex_test = nullptr;
 Texture* tex_proto = nullptr;
-Texture* tex_crate = nullptr;
-Texture* tex_tiles1 = nullptr;
-Texture* tex_tiles2 = nullptr;
-Texture* tex_wall1 = nullptr;
-Texture* tex_character = nullptr;
 
 Sprite* spr_ui_arrow_down = nullptr;
 Sprite* spr_ui_arrow_right = nullptr;
@@ -32,19 +26,15 @@ void LibraryInitialize() {
 	ZoneScopedN("LibraryInitialize");
 
 	printf("LibraryInitialize deprecated\n");
-	return;
-	// @VOLATILE - The order these are loaded in defines their asset ids, which
-	//             are shared over the network.
 
-	Library::tex_test           = Asset::Get<Texture>("test");
-	Library::tex_proto          = Asset::Get<Texture>("proto");
+	Library::tex_proto          = Asset::Get<Texture>("/Textures/proto.png");
 	Library::mesh_cone          = Asset::Get<Mesh>("/cone/mesh0");
 
-	Texture* ui_atlas = Asset::Get<Texture>("ui_assets"); // TODO: disable mips!
+	Texture* ui_atlas = Asset::Get<Texture>("/Textures/ui_assets.psd"); // TODO: disable mips!
 	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);
 	Library::spr_ui_arrow_right = SpriteCreate("spr_ui_arrow", ui_atlas, 16, 0, 15, 15);
 	Library::spr_crosshair = SpriteCreate("spr_crosshair", ui_atlas, 32, 0, 15, 15);
 
 	Library::mat_brush = MaterialCreate("mat_brush", shd_brush, Library::tex_proto);
-	Library::fnt_arial = FontLoad("Arial.ttf", 20, 512);
+	Library::fnt_arial = FontLoad("/Fonts/Arial.ttf", 20, 512);
 }

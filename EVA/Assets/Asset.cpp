@@ -53,13 +53,6 @@ Asset* Asset::Get(String name, Type* type) {
 	return asset;
 }
 
-bool Asset::AreAllInputsLoaded() {
-	for (Asset* input : m_inputs)
-		if (input->m_loadState != AssetLoadState::Loaded)
-			return false;
-	return true;
-}
-
 void Asset::AddInput(Asset* input) {
 	g_assetsLock.lock();
 	DEFER(g_assetsLock.unlock());
@@ -166,6 +159,9 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 	data->signalPromise = signalPromise;
 
 	Job job = Job::Create([](void* _data) {
+
+		ZoneScopedN("AssetLoad");
+
 		Userdata* data = (Userdata*)_data;
 		Asset* asset = data->asset;
 		ScratchArena scratch;
