@@ -6,7 +6,7 @@ typedef struct VmaAllocator_T* VmaAllocator;
 
 class GPUCommandBuffer_Vulkan final : public GPUCommandBuffer {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUCommandBuffer_Vulkan);
 
 	virtual void BeginRendering(const GPURenderingDesc& desc) override;
 	virtual void EndRendering(const GPURenderingDesc& desc) override;
@@ -59,7 +59,7 @@ private:
 	GPUSwapchainDesc                m_swapchainDesc                     = {};
 
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUDevice_Vulkan);
 
 	GPUDevice_Vulkan() = default;
 	virtual ~GPUDevice_Vulkan() override;

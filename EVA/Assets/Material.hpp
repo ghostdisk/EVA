@@ -6,7 +6,7 @@ class Texture;
 
 class Material : public Asset {
 public:
-ECLASS_COMMON()
+ECLASS_COMMON(Material)
 
 	Shader*  shader        = 0;
 	Texture* color_texture = nullptr;

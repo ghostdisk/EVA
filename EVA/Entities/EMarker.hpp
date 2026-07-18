@@ -3,5 +3,5 @@
 
 class EMarker : public Entity {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(EMarker);
 };

@@ -3,5 +3,8 @@
 
 class EditorMap : public Asset {
 public:
-	ECLASS_COMMON();
+	virtual bool AssetNameHasFileExtension() override {
+		return true;
+	}
+	ECLASS_COMMON(EditorMap);
 };

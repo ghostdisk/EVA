@@ -6,7 +6,8 @@
 #include <Vendor/stb_image.h>
 
 Texture::Texture() {
-	m_sampler = GPUDevice::Get()->GetSampler((U32)StandardSampler::TrilinearWrap);
+	if (GPUDevice* device = GPUDevice::Get())
+		m_sampler = device->GetSampler((U32)StandardSampler::TrilinearWrap);
 }
 
 bool Texture::HasMeta() {

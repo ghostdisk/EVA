@@ -5,7 +5,7 @@ class Texture;
 
 class Sprite : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Sprite);
 
 	Texture* texture;
 	int x, y, w, h;

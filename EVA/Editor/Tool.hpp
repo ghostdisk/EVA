@@ -5,7 +5,7 @@ class Editor;
 
 class Tool : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Tool);
 
 	Editor*  m_editor    = nullptr;
 	ZTString m_name      = {};

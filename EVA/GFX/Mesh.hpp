@@ -35,7 +35,7 @@ void Deserialize(Deserializer& d, MeshData& value);
  **/
 class Mesh : Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Mesh);
 
 	Material* m_defaultMaterial = nullptr;
 

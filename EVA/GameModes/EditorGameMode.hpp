@@ -5,7 +5,7 @@ class Editor;
 
 class EditorGameMode : public GameMode {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(EditorGameMode);
 
 	Editor* editor = nullptr;
 

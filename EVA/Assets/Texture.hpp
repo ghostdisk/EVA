@@ -4,7 +4,7 @@
 
 class Texture : public Asset {
 public:
-ECLASS_COMMON();
+ECLASS_COMMON(Texture);
 	Texture();
 
 	bool          m_generateMipmaps = true;

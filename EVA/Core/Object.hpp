@@ -14,9 +14,10 @@ T FromString(String str);
 
 class Type {
 public:
-	ZTString           name        = {};
-	Type*              parent_type = nullptr;
-	Vector<Type*>      subclasses  = {};
+	ZTString           name          = {};
+	Type*              parent_type   = nullptr;
+	Vector<Type*>      subclasses    = {};
+	void*              defaultObject = {};
 
 	void* (*Instantiate)(Allocator allocator) = nullptr;
 	static Type* Find(String name);
@@ -55,13 +56,15 @@ public:
 	EAUTO ZTString ToString(T& t); \
 	template<> EAUTO T FromString<T>(String str); \
 
-#define ECLASS_COMMON() \
+#define ECLASS_COMMON(T) \
 	static Type* StaticClass(); \
-	virtual Type* GetClass() override;
+	static T* StaticDefaultObject() { return (T*)StaticClass()->defaultObject; } \
+	virtual Type* GetClass() override; \
 
 class Object {
 public:
 	static Type* StaticClass();
+	static Object* StaticDefaultObject() { return (Object*)StaticClass()->defaultObject; }
 	virtual Type* GetClass();
 	virtual ~Object() {}
 };

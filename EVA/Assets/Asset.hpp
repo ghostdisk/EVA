@@ -20,7 +20,7 @@ enum class AssetLoadState {
 };
 
 /**
- ** AssetLoadType - specify how the asset should be laoded
+ ** AssetLoadType - specify how the asset should be loaded
  **/
 enum class AssetLoadType {
 	// Deserializer mode means a valid Deserializer is passed to LoadImpl, and we load the asset off that.
@@ -34,7 +34,7 @@ enum class AssetLoadType {
 
 class Asset : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Asset);
 
 	FS::Timestamp    m_loadTime  = {};
 	ZTString         m_name      = {};
@@ -81,8 +81,8 @@ public:
 	 ** Call this during LoadInput like so:
 	 ** 
 	 ** Result MyAssetType::LoadImpl(FILE* f) {
-	 **     FooAsset* input1 = Asset::Get<FooAsset>("/Foos/foo1.foo");
-	 **     FooAsset* input2 = Asset::Get<FooAsset>("/Foos/foo2.foo");
+	 **     FooAsset* input1 = Asset::Get<FooAsset>("/Foos/foo1");
+	 **     FooAsset* input2 = Asset::Get<FooAsset>("/Foos/foo2");
 	 ** 	AddInput(input1);
 	 ** 	AddInput(input2);
 	 ** 	if (!AreAllInputsLoaded()) return Success(); // don't error out if the reason we can't load is unloaded inputs
@@ -126,6 +126,9 @@ public:
 		return false;
 	}
 
+	/**
+	 ** GetLoadType - See comments on AssetLoadType
+	 **/
 	virtual AssetLoadType GetLoadType() {
 		return AssetLoadType::Deserializer;
 	}
@@ -143,5 +146,3 @@ public:
 };
 
 void AssetsScanForChanges();
-
-void    AssetsLoad();

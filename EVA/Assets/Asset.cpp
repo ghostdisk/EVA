@@ -9,7 +9,6 @@
 #include <EVA/Assets/Model.hpp>
 #include <EVA/Assets/Texture.hpp>
 #include <EVA/Assets/Shader.hpp>
-#include <EVA/Assets/ShaderSource.hpp>
 #include <EVA/Assets/Map.hpp>
 #include <EVA/Assets/EditorMap.hpp>
 #include <EVA/Assets/GLTF.hpp>
@@ -45,8 +44,15 @@ Asset* Asset::Get(String name, Type* type) {
 	DEFER(g_assetsLock.unlock());
 
 	for (Asset* asset : g_assets) {
-		if (asset->m_name == name)
-			return asset;
+		if (asset->m_name == name) {
+			Type* assetClass = asset->GetClass();
+			if (assetClass == type) {
+				return asset;
+			} else {
+				ConError(Err("Asset::Get - requested %.*s with type %s, but it's a %s", STRING_PRINTF_ARGS(name), type->name.c_str(), assetClass->name.c_str()));
+				return nullptr;
+			}
+		}
 	}
 
 	Asset* asset = (Asset*)type->Instantiate(Allocator::HeapAllocator);
@@ -68,85 +74,6 @@ void Asset::AddInput(Asset* input) {
 	input->m_outputs.push_back(this);
 	m_inputs.push_back(input);
 }
-
-/*
-Promise AssetsBuild() {
-	ScratchArena scratch;
-
-	Promise buildPromise = Promise::Create(0);
-	String dir = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
-
-	FS::ReadDirectory(dir, &buildPromise, [](const FS::Stat& stat, void* ud) {
-		Promise* signalPromise = (Promise*)ud;
-
-		ScratchArena scratch;
-		String ext = FS::GetExtension(stat.filename);
-		String path_wo_ext = FS::WithoutExtension(stat.fullPath);
-
-		if (ext == ".gltf" || ext == ".glb") {
-			struct JobData {
-				Promise signalPromise;
-				ZTString fullPath;
-				ZTString path_wo_ext;
-			};
-			JobData* jobData = new JobData {
-				.signalPromise = *signalPromise,
-				.fullPath = stat.fullPath.CopyToHeap(),
-				.path_wo_ext = path_wo_ext.CopyToHeap(),
-			};
-			signalPromise->Block();
-
-			Job job = Job::Create([](void* _jobData) {
-				ZoneScopedN("Build asset (gltf)");
-
-				ScratchArena scratch;
-				JobData* jobData = (JobData*)_jobData;
-				Model* model = new Model();
-				BuildGLTF(model, jobData->fullPath);
-				model->SaveToDisk(scratch->Fmt("%.*s.mdl", STRING_PRINTF_ARGS(jobData->path_wo_ext)));
-
-				jobData->signalPromise.Signal();
-				free(jobData->fullPath.data);
-				free(jobData->path_wo_ext.data);
-				delete jobData;
-			}, jobData);
-			job.Schedule();
-
-		} else if (ext == ".shader") {
-			ZoneScopedN("Build asset (shader)");
-
-			struct JobData {
-				Promise signalPromise;
-				ZTString fullPath;
-				ZTString path_wo_ext;
-			};
-			JobData* jobData = new JobData {
-				.signalPromise = *signalPromise,
-				.fullPath = stat.fullPath.CopyToHeap(),
-				.path_wo_ext = path_wo_ext.CopyToHeap(),
-			};
-			signalPromise->Block();
-
-			Job job = Job::Create([](void* _jobData) {
-				ZoneScopedN("Build asset (shader)");
-
-				ScratchArena scratch;
-				JobData* jobData = (JobData*)_jobData;
-				Result res = BuildShader(jobData->fullPath, scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(jobData->path_wo_ext)));
-				if (!res) Fatal("Failed to build %s: %s", jobData->fullPath.c_str(), res.error->c_str());
-
-				jobData->signalPromise.Signal();
-				free(jobData->fullPath.data);
-				free(jobData->path_wo_ext.data);
-				delete jobData;
-			}, jobData);
-			job.Schedule();
-		}
-	});
-
-	return buildPromise;
-}
-*/
 
 void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 	printf("[Assets] loading %.*s\n", STRING_PRINTF_ARGS(asset->m_name));
@@ -189,7 +116,6 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 				}
 			}
 		}
-
 
 		Result res;
 		if (asset->GetLoadType() == AssetLoadType::Deserializer) {
@@ -244,30 +170,32 @@ void AssetsScanDir(String mountpoint, String dir) {
 		Userdata* data = (Userdata*)_data;
 		ScratchArena scratch;
 
-		ZTString virtualPath = scratch->Fmt("%.*s/%s", STRING_PRINTF_ARGS(data->mountpoint), stat.filename.c_str());
+		String virtualPath = scratch->Fmt("%.*s/%s", STRING_PRINTF_ARGS(data->mountpoint), stat.filename.c_str());
 
 		if (stat.isDirectory) {
 			AssetsScanDir(virtualPath, stat.fullPath);
 		}
 		else {
 			Type* assetType = MapExtensionToType(FS::GetExtension(stat.filename));
-			if (!assetType) return;
+			if (assetType) {
+				Asset* cdo = (Asset*)assetType->defaultObject;
+				if (!cdo->AssetNameHasFileExtension()) {
+					virtualPath = FS::WithoutExtension(virtualPath);
+				}
 
-			Asset* asset = Asset::Get(virtualPath, assetType);
-			if (!asset->m_fsPath) asset->m_fsPath = stat.fullPath.CopyToHeap();
+				Asset* asset = Asset::Get(virtualPath, assetType);
+				if (!asset->m_fsPath) asset->m_fsPath = stat.fullPath.CopyToHeap();
 
-			if (asset->m_loadTime < stat.mtime && (asset->m_loadState != AssetLoadState::Loading)) {
-				asset->m_loadTime = stat.mtime;
-				asset->m_loadState = AssetLoadState::Loading;
+				if (asset->m_loadTime < stat.mtime && (asset->m_loadState != AssetLoadState::Loading)) {
+					asset->m_loadTime = stat.mtime;
+					asset->m_loadState = AssetLoadState::Loading;
 
-				AssetLoad(asset);
+					AssetLoad(asset);
+				}
 			}
+
 		}
 	});
-}
-
-void AssetsLoad() {
-	ZoneScopedN("AssetsLoad");
 }
 
 void AssetsScanForChanges() {

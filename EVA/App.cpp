@@ -81,7 +81,6 @@ Result RunProgram() {
 	ConsoleInitialize();
 
 	Promise gpuInitPromise = Promise::Create();
-	// Promise assetsBuildPromise = AssetsBuild();
 
 	TRY(GPUDevice::Create({
 		.backend       = GPUBackend::Vulkan,

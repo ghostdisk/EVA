@@ -11,7 +11,7 @@ public:
 	Game*          m_game          = nullptr;
 	EntityManager* m_entityManager = nullptr;
 
-	ECLASS_COMMON();
+	ECLASS_COMMON(GameMode);
 
 	void Init(Game* game, EntityManager* entityManager);
 

@@ -4,7 +4,7 @@
 
 class BrushTool : public Tool {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(BrushTool);
 
 	enum Phase {
 		Phase_Inactive,

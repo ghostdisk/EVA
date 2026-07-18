@@ -208,10 +208,10 @@ void RendererInitialize1() {
 
 void RendererInitialize2() {
 	ZoneScopedN("RendererInitialize2");
-	shd_lines = Asset::Get<Shader>("/Shaders/shd_lines.cshader");
-	shd_main  = Asset::Get<Shader>("/Shaders/shd_main.cshader");
-	shd_quad  = Asset::Get<Shader>("/Shaders/shd_quad.cshader");
-	shd_brush = Asset::Get<Shader>("/Shaders/shd_brush.cshader");
+	shd_lines = Asset::Get<Shader>("/Shaders/shd_lines");
+	shd_main  = Asset::Get<Shader>("/Shaders/shd_main");
+	shd_quad  = Asset::Get<Shader>("/Shaders/shd_quad");
+	shd_brush = Asset::Get<Shader>("/Shaders/shd_brush");
 }
 
 void RendererShutdown() {

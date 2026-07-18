@@ -4,7 +4,7 @@
 
 class SelectTool : public Tool {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(SelectTool);
 
 	float3 m_gizmoCenter = {};
 

@@ -5,7 +5,7 @@ class Mesh;
 
 class MeshAsset : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(MeshAsset);
 
 	Mesh* m_mesh = nullptr;
 

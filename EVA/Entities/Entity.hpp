@@ -36,7 +36,7 @@ struct EntityCallbackInfo {
 
 class Entity : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Entity);
 
 	char        name[16]     = "";
 	EID         eid          = 0;

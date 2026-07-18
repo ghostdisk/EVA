@@ -12,7 +12,7 @@ FT_Library FT;
 	do \
 	{ \
 		FT_Error err = (expr); \
-		if (err != 0) Fatal("FT_Init_FreeType: %d", err); \
+		if (err != 0) Fatal("%s: %d", __FUNCTION__, err); \
 	} while (0)
 
 void FontInitialize() {
@@ -36,7 +36,7 @@ Font* FontLoad(const char* name, int size, int atlas_size) {
 	Font* font = new Font();
 
 	char path[256];
-	snprintf(path, sizeof(path), "%s/Assets/%s", EVA_BASE_DIR, name);
+	snprintf(path, sizeof(path), "%s/Assets%s", EVA_BASE_DIR, name);
 
 	FT_CHECK(FT_New_Face(FT, path, 0, &font->face));
 	FT_CHECK(FT_Set_Pixel_Sizes(font->face, 0, size));

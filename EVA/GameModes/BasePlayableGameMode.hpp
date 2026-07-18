@@ -7,7 +7,7 @@ class BasePlayableGameMode : GameMode {
 	ECamera* m_camera = nullptr;
 
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(BasePlayableGameMode);
 
 	virtual void OnBegin() override;
 	virtual void OnEnd() override;

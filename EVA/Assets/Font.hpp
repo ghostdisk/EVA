@@ -16,7 +16,7 @@ struct FontGlyph {
 
 class Font : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Font);
 	FT_Face  face        = {};
 	Texture* atlas       = 0;
 	int      pixel_size  = 0;

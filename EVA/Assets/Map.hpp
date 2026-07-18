@@ -3,5 +3,5 @@
 
 class Map : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Map);
 };

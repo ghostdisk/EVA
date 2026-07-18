@@ -15,7 +15,7 @@ EAUTO_SERIALIZE(ModelData);
 
 class Model : public Asset {
 public:
-	ECLASS_COMMON()
+	ECLASS_COMMON(Model)
 
 	Vector<Mesh*> meshes;
 

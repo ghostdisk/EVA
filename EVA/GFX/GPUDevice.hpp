@@ -338,7 +338,7 @@ enum class GPUStoreOp : U8 {
 
 class GPUBuffer : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUBuffer);
 
 	U64            m_size           = 0;
 	U32            m_bindlessIndex  = UINT32_MAX;
@@ -350,7 +350,7 @@ public:
 
 class GPUImage : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUImage);
 	GPUImage() : m_vulkan{} {}
 
 	U32           m_width              = 0;
@@ -371,7 +371,7 @@ public:
 
 class GPUSampler : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUSampler);
 
 	U32       m_bindlessIndex = UINT32_MAX;
 	VkSampler m_vk            = nullptr;
@@ -379,7 +379,7 @@ public:
 
 class GPUShaderModule : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUShaderModule);
 	VkShaderModule m_vk = nullptr;
 };
 
@@ -387,7 +387,7 @@ class GPUGraphicsPipeline : public Object {
 public:
 	U32 m_index = 0;
 
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUGraphicsPipeline);
 
 	struct {
 		VkPipeline       pipeline = {};
@@ -399,7 +399,7 @@ public:
 
 class GPUCommandBuffer : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUCommandBuffer);
 	VkCommandBuffer m_vk = nullptr;
 
 	virtual void BeginRendering(const GPURenderingDesc& desc) = 0;
@@ -552,7 +552,7 @@ struct GPUDeviceInitDesc {
 
 class GPUDevice : public Object {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GPUDevice);
 	static constexpr size_t FrameUploadBufferSize = 16 * 1024 * 1024;
 
 	static Result Create(const GPUDeviceInitDesc& desc);

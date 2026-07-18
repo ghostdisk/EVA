@@ -3,7 +3,7 @@
 
 class ECharacter : public Entity {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(ECharacter);
 
 	virtual void OnActivate(const EntityCallbackInfo& ci) override;
 	virtual void OnUpdate(const EntityCallbackInfo& ci) override;

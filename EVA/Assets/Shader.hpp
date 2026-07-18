@@ -34,7 +34,7 @@ EAUTO_SERIALIZE(ShaderAssetCompiledData);
  **/
 class GLSLShader : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(GLSLShader);
 
 	virtual AssetLoadType GetLoadType() override {
 		return AssetLoadType::File;
@@ -47,7 +47,11 @@ public:
  **/
 class ShaderSource : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(ShaderSource);
+
+	virtual bool AssetNameHasFileExtension() override {
+		return true;
+	}
 
 	virtual Result LoadImpl(Deserializer& d) override;
 };
@@ -58,7 +62,7 @@ public:
  **/
 class Shader : public Asset {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(Shader);
 
 	GPUGraphicsPipeline* m_pipeline = nullptr;
 

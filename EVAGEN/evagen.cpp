@@ -388,6 +388,12 @@ static void WriteOutput() {
 	fprintf(f, "\n//------------------------------------------------------------\n\n");
 
 	for (Type* type : g_typesWeCareAbout) {
+		if (type->isObject && !type->isAbstract)
+			fprintf(f, "static %s g_%s_defaultObject;\n", type->qualifiedName.c_str(), type->symbolName.c_str());
+	}
+	fprintf(f, "\n//------------------------------------------------------------\n\n");
+
+	for (Type* type : g_typesWeCareAbout) {
 		std::string parent_ref = type->parent && type->parent->isObject ?  ("&g_type_" + type->parent->symbolName) : "nullptr";
 		if (type->isEnum) {
 			fprintf(f, "EnumType g_type_%s {\n", type->symbolName.c_str());
@@ -413,6 +419,7 @@ static void WriteOutput() {
 			fprintf(f, "\t},\n");
 		}
 		if (type->isObject && !type->isAbstract) {
+			fprintf(f, "\t.defaultObject = &g_%s_defaultObject,\n", type->symbolName.c_str());
 			fprintf(f,
 				"\t.Instantiate = [](Allocator allocator) -> void* {\n"
 				"\t\tvoid* ptr = (void*)allocator.Allocate(sizeof(%s), alignof(%s));\n"

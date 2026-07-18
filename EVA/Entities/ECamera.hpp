@@ -6,7 +6,7 @@ struct Entity;
 
 class ECamera : public Entity {
 public:
-	ECLASS_COMMON();
+	ECLASS_COMMON(ECamera);
 
 	float  fov       = 60 * GLM_PI / 180.0f;
 	float  pitch     = 0.0f;
