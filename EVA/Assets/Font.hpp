@@ -23,6 +23,10 @@ public:
 	int      line_height = 0;
 
 	FontGlyph glyphs[256];
+
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".ttf" };
+	}
 };
 
 void FontInitialize();

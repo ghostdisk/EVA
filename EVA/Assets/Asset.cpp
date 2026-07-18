@@ -19,23 +19,33 @@ static std::mutex g_assetsLock = {};
 static Vector<Asset*> g_assets = {};
 static Vector<U32> free_ids = {};
 
+struct AssetClassRegistration {
+	String extension = {};
+	Type*  assetType = nullptr;
+};
+static Vector<AssetClassRegistration> g_assetClassRegistrations = {};
+static bool g_assetInitialized = false;
+
 static double g_lastScanTime = -100000;
 
-Type* MapExtensionToType(String ext) {
-	if (ext == ".ttf")     return Font::StaticClass();
-	if (ext == ".glb")     return GLTF::StaticClass();
-	if (ext == ".gltf")    return GLTF::StaticClass();
-	if (ext == ".png")     return Texture::StaticClass();
-	if (ext == ".mdl")     return Model::StaticClass();
-	if (ext == ".jpg")     return Texture::StaticClass();
-	if (ext == ".jpeg")    return Texture::StaticClass();
-	if (ext == ".psd")     return Texture::StaticClass();
-	if (ext == ".map")     return Map::StaticClass();
-	if (ext == ".mpe")     return EditorMap::StaticClass();
-	if (ext == ".shader")  return ShaderSource::StaticClass();
-	if (ext == ".cshader") return Shader::StaticClass();
-	if (ext == ".vs.glsl") return GLSLShader::StaticClass();
-	if (ext == ".fs.glsl") return GLSLShader::StaticClass();
+static void AssetInitialize() {
+	for (Type* assetType : Asset::StaticClass()->subclasses) {
+		Asset* cdo = (Asset*)assetType->defaultObject;
+		if (!cdo) continue;
+
+		for (String extension : cdo->GetFileExtensions()) {
+			g_assetClassRegistrations.push_back(AssetClassRegistration{
+				.extension = extension,
+				.assetType = assetType,
+			});
+		}
+	}
+	g_assetInitialized = true;
+}
+
+static Type* MapExtensionToFileType(String extension) {
+	for (const AssetClassRegistration& registration : g_assetClassRegistrations)
+		if (registration.extension == extension) return registration.assetType;
 	return nullptr;
 }
 
@@ -176,7 +186,7 @@ void AssetsScanDir(String mountpoint, String dir) {
 			AssetsScanDir(virtualPath, stat.fullPath);
 		}
 		else {
-			Type* assetType = MapExtensionToType(FS::GetExtension(stat.filename));
+			Type* assetType = MapExtensionToFileType(FS::GetExtension(stat.filename));
 			if (assetType) {
 				Asset* cdo = (Asset*)assetType->defaultObject;
 				if (!cdo->AssetNameHasFileExtension()) {
@@ -199,6 +209,8 @@ void AssetsScanDir(String mountpoint, String dir) {
 }
 
 void AssetsScanForChanges() {
+	if (!g_assetInitialized) AssetInitialize();
+
 	if (g_time - g_lastScanTime < 1) {
 		return;
 	}

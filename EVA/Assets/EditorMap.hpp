@@ -6,5 +6,8 @@ public:
 	virtual bool AssetNameHasFileExtension() override {
 		return true;
 	}
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".mpe" };
+	}
 	ECLASS_COMMON(EditorMap);
 };

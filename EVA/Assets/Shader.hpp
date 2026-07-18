@@ -39,6 +39,9 @@ public:
 	virtual AssetLoadType GetLoadType() override {
 		return AssetLoadType::File;
 	}
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".vs.glsl", ".fs.glsl" };
+	}
 };
 
 /**
@@ -51,6 +54,9 @@ public:
 
 	virtual bool AssetNameHasFileExtension() override {
 		return true;
+	}
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".shader" };
 	}
 
 	virtual Result LoadImpl(Deserializer& d) override;
@@ -66,5 +72,8 @@ public:
 
 	GPUGraphicsPipeline* m_pipeline = nullptr;
 
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".cshader" };
+	}
 	virtual Result LoadImpl(Deserializer& d) override;
 };

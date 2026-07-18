@@ -16,5 +16,9 @@ public:
 		return true;
 	}
 
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".glb", ".gltf" };
+	}
+
 	virtual Result LoadImpl(Deserializer& d) override;
 };

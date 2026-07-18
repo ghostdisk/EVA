@@ -19,5 +19,8 @@ public:
 
 	Vector<Mesh*> meshes;
 
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".mdl" };
+	}
 	virtual Result LoadImpl(Deserializer& d) override;
 };

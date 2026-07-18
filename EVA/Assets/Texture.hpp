@@ -17,6 +17,9 @@ ECLASS_COMMON(Texture);
 	virtual AssetLoadType GetLoadType() override {
 		return AssetLoadType::File;
 	}
+	virtual Vector<String> GetFileExtensions() override {
+		return { ".png", ".jpg", ".jpeg", ".psd" };
+	}
 
 	virtual bool HasMeta() override;
 	virtual void LoadMetaImpl(Deserializer& deserializer) override;

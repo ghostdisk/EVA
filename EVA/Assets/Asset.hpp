@@ -140,9 +140,19 @@ public:
 		return Success();
 	}
 
+	/**
+	 ** What file extensions correspond to this Asset class?
+	 **
+	 ** These are walked once at program launch for each asset subclass to register them.
+	 **/
+	virtual Vector<String> GetFileExtensions() {
+		return {};
+	}
+
 	inline bool Loaded() {
 		return m_loadState == AssetLoadState::Loaded;
 	}
+
 };
 
 void AssetsScanForChanges();
