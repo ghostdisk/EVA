@@ -1,7 +1,7 @@
 {
 	version = 3
-	vs = "/Quad/Main.vs.glsl"
-	fs = "/Quad/Main.fs.glsl"
+	vs = "/Shaders/DrawBox.vs.glsl"
+	fs = "/Shaders/DrawBox.fs.glsl"
 	defines = [:0
 	]
 	pipelineState = {

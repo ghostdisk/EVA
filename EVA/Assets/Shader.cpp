@@ -26,7 +26,7 @@ Result ShaderSource::LoadImpl(Deserializer& d) {
 	Deserialize(d, data);
 
 	String fsPathWithoutExt = FS::WithoutExtension(m_fsPath);
-	ZTString outputPath = scratch->Fmt("%.*s.shader", STRING_PRINTF_ARGS(fsPathWithoutExt));
+	ZTString outputPath = scratch->Fmt("%.*s.cshader", STRING_PRINTF_ARGS(fsPathWithoutExt));
 
 	ShaderAssetCompiledData compiledData = {};
 	compiledData.pipelineState = data.pipelineState;
