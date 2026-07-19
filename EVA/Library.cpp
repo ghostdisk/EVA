@@ -9,8 +9,6 @@
 
 namespace Library {
 
-Mesh* mesh_cone = nullptr;
-
 Texture* tex_proto = nullptr;
 
 Sprite* spr_ui_arrow_down = nullptr;
@@ -29,7 +27,6 @@ void LibraryInitialize() {
 	printf("LibraryInitialize deprecated\n");
 
 	Library::tex_proto          = Asset::Get<Texture>("/Textures/proto");
-	Library::mesh_cone          = Asset::Get<MeshAsset>("/cone/mesh0")->m_mesh;
 
 	Texture* ui_atlas = Asset::Get<Texture>("/Textures/ui_assets"); // TODO: disable mips!
 	Library::spr_ui_arrow_down = SpriteCreate("spr_ui_arrow", ui_atlas, 0, 0, 15, 15);

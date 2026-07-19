@@ -88,8 +88,9 @@ Result RunProgram() {
 		.signalPromise = gpuInitPromise,
 	}));
 	
-	// WaitPromise(assetsBuildPromise);
-	
+	AssetsInitialize();
+	AssetsScanForChanges();
+
 	GameInitialize();
 	FontInitialize();
 	RendererInitialize1();
@@ -104,8 +105,10 @@ Result RunProgram() {
 	ConExec("game 0");
 	ConExec("exec autoexec.cfg");
 
+
 	while (!g_quit) {
 		AssetsScanForChanges();
+		g_rootAsset->LoadRecursive();
 
 		Arena::RotateFrameArenas();
 		PlatformBeginFrame();

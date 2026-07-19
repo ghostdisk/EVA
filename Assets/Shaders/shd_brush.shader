@@ -1,7 +1,7 @@
 {
 	version = 3
-	vs = "/Shaders/Main.vs.glsl"
-	fs = "/Shaders/Main.fs.glsl"
+	vs = "/ShaderFiles/Main.vs.glsl"
+	fs = "/ShaderFiles/Main.fs.glsl"
 	defines = [:1
 		"S_BRUSH"
 	]

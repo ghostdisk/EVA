@@ -13,7 +13,7 @@ The engine is actively being reorganized from procedural systems toward a more o
 - `EVA/GameModes/` — editor and playable game modes.
 - `EVA/Editor/` — CSG level editor and reflected editor tools.
 - `EVA/GFX/` — OpenGL setup and drawing API.
-- `EVA/Shaders/` — GLSL shaders.
+- `EVA/ShaderFiles/` — GLSL shaders.
 - `Assets/` — project content and editor/runtime maps.
 - `EVAGEN/` — libclanglang-based reflection/code-generation utility.
 - `Vendor/` — third-party dependencies.

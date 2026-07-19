@@ -37,13 +37,11 @@ class Mesh : Object {
 public:
 	ECLASS_COMMON(Mesh);
 
-	Material* m_defaultMaterial = nullptr;
-
-	// gpu data, initialized by Upload()
-	GPUBuffer*      m_vertexBuffer = nullptr;
-	GPUBuffer*      m_indexBuffer  = nullptr;
-	U32             m_indexCount   = 0;
-	U32             m_vertexCount  = 0;
+	Material*    m_defaultMaterial   = nullptr;
+	GPUBuffer*   m_vertexBuffer      = nullptr;
+	GPUBuffer*   m_indexBuffer       = nullptr;
+	U32          m_indexCount        = 0;
+	U32          m_vertexCount       = 0;
 
 	void Upload(const MeshData& data);
 	void Unload();

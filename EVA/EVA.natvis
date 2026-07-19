@@ -11,11 +11,56 @@
   </Type>
 
   <Type Name="ZTString">
-    <DisplayString>{string.data,[string.size]s8}</DisplayString>
-    <StringView>string.data,[string.size]s8</StringView>
+    <DisplayString>{data,[size]s8}</DisplayString>
+    <StringView>data,[size]s8</StringView>
     <Expand>
-      <Item Name="[size]">string.size</Item>
-      <Item Name="[data]">string.data</Item>
+      <Item Name="[size]">size</Item>
+      <Item Name="[data]">data</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Result">
+    <DisplayString Condition="error == nullptr">Success</DisplayString>
+    <DisplayString Condition="error != nullptr">Error: {error->data,[error->size]s8}</DisplayString>
+    <Expand>
+      <Item Name="[error]" Condition="error != nullptr">error</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Type">
+    <DisplayString>{name.data,[name.size]s8}</DisplayString>
+    <Expand>
+      <Item Name="[name]">name</Item>
+      <Item Name="[parent]">parent_type</Item>
+      <Item Name="[subclasses]">subclasses</Item>
+      <Item Name="[default object]">defaultObject</Item>
+      <Item Name="[instantiate]">Instantiate</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Arena">
+    <DisplayString Condition="m_begin == nullptr">uninitialized</DisplayString>
+    <DisplayString Condition="m_begin != nullptr">used={m_head - m_begin}, capacity={m_end - m_begin}, remaining={m_end - m_head}</DisplayString>
+    <Expand>
+      <Item Name="[used]" Condition="m_begin != nullptr">m_head - m_begin</Item>
+      <Item Name="[capacity]" Condition="m_begin != nullptr">m_end - m_begin</Item>
+      <Item Name="[remaining]" Condition="m_begin != nullptr">m_end - m_head</Item>
+      <Item Name="[begin]">m_begin</Item>
+      <Item Name="[head]">m_head</Item>
+      <Item Name="[end]">m_end</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Vector&lt;*&gt;">
+    <DisplayString>size={m_size}, capacity={m_capacity}</DisplayString>
+    <Expand>
+      <Item Name="[size]">m_size</Item>
+      <Item Name="[capacity]">m_capacity</Item>
+      <Item Name="[data]">m_data</Item>
+      <ArrayItems>
+        <Size>m_size</Size>
+        <ValuePointer>m_data</ValuePointer>
+      </ArrayItems>
     </Expand>
   </Type>
 

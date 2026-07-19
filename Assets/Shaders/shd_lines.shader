@@ -1,7 +1,7 @@
 {
 	version = 3
-	vs = "/Shaders/Lines.vs.glsl"
-	fs = "/Shaders/Lines.fs.glsl"
+	vs = "/ShaderFiles/Lines.vs.glsl"
+	fs = "/ShaderFiles/Lines.fs.glsl"
 	defines = [:0
 	]
 	pipelineState = {

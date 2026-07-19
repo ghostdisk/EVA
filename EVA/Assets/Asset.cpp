@@ -15,8 +15,8 @@
 #include <stdio.h>
 #include <mutex>
 
+DirectoryAsset* g_rootAsset = {};
 static std::mutex g_assetsLock = {};
-static Vector<Asset*> g_assets = {};
 static Vector<U32> free_ids = {};
 
 struct AssetClassRegistration {
@@ -24,11 +24,12 @@ struct AssetClassRegistration {
 	Type*  assetType = nullptr;
 };
 static Vector<AssetClassRegistration> g_assetClassRegistrations = {};
-static bool g_assetInitialized = false;
 
 static double g_lastScanTime = -100000;
 
-static void AssetInitialize() {
+void AssetsInitialize() {
+	ScratchArena scratch;
+
 	for (Type* assetType : Asset::StaticClass()->subclasses) {
 		Asset* cdo = (Asset*)assetType->defaultObject;
 		if (!cdo) continue;
@@ -40,7 +41,11 @@ static void AssetInitialize() {
 			});
 		}
 	}
-	g_assetInitialized = true;
+
+	g_rootAsset = new DirectoryAsset();
+	g_rootAsset->m_name = "/";
+	g_rootAsset->m_fsPath = scratch->Fmt("%s/Assets", EVA_BASE_DIR).CopyToHeap();
+	g_rootAsset->m_backing = AssetBacking::Directory;
 }
 
 static Type* MapExtensionToFileType(String extension) {
@@ -49,26 +54,49 @@ static Type* MapExtensionToFileType(String extension) {
 	return nullptr;
 }
 
-Asset* Asset::Get(String name, Type* type) {
-	g_assetsLock.lock();
-	DEFER(g_assetsLock.unlock());
+Asset* Asset::ResolveImpl(String path) {
+	Asset* asset = this;
 
-	for (Asset* asset : g_assets) {
-		if (asset->m_name == name) {
-			Type* assetClass = asset->GetClass();
-			if (assetClass == type) {
-				return asset;
-			} else {
-				ConError(Err("Asset::Get - requested %.*s with type %s, but it's a %s", STRING_PRINTF_ARGS(name), type->name.c_str(), assetClass->name.c_str()));
-				return nullptr;
-			}
+	while (path.size) {
+		String name, rem;
+		path.Cut('/', &name, &rem);
+		path = rem;
+		asset = asset->GetExistingChild(name);
+		if (!asset) return asset;
+	}
+
+	return asset;
+}
+
+Asset* Asset::GetImpl(String absolutePath) {
+	assert(absolutePath.size > 0 && absolutePath[0] == '/');
+	return g_rootAsset->ResolveImpl(absolutePath.Skip(1));
+}
+
+Asset* Asset::GetExistingChild(String name) {
+	for (Asset* child : m_children)
+		if (child->m_name == name)
+			return child;
+	return nullptr;
+}
+
+Asset* Asset::GetOrCreateChild(String name, Type* assetClass) {
+	Asset* child = GetExistingChild(name);
+	if (child) {
+		Type* childClass = child->GetClass();
+		if (childClass == assetClass) {
+			return child;
+		} else {
+			ConError(Err("Asset::Get - requested %.*s with type %s, but it's a %s",
+				STRING_PRINTF_ARGS(name), assetClass->name.c_str(), assetClass->name.c_str()));
+			return nullptr;
 		}
 	}
 
-	Asset* asset = (Asset*)type->Instantiate(Allocator::HeapAllocator);
-	asset->m_name = name.CopyToHeap();
-	g_assets.push_back(asset);
-	return asset;
+	child = (Asset*)assetClass->Instantiate(Allocator::HeapAllocator);
+	child->m_name = name.CopyToHeap();
+	m_children.push_back(child);
+	return child;
 }
 
 void Asset::AddInput(Asset* input) {
@@ -85,9 +113,28 @@ void Asset::AddInput(Asset* input) {
 	m_inputs.push_back(input);
 }
 
-void AssetLoad(Asset* asset, Promise signalPromise = {}) {
+bool FileAssetDirty(Asset* asset) {
+	assert(asset->m_backing == AssetBacking::File);
+
+	if (asset->m_loadTime == asset->m_timeOnDisk) return false;
+	if (asset->m_loadState == AssetLoadState::Unloaded || asset->m_loadState == AssetLoadState::Loading) return false;
+	if (!asset->AreAllInputsLoaded()) return false;
+	
+	return true;
+}
+
+static void LoadFileAsset(Asset* asset, Promise signalPromise = {}) {
+	if (asset->m_backing != AssetBacking::File) {
+		assert(0);
+		return;
+	}
+	if (!FileAssetDirty(asset) && asset->m_loadState != AssetLoadState::Unloaded) return;
+
 	printf("[Assets] loading %.*s\n", STRING_PRINTF_ARGS(asset->m_name));
+
+	asset->m_loadTime = asset->m_timeOnDisk;
 	asset->m_loadState  = AssetLoadState::Loading;
+	asset->m_loadState = AssetLoadState::Loading;
 
 	struct Userdata {
 		Asset* asset;
@@ -98,8 +145,7 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 	data->signalPromise = signalPromise;
 
 	Job job = Job::Create([](void* _data) {
-
-		ZoneScopedN("AssetLoad");
+		ZoneScopedN("LoadFileAsset job");
 
 		Userdata* data = (Userdata*)_data;
 		Asset* asset = data->asset;
@@ -149,21 +195,28 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 			ConError(Err("[assets] failed to load %s: %s", asset->m_name.c_str(), res.error->c_str()));
 			return;
 		}
-
-		if (asset->HasMeta()) {
-			FILE* metaFile = fopen(metaPath.c_str(), "wb");
-			if (metaFile) {
-				TextSerializer meta_serializer(metaFile);
-				asset->SaveMetaImpl(meta_serializer);
-				fclose(metaFile);
-			}
+		else if (!asset->AreAllInputsLoaded()) {
+ 			asset->m_loadState = AssetLoadState::WaitingForInputs;
+			return;
 		}
+		else {
+			asset->m_loadState =  AssetLoadState::Loaded;
+			if (asset->HasMeta()) {
+				FILE* metaFile = fopen(metaPath.c_str(), "wb");
+				if (metaFile) {
+					TextSerializer meta_serializer(metaFile);
+					asset->SaveMetaImpl(meta_serializer);
+					fclose(metaFile);
+				}
+			}
 
-		asset->m_loadState = AssetLoadState::Loaded;
-
-		for (Asset* output : asset->m_outputs) {
-			if (output->AreAllInputsLoaded()) {
-				AssetLoad(output);
+			// This implements hot-reloading via a Makefile-like graph - if we have file-backed assets that depend on
+			// this, reload them after this one loads.
+			for (Asset* output : asset->m_outputs) {
+				if (output->AreAllInputsLoaded() && output->m_backing == AssetBacking::File &&
+					(output->m_loadState == AssetLoadState::Loaded || output->m_loadState == AssetLoadState::Failed)) {
+					LoadFileAsset(output);
+				}
 			}
 		}
 	}, data);
@@ -171,56 +224,65 @@ void AssetLoad(Asset* asset, Promise signalPromise = {}) {
 	job.Schedule();
 }
 
-void AssetsScanDir(String mountpoint, String dir) {
+void DirectoryAsset::ScanForChanges() {
 	struct Userdata {
-		String mountpoint;
-	} userdata = { mountpoint };
+		DirectoryAsset* directory;
+	} userdata = { this };
 
-	FS::ReadDirectory(dir, &userdata, [](const FS::Stat& stat, void* _data) {
+	FS::ReadDirectory(m_fsPath, &userdata, [](const FS::Stat& stat, void* _data) {
 		Userdata* data = (Userdata*)_data;
 		ScratchArena scratch;
-
-		String virtualPath = scratch->Fmt("%.*s/%s", STRING_PRINTF_ARGS(data->mountpoint), stat.filename.c_str());
+		DirectoryAsset* directory = data->directory;
 
 		if (stat.isDirectory) {
-			AssetsScanDir(virtualPath, stat.fullPath);
+			DirectoryAsset* childDirectory = (DirectoryAsset*)directory->GetOrCreateChild(stat.filename, DirectoryAsset::StaticClass());
+			if (!childDirectory->m_fsPath.size) {
+				childDirectory->m_fsPath = stat.fullPath.CopyToHeap();
+				childDirectory->m_backing = AssetBacking::Directory;
+			}
+
+			childDirectory->ScanForChanges();
 		}
 		else {
 			Type* assetType = MapExtensionToFileType(FS::GetExtension(stat.filename));
 			if (assetType) {
+				String name = stat.filename;
+
 				Asset* cdo = (Asset*)assetType->defaultObject;
 				if (!cdo->AssetNameHasFileExtension()) {
-					virtualPath = FS::WithoutExtension(virtualPath);
+					name = FS::WithoutExtension(name);
 				}
 
-				Asset* asset = Asset::Get(virtualPath, assetType);
-				if (!asset->m_fsPath) asset->m_fsPath = stat.fullPath.CopyToHeap();
-
-				if (asset->m_loadTime < stat.mtime && (asset->m_loadState != AssetLoadState::Loading)) {
-					asset->m_loadTime = stat.mtime;
-					asset->m_loadState = AssetLoadState::Loading;
-
-					AssetLoad(asset);
+				Asset* asset = directory->GetOrCreateChild(name, assetType);
+				if (asset) {
+					if (!asset->m_fsPath) {
+						asset->m_fsPath = stat.fullPath.CopyToHeap();
+						asset->m_backing = AssetBacking::File;
+					}
+					asset->m_timeOnDisk = stat.mtime;
+					if (FileAssetDirty(asset)) {
+						LoadFileAsset(asset);
+					}
 				}
 			}
-
 		}
 	});
 }
 
-void AssetsScanForChanges() {
-	if (!g_assetInitialized) AssetInitialize();
+void Asset::LoadRecursive() {
+	if (m_backing == AssetBacking::File && (m_loadState == AssetLoadState::Unloaded || FileAssetDirty(this))) {
+		LoadFileAsset(this);
+	}
+	for (Asset* child : m_children) {
+		child->LoadRecursive();
+	}
+}
 
+void AssetsScanForChanges() {
 	if (g_time - g_lastScanTime < 1) {
 		return;
 	}
 	g_lastScanTime = g_time;
-
-	ScratchArena scratch;
-
-	String root1 = scratch->Fmt("%s/Assets", EVA_BASE_DIR);
-	AssetsScanDir("", root1);
-	String root2 = scratch->Fmt("%s/EVA/Shaders", EVA_BASE_DIR);
-	AssetsScanDir("/Shaders", root2);
+	g_rootAsset->ScanForChanges();
 }
 

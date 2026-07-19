@@ -42,6 +42,19 @@ struct String {
 		return String(data, n);
 	}
 
+	void Cut(U8 ch, String* a, String* b) {
+		U32 idx = size;
+
+		for (U32 i = 0; i < size; i++) {
+			if (data[i] == ch) {
+				idx = i;
+				break;
+			}
+		}
+		*a = Take(idx);
+		*b = Skip(idx + 1);
+	}
+
 	// TODO: This should probably be a generic Copy(Allocator) once allocator doesn't suck.
 	ZTString CopyToHeap() const;
 	ZTString CopyToArena(Arena* arena) const;

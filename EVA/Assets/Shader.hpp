@@ -36,6 +36,9 @@ class GLSLShader : public Asset {
 public:
 	ECLASS_COMMON(GLSLShader);
 
+	virtual bool AssetNameHasFileExtension() override {
+		return true;
+	}
 	virtual AssetLoadType GetLoadType() override {
 		return AssetLoadType::File;
 	}

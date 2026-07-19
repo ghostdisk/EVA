@@ -10,6 +10,7 @@ struct Timestamp {
 
 	constexpr bool operator<(Timestamp other) const { return value < other.value; }
 	constexpr bool operator>(Timestamp other) const { return value > other.value; }
+	constexpr bool operator==(Timestamp other) const { return value == other.value; }
 };
 
 struct Stat {

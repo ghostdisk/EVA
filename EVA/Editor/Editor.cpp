@@ -1,4 +1,5 @@
 #include <EVA/Assets/Asset.hpp>
+#include <EVA/Assets/MeshAsset.hpp>
 #include <EVA/GFX/Mesh.hpp>
 #include <EVA/Editor/Editor.hpp>
 #include <EVA/Editor/Tool.hpp>
@@ -582,7 +583,7 @@ void Editor::ArrowGizmo(Hash hash, float3& pos, float3 direction, float4 color, 
 		float4 cone_rotation;
 		glm_quat_from_vecs(float3(0,0,1), (b - a).Normalized(), cone_rotation);
 		DrawLine(a, b, color);
-		DrawMesh(Library::mesh_cone, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale * scale, cone_scale * scale, cone_scale * scale)), color);
+		DrawMesh(Asset::Get<MeshAsset>("/Models/cone/Cone")->m_mesh, nullptr, float4x4::FromTransform(b, cone_rotation, float3(cone_scale * scale, cone_scale * scale, cone_scale * scale)), color);
 	}
 
 	float t;

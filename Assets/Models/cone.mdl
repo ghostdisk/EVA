@@ -3,7 +3,7 @@
 	meshes = [:1
 		{
 			version = 1
-			name = "mesh123"
+			name = "Cone"
 			meshData = {
 				version = 1
 				vertices = [:65

@@ -100,17 +100,8 @@ Result GLTF::LoadImpl(Deserializer& d) {
 		meshData.indices.resize(primitive.indices->count);
 		cgltf_accessor_unpack_indices(primitive.indices, meshData.indices.data(), 4, meshData.indices.size());
 
-		/*
-		char mesh_name[64];
-		if (gltf_mesh.name) {
-			snprintf(mesh_name, 64, "%s/meshes/%s", name, gltf_mesh.name);
-		} else {
-			snprintf(mesh_name, 64, "%s/meshes/mesh%d", name, mesh_idx);
-		}
-		*/
-
 		modelData.meshes.push_back({
-			.name = "mesh123",
+			.name = gltf_mesh.name ? String(gltf_mesh.name) : scratch->Fmt("mesh%d", mesh_idx),
 			.meshData = Move(meshData),
 		});
 		/*

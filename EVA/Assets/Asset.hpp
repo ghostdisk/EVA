@@ -32,68 +32,29 @@ enum class AssetLoadType {
 	File,
 };
 
+enum class AssetBacking {
+	None,
+	// The asset is backed by a file. The asset system will track changes to this file and reload it on demand
+	File,
+	// The asset is a directory.
+	Directory,
+	// The asset is a subasset of a File-asset. It's the parent File asset's responsibility to load/unload this.
+	Subasset,
+};
+
 class Asset : public Object {
 public:
 	ECLASS_COMMON(Asset);
 
-	FS::Timestamp    m_loadTime  = {};
-	ZTString         m_name      = {};
-	ZTString         m_fsPath    = {};
-	Vector<Asset*>   m_inputs    = {};
-	Vector<Asset*>   m_outputs   = {};
-	AssetLoadState   m_loadState = AssetLoadState::Unloaded;
-
-	/**
-	 ** Get the pointer to an asset.
-	 ** The asset's PRECISE type is required -- if does not yet exist, it will be created.
-	 **/
-	static Asset* Get(String name, Type* type);
-
-	/**
-	 ** Get the pointer to an asset.
-	 ** The asset's PRECISE type is required -- if does not yet exist, it will be created.
-	 **/
-	template <typename T>
-	static T* Get(String name) {
-		Asset* assetBase =  Get(name, T::StaticClass());
-
-		T* assetCast = dynamic_cast<T*>(assetBase);
-		assert(assetCast); // if this fails, the same asset path is being created multiple times with different types
-
-		return assetCast;
-	}
-
-	/**
-	 ** Returns true if all registered inputs are fully loaded, which means this asset is ready to load as well.
-	 **/
-	bool AreAllInputsLoaded() {
-		for (Asset* input : m_inputs)
-			if (!input->Loaded())
-				return false;
-		return true;
-	}
-
-	/**
-	 ** AddInput registers another asset as an input (dependency) to this one.
-	 ** The asset system will ensure that dependencies are loaded successfully before the current asset is attempted
-	 ** to be loaded.
-	 ** 
-	 ** Call this during LoadInput like so:
-	 ** 
-	 ** Result MyAssetType::LoadImpl(FILE* f) {
-	 **     FooAsset* input1 = Asset::Get<FooAsset>("/Foos/foo1");
-	 **     FooAsset* input2 = Asset::Get<FooAsset>("/Foos/foo2");
-	 ** 	AddInput(input1);
-	 ** 	AddInput(input2);
-	 ** 	if (!AreAllInputsLoaded()) return Success(); // don't error out if the reason we can't load is unloaded inputs
-	 **     ... your actual load logic
-	 ** }
-	 **
-	 ** Call this during LoadImpl. You can call it directly with the result of Asset::Get().
-	 ** During the initial of LoadImpl the asset system does not yet know this asset's dependencies, so just call this
-	 ** a few times and exit early, e.g.
-	 **/
-	void AddInput(Asset* input);
+	AssetBacking     m_backing                  = AssetBacking::None;
+	FS::Timestamp    m_loadTime                 = {};
+	FS::Timestamp    m_timeOnDisk               = {};
+	ZTString         m_name                     = {};
+	ZTString         m_fsPath                   = {};
+	Vector<Asset*>   m_children                 = {};
+	AssetLoadState   m_loadState                = AssetLoadState::Unloaded;
+	Vector<Asset*>   m_inputs                   = {};
+	Vector<Asset*>   m_outputs                  = {};
 
 	/**
 	 ** Does this asset type have a corresponding .meta file? This is useful for assets like textures, where we don't
@@ -149,10 +110,102 @@ public:
 		return {};
 	}
 
+	/**
+	 ** Type-safe wrapper around GetImpl.
+	 ** Get an asset relative to the root asset. absolutePath must start with / - e.g. "/Textures/tex.png"
+	 **/
+	template <typename T>
+	static T* Get(String path) {
+		Asset* assetBase = GetImpl(path);
+		T* assetCast = dynamic_cast<T*>(assetBase);
+		return assetCast;
+	}
+
+	/**
+	 ** Type-safe wrapper around ResolveImpl.
+	 ** Resolve a child asset.
+	 ** Path can either be a direct child name, or a slash-separated path, e.g. "DirectChild/GrandChild/GrandGrandChild.png"
+	 **/
+	template <typename T>
+	T* Resolve(String path) {
+		Asset* assetBase = ResolveImpl(path);
+		T* assetCast = dynamic_cast<T*>(assetBase);
+		return assetCast;
+	}
+
+	/**
+	 ** Search for a direct child asset by name. No path resolution done.
+	 **/
+	Asset* GetExistingChild(String name);
+
+	/**
+	 ** Search for a direct child asset by name, and if it's missing, create it.
+	 **/
+	Asset* GetOrCreateChild(String name, Type* type);
+
+	/**
+	 ** Returns true if all registered inputs are fully loaded, which means this asset is ready to load as well.
+	 **/
+	bool AreAllInputsLoaded() {
+		for (Asset* input : m_inputs)
+			if (!input->Loaded())
+				return false;
+		return true;
+	}
+
+	/**
+	 ** AddInput registers another asset as an input (dependency) to this one.
+	 ** The asset system will ensure that dependencies are loaded successfully before the current asset is attempted
+	 ** to be loaded.
+	 ** 
+	 ** Call this during LoadInput like so:
+	 ** 
+	 ** Result MyAssetType::LoadImpl(FILE* f) {
+	 **     FooAsset* input1 = Asset::Get<FooAsset>("/Foos/foo1");
+	 **     FooAsset* input2 = Asset::Get<FooAsset>("/Foos/foo2");
+	 ** 	AddInput(input1);
+	 ** 	AddInput(input2);
+	 ** 	if (!AreAllInputsLoaded()) return Success(); // don't error out if the reason we can't load is unloaded inputs
+	 **     ... your actual load logic
+	 ** }
+	 **
+	 ** Call this during LoadImpl. You can call it directly with the result of Asset::Get().
+	 ** During the initial of LoadImpl the asset system does not yet know this asset's dependencies, so just call this
+	 ** a few times and exit early, e.g.
+	 **/
+	void AddInput(Asset* input);
+
+	/**
+	 **
+	 **/
+	void LoadRecursive();
+
 	inline bool Loaded() {
 		return m_loadState == AssetLoadState::Loaded;
 	}
 
+
+private:
+	/**
+	 ** Resolve a child asset.
+	 ** Path can either be a direct child name, or a slash-separated path, e.g. "DirectChild/GrandChild/GrandGrandChild.png"
+	 **/
+	Asset* ResolveImpl(String path);
+
+	/**
+	 ** Get an asset relative to the root asset. absolutePath must start with / - e.g. "/Textures/tex.png"
+	 **/
+	static Asset* GetImpl(String absolutePath);
 };
 
+class DirectoryAsset : public Asset {
+public:
+	ECLASS_COMMON(DirectoryAsset);
+
+	void ScanForChanges();
+};
+
+void AssetsInitialize();
 void AssetsScanForChanges();
+
+extern DirectoryAsset* g_rootAsset;
