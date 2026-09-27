@@ -1,0 +1,6 @@
+Build
+compile_commands.json
+.vs
+.vscode
+.cache
+.clangd
