@@ -20,6 +20,7 @@ enum class EventType
 {
 	NONE = 0,
 	CLOSE_REQUESTED,
+	QUIT_REQUESTED,
 };
 
 struct Event

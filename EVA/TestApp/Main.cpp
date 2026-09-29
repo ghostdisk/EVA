@@ -1,11 +1,24 @@
 #include <EVA/GPU/GPU.hpp>
 #include <EVA/PAL/PAL.hpp>
 #include <vector>
+#ifdef EVA_MACOS
+#include <unistd.h>
+#endif
 
 using namespace EVA;
 
 PAL::Window window;
 bool quit = false;
+
+static void PollEvents()
+{
+	PAL::Event event;
+	while (PAL::Poll(&event))
+	{
+		if (event.type == PAL::EventType::CLOSE_REQUESTED || event.type == PAL::EventType::QUIT_REQUESTED)
+			quit = true;
+	}
+}
 
 struct BackbufferFramebuffer
 {
@@ -22,6 +35,8 @@ int EVA::AppMain()
 			.height = 600,
 		});
 	DEFER(PAL::DeinitWindow(&window));
+	if (!window.native_handle)
+		return 1;
 
 	GPU::Init({
 		.window = &window,
@@ -34,7 +49,20 @@ int EVA::AppMain()
 	DEFER(GPU::Shutdown());
 	uint32 backbuffer_count = GPU::device.GetBackbufferCount();
 	if (!backbuffer_count)
+	{
+#ifdef EVA_MACOS
+		// Keep the PAL test window responsive until Metal exposes backbuffers.
+		while (!quit)
+		{
+			PollEvents();
+			if (!quit)
+				usleep(16000);
+		}
+		return 0;
+#else
 		return 1;
+#endif
+	}
 	GPU::Texture* first_backbuffer = GPU::device.GetBackbuffer(0);
 	if (!first_backbuffer)
 		return 1;
@@ -74,21 +102,7 @@ int EVA::AppMain()
 
 	while (!quit)
 	{
-		PAL::Event event;
-
-		while (PAL::Poll(&event))
-		{
-			switch (event.type)
-			{
-			case PAL::EventType::CLOSE_REQUESTED:
-			{
-				quit = true;
-				break;
-			}
-			default:
-				break;
-			}
-		}
+		PollEvents();
 		if (quit)
 			break;
 

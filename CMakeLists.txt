@@ -47,6 +47,9 @@ endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_sources(PAL PRIVATE EVA/PAL/PAL_MacOS.mm)
 	set_target_properties(PAL PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+	set_source_files_properties(EVA/PAL/PAL_MacOS.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
+	target_link_libraries(PAL PRIVATE ${APPKIT_FRAMEWORK})
 endif()
 
 add_library(GPU STATIC
@@ -100,4 +103,13 @@ else()
 	add_executable(TestApp EVA/PAL/PAL_Desktop.cpp EVA/TestApp/Main.cpp)
 	eva_init_target(TestApp)
 	target_link_libraries(TestApp PRIVATE GPU)
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		set_target_properties(TestApp PROPERTIES
+			MACOSX_BUNDLE TRUE
+			MACOSX_BUNDLE_GUI_IDENTIFIER "com.ghostdisk.eva.testapp"
+			MACOSX_BUNDLE_BUNDLE_NAME "EVA Test App"
+			MACOSX_BUNDLE_BUNDLE_VERSION "1"
+			MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
+		)
+	endif()
 endif()
