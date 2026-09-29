@@ -25,7 +25,11 @@ int EVA::AppMain()
 
 	GPU::Init({
 		.window = &window,
+#ifdef EVA_MACOS
+		.preferred_backend = GPU::Backend::METAL,
+#else
 		.preferred_backend = GPU::Backend::VULKAN,
+#endif
 	});
 	DEFER(GPU::Shutdown());
 	uint32 backbuffer_count = GPU::device.GetBackbufferCount();

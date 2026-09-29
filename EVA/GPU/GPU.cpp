@@ -1,4 +1,7 @@
 #include <EVA/GPU/GPU.hpp>
+#ifdef EVA_METAL
+#include <EVA/GPU/GPU_Metal.hpp>
+#endif
 #ifdef EVA_WIN32
 #include <EVA/GPU/GPU_D3D11.hpp>
 #endif
@@ -14,6 +17,9 @@ namespace EVA::GPU
 Device device;
 
 BackendDesc* backend_descs[] = {
+#ifdef EVA_METAL
+	&Metal::backend_desc,
+#endif
 #ifdef EVA_VULKAN
 	&Vulkan::backend_desc,
 #endif

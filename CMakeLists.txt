@@ -20,6 +20,11 @@ if(ANDROID)
 	target_compile_definitions(Core PUBLIC EVA_ANDROID)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	enable_language(OBJCXX)
+	target_compile_definitions(Core PUBLIC EVA_MACOS)
+endif()
+
 add_library(OS STATIC
 	EVA/OS/OS.hpp
 	EVA/OS/OS.cpp
@@ -39,6 +44,11 @@ if(WIN32)
 	target_link_libraries(PAL PRIVATE user32)
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_sources(PAL PRIVATE EVA/PAL/PAL_MacOS.mm)
+	set_target_properties(PAL PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+endif()
+
 add_library(GPU STATIC
 	EVA/GPU/GPU.hpp
 	EVA/GPU/GPU.cpp
@@ -50,6 +60,11 @@ target_link_libraries(GPU PUBLIC PAL)
 if(WIN32)
 	target_sources(GPU PRIVATE EVA/GPU/GPU_D3D11.cpp)
 	target_link_libraries(GPU PRIVATE d3d11 dxgi)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	target_sources(GPU PRIVATE EVA/GPU/GPU_Metal.hpp EVA/GPU/GPU_Metal.cpp)
+	target_compile_definitions(GPU PUBLIC EVA_METAL)
 endif()
 
 find_package(Vulkan QUIET)

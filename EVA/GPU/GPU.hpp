@@ -108,6 +108,7 @@ enum class Backend
 	NONE = 0,
 	D3D11,
 	VULKAN,
+	METAL,
 };
 
 struct InitOptions
