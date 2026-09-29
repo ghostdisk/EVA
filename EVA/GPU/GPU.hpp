@@ -88,6 +88,7 @@ struct RenderPassBeginDesc
 
 struct Device
 {
+	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
 	void (*Shutdown)() = nullptr;
 	RenderPass* (*CreateRenderPass)(const RenderPassDesc&) = nullptr;
 	void (*DestroyRenderPass)(RenderPass*) = nullptr;

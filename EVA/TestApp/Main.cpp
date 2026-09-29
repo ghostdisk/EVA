@@ -63,14 +63,11 @@ int EVA::AppMain()
 		return 1;
 #endif
 	}
-	GPU::Texture* first_backbuffer = GPU::device.GetBackbuffer(0);
-	if (!first_backbuffer)
-		return 1;
 
 	GPU::RenderPass* render_pass = GPU::device.CreateRenderPass({
 		.attachments = {
 			GPU::AttachmentDesc{
-				.format = GPU::device.GetTextureDesc(first_backbuffer).format,
+				.format = GPU::device.backbuffer_format,
 				.load_op = GPU::AttachmentLoadOp::CLEAR,
 				.state_before = GPU::ImageState::PRESENT,
 				.state_during = GPU::ImageState::COLOR_ATTACHMENT,
@@ -83,20 +80,17 @@ int EVA::AppMain()
 
 	DEFER(GPU::device.DestroyRenderPass(render_pass));
 	std::vector<BackbufferFramebuffer> backbuffers(backbuffer_count);
-	DEFER(
+	DEFER({
 		for (BackbufferFramebuffer& entry : backbuffers)
-			GPU::device.DestroyFramebuffer(entry.framebuffer));
+			GPU::device.DestroyFramebuffer(entry.framebuffer);
+	});
 	for (uint32 i = 0; i < backbuffer_count; ++i)
 	{
 		backbuffers[i].texture = GPU::device.GetBackbuffer(i);
-		if (!backbuffers[i].texture)
-			return 1;
 		backbuffers[i].framebuffer = GPU::device.CreateFramebuffer({
 			.render_pass = render_pass,
 			.attachments = { backbuffers[i].texture },
 		});
-		if (!backbuffers[i].framebuffer)
-			return 1;
 	}
 	int result = 0;
 

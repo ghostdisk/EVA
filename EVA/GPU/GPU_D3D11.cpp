@@ -343,6 +343,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	}
 
 	out_device = Device{
+		.backbuffer_format = backbuffer.desc.format,
 		.Shutdown = Shutdown,
 		.CreateRenderPass = CreateRenderPass,
 		.DestroyRenderPass = DestroyRenderPass,
