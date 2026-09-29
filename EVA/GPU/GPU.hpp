@@ -96,6 +96,7 @@ struct Device
 	void (*DestroyRenderPass)(RenderPass*) = nullptr;
 	Framebuffer* (*CreateFramebuffer)(FramebufferDesc&&) = nullptr;
 	void (*DestroyFramebuffer)(Framebuffer*) = nullptr;
+	// A zero count invalidates existing backbuffer framebuffers before the next BeginFrame.
 	uint32 (*GetBackbufferCount)() = nullptr;
 	Texture* (*GetBackbuffer)(uint32 index) = nullptr;
 	TextureDesc (*GetTextureDesc)(Texture*) = nullptr;

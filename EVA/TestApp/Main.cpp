@@ -125,6 +125,7 @@ int EVA::AppMain()
 
 		if (!GPU::device.BeginFrame())
 			continue;
+		SyncBackbuffers();
 		GPU::Texture* backbuffer = GPU::device.GetCurrentBackbuffer();
 		if (!backbuffer)
 		{

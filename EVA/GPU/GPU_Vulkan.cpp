@@ -66,6 +66,8 @@ static VkDevice device = VK_NULL_HANDLE;
 static VkQueue graphics_queue = VK_NULL_HANDLE;
 static VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 static std::vector<VulkanTexture> backbuffers;
+static bool swapchain_dirty = false;
+static bool acquire_suboptimal = false;
 static PAL::Window* pal_window = nullptr;
 #ifdef EVA_ANDROID
 static ANativeWindow* native_window = nullptr;
@@ -79,6 +81,9 @@ static VkFence submit_fence = VK_NULL_HANDLE;
 static VulkanRenderPass* active_render_pass = nullptr;
 static VulkanFramebuffer* active_framebuffer = nullptr;
 static bool volk_initialized = false;
+
+static bool CreateSwapchain();
+static void DestroySwapchainResources();
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 	VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT* data, void*)
@@ -224,12 +229,13 @@ static void DestroyTexture(VulkanTexture& texture)
 
 static uint32 GetBackbufferCount()
 {
-	return (uint32)backbuffers.size();
+	// Give the app a chance to destroy framebuffers before BeginFrame destroys the old image views.
+	return swapchain_dirty ? 0 : (uint32)backbuffers.size();
 }
 
 static Texture* GetBackbuffer(uint32 index)
 {
-	return index < backbuffers.size() ? reinterpret_cast<Texture*>(&backbuffers[index]) : nullptr;
+	return index < GetBackbufferCount() ? reinterpret_cast<Texture*>(&backbuffers[index]) : nullptr;
 }
 
 static TextureDesc GetTextureDesc(Texture* texture)
@@ -239,15 +245,29 @@ static TextureDesc GetTextureDesc(Texture* texture)
 
 static bool BeginFrame()
 {
+	if (!surface)
+		return false;
+	if (swapchain_dirty)
+	{
+		if (swapchain)
+			DestroySwapchainResources();
+		if (!CreateSwapchain())
+			return false;
+		swapchain_dirty = false;
+	}
 	if (!swapchain)
 		return false;
 	VK_ASSERT(vkWaitForFences(device, 1, &submit_fence, VK_TRUE, UINT64_MAX));
 	VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
 		image_available, VK_NULL_HANDLE, &current_backbuffer);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	{
+		swapchain_dirty = true;
 		return false;
+	}
 	if (result != VK_SUBOPTIMAL_KHR)
 		VK_ASSERT(result);
+	acquire_suboptimal = result == VK_SUBOPTIMAL_KHR;
 	VK_ASSERT(vkResetCommandPool(device, command_pool, 0));
 	auto begin_info = VkCommandBufferBeginInfo{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -462,10 +482,11 @@ static void EndFrame()
 		.pImageIndices = &current_backbuffer,
 	};
 	VkResult result = vkQueuePresentKHR(graphics_queue, &present_info);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR)
-		return;
-	if (result != VK_SUBOPTIMAL_KHR)
+	if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_DATE_KHR && result != VK_SUBOPTIMAL_KHR)
 		VK_ASSERT(result);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || acquire_suboptimal)
+		swapchain_dirty = true;
+	acquire_suboptimal = false;
 }
 
 static void DestroySwapchainResources()
@@ -492,11 +513,13 @@ static void DestroySwapchainResources()
 		swapchain = VK_NULL_HANDLE;
 	}
 	current_backbuffer = 0;
+	acquire_suboptimal = false;
 }
 
 static void DestroySurfaceResources()
 {
 	DestroySwapchainResources();
+	swapchain_dirty = false;
 	if (surface)
 	{
 		vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -531,6 +554,8 @@ static void Shutdown()
 	device = VK_NULL_HANDLE;
 	graphics_queue = VK_NULL_HANDLE;
 	swapchain = VK_NULL_HANDLE;
+	swapchain_dirty = false;
+	acquire_suboptimal = false;
 	command_pool = VK_NULL_HANDLE;
 	command_buffer = VK_NULL_HANDLE;
 	image_available = VK_NULL_HANDLE;
@@ -741,7 +766,7 @@ static void HandlePALEvent(const PAL::Event& event)
 		if (!surface && pal_window && pal_window->native_handle)
 		{
 			CreateSurface(pal_window);
-			CreateSwapchain();
+			swapchain_dirty = true;
 		}
 		break;
 	default:
