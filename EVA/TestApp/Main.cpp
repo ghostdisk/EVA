@@ -45,6 +45,7 @@ int EVA::AppMain()
 #else
 		.preferred_backend = GPU::Backend::VULKAN,
 #endif
+		.debug = true,
 	});
 	DEFER(GPU::Shutdown());
 	uint32 backbuffer_count = GPU::device.GetBackbufferCount();

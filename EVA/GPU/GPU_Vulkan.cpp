@@ -59,6 +59,7 @@ struct PhysicalDeviceProps
 };
 
 static VkInstance instance = VK_NULL_HANDLE;
+static VkDebugUtilsMessengerEXT debug_messenger = VK_NULL_HANDLE;
 static VkSurfaceKHR surface = VK_NULL_HANDLE;
 static PhysicalDeviceProps physical_device;
 static VkDevice device = VK_NULL_HANDLE;
@@ -74,6 +75,14 @@ static VkFence submit_fence = VK_NULL_HANDLE;
 static VulkanRenderPass* active_render_pass = nullptr;
 static VulkanFramebuffer* active_framebuffer = nullptr;
 static bool volk_initialized = false;
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+	VkDebugUtilsMessageTypeFlagsEXT, const VkDebugUtilsMessengerCallbackDataEXT* data, void*)
+{
+	const char* level = severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT ? "error" : "warning";
+	fprintf(stderr, "Vulkan %s: %s\n", level, data->pMessage);
+	return VK_FALSE;
+}
 
 static VulkanTexture* ToImpl(Texture* texture)
 {
@@ -479,11 +488,14 @@ static void Shutdown()
 		vkDestroyDevice(device, nullptr);
 	if (surface)
 		vkDestroySurfaceKHR(instance, surface, nullptr);
+	if (debug_messenger)
+		vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
 	if (instance)
 		vkDestroyInstance(instance, nullptr);
 	if (volk_initialized)
 		volkFinalize();
 	instance = VK_NULL_HANDLE;
+	debug_messenger = VK_NULL_HANDLE;
 	surface = VK_NULL_HANDLE;
 	physical_device = {};
 	device = VK_NULL_HANDLE;
@@ -664,12 +676,44 @@ static bool InitImpl(const InitOptions& init_options)
 	volk_initialized = true;
 
 	{ // create instance:
+		const char* validation_layer = "VK_LAYER_KHRONOS_validation";
+		bool validation = false;
+		bool debug_utils = false;
+		if (init_options.debug)
+		{
+			uint32 layer_count = 0;
+			VK_ASSERT(vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
+			std::vector<VkLayerProperties> layers(layer_count);
+			VK_ASSERT(vkEnumerateInstanceLayerProperties(&layer_count, layers.data()));
+			for (const VkLayerProperties& layer : layers)
+			{
+				if (std::strcmp(layer.layerName, validation_layer) == 0)
+					validation = true;
+			}
+			if (!validation)
+				fprintf(stderr, "Vulkan validation layer is unavailable; continuing without validation\n");
+			else
+			{
+				uint32 extension_count = 0;
+				VK_ASSERT(vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, nullptr));
+				std::vector<VkExtensionProperties> extensions(extension_count);
+				VK_ASSERT(vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, extensions.data()));
+				for (const VkExtensionProperties& extension : extensions)
+				{
+					if (std::strcmp(extension.extensionName, VK_EXT_DEBUG_UTILS_EXTENSION_NAME) == 0)
+						debug_utils = true;
+				}
+				if (!debug_utils)
+					fprintf(stderr, "Vulkan debug utils extension is unavailable; validation messages may be unavailable\n");
+			}
+		}
+
 		auto application_info = VkApplicationInfo{
 			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 			.pApplicationName = "EVA",
 			.apiVersion = VK_API_VERSION_1_0,
 		};
-		const char* instance_extensions[] = {
+		std::vector<const char*> instance_extensions = {
 			VK_KHR_SURFACE_EXTENSION_NAME,
 #ifdef EVA_WIN32
 			VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
@@ -678,14 +722,28 @@ static bool InitImpl(const InitOptions& init_options)
 			VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #endif
 		};
+		if (debug_utils)
+			instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		VkDebugUtilsMessengerCreateInfoEXT debug_info{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+			.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+						   VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			.pfnUserCallback = DebugCallback,
+		};
 		auto instance_info = VkInstanceCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+			.pNext = debug_utils ? &debug_info : nullptr,
 			.pApplicationInfo = &application_info,
-			.enabledExtensionCount = sizeof(instance_extensions) / sizeof(instance_extensions[0]),
-			.ppEnabledExtensionNames = instance_extensions,
+			.enabledLayerCount = validation ? 1u : 0u,
+			.ppEnabledLayerNames = validation ? &validation_layer : nullptr,
+			.enabledExtensionCount = (uint32)instance_extensions.size(),
+			.ppEnabledExtensionNames = instance_extensions.data(),
 		};
 		VK_ASSERT(vkCreateInstance(&instance_info, nullptr, &instance));
 		volkLoadInstance(instance);
+		if (debug_utils)
+			VK_ASSERT(vkCreateDebugUtilsMessengerEXT(instance, &debug_info, nullptr, &debug_messenger));
 	}
 
 	{ // create surface:

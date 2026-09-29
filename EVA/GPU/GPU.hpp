@@ -116,6 +116,7 @@ struct InitOptions
 {
 	PAL::Window* window = nullptr;
 	Backend preferred_backend = Backend::NONE;
+	bool debug = false;
 };
 
 struct BackendDesc
