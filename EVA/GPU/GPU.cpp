@@ -2,6 +2,9 @@
 #ifdef EVA_WIN32
 #include <EVA/GPU/GPU_D3D11.hpp>
 #endif
+#ifdef EVA_VULKAN
+#include <EVA/GPU/GPU_Vulkan.hpp>
+#endif
 
 #include <cstdlib>
 
@@ -11,6 +14,9 @@ namespace EVA::GPU
 Device device;
 
 BackendDesc* backend_descs[] = {
+#ifdef EVA_VULKAN
+	&Vulkan::backend_desc,
+#endif
 #ifdef EVA_WIN32
 	&D3D11::backend_desc,
 #endif

@@ -20,7 +20,7 @@ int main()
 
 	GPU::Init({
 		.window = &window,
-		.preferred_backend = GPU::Backend::D3D11,
+		.preferred_backend = GPU::Backend::VULKAN,
 	});
 	DEFER(GPU::Shutdown());
 

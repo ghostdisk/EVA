@@ -48,6 +48,26 @@ if(WIN32)
 	target_link_libraries(GPU PRIVATE d3d11 dxgi)
 endif()
 
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+	enable_language(C)
+	target_sources(GPU PRIVATE
+		EVA/GPU/GPU_Vulkan.hpp
+		EVA/GPU/GPU_Vulkan.cpp
+		Vendor/volk/volk.c
+	)
+	target_include_directories(GPU PRIVATE "${PROJECT_SOURCE_DIR}/Vendor/volk")
+	if(TARGET Vulkan::Headers)
+		target_link_libraries(GPU PRIVATE Vulkan::Headers)
+	else()
+		target_include_directories(GPU PRIVATE ${Vulkan_INCLUDE_DIRS})
+	endif()
+	target_compile_definitions(GPU PUBLIC EVA_VULKAN)
+	if(WIN32)
+		target_compile_definitions(GPU PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+	endif()
+endif()
+
 add_executable(TestApp
 	EVA/TestApp/Main.cpp
 )
