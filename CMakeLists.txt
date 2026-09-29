@@ -16,6 +16,10 @@ if(WIN32)
 	target_compile_definitions(Core PUBLIC EVA_WIN32)
 endif()
 
+if(ANDROID)
+	target_compile_definitions(Core PUBLIC EVA_ANDROID)
+endif()
+
 add_library(OS STATIC
 	EVA/OS/OS.hpp
 	EVA/OS/OS.cpp
@@ -66,11 +70,19 @@ if(Vulkan_FOUND)
 	if(WIN32)
 		target_compile_definitions(GPU PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 	endif()
+	if(ANDROID)
+		target_compile_definitions(GPU PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+	endif()
 endif()
 
-add_executable(TestApp
-	EVA/TestApp/Main.cpp
-)
-eva_init_target(TestApp)
-
-target_link_libraries(TestApp PRIVATE GPU)
+if(ANDROID)
+	find_package(game-activity REQUIRED CONFIG)
+	add_library(eva SHARED EVA/PAL/PAL_Android.cpp EVA/TestApp/Main.cpp)
+	eva_init_target(eva)
+	target_link_libraries(eva PRIVATE GPU game-activity::game-activity_static android log)
+	target_link_options(eva PRIVATE "LINKER:-u,Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
+else()
+	add_executable(TestApp EVA/PAL/PAL_Desktop.cpp EVA/TestApp/Main.cpp)
+	eva_init_target(TestApp)
+	target_link_libraries(TestApp PRIVATE GPU)
+endif()

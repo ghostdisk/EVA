@@ -6,7 +6,7 @@ namespace EVA::PAL
 
 struct Window
 {
-	void* native_handle;
+	void* native_handle = nullptr;
 };
 
 struct WindowInitOptions
@@ -33,4 +33,9 @@ void DeinitWindow(Window* window);
 bool Poll(Event* out_event);
 
 
+}
+
+namespace EVA
+{
+int AppMain();
 }

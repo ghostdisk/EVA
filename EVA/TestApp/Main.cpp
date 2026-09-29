@@ -13,10 +13,8 @@ struct BackbufferFramebuffer
 	GPU::Framebuffer* framebuffer = nullptr;
 };
 
-int main()
+int EVA::AppMain()
 {
-	PAL::Init();
-
 	PAL::InitWindow(&window,
 		{
 			.name = "EVA Test App",

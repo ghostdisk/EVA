@@ -23,4 +23,4 @@ Low-level RHI (GPU API abstraction layer). Unified API for draw calls, buffers, 
 
 # Code style
 
-STL is discouraged.
+STL is discouraged. Prefer the utilities in EVA/Core. std::vector is an exception for now, until we sort out memory management properly.

@@ -8,6 +8,9 @@
 #ifdef EVA_WIN32
 #include <Windows.h>
 #endif
+#ifdef EVA_ANDROID
+#include <android/native_window.h>
+#endif
 
 #define VK_ASSERT(expr)                                                                                                 \
 	do                                                                                                                  \
@@ -671,6 +674,9 @@ static bool InitImpl(const InitOptions& init_options)
 #ifdef EVA_WIN32
 			VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
+#ifdef EVA_ANDROID
+			VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
+#endif
 		};
 		auto instance_info = VkInstanceCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -690,6 +696,12 @@ static bool InitImpl(const InitOptions& init_options)
 			.hwnd = static_cast<HWND>(init_options.window->native_handle),
 		};
 		VK_ASSERT(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface));
+#elif defined(EVA_ANDROID)
+		auto surface_info = VkAndroidSurfaceCreateInfoKHR{
+			.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
+			.window = static_cast<ANativeWindow*>(init_options.window->native_handle),
+		};
+		VK_ASSERT(vkCreateAndroidSurfaceKHR(instance, &surface_info, nullptr, &surface));
 #else
 		return false;
 #endif
