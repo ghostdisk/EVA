@@ -16,7 +16,17 @@ struct Framebuffer;
 enum class TextureFormat
 {
 	RGBA8_UNORM,
+	BGRA8_UNORM,
 	D24_UNORM_S8_UINT,
+};
+
+struct TextureDesc
+{
+	uint32 width = 0;
+	uint32 height = 0;
+	uint32 layers = 1;
+	uint32 mip_levels = 1;
+	TextureFormat format = TextureFormat::RGBA8_UNORM;
 };
 
 enum class ImageState
@@ -83,10 +93,14 @@ struct Device
 	void (*DestroyRenderPass)(RenderPass*) = nullptr;
 	Framebuffer* (*CreateFramebuffer)(FramebufferDesc&&) = nullptr;
 	void (*DestroyFramebuffer)(Framebuffer*) = nullptr;
+	uint32 (*GetBackbufferCount)() = nullptr;
+	Texture* (*GetBackbuffer)(uint32 index) = nullptr;
+	TextureDesc (*GetTextureDesc)(Texture*) = nullptr;
+	bool (*BeginFrame)() = nullptr;
 	Texture* (*GetCurrentBackbuffer)() = nullptr;
 	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
 	void (*EndRenderPass)() = nullptr;
-	bool (*Present)() = nullptr;
+	bool (*EndFrame)() = nullptr;
 };
 
 enum class Backend

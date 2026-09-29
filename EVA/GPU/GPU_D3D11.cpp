@@ -3,6 +3,7 @@
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <cassert>
+#include <vector>
 
 namespace EVA::GPU::D3D11
 {
@@ -12,16 +13,12 @@ struct D3D11Texture
 	ID3D11Texture2D* resource = nullptr;
 	ID3D11RenderTargetView* render_target_view = nullptr;
 	ID3D11DepthStencilView* depth_stencil_view = nullptr;
-	TextureFormat format = TextureFormat::RGBA8_UNORM;
-	uint32 width = 0;
-	uint32 height = 0;
-	uint32 layers = 1;
+	TextureDesc desc;
 };
 
 struct D3D11RenderPass
 {
-	AttachmentDesc* attachments = nullptr;
-	uint32 attachment_count = 0;
+	std::vector<AttachmentDesc> attachments;
 };
 
 struct D3D11Framebuffer
@@ -68,6 +65,8 @@ static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 		const AttachmentDesc& attachment = desc.attachments[i];
 		if (attachment.load_op == AttachmentLoadOp::LOAD && attachment.state_before == ImageState::UNDEFINED)
 			return nullptr;
+		if (attachment.state_after == ImageState::UNDEFINED)
+			return nullptr;
 		if (attachment.format == TextureFormat::RGBA8_UNORM && attachment.state_during == ImageState::COLOR_ATTACHMENT)
 			++color_count;
 		else if (attachment.format == TextureFormat::D24_UNORM_S8_UINT && attachment.state_during == ImageState::DEPTH_STENCIL_ATTACHMENT)
@@ -79,10 +78,7 @@ static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 		return nullptr;
 
 	auto* render_pass = new D3D11RenderPass;
-	render_pass->attachment_count = desc.attachments.count;
-	render_pass->attachments = new AttachmentDesc[desc.attachments.count];
-	for (uint32 i = 0; i < desc.attachments.count; ++i)
-		render_pass->attachments[i] = desc.attachments[i];
+	render_pass->attachments.assign(desc.attachments.data, desc.attachments.data + desc.attachments.count);
 	return reinterpret_cast<RenderPass*>(render_pass);
 }
 
@@ -91,7 +87,6 @@ static void DestroyRenderPass(RenderPass* render_pass)
 	if (!render_pass)
 		return;
 	auto* impl = ToImpl(render_pass);
-	delete[] impl->attachments;
 	delete impl;
 }
 
@@ -100,7 +95,7 @@ static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
 	if (!desc.render_pass || !desc.attachments.data)
 		return nullptr;
 	auto* render_pass = ToImpl(desc.render_pass);
-	if (desc.attachments.count != render_pass->attachment_count)
+	if (desc.attachments.count != render_pass->attachments.size())
 		return nullptr;
 
 	uint32 width = 0;
@@ -111,15 +106,15 @@ static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
 		if (!desc.attachments[i])
 			return nullptr;
 		auto* texture = ToImpl(desc.attachments[i]);
-		if (!texture->resource || texture->format != render_pass->attachments[i].format)
+		if (!texture->resource || texture->desc.format != render_pass->attachments[i].format)
 			return nullptr;
 		if (i == 0)
 		{
-			width = texture->width;
-			height = texture->height;
-			layers = texture->layers;
+			width = texture->desc.width;
+			height = texture->desc.height;
+			layers = texture->desc.layers;
 		}
-		if (!width || !height || !layers || texture->width != width || texture->height != height || texture->layers != layers)
+		if (!width || !height || !layers || texture->desc.width != width || texture->desc.height != height || texture->desc.layers != layers)
 			return nullptr;
 		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT && !texture->render_target_view)
 			return nullptr;
@@ -171,6 +166,26 @@ static Texture* GetCurrentBackbuffer()
 	return d3d_swapchain ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
 }
 
+static uint32 GetBackbufferCount()
+{
+	return d3d_swapchain ? 1 : 0;
+}
+
+static Texture* GetBackbuffer(uint32 index)
+{
+	return index == 0 ? GetCurrentBackbuffer() : nullptr;
+}
+
+static TextureDesc GetTextureDesc(Texture* texture)
+{
+	return texture ? ToImpl(texture)->desc : TextureDesc{};
+}
+
+static bool BeginFrame()
+{
+	return d3d_swapchain != nullptr;
+}
+
 static void BeginRenderPass(const RenderPassBeginDesc& desc)
 {
 	if (!desc.render_pass || !desc.framebuffer)
@@ -181,12 +196,12 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 	auto* render_pass = ToImpl(desc.render_pass);
 	auto* framebuffer = ToImpl(desc.framebuffer);
 	if (framebuffer->render_pass != render_pass ||
-		(desc.clear_values.count && desc.clear_values.count != render_pass->attachment_count))
+		(desc.clear_values.count && desc.clear_values.count != render_pass->attachments.size()))
 	{
 		assert(false);
 		return;
 	}
-	for (uint32 i = 0; i < render_pass->attachment_count; ++i)
+	for (uint32 i = 0; i < render_pass->attachments.size(); ++i)
 	{
 		if (render_pass->attachments[i].load_op == AttachmentLoadOp::CLEAR &&
 			(!desc.clear_values.data || i >= desc.clear_values.count))
@@ -203,7 +218,7 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 	viewport.MaxDepth = 1.0f;
 	d3d_context->RSSetViewports(1, &viewport);
 
-	for (uint32 i = 0; i < render_pass->attachment_count; ++i)
+	for (uint32 i = 0; i < render_pass->attachments.size(); ++i)
 	{
 		if (render_pass->attachments[i].load_op != AttachmentLoadOp::CLEAR)
 			continue;
@@ -220,7 +235,7 @@ static void EndRenderPass()
 	d3d_context->OMSetRenderTargets(0, nullptr, nullptr);
 }
 
-static bool Present()
+static bool EndFrame()
 {
 	return SUCCEEDED(d3d_swapchain->Present(1, 0));
 }
@@ -309,10 +324,11 @@ static bool InitImpl(Device& out_device, const InitOptions& init_options)
 
 	D3D11_TEXTURE2D_DESC backbuffer_desc = {};
 	backbuffer.resource->GetDesc(&backbuffer_desc);
-	backbuffer.width = backbuffer_desc.Width;
-	backbuffer.height = backbuffer_desc.Height;
-	backbuffer.layers = backbuffer_desc.ArraySize;
-	backbuffer.format = TextureFormat::RGBA8_UNORM;
+	backbuffer.desc.width = backbuffer_desc.Width;
+	backbuffer.desc.height = backbuffer_desc.Height;
+	backbuffer.desc.layers = backbuffer_desc.ArraySize;
+	backbuffer.desc.mip_levels = backbuffer_desc.MipLevels;
+	backbuffer.desc.format = TextureFormat::RGBA8_UNORM;
 
 	result = d3d_device->CreateRenderTargetView(backbuffer.resource, nullptr, &backbuffer.render_target_view);
 	return SUCCEEDED(result);
@@ -332,10 +348,14 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.DestroyRenderPass = DestroyRenderPass,
 		.CreateFramebuffer = CreateFramebuffer,
 		.DestroyFramebuffer = DestroyFramebuffer,
+		.GetBackbufferCount = GetBackbufferCount,
+		.GetBackbuffer = GetBackbuffer,
+		.GetTextureDesc = GetTextureDesc,
+		.BeginFrame = BeginFrame,
 		.GetCurrentBackbuffer = GetCurrentBackbuffer,
 		.BeginRenderPass = BeginRenderPass,
 		.EndRenderPass = EndRenderPass,
-		.Present = Present,
+		.EndFrame = EndFrame,
 	};
 	return true;
 }
