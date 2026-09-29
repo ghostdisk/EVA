@@ -4,6 +4,7 @@
 using namespace EVA;
 
 PAL::Window window;
+bool quit = false;
 
 int main()
 {
@@ -16,19 +17,29 @@ int main()
 	});
 
 	GPU::Init({
-		.preferred_backend = GPU::Backend::VULKAN,
+		.window = &window,
+		.preferred_backend = GPU::Backend::D3D11,
 	});
 
-	for (;;)
+	while (!quit)
 	{
 		PAL::Event event;
 
 		while (PAL::Poll(&event))
 		{
+			switch (event.type)
+			{
+			case PAL::EventType::CLOSE_REQUESTED:
+			{
+				quit = true;
+				break;
+			}
+			}
 		}
 	}
 
 	GPU::Shutdown();
+	PAL::DeinitWindow(&window);
 
 	return 0;
 }

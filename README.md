@@ -1,7 +1,5 @@
 # EVA
 
-WIP Game Engine. Goal is to eventually support massive worlds.
-
 # Structure
 
 Code is split in small libraries located under EVA/ dir.
@@ -25,6 +23,4 @@ Low-level RHI (GPU API abstraction layer). Unified API for draw calls, buffers, 
 
 # Code style
 
-## For Agents
-
-STL is forbidden.
+STL is discouraged.

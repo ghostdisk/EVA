@@ -43,6 +43,11 @@ add_library(GPU STATIC
 eva_init_target(GPU)
 target_link_libraries(GPU PUBLIC PAL)
 
+if(WIN32)
+	target_sources(GPU PRIVATE EVA/GPU/GPU_D3D11.cpp)
+	target_link_libraries(GPU PRIVATE d3d11 dxgi)
+endif()
+
 add_executable(TestApp
 	EVA/TestApp/Main.cpp
 )

@@ -9,13 +9,25 @@ static constexpr char WINDOW_CLASS_NAME[] = "EVA_PAL_Window";
 
 static HINSTANCE hinstance = nullptr;
 
+void EmitEvent(Event event);
+
+static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
+{
+	if (message == WM_CLOSE)
+	{
+		EmitEvent({ .type = EventType::CLOSE_REQUESTED });
+		return 0;
+	}
+	return DefWindowProcA(window, message, wparam, lparam);
+}
+
 void InitBackend()
 {
 	hinstance = GetModuleHandleA(0);
 
 	WNDCLASSEXA window_class = {};
 	window_class.cbSize = sizeof(window_class);
-	window_class.lpfnWndProc = DefWindowProcA;
+	window_class.lpfnWndProc = WindowProc;
 	window_class.hInstance = hinstance;
 	window_class.hCursor = LoadCursorA(nullptr, IDC_ARROW);
 	window_class.lpszClassName = WINDOW_CLASS_NAME;
@@ -44,19 +56,17 @@ void DeinitWindow(Window* window)
 {
 	if (window->native_handle)
 		DestroyWindow(static_cast<HWND>(window->native_handle));
-	std::memset(window, 0, sizeof(*window));
+	memset(window, 0, sizeof(*window));
 }
 
-bool Poll(Event* out_event)
+void PollBackend()
 {
-	(void)out_event;
 	MSG message = {};
 	while (PeekMessageA(&message, nullptr, 0, 0, PM_REMOVE))
 	{
 		TranslateMessage(&message);
 		DispatchMessageA(&message);
 	}
-	return false;
 }
 
 }
