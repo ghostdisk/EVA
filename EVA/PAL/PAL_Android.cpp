@@ -6,13 +6,40 @@ namespace EVA::PAL
 {
 
 static android_app* app = nullptr;
+static Window* active_window = nullptr;
+static bool resumed = false;
 
 void EmitEvent(Event event);
+bool HasPendingEvents();
 
-static void OnAppCmd(android_app*, int32_t command)
+static void OnAppCmd(android_app* android_app, int32_t command)
 {
-	if (command == APP_CMD_TERM_WINDOW || command == APP_CMD_DESTROY)
-		EmitEvent({ .type = EventType::CLOSE_REQUESTED });
+	switch (command)
+	{
+	case APP_CMD_INIT_WINDOW:
+		if (active_window)
+		{
+			active_window->native_handle = android_app->window;
+			EmitEvent({ .type = EventType::SURFACE_AVAILABLE });
+		}
+		break;
+	case APP_CMD_TERM_WINDOW:
+		if (active_window)
+		{
+			EmitEvent({ .type = EventType::SURFACE_UNAVAILABLE });
+			active_window->native_handle = nullptr;
+		}
+		break;
+	case APP_CMD_PAUSE:
+		resumed = false;
+		break;
+	case APP_CMD_RESUME:
+		resumed = true;
+		break;
+	case APP_CMD_DESTROY:
+		EmitEvent({ .type = EventType::QUIT });
+		break;
+	}
 }
 
 static bool ProcessEvent(int timeout)
@@ -32,18 +59,23 @@ void InitBackend()
 
 void InitWindow(Window* window, const WindowInitOptions&)
 {
+	active_window = window;
 	window->native_handle = app->window;
 }
 
 void DeinitWindow(Window* window)
 {
 	window->native_handle = nullptr;
+	active_window = nullptr;
 }
 
 void PollBackend()
 {
-	while (ProcessEvent(0))
+	while (!HasPendingEvents())
 	{
+		const bool active = resumed && app->window;
+		if (!ProcessEvent(active ? 0 : -1) && active)
+			break;
 	}
 }
 

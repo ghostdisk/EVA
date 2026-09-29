@@ -15,7 +15,7 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPA
 {
 	if (message == WM_CLOSE)
 	{
-		EmitEvent({ .type = EventType::CLOSE_REQUESTED });
+		EmitEvent({ .type = EventType::QUIT });
 		return 0;
 	}
 	return DefWindowProcA(window, message, wparam, lparam);
@@ -64,6 +64,11 @@ void PollBackend()
 	MSG message = {};
 	while (PeekMessageA(&message, nullptr, 0, 0, PM_REMOVE))
 	{
+		if (message.message == WM_QUIT)
+		{
+			EmitEvent({ .type = EventType::QUIT });
+			continue;
+		}
 		TranslateMessage(&message);
 		DispatchMessageA(&message);
 	}

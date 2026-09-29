@@ -4,6 +4,7 @@
 namespace EVA::PAL
 {
 struct Window;
+struct Event;
 }
 
 namespace EVA::GPU
@@ -90,6 +91,7 @@ struct Device
 {
 	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
 	void (*Shutdown)() = nullptr;
+	void (*HandlePALEvent)(const PAL::Event&) = nullptr;
 	RenderPass* (*CreateRenderPass)(const RenderPassDesc&) = nullptr;
 	void (*DestroyRenderPass)(RenderPass*) = nullptr;
 	Framebuffer* (*CreateFramebuffer)(FramebufferDesc&&) = nullptr;

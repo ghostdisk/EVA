@@ -245,6 +245,10 @@ static void Shutdown()
 	}
 }
 
+static void HandlePALEvent(const PAL::Event&)
+{
+}
+
 static bool InitImpl(Device& out_device, const InitOptions& init_options)
 {
 	(void)out_device;
@@ -316,6 +320,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	out_device = Device{
 		.backbuffer_format = backbuffer.desc.format,
 		.Shutdown = Shutdown,
+		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,
 		.DestroyRenderPass = DestroyRenderPass,
 		.CreateFramebuffer = CreateFramebuffer,

@@ -8,6 +8,10 @@ static void Shutdown()
 {
 }
 
+static void HandlePALEvent(const PAL::Event&)
+{
+}
+
 static RenderPass* CreateRenderPass(const RenderPassDesc&)
 {
 	return nullptr;
@@ -67,6 +71,7 @@ static bool Init(Device& out_device, const InitOptions&)
 {
 	out_device = Device{
 		.Shutdown = Shutdown,
+		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,
 		.DestroyRenderPass = DestroyRenderPass,
 		.CreateFramebuffer = CreateFramebuffer,

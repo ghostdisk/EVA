@@ -16,7 +16,8 @@ void Init()
 
 bool Poll(Event* out_event)
 {
-	PollBackend();
+	if (pending_events.empty())
+		PollBackend();
 
 	if (pending_events.size() > 0)
 	{
@@ -28,6 +29,11 @@ bool Poll(Event* out_event)
 	{
 		return false;
 	}
+}
+
+bool HasPendingEvents()
+{
+	return !pending_events.empty();
 }
 
 void EmitEvent(Event event)

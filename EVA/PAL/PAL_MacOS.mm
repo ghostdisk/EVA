@@ -13,15 +13,15 @@ void EmitEvent(Event event);
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender
 {
-	EVA::PAL::EmitEvent({ .type = EVA::PAL::EventType::QUIT_REQUESTED });
+	EVA::PAL::EmitEvent({ .type = EVA::PAL::EventType::QUIT });
 	// AppMain owns shutdown, including GPU and window cleanup.
 	return NSTerminateCancel;
 }
 
 - (BOOL)windowShouldClose:(NSWindow*)sender
 {
-	EVA::PAL::EmitEvent({ .type = EVA::PAL::EventType::CLOSE_REQUESTED });
-	// Keep the native window alive until the engine accepts the request.
+	EVA::PAL::EmitEvent({ .type = EVA::PAL::EventType::QUIT });
+	// AppMain owns shutdown, including the native window.
 	return NO;
 }
 

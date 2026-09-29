@@ -66,11 +66,15 @@ static VkDevice device = VK_NULL_HANDLE;
 static VkQueue graphics_queue = VK_NULL_HANDLE;
 static VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 static std::vector<VulkanTexture> backbuffers;
+static PAL::Window* pal_window = nullptr;
+#ifdef EVA_ANDROID
+static ANativeWindow* native_window = nullptr;
+#endif
 static uint32 current_backbuffer = 0;
 static VkCommandPool command_pool = VK_NULL_HANDLE;
 static VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 static VkSemaphore image_available = VK_NULL_HANDLE;
-static std::vector<VkSemaphore> render_finished;
+static std::vector<VkSemaphore> render_done_semaphores;
 static VkFence submit_fence = VK_NULL_HANDLE;
 static VulkanRenderPass* active_render_pass = nullptr;
 static VulkanFramebuffer* active_framebuffer = nullptr;
@@ -235,6 +239,8 @@ static TextureDesc GetTextureDesc(Texture* texture)
 
 static bool BeginFrame()
 {
+	if (!swapchain)
+		return false;
 	VK_ASSERT(vkWaitForFences(device, 1, &submit_fence, VK_TRUE, UINT64_MAX));
 	VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
 		image_available, VK_NULL_HANDLE, &current_backbuffer);
@@ -443,14 +449,14 @@ static void EndFrame()
 		.commandBufferCount = 1,
 		.pCommandBuffers = &command_buffer,
 		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &render_finished[current_backbuffer],
+		.pSignalSemaphores = &render_done_semaphores[current_backbuffer],
 	};
 	VK_ASSERT(vkResetFences(device, 1, &submit_fence));
 	VK_ASSERT(vkQueueSubmit(graphics_queue, 1, &submit_info, submit_fence));
 	auto present_info = VkPresentInfoKHR{
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &render_finished[current_backbuffer],
+		.pWaitSemaphores = &render_done_semaphores[current_backbuffer],
 		.swapchainCount = 1,
 		.pSwapchains = &swapchain,
 		.pImageIndices = &current_backbuffer,
@@ -462,31 +468,56 @@ static void EndFrame()
 		VK_ASSERT(result);
 }
 
-static void Shutdown()
+static void DestroySwapchainResources()
 {
 	if (device)
 		VK_ASSERT(vkDeviceWaitIdle(device));
-	for (VkSemaphore semaphore : render_finished)
-	{
-		if (semaphore)
-			vkDestroySemaphore(device, semaphore, nullptr);
-	}
-	render_finished.clear();
+
+	for (VkSemaphore semaphore : render_done_semaphores)
+		vkDestroySemaphore(device, semaphore, nullptr);
+	render_done_semaphores.clear();
+
 	if (image_available)
+	{
 		vkDestroySemaphore(device, image_available, nullptr);
-	if (submit_fence)
-		vkDestroyFence(device, submit_fence, nullptr);
-	if (command_pool)
-		vkDestroyCommandPool(device, command_pool, nullptr);
+		image_available = VK_NULL_HANDLE;
+	}
+
 	for (VulkanTexture& texture : backbuffers)
 		DestroyTexture(texture);
 	backbuffers.clear();
 	if (swapchain)
+	{
 		vkDestroySwapchainKHR(device, swapchain, nullptr);
+		swapchain = VK_NULL_HANDLE;
+	}
+	current_backbuffer = 0;
+}
+
+static void DestroySurfaceResources()
+{
+	DestroySwapchainResources();
+	if (surface)
+	{
+		vkDestroySurfaceKHR(instance, surface, nullptr);
+		surface = VK_NULL_HANDLE;
+	}
+#ifdef EVA_ANDROID
+	if (native_window)
+		ANativeWindow_release(native_window);
+	native_window = nullptr;
+#endif
+}
+
+static void Shutdown()
+{
+	DestroySurfaceResources();
+	if (submit_fence)
+		vkDestroyFence(device, submit_fence, nullptr);
+	if (command_pool)
+		vkDestroyCommandPool(device, command_pool, nullptr);
 	if (device)
 		vkDestroyDevice(device, nullptr);
-	if (surface)
-		vkDestroySurfaceKHR(instance, surface, nullptr);
 	if (debug_messenger)
 		vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
 	if (instance)
@@ -507,6 +538,7 @@ static void Shutdown()
 	active_render_pass = nullptr;
 	active_framebuffer = nullptr;
 	volk_initialized = false;
+	pal_window = nullptr;
 }
 
 static bool SupportsSwapchain(VkPhysicalDevice candidate)
@@ -664,13 +696,64 @@ static bool CreateSwapchain()
 		};
 		VK_ASSERT(vkCreateImageView(device, &view_info, nullptr, &texture.view));
 	}
+
+	auto semaphore_info = VkSemaphoreCreateInfo{
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+	};
+	VK_ASSERT(vkCreateSemaphore(device, &semaphore_info, nullptr, &image_available));
+
+	render_done_semaphores.resize(backbuffers.size(), VK_NULL_HANDLE);
+	for (VkSemaphore& semaphore : render_done_semaphores)
+		VK_ASSERT(vkCreateSemaphore(device, &semaphore_info, nullptr, &semaphore));
 	return true;
+}
+
+static void CreateSurface(PAL::Window* window)
+{
+#ifdef EVA_WIN32
+	auto surface_info = VkWin32SurfaceCreateInfoKHR{
+		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+		.hinstance = GetModuleHandleA(nullptr),
+		.hwnd = static_cast<HWND>(window->native_handle),
+	};
+	VK_ASSERT(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface));
+#elif defined(EVA_ANDROID)
+	native_window = static_cast<ANativeWindow*>(window->native_handle);
+	ANativeWindow_acquire(native_window);
+	auto surface_info = VkAndroidSurfaceCreateInfoKHR{
+		.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
+		.window = native_window,
+	};
+	VK_ASSERT(vkCreateAndroidSurfaceKHR(instance, &surface_info, nullptr, &surface));
+#else
+#error Platform not supported.
+#endif
+}
+
+static void HandlePALEvent(const PAL::Event& event)
+{
+	switch (event.type)
+	{
+	case PAL::EventType::SURFACE_UNAVAILABLE:
+		DestroySurfaceResources();
+		break;
+	case PAL::EventType::SURFACE_AVAILABLE:
+		if (!surface && pal_window && pal_window->native_handle)
+		{
+			CreateSurface(pal_window);
+			CreateSwapchain();
+		}
+		break;
+	default:
+		break;
+	}
 }
 
 static bool InitImpl(const InitOptions& init_options)
 {
 	if (!init_options.window || !init_options.window->native_handle)
 		return false;
+	pal_window = init_options.window;
 	VK_ASSERT(volkInitialize());
 	volk_initialized = true;
 
@@ -745,24 +828,11 @@ static bool InitImpl(const InitOptions& init_options)
 			VK_ASSERT(vkCreateDebugUtilsMessengerEXT(instance, &debug_info, nullptr, &debug_messenger));
 	}
 
-	{ // create surface:
-#ifdef EVA_WIN32
-		auto surface_info = VkWin32SurfaceCreateInfoKHR{
-			.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-			.hinstance = GetModuleHandleA(nullptr),
-			.hwnd = static_cast<HWND>(init_options.window->native_handle),
-		};
-		VK_ASSERT(vkCreateWin32SurfaceKHR(instance, &surface_info, nullptr, &surface));
-#elif defined(EVA_ANDROID)
-		auto surface_info = VkAndroidSurfaceCreateInfoKHR{
-			.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
-			.window = static_cast<ANativeWindow*>(init_options.window->native_handle),
-		};
-		VK_ASSERT(vkCreateAndroidSurfaceKHR(instance, &surface_info, nullptr, &surface));
+#if defined(EVA_WIN32) || defined(EVA_ANDROID)
+	CreateSurface(init_options.window);
 #else
-		return false;
+	return false;
 #endif
-	}
 
 	{ // pick physical device:
 		if (!ChoosePhysicalDevice())
@@ -812,15 +882,6 @@ static bool InitImpl(const InitOptions& init_options)
 	}
 
 	{ // create sync resources:
-		auto semaphore_info = VkSemaphoreCreateInfo{
-			.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-		};
-		VK_ASSERT(vkCreateSemaphore(device, &semaphore_info, nullptr, &image_available));
-		render_finished.resize(backbuffers.size(), VK_NULL_HANDLE);
-		for (VkSemaphore& semaphore : render_finished)
-		{
-			VK_ASSERT(vkCreateSemaphore(device, &semaphore_info, nullptr, &semaphore));
-		}
 		auto fence_info = VkFenceCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
@@ -841,6 +902,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	out_device = Device{
 		.backbuffer_format = backbuffers[0].desc.format,
 		.Shutdown = Shutdown,
+		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,
 		.DestroyRenderPass = DestroyRenderPass,
 		.CreateFramebuffer = CreateFramebuffer,

@@ -10,21 +10,34 @@ using namespace EVA;
 PAL::Window window;
 bool quit = false;
 
-static void PollEvents()
-{
-	PAL::Event event;
-	while (PAL::Poll(&event))
-	{
-		if (event.type == PAL::EventType::CLOSE_REQUESTED || event.type == PAL::EventType::QUIT_REQUESTED)
-			quit = true;
-	}
-}
-
 struct BackbufferFramebuffer
 {
 	GPU::Texture* texture = nullptr;
 	GPU::Framebuffer* framebuffer = nullptr;
 };
+
+static void DestroyBackbuffers(std::vector<BackbufferFramebuffer>& backbuffers)
+{
+	for (BackbufferFramebuffer& entry : backbuffers)
+		GPU::device.DestroyFramebuffer(entry.framebuffer);
+	backbuffers.clear();
+}
+
+static void PollEvents(std::vector<BackbufferFramebuffer>* backbuffers = nullptr)
+{
+	PAL::Event event;
+	while (PAL::Poll(&event))
+	{
+		if (event.type == PAL::EventType::SURFACE_UNAVAILABLE && backbuffers)
+			DestroyBackbuffers(*backbuffers);
+		GPU::device.HandlePALEvent(event);
+		if (event.type == PAL::EventType::QUIT)
+		{
+			quit = true;
+			break;
+		}
+	}
+}
 
 int EVA::AppMain()
 {
@@ -80,26 +93,35 @@ int EVA::AppMain()
 		return 1;
 
 	DEFER(GPU::device.DestroyRenderPass(render_pass));
-	std::vector<BackbufferFramebuffer> backbuffers(backbuffer_count);
-	DEFER({
-		for (BackbufferFramebuffer& entry : backbuffers)
-			GPU::device.DestroyFramebuffer(entry.framebuffer);
-	});
-	for (uint32 i = 0; i < backbuffer_count; ++i)
-	{
-		backbuffers[i].texture = GPU::device.GetBackbuffer(i);
-		backbuffers[i].framebuffer = GPU::device.CreateFramebuffer({
-			.render_pass = render_pass,
-			.attachments = { backbuffers[i].texture },
-		});
-	}
+	std::vector<BackbufferFramebuffer> backbuffers;
+	DEFER(DestroyBackbuffers(backbuffers));
+	auto SyncBackbuffers = [&]() {
+		uint32 count = GPU::device.GetBackbufferCount();
+		bool changed = count != backbuffers.size();
+		for (uint32 i = 0; !changed && i < count; ++i)
+			changed = backbuffers[i].texture != GPU::device.GetBackbuffer(i);
+		if (!changed)
+			return;
+		DestroyBackbuffers(backbuffers);
+		backbuffers.resize(count);
+		for (uint32 i = 0; i < count; ++i)
+		{
+			backbuffers[i].texture = GPU::device.GetBackbuffer(i);
+			backbuffers[i].framebuffer = GPU::device.CreateFramebuffer({
+				.render_pass = render_pass,
+				.attachments = { backbuffers[i].texture },
+			});
+		}
+	};
+	SyncBackbuffers();
 	int result = 0;
 
 	while (!quit)
 	{
-		PollEvents();
+		PollEvents(&backbuffers);
 		if (quit)
 			break;
+		SyncBackbuffers();
 
 		if (!GPU::device.BeginFrame())
 			continue;
@@ -110,7 +132,7 @@ int EVA::AppMain()
 			break;
 		}
 		BackbufferFramebuffer* entry = nullptr;
-		for (uint32 i = 0; i < backbuffer_count; ++i)
+		for (uint32 i = 0; i < backbuffers.size(); ++i)
 		{
 			if (backbuffers[i].texture == backbuffer)
 			{

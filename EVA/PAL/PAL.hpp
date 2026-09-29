@@ -19,8 +19,9 @@ struct WindowInitOptions
 enum class EventType
 {
 	NONE = 0,
-	CLOSE_REQUESTED,
-	QUIT_REQUESTED,
+	QUIT,
+	SURFACE_AVAILABLE,
+	SURFACE_UNAVAILABLE,
 };
 
 struct Event
