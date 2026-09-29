@@ -130,11 +130,7 @@ int EVA::AppMain()
 			.clear_values = { { .color = { 1.0f, 0.0f, 0.0f, 1.0f } } },
 		});
 		GPU::device.EndRenderPass();
-		if (!GPU::device.EndFrame())
-		{
-			result = 1;
-			break;
-		}
+		GPU::device.EndFrame();
 	}
 
 	return result;

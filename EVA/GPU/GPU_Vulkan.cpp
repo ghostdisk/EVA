@@ -431,7 +431,7 @@ static void EndRenderPass()
 	active_framebuffer = nullptr;
 }
 
-static bool EndFrame()
+static void EndFrame()
 {
 	VK_ASSERT(vkEndCommandBuffer(command_buffer));
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -457,10 +457,9 @@ static bool EndFrame()
 	};
 	VkResult result = vkQueuePresentKHR(graphics_queue, &present_info);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
-		return false;
+		return;
 	if (result != VK_SUBOPTIMAL_KHR)
 		VK_ASSERT(result);
-	return true;
 }
 
 static void Shutdown()

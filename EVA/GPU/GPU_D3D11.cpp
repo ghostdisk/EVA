@@ -2,8 +2,31 @@
 #include <EVA/PAL/PAL.hpp>
 #include <d3d11.h>
 #include <dxgi1_2.h>
-#include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
+
+#define HRES_ASSERT(expr)                                                                                             \
+	do                                                                                                                \
+	{                                                                                                                 \
+		HRESULT hres_assert_result = (expr);                                                                           \
+		if (FAILED(hres_assert_result))                                                                                 \
+		{                                                                                                             \
+			fprintf(stderr, "%s failed with HRESULT 0x%08lX at %s:%d\n", #expr, (unsigned long)hres_assert_result, \
+				__FILE__, __LINE__);                                                                                    \
+			exit(1);                                                                                                  \
+		}                                                                                                             \
+	} while (0)
+
+#define D3D11_ASSERT(expr)                                                                                  \
+	do                                                                                                     \
+	{                                                                                                      \
+		if (!(expr))                                                                                       \
+		{                                                                                                  \
+			fprintf(stderr, "%s failed at %s:%d\n", #expr, __FILE__, __LINE__);                    \
+			exit(1);                                                                                       \
+		}                                                                                                  \
+	} while (0)
 
 namespace EVA::GPU::D3D11
 {
@@ -55,28 +78,8 @@ static D3D11Texture* ToImpl(Texture* texture)
 
 static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 {
-	if (!desc.attachments.data || !desc.attachments.count || desc.attachments.count > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1)
-		return nullptr;
-
-	uint32 color_count = 0;
-	uint32 depth_count = 0;
-	for (uint32 i = 0; i < desc.attachments.count; ++i)
-	{
-		const AttachmentDesc& attachment = desc.attachments[i];
-		if (attachment.load_op == AttachmentLoadOp::LOAD && attachment.state_before == ImageState::UNDEFINED)
-			return nullptr;
-		if (attachment.state_after == ImageState::UNDEFINED)
-			return nullptr;
-		if (attachment.format == TextureFormat::RGBA8_UNORM && attachment.state_during == ImageState::COLOR_ATTACHMENT)
-			++color_count;
-		else if (attachment.format == TextureFormat::D24_UNORM_S8_UINT && attachment.state_during == ImageState::DEPTH_STENCIL_ATTACHMENT)
-			++depth_count;
-		else
-			return nullptr;
-	}
-	if (color_count > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT || depth_count > 1)
-		return nullptr;
-
+	D3D11_ASSERT(desc.attachments.data && desc.attachments.count &&
+		desc.attachments.count <= D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1);
 	auto* render_pass = new D3D11RenderPass;
 	render_pass->attachments.assign(desc.attachments.data, desc.attachments.data + desc.attachments.count);
 	return reinterpret_cast<RenderPass*>(render_pass);
@@ -92,53 +95,33 @@ static void DestroyRenderPass(RenderPass* render_pass)
 
 static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
 {
-	if (!desc.render_pass || !desc.attachments.data)
-		return nullptr;
+	D3D11_ASSERT(desc.render_pass && desc.attachments.data);
 	auto* render_pass = ToImpl(desc.render_pass);
-	if (desc.attachments.count != render_pass->attachments.size())
-		return nullptr;
-
-	uint32 width = 0;
-	uint32 height = 0;
-	uint32 layers = 0;
-	for (uint32 i = 0; i < desc.attachments.count; ++i)
-	{
-		if (!desc.attachments[i])
-			return nullptr;
-		auto* texture = ToImpl(desc.attachments[i]);
-		if (!texture->resource || texture->desc.format != render_pass->attachments[i].format)
-			return nullptr;
-		if (i == 0)
-		{
-			width = texture->desc.width;
-			height = texture->desc.height;
-			layers = texture->desc.layers;
-		}
-		if (!width || !height || !layers || texture->desc.width != width || texture->desc.height != height || texture->desc.layers != layers)
-			return nullptr;
-		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT && !texture->render_target_view)
-			return nullptr;
-		if (render_pass->attachments[i].state_during == ImageState::DEPTH_STENCIL_ATTACHMENT && !texture->depth_stencil_view)
-			return nullptr;
-	}
-
+	D3D11_ASSERT(desc.attachments.count == render_pass->attachments.size());
 	auto* framebuffer = new D3D11Framebuffer;
 	framebuffer->render_pass = render_pass;
-	framebuffer->width = width;
-	framebuffer->height = height;
-	framebuffer->layers = layers;
 	for (uint32 i = 0; i < desc.attachments.count; ++i)
 	{
+		D3D11_ASSERT(desc.attachments[i]);
 		auto* texture = ToImpl(desc.attachments[i]);
+		if (i == 0)
+		{
+			framebuffer->width = texture->desc.width;
+			framebuffer->height = texture->desc.height;
+			framebuffer->layers = texture->desc.layers;
+		}
 		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT)
 		{
+			D3D11_ASSERT(framebuffer->color_count < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT);
 			auto* view = texture->render_target_view;
+			D3D11_ASSERT(view);
 			view->AddRef();
 			framebuffer->attachment_color_views[i] = view;
 			framebuffer->color_views[framebuffer->color_count++] = view;
 		}
 		else
 		{
+			D3D11_ASSERT(!framebuffer->depth_view && texture->depth_stencil_view);
 			framebuffer->depth_view = texture->depth_stencil_view;
 			framebuffer->depth_view->AddRef();
 		}
@@ -188,27 +171,15 @@ static bool BeginFrame()
 
 static void BeginRenderPass(const RenderPassBeginDesc& desc)
 {
-	if (!desc.render_pass || !desc.framebuffer)
-	{
-		assert(false);
-		return;
-	}
+	D3D11_ASSERT(desc.render_pass && desc.framebuffer);
 	auto* render_pass = ToImpl(desc.render_pass);
 	auto* framebuffer = ToImpl(desc.framebuffer);
-	if (framebuffer->render_pass != render_pass ||
-		(desc.clear_values.count && desc.clear_values.count != render_pass->attachments.size()))
-	{
-		assert(false);
-		return;
-	}
+	D3D11_ASSERT(framebuffer->render_pass == render_pass &&
+		(!desc.clear_values.count || desc.clear_values.count == render_pass->attachments.size()));
 	for (uint32 i = 0; i < render_pass->attachments.size(); ++i)
 	{
-		if (render_pass->attachments[i].load_op == AttachmentLoadOp::CLEAR &&
-			(!desc.clear_values.data || i >= desc.clear_values.count))
-		{
-			assert(false);
-			return;
-		}
+		D3D11_ASSERT(render_pass->attachments[i].load_op != AttachmentLoadOp::CLEAR ||
+			(desc.clear_values.data && i < desc.clear_values.count));
 	}
 
 	d3d_context->OMSetRenderTargets(framebuffer->color_count, framebuffer->color_views, framebuffer->depth_view);
@@ -235,9 +206,9 @@ static void EndRenderPass()
 	d3d_context->OMSetRenderTargets(0, nullptr, nullptr);
 }
 
-static bool EndFrame()
+static void EndFrame()
 {
-	return SUCCEEDED(d3d_swapchain->Present(1, 0));
+	HRES_ASSERT(d3d_swapchain->Present(1, 0));
 }
 
 static void Shutdown()

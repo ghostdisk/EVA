@@ -101,7 +101,7 @@ struct Device
 	Texture* (*GetCurrentBackbuffer)() = nullptr;
 	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
 	void (*EndRenderPass)() = nullptr;
-	bool (*EndFrame)() = nullptr;
+	void (*EndFrame)() = nullptr;
 };
 
 enum class Backend
