@@ -59,9 +59,8 @@ static void EndRenderPass()
 {
 }
 
-static bool EndFrame()
+static void EndFrame()
 {
-	return false;
 }
 
 static bool Init(Device& out_device, const InitOptions&)
