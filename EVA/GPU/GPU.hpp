@@ -9,9 +9,84 @@ struct Window;
 namespace EVA::GPU
 {
 
+struct Texture;
+struct RenderPass;
+struct Framebuffer;
+
+enum class TextureFormat
+{
+	RGBA8_UNORM,
+	D24_UNORM_S8_UINT,
+};
+
+enum class ImageState
+{
+	UNDEFINED,
+	COLOR_ATTACHMENT,
+	DEPTH_STENCIL_ATTACHMENT,
+	SHADER_READ,
+	PRESENT,
+};
+
+enum class AttachmentLoadOp
+{
+	LOAD,
+	CLEAR,
+	DONT_CARE,
+};
+
+enum class AttachmentStoreOp
+{
+	STORE,
+	DONT_CARE,
+};
+
+struct AttachmentDesc
+{
+	TextureFormat format = TextureFormat::RGBA8_UNORM;
+	AttachmentLoadOp load_op = AttachmentLoadOp::LOAD;
+	AttachmentStoreOp store_op = AttachmentStoreOp::STORE;
+	ImageState state_before = ImageState::UNDEFINED;
+	ImageState state_during = ImageState::COLOR_ATTACHMENT;
+	ImageState state_after = ImageState::COLOR_ATTACHMENT;
+};
+
+struct RenderPassDesc
+{
+	Slice<AttachmentDesc> attachments;
+};
+
+struct FramebufferDesc
+{
+	RenderPass* render_pass = nullptr;
+	Slice<Texture*> attachments;
+};
+
+struct ClearValue
+{
+	float color[4] = {};
+	float depth = 1.0f;
+	uint8 stencil = 0;
+};
+
+struct RenderPassBeginDesc
+{
+	RenderPass* render_pass = nullptr;
+	Framebuffer* framebuffer = nullptr;
+	Slice<ClearValue> clear_values;
+};
+
 struct Device
 {
 	void (*Shutdown)() = nullptr;
+	RenderPass* (*CreateRenderPass)(const RenderPassDesc&) = nullptr;
+	void (*DestroyRenderPass)(RenderPass*) = nullptr;
+	Framebuffer* (*CreateFramebuffer)(FramebufferDesc&&) = nullptr;
+	void (*DestroyFramebuffer)(Framebuffer*) = nullptr;
+	Texture* (*GetCurrentBackbuffer)() = nullptr;
+	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
+	void (*EndRenderPass)() = nullptr;
+	bool (*Present)() = nullptr;
 };
 
 enum class Backend

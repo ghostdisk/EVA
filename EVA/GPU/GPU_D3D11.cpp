@@ -2,16 +2,246 @@
 #include <EVA/PAL/PAL.hpp>
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <cassert>
 
 namespace EVA::GPU::D3D11
 {
 
+struct D3D11Texture
+{
+	ID3D11Texture2D* resource = nullptr;
+	ID3D11RenderTargetView* render_target_view = nullptr;
+	ID3D11DepthStencilView* depth_stencil_view = nullptr;
+	TextureFormat format = TextureFormat::RGBA8_UNORM;
+	uint32 width = 0;
+	uint32 height = 0;
+	uint32 layers = 1;
+};
+
+struct D3D11RenderPass
+{
+	AttachmentDesc* attachments = nullptr;
+	uint32 attachment_count = 0;
+};
+
+struct D3D11Framebuffer
+{
+	D3D11RenderPass* render_pass = nullptr;
+	ID3D11RenderTargetView* color_views[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = {};
+	ID3D11RenderTargetView* attachment_color_views[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1] = {};
+	ID3D11DepthStencilView* depth_view = nullptr;
+	uint32 color_count = 0;
+	uint32 width = 0;
+	uint32 height = 0;
+	uint32 layers = 1;
+};
+
 static ID3D11Device* d3d_device = nullptr;
 static ID3D11DeviceContext* d3d_context = nullptr;
 static IDXGISwapChain1* d3d_swapchain = nullptr;
+static D3D11Texture backbuffer;
+
+static D3D11RenderPass* ToImpl(RenderPass* render_pass)
+{
+	return reinterpret_cast<D3D11RenderPass*>(render_pass);
+}
+
+static D3D11Framebuffer* ToImpl(Framebuffer* framebuffer)
+{
+	return reinterpret_cast<D3D11Framebuffer*>(framebuffer);
+}
+
+static D3D11Texture* ToImpl(Texture* texture)
+{
+	return reinterpret_cast<D3D11Texture*>(texture);
+}
+
+static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
+{
+	if (!desc.attachments.data || !desc.attachments.count || desc.attachments.count > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1)
+		return nullptr;
+
+	uint32 color_count = 0;
+	uint32 depth_count = 0;
+	for (uint32 i = 0; i < desc.attachments.count; ++i)
+	{
+		const AttachmentDesc& attachment = desc.attachments[i];
+		if (attachment.load_op == AttachmentLoadOp::LOAD && attachment.state_before == ImageState::UNDEFINED)
+			return nullptr;
+		if (attachment.format == TextureFormat::RGBA8_UNORM && attachment.state_during == ImageState::COLOR_ATTACHMENT)
+			++color_count;
+		else if (attachment.format == TextureFormat::D24_UNORM_S8_UINT && attachment.state_during == ImageState::DEPTH_STENCIL_ATTACHMENT)
+			++depth_count;
+		else
+			return nullptr;
+	}
+	if (color_count > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT || depth_count > 1)
+		return nullptr;
+
+	auto* render_pass = new D3D11RenderPass;
+	render_pass->attachment_count = desc.attachments.count;
+	render_pass->attachments = new AttachmentDesc[desc.attachments.count];
+	for (uint32 i = 0; i < desc.attachments.count; ++i)
+		render_pass->attachments[i] = desc.attachments[i];
+	return reinterpret_cast<RenderPass*>(render_pass);
+}
+
+static void DestroyRenderPass(RenderPass* render_pass)
+{
+	if (!render_pass)
+		return;
+	auto* impl = ToImpl(render_pass);
+	delete[] impl->attachments;
+	delete impl;
+}
+
+static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
+{
+	if (!desc.render_pass || !desc.attachments.data)
+		return nullptr;
+	auto* render_pass = ToImpl(desc.render_pass);
+	if (desc.attachments.count != render_pass->attachment_count)
+		return nullptr;
+
+	uint32 width = 0;
+	uint32 height = 0;
+	uint32 layers = 0;
+	for (uint32 i = 0; i < desc.attachments.count; ++i)
+	{
+		if (!desc.attachments[i])
+			return nullptr;
+		auto* texture = ToImpl(desc.attachments[i]);
+		if (!texture->resource || texture->format != render_pass->attachments[i].format)
+			return nullptr;
+		if (i == 0)
+		{
+			width = texture->width;
+			height = texture->height;
+			layers = texture->layers;
+		}
+		if (!width || !height || !layers || texture->width != width || texture->height != height || texture->layers != layers)
+			return nullptr;
+		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT && !texture->render_target_view)
+			return nullptr;
+		if (render_pass->attachments[i].state_during == ImageState::DEPTH_STENCIL_ATTACHMENT && !texture->depth_stencil_view)
+			return nullptr;
+	}
+
+	auto* framebuffer = new D3D11Framebuffer;
+	framebuffer->render_pass = render_pass;
+	framebuffer->width = width;
+	framebuffer->height = height;
+	framebuffer->layers = layers;
+	for (uint32 i = 0; i < desc.attachments.count; ++i)
+	{
+		auto* texture = ToImpl(desc.attachments[i]);
+		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT)
+		{
+			auto* view = texture->render_target_view;
+			view->AddRef();
+			framebuffer->attachment_color_views[i] = view;
+			framebuffer->color_views[framebuffer->color_count++] = view;
+		}
+		else
+		{
+			framebuffer->depth_view = texture->depth_stencil_view;
+			framebuffer->depth_view->AddRef();
+		}
+	}
+	return reinterpret_cast<Framebuffer*>(framebuffer);
+}
+
+static void DestroyFramebuffer(Framebuffer* framebuffer)
+{
+	if (!framebuffer)
+		return;
+	auto* impl = ToImpl(framebuffer);
+	for (auto* view : impl->color_views)
+	{
+		if (view)
+			view->Release();
+	}
+	if (impl->depth_view)
+		impl->depth_view->Release();
+	delete impl;
+}
+
+static Texture* GetCurrentBackbuffer()
+{
+	return d3d_swapchain ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
+}
+
+static void BeginRenderPass(const RenderPassBeginDesc& desc)
+{
+	if (!desc.render_pass || !desc.framebuffer)
+	{
+		assert(false);
+		return;
+	}
+	auto* render_pass = ToImpl(desc.render_pass);
+	auto* framebuffer = ToImpl(desc.framebuffer);
+	if (framebuffer->render_pass != render_pass ||
+		(desc.clear_values.count && desc.clear_values.count != render_pass->attachment_count))
+	{
+		assert(false);
+		return;
+	}
+	for (uint32 i = 0; i < render_pass->attachment_count; ++i)
+	{
+		if (render_pass->attachments[i].load_op == AttachmentLoadOp::CLEAR &&
+			(!desc.clear_values.data || i >= desc.clear_values.count))
+		{
+			assert(false);
+			return;
+		}
+	}
+
+	d3d_context->OMSetRenderTargets(framebuffer->color_count, framebuffer->color_views, framebuffer->depth_view);
+	D3D11_VIEWPORT viewport = {};
+	viewport.Width = (float)framebuffer->width;
+	viewport.Height = (float)framebuffer->height;
+	viewport.MaxDepth = 1.0f;
+	d3d_context->RSSetViewports(1, &viewport);
+
+	for (uint32 i = 0; i < render_pass->attachment_count; ++i)
+	{
+		if (render_pass->attachments[i].load_op != AttachmentLoadOp::CLEAR)
+			continue;
+		if (render_pass->attachments[i].state_during == ImageState::COLOR_ATTACHMENT)
+			d3d_context->ClearRenderTargetView(framebuffer->attachment_color_views[i], desc.clear_values[i].color);
+		else
+			d3d_context->ClearDepthStencilView(framebuffer->depth_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
+				desc.clear_values[i].depth, desc.clear_values[i].stencil);
+	}
+}
+
+static void EndRenderPass()
+{
+	d3d_context->OMSetRenderTargets(0, nullptr, nullptr);
+}
+
+static bool Present()
+{
+	return SUCCEEDED(d3d_swapchain->Present(1, 0));
+}
 
 static void Shutdown()
 {
+	if (d3d_context)
+	{
+		d3d_context->ClearState();
+	}
+	if (backbuffer.render_target_view)
+	{
+		backbuffer.render_target_view->Release();
+		backbuffer.render_target_view = nullptr;
+	}
+	if (backbuffer.resource)
+	{
+		backbuffer.resource->Release();
+		backbuffer.resource = nullptr;
+	}
+	backbuffer = {};
 	if (d3d_swapchain)
 	{
 		d3d_swapchain->Release();
@@ -70,6 +300,21 @@ static bool InitImpl(Device& out_device, const InitOptions& init_options)
 	result = factory->CreateSwapChainForHwnd(
 		d3d_device, static_cast<HWND>(init_options.window->native_handle),
 		&swapchain_desc, nullptr, nullptr, &d3d_swapchain);
+	if (FAILED(result))
+		return false;
+
+	result = d3d_swapchain->GetBuffer(0, IID_PPV_ARGS(&backbuffer.resource));
+	if (FAILED(result))
+		return false;
+
+	D3D11_TEXTURE2D_DESC backbuffer_desc = {};
+	backbuffer.resource->GetDesc(&backbuffer_desc);
+	backbuffer.width = backbuffer_desc.Width;
+	backbuffer.height = backbuffer_desc.Height;
+	backbuffer.layers = backbuffer_desc.ArraySize;
+	backbuffer.format = TextureFormat::RGBA8_UNORM;
+
+	result = d3d_device->CreateRenderTargetView(backbuffer.resource, nullptr, &backbuffer.render_target_view);
 	return SUCCEEDED(result);
 }
 
@@ -83,6 +328,14 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 
 	out_device = Device{
 		.Shutdown = Shutdown,
+		.CreateRenderPass = CreateRenderPass,
+		.DestroyRenderPass = DestroyRenderPass,
+		.CreateFramebuffer = CreateFramebuffer,
+		.DestroyFramebuffer = DestroyFramebuffer,
+		.GetCurrentBackbuffer = GetCurrentBackbuffer,
+		.BeginRenderPass = BeginRenderPass,
+		.EndRenderPass = EndRenderPass,
+		.Present = Present,
 	};
 	return true;
 }
