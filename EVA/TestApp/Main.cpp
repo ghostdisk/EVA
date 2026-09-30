@@ -1,4 +1,5 @@
 #include <EVA/GPU/GPU.hpp>
+#include <EVA/HLSL/HLSL.hpp>
 #include <EVA/PAL/PAL.hpp>
 #include <vector>
 #ifdef EVA_MACOS
@@ -9,6 +10,24 @@ using namespace EVA;
 
 PAL::Window window;
 bool quit = false;
+
+static const char* triangle_shader_source = R"(
+static const float2 positions[3] = {
+	float2( 0.0,  0.5),
+	float2( 0.5, -0.5),
+	float2(-0.5, -0.5),
+};
+
+float4 VSMain(uint vertex_id : SV_VertexID) : SV_Position
+{
+	return float4(positions[vertex_id], 0.0, 1.0);
+}
+
+float4 PSMain() : SV_Target
+{
+	return float4(1.0, 1.0, 1.0, 1.0);
+}
+)";
 
 static std::vector<GPU::Framebuffer*> framebuffers;
 
@@ -48,6 +67,8 @@ static void PollEvents()
 
 int EVA::AppMain()
 {
+	Slice<uint8> triangle_shader = HLSL::Compile(triangle_shader_source);
+
 	PAL::InitWindow(&window,
 		{
 			.name = "EVA Test App",

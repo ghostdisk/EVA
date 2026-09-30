@@ -93,16 +93,23 @@ if(Vulkan_FOUND)
 	endif()
 endif()
 
+add_library(HLSL STATIC
+	EVA/HLSL/HLSL.hpp
+	EVA/HLSL/HLSL.cpp
+)
+eva_init_target(HLSL)
+target_link_libraries(HLSL PUBLIC Core)
+
 if(ANDROID)
 	find_package(game-activity REQUIRED CONFIG)
 	add_library(eva SHARED EVA/PAL/PAL_Android.cpp EVA/TestApp/Main.cpp)
 	eva_init_target(eva)
-	target_link_libraries(eva PRIVATE GPU game-activity::game-activity_static android log)
+	target_link_libraries(eva PRIVATE GPU HLSL game-activity::game-activity_static android log)
 	target_link_options(eva PRIVATE "LINKER:-u,Java_com_google_androidgamesdk_GameActivity_initializeNativeCode")
 else()
 	add_executable(TestApp EVA/PAL/PAL_Desktop.cpp EVA/TestApp/Main.cpp)
 	eva_init_target(TestApp)
-	target_link_libraries(TestApp PRIVATE GPU)
+	target_link_libraries(TestApp PRIVATE GPU HLSL)
 	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 		set_target_properties(TestApp PROPERTIES
 			MACOSX_BUNDLE TRUE
