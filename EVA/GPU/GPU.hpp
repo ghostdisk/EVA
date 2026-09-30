@@ -109,7 +109,7 @@ struct Device
 	TextureDesc (*GetTextureDesc)(Texture*) = nullptr;
 	bool (*RecreateSwapchain)() = nullptr;
 	FrameStatus (*BeginFrame)() = nullptr;
-	Texture* (*GetCurrentBackbuffer)() = nullptr;
+	uint32 (*GetCurrentBackbufferIndex)() = nullptr;
 	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
 	void (*EndRenderPass)() = nullptr;
 	void (*EndFrame)() = nullptr;

@@ -147,9 +147,9 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 	delete impl;
 }
 
-static Texture* GetCurrentBackbuffer()
+static uint32 GetCurrentBackbufferIndex()
 {
-	return backbuffer.render_target_view ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
+	return 0;
 }
 
 static uint32 GetBackbufferCount()
@@ -159,7 +159,7 @@ static uint32 GetBackbufferCount()
 
 static Texture* GetBackbuffer(uint32 index)
 {
-	return index == 0 ? GetCurrentBackbuffer() : nullptr;
+	return index < GetBackbufferCount() ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
 }
 
 static TextureDesc GetTextureDesc(Texture* texture)
@@ -370,7 +370,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.GetTextureDesc = GetTextureDesc,
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
-		.GetCurrentBackbuffer = GetCurrentBackbuffer,
+		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
 		.BeginRenderPass = BeginRenderPass,
 		.EndRenderPass = EndRenderPass,
 		.EndFrame = EndFrame,

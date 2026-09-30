@@ -55,9 +55,9 @@ static FrameStatus BeginFrame()
 	return FrameStatus::SKIP;
 }
 
-static Texture* GetCurrentBackbuffer()
+static uint32 GetCurrentBackbufferIndex()
 {
-	return nullptr;
+	return 0;
 }
 
 static void BeginRenderPass(const RenderPassBeginDesc&)
@@ -86,7 +86,7 @@ static bool Init(Device& out_device, const InitOptions&)
 		.GetTextureDesc = GetTextureDesc,
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
-		.GetCurrentBackbuffer = GetCurrentBackbuffer,
+		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
 		.BeginRenderPass = BeginRenderPass,
 		.EndRenderPass = EndRenderPass,
 		.EndFrame = EndFrame,

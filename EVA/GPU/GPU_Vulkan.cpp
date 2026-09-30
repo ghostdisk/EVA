@@ -309,9 +309,9 @@ static FrameStatus BeginFrame()
 	return FrameStatus::OK;
 }
 
-static Texture* GetCurrentBackbuffer()
+static uint32 GetCurrentBackbufferIndex()
 {
-	return GetBackbuffer(current_backbuffer);
+	return current_backbuffer;
 }
 
 static VkAttachmentLoadOp ToVkLoadOp(AttachmentLoadOp op)
@@ -991,7 +991,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.GetTextureDesc = GetTextureDesc,
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
-		.GetCurrentBackbuffer = GetCurrentBackbuffer,
+		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
 		.BeginRenderPass = BeginRenderPass,
 		.EndRenderPass = EndRenderPass,
 		.EndFrame = EndFrame,
