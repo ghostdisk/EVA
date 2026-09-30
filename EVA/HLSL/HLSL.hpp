@@ -175,6 +175,29 @@ enum class NodeType : uint8
 	INDEX,      // child: object, index
 };
 
+enum Modifier : uint32
+{
+	MODIFIER_CONST = 1 << 0,
+	MODIFIER_STATIC = 1 << 1,
+	MODIFIER_EXTERN = 1 << 2,
+	MODIFIER_UNIFORM = 1 << 3,
+	MODIFIER_EXPORT = 1 << 4,
+	MODIFIER_INLINE = 1 << 5,
+	MODIFIER_GROUPSHARED = 1 << 6,
+	MODIFIER_GLOBALLYCOHERENT = 1 << 7,
+	MODIFIER_PRECISE = 1 << 8,
+	MODIFIER_ROW_MAJOR = 1 << 9,
+	MODIFIER_COLUMN_MAJOR = 1 << 10,
+	MODIFIER_SNORM = 1 << 11,
+	MODIFIER_UNORM = 1 << 12,
+	MODIFIER_IN = 1 << 13,
+	MODIFIER_OUT = 1 << 14,
+	MODIFIER_INOUT = MODIFIER_IN | MODIFIER_OUT,
+	MODIFIER_NOINTERPOLATION = 1 << 15,
+	MODIFIER_NOPERSPECTIVE = 1 << 16,
+	MODIFIER_CENTROID = 1 << 17,
+};
+
 struct Node
 {
 	NodeType type = NodeType::NONE;
@@ -247,26 +270,21 @@ struct ACase : Node
 	Node* value = nullptr; // nullptr for default
 };
 
-struct Lexer
+struct Parser
 {
 	char* source = nullptr;
 	char* head = nullptr;
 	char error_buffer[256] = {}; // temp
 	Token token = {};
-};
-
-bool LexToken(Lexer& lexer);
-void EatToken(Lexer& lexer);
-
-struct Parser
-{
-	Lexer lexer = {};
 	Arena* arena = nullptr;
 	Node** tail = nullptr; // where the next node of the list being parsed is appended
 };
 
+bool LexToken(Parser& parser);
+void EatToken(Parser& parser);
+
 // Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
-// Returns false on the first error, with the message in parser.lexer.error_buffer.
+// Returns false on the first error, with the message in parser.error_buffer.
 bool Parse(Parser& parser, Node** out_declarations);
 
 Slice<uint8> Compile(const char* source);

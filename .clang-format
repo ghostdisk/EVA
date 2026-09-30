@@ -11,5 +11,6 @@ FixNamespaceComments: false
 IndentCaseLabels: false
 AllowShortEnumsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: None
+AllowShortCaseLabelsOnASingleLine: true
 SortIncludes: Never
 ColumnLimit: 0

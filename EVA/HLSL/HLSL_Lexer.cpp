@@ -128,19 +128,19 @@ static bool IsDigit(char ch)
 	return ch >= '0' && ch <= '9';
 }
 
-static bool SkipWhitespace(Lexer& lexer)
+static bool SkipWhitespace(Parser& parser)
 {
-	char* start = lexer.head;
-	while (IsWhitespace(*lexer.head))
+	char* start = parser.head;
+	while (IsWhitespace(*parser.head))
 	{
-		lexer.head++;
+		parser.head++;
 	}
-	return lexer.head != start;
+	return parser.head != start;
 }
 
-static bool SkipComments(Lexer& lexer)
+static bool SkipComments(Parser& parser)
 {
-	char* head = lexer.head;
+	char* head = parser.head;
 	if (head[0] != '/')
 		return false;
 
@@ -149,7 +149,7 @@ static bool SkipComments(Lexer& lexer)
 		head += 2;
 		while (*head && *head != '\n')
 			head++;
-		lexer.head = head;
+		parser.head = head;
 		return true;
 	}
 
@@ -160,54 +160,54 @@ static bool SkipComments(Lexer& lexer)
 			head++;
 		if (!*head)
 			return false; // unterminated, left in place for LexToken to report
-		lexer.head = head + 2;
+		parser.head = head + 2;
 		return true;
 	}
 
 	return false;
 }
 
-bool LexToken(Lexer& lexer)
+bool LexToken(Parser& parser)
 {
-	if (lexer.head == lexer.token.start)
+	if (parser.head == parser.token.start)
 	{
 		// token alredy lexed but not eaten, no need to lex it twice.
 		return true;
 	}
 
-	while (SkipWhitespace(lexer) || SkipComments(lexer))
+	while (SkipWhitespace(parser) || SkipComments(parser))
 	{
 	}
 
-	char ch = *lexer.head;
+	char ch = *parser.head;
 
 	if (ch == '\0')
 	{
-		lexer.token = Token{
+		parser.token = Token{
 			.token_type = TokenType::END_OF_FILE,
-			.start = lexer.head,
-			.end = lexer.head,
+			.start = parser.head,
+			.end = parser.head,
 		};
 		return true;
 	}
 
-	if (ch == '/' && lexer.head[1] == '*')
+	if (ch == '/' && parser.head[1] == '*')
 	{
-		snprintf(lexer.error_buffer, sizeof(lexer.error_buffer), "unterminated block comment");
+		snprintf(parser.error_buffer, sizeof(parser.error_buffer), "unterminated block comment");
 		return false;
 	}
 
 	// Checked before operators so ".5" isn't lexed as DOT.
-	if (IsDigit(ch) || (ch == '.' && IsDigit(lexer.head[1])))
+	if (IsDigit(ch) || (ch == '.' && IsDigit(parser.head[1])))
 	{
-		char* end = lexer.head + 1;
+		char* end = parser.head + 1;
 		while (IsLetter(*end) || IsDigit(*end) || *end == '.' ||
 			   ((*end == '+' || *end == '-') && (end[-1] == 'e' || end[-1] == 'E')))
 			end++;
 
-		lexer.token = Token{
+		parser.token = Token{
 			.token_type = TokenType::NUMBER,
-			.start = lexer.head,
+			.start = parser.head,
 			.end = end,
 		};
 		return true;
@@ -220,45 +220,45 @@ bool LexToken(Lexer& lexer)
 			for (const MultiCharOperator& op : multi_char_operators)
 			{
 				uint32 length = (uint32)strlen(op.op);
-				if (strncmp(lexer.head, op.op, length) == 0)
+				if (strncmp(parser.head, op.op, length) == 0)
 				{
-					lexer.token = Token{
+					parser.token = Token{
 						.token_type = op.token_type,
-						.start = lexer.head,
-						.end = lexer.head + length,
+						.start = parser.head,
+						.end = parser.head + length,
 					};
 					return true;
 				}
 			}
 		}
 
-		lexer.token = Token{
+		parser.token = Token{
 			.token_type = (TokenType)ch,
-			.start = lexer.head,
-			.end = lexer.head + 1,
+			.start = parser.head,
+			.end = parser.head + 1,
 		};
 		return true;
 	}
 
 	if (IsLetter(ch))
 	{
-		lexer.token = Token{
+		parser.token = Token{
 			.token_type = TokenType::IDENTIFIER,
-			.start = lexer.head,
+			.start = parser.head,
 		};
 
-		char* end = lexer.head + 1;
+		char* end = parser.head + 1;
 		while (IsLetter(*end) || IsDigit(*end))
 			end++;
-		lexer.token.end = end;
+		parser.token.end = end;
 
-		uint32 length = (uint32)(end - lexer.head);
+		uint32 length = (uint32)(end - parser.head);
 		for (const Keyword& keyword : keywords)
 		{
 			if (length < sizeof(keyword.keyword) && keyword.keyword[length] == '\0' &&
-				memcmp(keyword.keyword, lexer.head, length) == 0)
+				memcmp(keyword.keyword, parser.head, length) == 0)
 			{
-				lexer.token.token_type = keyword.token_type;
+				parser.token.token_type = keyword.token_type;
 				break;
 			}
 		}
@@ -268,14 +268,14 @@ bool LexToken(Lexer& lexer)
 
 	// ...
 
-	snprintf(lexer.error_buffer, sizeof(lexer.error_buffer), "unexpected character %d", (int)ch);
+	snprintf(parser.error_buffer, sizeof(parser.error_buffer), "unexpected character %d", (int)ch);
 	return false;
 }
 
-void EatToken(Lexer& lexer)
+void EatToken(Parser& parser)
 {
-	lexer.head = lexer.token.end;
-	lexer.token = {};
+	parser.head = parser.token.end;
+	parser.token = {};
 }
 
 }
