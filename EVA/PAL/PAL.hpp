@@ -22,11 +22,15 @@ enum class EventType
 	QUIT,
 	SURFACE_AVAILABLE,
 	SURFACE_UNAVAILABLE,
+	WINDOW_RESIZE,
 };
 
 struct Event
 {
 	EventType type = EventType::NONE;
+	// WINDOW_RESIZE: new drawable size in pixels.
+	int width = 0;
+	int height = 0;
 };
 
 void Init();

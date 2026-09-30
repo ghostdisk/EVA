@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
 #include <vector>
 #ifdef EVA_WIN32
 #include <Windows.h>
@@ -31,7 +32,6 @@ struct VulkanTexture
 	VkImage image = VK_NULL_HANDLE;
 	VkImageView view = VK_NULL_HANDLE;
 	TextureDesc desc;
-	ImageState state = ImageState::UNDEFINED;
 	bool owned_by_swapchain = false;
 };
 
@@ -66,6 +66,7 @@ static VkDevice device = VK_NULL_HANDLE;
 static VkQueue graphics_queue = VK_NULL_HANDLE;
 static VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 static std::vector<VulkanTexture> backbuffers;
+static VkSurfaceTransformFlagBitsKHR swapchain_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 static bool swapchain_dirty = false;
 static bool acquire_suboptimal = false;
 static PAL::Window* pal_window = nullptr;
@@ -202,9 +203,9 @@ static VkImageSubresourceRange Subresource(const VulkanTexture& texture)
 	};
 }
 
-static void ImageBarrier(VkImage image, VkImageSubresourceRange subresource, ImageState before, ImageState after)
+static void ImageBarrier(const VulkanTexture& texture, ImageState before, ImageState after)
 {
-	auto barrier = VkImageMemoryBarrier{
+	VkImageMemoryBarrier barrier{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcAccessMask = ImageAccess(before),
 		.dstAccessMask = ImageAccess(after),
@@ -212,10 +213,29 @@ static void ImageBarrier(VkImage image, VkImageSubresourceRange subresource, Ima
 		.newLayout = ImageLayout(after),
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image,
-		.subresourceRange = subresource,
+		.image = texture.image,
+		.subresourceRange = Subresource(texture),
 	};
-	vkCmdPipelineBarrier(command_buffer, ImageStage(before), ImageStage(after), 0, 0, nullptr, 0, nullptr, 1, &barrier);
+	VkPipelineStageFlags stateBefore = ImageStage(before);
+	VkPipelineStageFlags stateAfter = ImageStage(after);
+
+	if (before == ImageState::UNDEFINED)
+	{
+		switch (after)
+		{
+		case ImageState::COLOR_ATTACHMENT:
+		{
+			stateBefore = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+			break;
+		}
+		default:
+		{
+			fprintf(stderr, "not implemented");
+			exit(1);
+		}
+		}
+	}
+	vkCmdPipelineBarrier(command_buffer, stateBefore, stateAfter, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 static void DestroyTexture(VulkanTexture& texture)
@@ -427,8 +447,7 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 				clear_values[i].depthStencil.stencil = desc.clear_values[i].stencil;
 			}
 		}
-		ImageBarrier(texture->image, Subresource(*texture), texture->state, attachment.state_during);
-		texture->state = attachment.state_during;
+		ImageBarrier(*texture, attachment.state_before, attachment.state_during);
 	}
 	auto begin_info = VkRenderPassBeginInfo{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -448,10 +467,8 @@ static void EndRenderPass()
 	vkCmdEndRenderPass(command_buffer);
 	for (uint32 i = 0; i < active_render_pass->attachments.size(); ++i)
 	{
-		VulkanTexture* texture = active_framebuffer->attachments[i];
-		ImageState after = active_render_pass->attachments[i].state_after;
-		ImageBarrier(texture->image, Subresource(*texture), texture->state, after);
-		texture->state = after;
+		const AttachmentDesc& attachment = active_render_pass->attachments[i];
+		ImageBarrier(*active_framebuffer->attachments[i], attachment.state_during, attachment.state_after);
 	}
 	active_render_pass = nullptr;
 	active_framebuffer = nullptr;
@@ -665,6 +682,16 @@ static bool ChoosePhysicalDevice()
 	return physical_device.device != VK_NULL_HANDLE;
 }
 
+// With preTransform = currentTransform, Android expects images in the display's identity orientation,
+// while currentExtent is reported in the current orientation.
+static VkExtent2D IdentityExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+{
+	VkExtent2D extent = capabilities.currentExtent;
+	if (capabilities.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR))
+		std::swap(extent.width, extent.height);
+	return extent;
+}
+
 static bool CreateSwapchain()
 {
 	VkSurfaceCapabilitiesKHR capabilities = {};
@@ -674,7 +701,7 @@ static bool CreateSwapchain()
 	TextureFormat texture_format = physical_device.format.format == VK_FORMAT_R8G8B8A8_UNORM
 									   ? TextureFormat::RGBA8_UNORM
 									   : TextureFormat::BGRA8_UNORM;
-	VkExtent2D extent = capabilities.currentExtent;
+	VkExtent2D extent = IdentityExtent(capabilities);
 	if (!extent.width || !extent.height)
 		return false;
 	uint32 requested_count = capabilities.minImageCount + 1;
@@ -699,6 +726,7 @@ static bool CreateSwapchain()
 		.clipped = VK_TRUE,
 	};
 	VK_ASSERT(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain));
+	swapchain_transform = capabilities.currentTransform;
 	uint32 image_count = 0;
 	VK_ASSERT(vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr));
 	std::vector<VkImage> images(image_count);
@@ -767,6 +795,16 @@ static void HandlePALEvent(const PAL::Event& event)
 		{
 			CreateSurface(pal_window);
 			swapchain_dirty = true;
+		}
+		break;
+	case PAL::EventType::WINDOW_RESIZE:
+		if (swapchain && !swapchain_dirty)
+		{
+			VkSurfaceCapabilitiesKHR capabilities = {};
+			VK_ASSERT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &capabilities));
+			VkExtent2D extent = IdentityExtent(capabilities);
+			swapchain_dirty = extent.width != backbuffers[0].desc.width || extent.height != backbuffers[0].desc.height ||
+							  capabilities.currentTransform != swapchain_transform;
 		}
 		break;
 	default:

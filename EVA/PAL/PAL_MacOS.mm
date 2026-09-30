@@ -25,6 +25,27 @@ void EmitEvent(Event event);
 	return NO;
 }
 
+- (void)emitResize:(NSWindow*)window
+{
+	NSSize size = [window.contentView convertRectToBacking:window.contentView.bounds].size;
+	EVA::PAL::EmitEvent({
+		.type = EVA::PAL::EventType::WINDOW_RESIZE,
+		.width = (int)size.width,
+		.height = (int)size.height,
+	});
+}
+
+- (void)windowDidResize:(NSNotification*)notification
+{
+	[self emitResize:notification.object];
+}
+
+- (void)windowDidChangeBackingProperties:(NSNotification*)notification
+{
+	// Moving between displays changes the pixel size without a resize.
+	[self emitResize:notification.object];
+}
+
 @end
 
 namespace EVA::PAL

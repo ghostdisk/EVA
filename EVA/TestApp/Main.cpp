@@ -83,7 +83,7 @@ int EVA::AppMain()
 			GPU::AttachmentDesc{
 				.format = GPU::device.backbuffer_format,
 				.load_op = GPU::AttachmentLoadOp::CLEAR,
-				.state_before = GPU::ImageState::PRESENT,
+				.state_before = GPU::ImageState::UNDEFINED,
 				.state_during = GPU::ImageState::COLOR_ATTACHMENT,
 				.state_after = GPU::ImageState::PRESENT,
 			},
@@ -95,7 +95,8 @@ int EVA::AppMain()
 	DEFER(GPU::device.DestroyRenderPass(render_pass));
 	std::vector<BackbufferFramebuffer> backbuffers;
 	DEFER(DestroyBackbuffers(backbuffers));
-	auto SyncBackbuffers = [&]() {
+	auto SyncBackbuffers = [&]()
+	{
 		uint32 count = GPU::device.GetBackbufferCount();
 		bool changed = count != backbuffers.size();
 		for (uint32 i = 0; !changed && i < count; ++i)
