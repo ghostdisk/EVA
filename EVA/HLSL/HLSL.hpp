@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
+#include <EVA/Core/Arena.hpp>
 
 namespace EVA::HLSL
 {
@@ -130,6 +131,122 @@ struct Token
 	char* end = nullptr;
 };
 
+// Layouts below: "child" is Node::child, following entries are chained via Node::next.
+enum class NodeType : uint8
+{
+	NONE = 0,
+	EMPTY, // placeholder, e.g. the size of an unsized array []
+
+	// declarations
+	MODULE,   // child: declarations
+	VARIABLE, // AVariable, flags: modifiers
+	FUNCTION, // AFunction, flags: modifiers
+	STRUCT,   // name, child: members (VARIABLE / FUNCTION)
+	TYPEDEF,  // ATypedef
+	ATTRIBUTE, // name, child: arguments
+
+	// statements
+	BLOCK,    // child: statements
+	IF,       // AIf
+	FOR,      // AFor
+	WHILE,    // AWhile
+	DO_WHILE, // AWhile
+	SWITCH,   // ASwitch, child: CASEs
+	CASE,     // ACase, child: statements
+	RETURN,   // child: value, or none
+	BREAK,
+	CONTINUE,
+	DISCARD,
+
+	// expressions
+	NUMBER,     // name: text
+	BOOL,       // name: true/false
+	STRING,     // name: text
+	IDENTIFIER, // name
+	TYPE,       // name, flags: type modifiers, child: template arguments
+	INIT_LIST,  // child: elements
+	UNARY,      // AOperator, op: operator, child: operand
+	POSTFIX,    // AOperator, op: operator, child: operand
+	BINARY,     // AOperator, op: operator (including assignments), child: left, right
+	TERNARY,    // child: condition, then, else
+	CALL,       // child: callee, arguments...
+	CAST,       // child: TYPE, operand
+	MEMBER,     // name: member name (including swizzles), child: object
+	INDEX,      // child: object, index
+};
+
+struct Node
+{
+	NodeType type = NodeType::NONE;
+	char name[16] = {};
+	uint32 flags = 0;
+	Node* child = nullptr;
+	Node* next = nullptr;
+};
+
+struct AOperator : Node
+{
+	TokenType op = TokenType::NONE;
+};
+
+struct AVariable : Node
+{
+	Node* declared_type = nullptr;  // TYPE
+	Node* array_sizes = nullptr; // one expression per dimension, EMPTY for []
+	char semantic[32] = {};      // empty if absent
+	Node* initializer = nullptr; // expression or INIT_LIST. default value for parameters
+};
+
+struct AFunction : Node
+{
+	Node* attributes = nullptr;  // ATTRIBUTEs
+	Node* return_type = nullptr; // TYPE
+	Node* params = nullptr;      // VARIABLEs
+	char semantic[32] = {};      // empty if absent
+	Node* body = nullptr;        // BLOCK, nullptr for a prototype
+};
+
+struct ATypedef : Node
+{
+	Node* declared_type = nullptr;  // TYPE
+	Node* array_sizes = nullptr; // one expression per dimension
+};
+
+struct AIf : Node
+{
+	Node* attributes = nullptr;
+	Node* condition = nullptr;
+	Node* then = nullptr;
+	Node* otherwise = nullptr; // nullptr if no else
+};
+
+struct AFor : Node
+{
+	Node* attributes = nullptr;
+	Node* init = nullptr;      // VARIABLEs or expressions, nullptr if empty
+	Node* condition = nullptr; // nullptr if empty
+	Node* step = nullptr;      // nullptr if empty
+	Node* body = nullptr;
+};
+
+struct AWhile : Node
+{
+	Node* attributes = nullptr;
+	Node* condition = nullptr;
+	Node* body = nullptr;
+};
+
+struct ASwitch : Node
+{
+	Node* attributes = nullptr;
+	Node* value = nullptr;
+};
+
+struct ACase : Node
+{
+	Node* value = nullptr; // nullptr for default
+};
+
 struct Lexer
 {
 	char* source = nullptr;
@@ -140,6 +257,17 @@ struct Lexer
 
 bool LexToken(Lexer& lexer);
 void EatToken(Lexer& lexer);
+
+struct Parser
+{
+	Lexer lexer = {};
+	Arena* arena = nullptr;
+	Node** tail = nullptr; // where the next node of the list being parsed is appended
+};
+
+// Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
+// Returns false on the first error, with the message in parser.lexer.error_buffer.
+bool Parse(Parser& parser, Node** out_declarations);
 
 Slice<uint8> Compile(const char* source);
 
