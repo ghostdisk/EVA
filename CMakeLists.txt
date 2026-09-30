@@ -8,7 +8,8 @@ endfunction()
 
 add_library(Core STATIC
 	EVA/Core/Common.hpp
-	EVA/Core/Common.cpp
+	EVA/Core/Arena.hpp
+	EVA/Core/Arena.cpp
 )
 eva_init_target(Core)
 
