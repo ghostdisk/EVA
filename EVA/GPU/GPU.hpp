@@ -87,6 +87,14 @@ struct RenderPassBeginDesc
 	Slice<ClearValue> clear_values;
 };
 
+enum class FrameStatus
+{
+	OK,
+	SKIP,
+	// Destroy everything that references backbuffers, then call RecreateSwapchain.
+	SWAPCHAIN_OUTDATED,
+};
+
 struct Device
 {
 	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
@@ -96,11 +104,11 @@ struct Device
 	void (*DestroyRenderPass)(RenderPass*) = nullptr;
 	Framebuffer* (*CreateFramebuffer)(FramebufferDesc&&) = nullptr;
 	void (*DestroyFramebuffer)(Framebuffer*) = nullptr;
-	// A zero count invalidates existing backbuffer framebuffers before the next BeginFrame.
 	uint32 (*GetBackbufferCount)() = nullptr;
 	Texture* (*GetBackbuffer)(uint32 index) = nullptr;
 	TextureDesc (*GetTextureDesc)(Texture*) = nullptr;
-	bool (*BeginFrame)() = nullptr;
+	bool (*RecreateSwapchain)() = nullptr;
+	FrameStatus (*BeginFrame)() = nullptr;
 	Texture* (*GetCurrentBackbuffer)() = nullptr;
 	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
 	void (*EndRenderPass)() = nullptr;

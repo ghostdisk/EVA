@@ -45,9 +45,14 @@ static TextureDesc GetTextureDesc(Texture*)
 	return {};
 }
 
-static bool BeginFrame()
+static bool RecreateSwapchain()
 {
 	return false;
+}
+
+static FrameStatus BeginFrame()
+{
+	return FrameStatus::SKIP;
 }
 
 static Texture* GetCurrentBackbuffer()
@@ -79,6 +84,7 @@ static bool Init(Device& out_device, const InitOptions&)
 		.GetBackbufferCount = GetBackbufferCount,
 		.GetBackbuffer = GetBackbuffer,
 		.GetTextureDesc = GetTextureDesc,
+		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbuffer = GetCurrentBackbuffer,
 		.BeginRenderPass = BeginRenderPass,

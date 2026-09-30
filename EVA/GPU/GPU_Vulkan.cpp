@@ -249,8 +249,7 @@ static void DestroyTexture(VulkanTexture& texture)
 
 static uint32 GetBackbufferCount()
 {
-	// Give the app a chance to destroy framebuffers before BeginFrame destroys the old image views.
-	return swapchain_dirty ? 0 : (uint32)backbuffers.size();
+	return (uint32)backbuffers.size();
 }
 
 static Texture* GetBackbuffer(uint32 index)
@@ -263,27 +262,40 @@ static TextureDesc GetTextureDesc(Texture* texture)
 	return texture ? ToImpl(texture)->desc : TextureDesc{};
 }
 
-static bool BeginFrame()
+static bool RecreateSwapchain()
 {
 	if (!surface)
 		return false;
+	if (swapchain)
+		DestroySwapchainResources();
+	if (!CreateSwapchain())
+		return false;
+	swapchain_dirty = false;
+	return true;
+}
+
+static FrameStatus BeginFrame()
+{
+	if (!surface)
+	{
+		return FrameStatus::SKIP;
+	}
 	if (swapchain_dirty)
 	{
-		if (swapchain)
-			DestroySwapchainResources();
-		if (!CreateSwapchain())
-			return false;
-		swapchain_dirty = false;
+		VkSurfaceCapabilitiesKHR capabilities = {};
+		VK_ASSERT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &capabilities));
+		if (!capabilities.currentExtent.width || !capabilities.currentExtent.height)
+			return FrameStatus::SKIP;
+		return FrameStatus::SWAPCHAIN_OUTDATED;
 	}
-	if (!swapchain)
-		return false;
+	assert(swapchain);
+
 	VK_ASSERT(vkWaitForFences(device, 1, &submit_fence, VK_TRUE, UINT64_MAX));
-	VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX,
-		image_available, VK_NULL_HANDLE, &current_backbuffer);
+	VkResult result = vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, image_available, VK_NULL_HANDLE, &current_backbuffer);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		swapchain_dirty = true;
-		return false;
+		return FrameStatus::SWAPCHAIN_OUTDATED;
 	}
 	if (result != VK_SUBOPTIMAL_KHR)
 		VK_ASSERT(result);
@@ -294,7 +306,7 @@ static bool BeginFrame()
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
 	VK_ASSERT(vkBeginCommandBuffer(command_buffer, &begin_info));
-	return true;
+	return FrameStatus::OK;
 }
 
 static Texture* GetCurrentBackbuffer()
@@ -524,11 +536,6 @@ static void DestroySwapchainResources()
 	for (VulkanTexture& texture : backbuffers)
 		DestroyTexture(texture);
 	backbuffers.clear();
-	if (swapchain)
-	{
-		vkDestroySwapchainKHR(device, swapchain, nullptr);
-		swapchain = VK_NULL_HANDLE;
-	}
 	current_backbuffer = 0;
 	acquire_suboptimal = false;
 }
@@ -536,6 +543,11 @@ static void DestroySwapchainResources()
 static void DestroySurfaceResources()
 {
 	DestroySwapchainResources();
+	if (swapchain)
+	{
+		vkDestroySwapchainKHR(device, swapchain, nullptr);
+		swapchain = VK_NULL_HANDLE;
+	}
 	swapchain_dirty = false;
 	if (surface)
 	{
@@ -724,8 +736,12 @@ static bool CreateSwapchain()
 							  : (VkCompositeAlphaFlagBitsKHR)(capabilities.supportedCompositeAlpha & -capabilities.supportedCompositeAlpha),
 		.presentMode = VK_PRESENT_MODE_FIFO_KHR,
 		.clipped = VK_TRUE,
+		.oldSwapchain = swapchain,
 	};
+	VkSwapchainKHR old_swapchain = swapchain;
 	VK_ASSERT(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain));
+	if (old_swapchain)
+		vkDestroySwapchainKHR(device, old_swapchain, nullptr);
 	swapchain_transform = capabilities.currentTransform;
 	uint32 image_count = 0;
 	VK_ASSERT(vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr));
@@ -973,6 +989,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.GetBackbufferCount = GetBackbufferCount,
 		.GetBackbuffer = GetBackbuffer,
 		.GetTextureDesc = GetTextureDesc,
+		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbuffer = GetCurrentBackbuffer,
 		.BeginRenderPass = BeginRenderPass,

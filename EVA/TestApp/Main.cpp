@@ -16,11 +16,25 @@ struct BackbufferFramebuffer
 	GPU::Framebuffer* framebuffer = nullptr;
 };
 
-static void DestroyBackbuffers(std::vector<BackbufferFramebuffer>& backbuffers)
+static void DestroyFramebuffers(std::vector<BackbufferFramebuffer>& backbuffers)
 {
 	for (BackbufferFramebuffer& entry : backbuffers)
 		GPU::device.DestroyFramebuffer(entry.framebuffer);
 	backbuffers.clear();
+}
+
+static void CreateFramebuffers(std::vector<BackbufferFramebuffer>& backbuffers, GPU::RenderPass* render_pass)
+{
+	uint32 count = GPU::device.GetBackbufferCount();
+	backbuffers.resize(count);
+	for (uint32 i = 0; i < count; ++i)
+	{
+		backbuffers[i].texture = GPU::device.GetBackbuffer(i);
+		backbuffers[i].framebuffer = GPU::device.CreateFramebuffer({
+			.render_pass = render_pass,
+			.attachments = { backbuffers[i].texture },
+		});
+	}
 }
 
 static void PollEvents(std::vector<BackbufferFramebuffer>* backbuffers = nullptr)
@@ -29,7 +43,7 @@ static void PollEvents(std::vector<BackbufferFramebuffer>* backbuffers = nullptr
 	while (PAL::Poll(&event))
 	{
 		if (event.type == PAL::EventType::SURFACE_UNAVAILABLE && backbuffers)
-			DestroyBackbuffers(*backbuffers);
+			DestroyFramebuffers(*backbuffers);
 		GPU::device.HandlePALEvent(event);
 		if (event.type == PAL::EventType::QUIT)
 		{
@@ -94,27 +108,8 @@ int EVA::AppMain()
 
 	DEFER(GPU::device.DestroyRenderPass(render_pass));
 	std::vector<BackbufferFramebuffer> backbuffers;
-	DEFER(DestroyBackbuffers(backbuffers));
-	auto SyncBackbuffers = [&]()
-	{
-		uint32 count = GPU::device.GetBackbufferCount();
-		bool changed = count != backbuffers.size();
-		for (uint32 i = 0; !changed && i < count; ++i)
-			changed = backbuffers[i].texture != GPU::device.GetBackbuffer(i);
-		if (!changed)
-			return;
-		DestroyBackbuffers(backbuffers);
-		backbuffers.resize(count);
-		for (uint32 i = 0; i < count; ++i)
-		{
-			backbuffers[i].texture = GPU::device.GetBackbuffer(i);
-			backbuffers[i].framebuffer = GPU::device.CreateFramebuffer({
-				.render_pass = render_pass,
-				.attachments = { backbuffers[i].texture },
-			});
-		}
-	};
-	SyncBackbuffers();
+	DEFER(DestroyFramebuffers(backbuffers));
+	CreateFramebuffers(backbuffers, render_pass);
 	int result = 0;
 
 	while (!quit)
@@ -122,11 +117,17 @@ int EVA::AppMain()
 		PollEvents(&backbuffers);
 		if (quit)
 			break;
-		SyncBackbuffers();
 
-		if (!GPU::device.BeginFrame())
+		GPU::FrameStatus status = GPU::device.BeginFrame();
+		if (status == GPU::FrameStatus::SKIP)
 			continue;
-		SyncBackbuffers();
+		if (status == GPU::FrameStatus::SWAPCHAIN_OUTDATED)
+		{
+			DestroyFramebuffers(backbuffers);
+			if (GPU::device.RecreateSwapchain())
+				CreateFramebuffers(backbuffers, render_pass);
+			continue;
+		}
 		GPU::Texture* backbuffer = GPU::device.GetCurrentBackbuffer();
 		if (!backbuffer)
 		{

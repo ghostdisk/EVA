@@ -60,6 +60,9 @@ static ID3D11Device* d3d_device = nullptr;
 static ID3D11DeviceContext* d3d_context = nullptr;
 static IDXGISwapChain1* d3d_swapchain = nullptr;
 static D3D11Texture backbuffer;
+static bool swapchain_dirty = false;
+static uint32 window_width = 0;
+static uint32 window_height = 0;
 
 static D3D11RenderPass* ToImpl(RenderPass* render_pass)
 {
@@ -146,12 +149,12 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 
 static Texture* GetCurrentBackbuffer()
 {
-	return d3d_swapchain ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
+	return backbuffer.render_target_view ? reinterpret_cast<Texture*>(&backbuffer) : nullptr;
 }
 
 static uint32 GetBackbufferCount()
 {
-	return d3d_swapchain ? 1 : 0;
+	return backbuffer.render_target_view ? 1 : 0;
 }
 
 static Texture* GetBackbuffer(uint32 index)
@@ -164,9 +167,53 @@ static TextureDesc GetTextureDesc(Texture* texture)
 	return texture ? ToImpl(texture)->desc : TextureDesc{};
 }
 
-static bool BeginFrame()
+static bool AcquireBackbuffer()
 {
-	return d3d_swapchain != nullptr;
+	if (FAILED(d3d_swapchain->GetBuffer(0, IID_PPV_ARGS(&backbuffer.resource))))
+		return false;
+
+	D3D11_TEXTURE2D_DESC backbuffer_desc = {};
+	backbuffer.resource->GetDesc(&backbuffer_desc);
+	backbuffer.desc.width = backbuffer_desc.Width;
+	backbuffer.desc.height = backbuffer_desc.Height;
+	backbuffer.desc.layers = backbuffer_desc.ArraySize;
+	backbuffer.desc.mip_levels = backbuffer_desc.MipLevels;
+	backbuffer.desc.format = TextureFormat::RGBA8_UNORM;
+
+	return SUCCEEDED(d3d_device->CreateRenderTargetView(backbuffer.resource, nullptr, &backbuffer.render_target_view));
+}
+
+static void ReleaseBackbuffer()
+{
+	if (backbuffer.render_target_view)
+		backbuffer.render_target_view->Release();
+	if (backbuffer.resource)
+		backbuffer.resource->Release();
+	backbuffer = {};
+}
+
+static bool RecreateSwapchain()
+{
+	if (!d3d_swapchain)
+		return false;
+	ReleaseBackbuffer();
+	// ResizeBuffers fails while the context still holds the old backbuffer, including deferred releases.
+	d3d_context->ClearState();
+	d3d_context->Flush();
+	HRES_ASSERT(d3d_swapchain->ResizeBuffers(0, window_width, window_height, DXGI_FORMAT_UNKNOWN, 0));
+	if (!AcquireBackbuffer())
+		return false;
+	swapchain_dirty = false;
+	return true;
+}
+
+static FrameStatus BeginFrame()
+{
+	if (!d3d_swapchain)
+		return FrameStatus::SKIP;
+	if (swapchain_dirty)
+		return window_width && window_height ? FrameStatus::SWAPCHAIN_OUTDATED : FrameStatus::SKIP;
+	return FrameStatus::OK;
 }
 
 static void BeginRenderPass(const RenderPassBeginDesc& desc)
@@ -217,17 +264,8 @@ static void Shutdown()
 	{
 		d3d_context->ClearState();
 	}
-	if (backbuffer.render_target_view)
-	{
-		backbuffer.render_target_view->Release();
-		backbuffer.render_target_view = nullptr;
-	}
-	if (backbuffer.resource)
-	{
-		backbuffer.resource->Release();
-		backbuffer.resource = nullptr;
-	}
-	backbuffer = {};
+	ReleaseBackbuffer();
+	swapchain_dirty = false;
 	if (d3d_swapchain)
 	{
 		d3d_swapchain->Release();
@@ -245,8 +283,19 @@ static void Shutdown()
 	}
 }
 
-static void HandlePALEvent(const PAL::Event&)
+static void HandlePALEvent(const PAL::Event& event)
 {
+	switch (event.type)
+	{
+	case PAL::EventType::WINDOW_RESIZE:
+		// The flip model stretches instead of reporting an outdated swapchain, so track the size ourselves.
+		window_width = (uint32)event.width;
+		window_height = (uint32)event.height;
+		swapchain_dirty = window_width != backbuffer.desc.width || window_height != backbuffer.desc.height;
+		break;
+	default:
+		break;
+	}
 }
 
 static bool InitImpl(Device& out_device, const InitOptions& init_options)
@@ -293,20 +342,11 @@ static bool InitImpl(Device& out_device, const InitOptions& init_options)
 	if (FAILED(result))
 		return false;
 
-	result = d3d_swapchain->GetBuffer(0, IID_PPV_ARGS(&backbuffer.resource));
-	if (FAILED(result))
+	if (!AcquireBackbuffer())
 		return false;
-
-	D3D11_TEXTURE2D_DESC backbuffer_desc = {};
-	backbuffer.resource->GetDesc(&backbuffer_desc);
-	backbuffer.desc.width = backbuffer_desc.Width;
-	backbuffer.desc.height = backbuffer_desc.Height;
-	backbuffer.desc.layers = backbuffer_desc.ArraySize;
-	backbuffer.desc.mip_levels = backbuffer_desc.MipLevels;
-	backbuffer.desc.format = TextureFormat::RGBA8_UNORM;
-
-	result = d3d_device->CreateRenderTargetView(backbuffer.resource, nullptr, &backbuffer.render_target_view);
-	return SUCCEEDED(result);
+	window_width = backbuffer.desc.width;
+	window_height = backbuffer.desc.height;
+	return true;
 }
 
 static bool Init(Device& out_device, const InitOptions& init_options)
@@ -328,6 +368,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.GetBackbufferCount = GetBackbufferCount,
 		.GetBackbuffer = GetBackbuffer,
 		.GetTextureDesc = GetTextureDesc,
+		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbuffer = GetCurrentBackbuffer,
 		.BeginRenderPass = BeginRenderPass,
