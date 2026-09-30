@@ -96,6 +96,7 @@ endif()
 add_library(HLSL STATIC
 	EVA/HLSL/HLSL.hpp
 	EVA/HLSL/HLSL.cpp
+	EVA/HLSL/HLSL_Lexer.cpp
 )
 eva_init_target(HLSL)
 target_link_libraries(HLSL PUBLIC Core)
