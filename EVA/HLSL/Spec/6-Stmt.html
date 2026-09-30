@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en-GB-oxendict"></html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+
+    <!-- <link rel="stylesheet" type="text/css" href="template.css" /> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <meta name="generator" content="pandoc" />
+
+  <title>Statements[Stmt]</title>
+
+  <link rel="stylesheet" href="assets/style.css" />
+
+<a href="index.html" accesskey="t" rel="top">
+<img
+  src="https://microsoft.github.io/hlsl-specs/resources/HLSL.png"
+  class="logo"
+  width="128"
+/>
+</a>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <span class="doc-title">High-Level Shader Language
+Specification<br />
+<span>Working Draft</span></span>
+    </div>
+  </nav>
+    <div class="container">
+    <div class="row">
+
+      <div id="toc" class="col-md-3">
+        <div class="well toc">
+
+        <ul>
+        <li><a href="1-Intro.html" id="toc-Intro"><span
+        class="toc-section-number">1</span> Introduction[Intro]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Scope" id="toc-Intro.Scope"><span
+        class="toc-section-number">1.1</span> Scope[Intro.Scope]</a></li>
+        <li><a href="1-Intro.html#Intro.Refs" id="toc-Intro.Refs"><span
+        class="toc-section-number">1.2</span> Normative
+        References[Intro.Refs]</a></li>
+        <li><a href="1-Intro.html#Intro.Terms" id="toc-Intro.Terms"><span
+        class="toc-section-number">1.3</span> Terms and
+        definitions[Intro.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs" id="toc-Intro.Defs"><span
+        class="toc-section-number">1.4</span> Common Definitions[Intro.Defs]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Defs.CorrectData"
+        id="toc-Intro.Defs.CorrectData"><span
+        class="toc-section-number">1.4.1</span> Correct
+        Data[Intro.Defs.CorrectData]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Diags"
+        id="toc-Intro.Defs.Diags"><span class="toc-section-number">1.4.2</span>
+        Diagnostic Message[Intro.Defs.Diags]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.IllFormed"
+        id="toc-Intro.Defs.IllFormed"><span
+        class="toc-section-number">1.4.3</span> Ill-formed
+        Program[Intro.Defs.IllFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpDef"
+        id="toc-Intro.Defs.ImpDef"><span class="toc-section-number">1.4.4</span>
+        Implementation-defined Behavior[Intro.Defs.ImpDef]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpLimits"
+        id="toc-Intro.Defs.ImpLimits"><span
+        class="toc-section-number">1.4.5</span> Implementation
+        Limits[Intro.Defs.ImpLimits]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Undefined"
+        id="toc-Intro.Defs.Undefined"><span
+        class="toc-section-number">1.4.6</span> Undefined
+        Behavior[Intro.Defs.Undefined]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Unspecified"
+        id="toc-Intro.Defs.Unspecified"><span
+        class="toc-section-number">1.4.7</span> Unspecified
+        Behavior[Intro.Defs.Unspecified]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.WellFormed"
+        id="toc-Intro.Defs.WellFormed"><span
+        class="toc-section-number">1.4.8</span> Well-formed
+        Program[Intro.Defs.WellFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Runtime"
+        id="toc-Intro.Defs.Runtime"><span
+        class="toc-section-number">1.4.9</span> Runtime
+        Implementation[Intro.Defs.Runtime]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Runtime" id="toc-Intro.Runtime"><span
+        class="toc-section-number">1.5</span> Runtime
+        Targeting[Intro.Runtime]</a></li>
+        <li><a href="1-Intro.html#Intro.Model" id="toc-Intro.Model"><span
+        class="toc-section-number">1.6</span> <span data-acronym-label="spmd"
+        data-acronym-form="singular+long">spmd</span> Programming
+        Model[Intro.Model]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Model.Terms"
+        id="toc-Intro.Model.Terms"><span class="toc-section-number">1.6.1</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span>
+        Terminology[Intro.Model.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Exec"
+        id="toc-Intro.Model.Exec"><span class="toc-section-number">1.6.2</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span> Execution
+        Model[Intro.Model.Exec]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Restrictions"
+        id="toc-Intro.Model.Restrictions"><span
+        class="toc-section-number">1.6.3</span> Optimization
+        Restrictions[Intro.Model.Restrictions]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Memory" id="toc-Intro.Memory"><span
+        class="toc-section-number">1.7</span> <span data-acronym-label="hlsl"
+        data-acronym-form="singular+abbrv">hlsl</span> Memory
+        Models[Intro.Memory]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Memory.Spaces"
+        id="toc-Intro.Memory.Spaces"><span
+        class="toc-section-number">1.7.1</span> Memory
+        Spaces[Intro.Memory.Spaces]</a></li>
+        <li><a href="1-Intro.html#Intro.Memory.Alignment"
+        id="toc-Intro.Memory.Alignment"><span
+        class="toc-section-number">1.7.2</span> Memory
+        Spaces[Intro.Memory.Alignment]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="2-Lex.html" id="toc-Lex"><span
+        class="toc-section-number">2</span> Lexical Conventions[Lex]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Translation" id="toc-Lex.Translation"><span
+        class="toc-section-number">2.1</span> Unit of
+        Translation[Lex.Translation]</a></li>
+        <li><a href="2-Lex.html#Lex.Phases" id="toc-Lex.Phases"><span
+        class="toc-section-number">2.2</span> Phases of
+        Translation[Lex.Phases]</a></li>
+        <li><a href="2-Lex.html#Lex.CharSet" id="toc-Lex.CharSet"><span
+        class="toc-section-number">2.3</span> Character
+        Sets[Lex.CharSet]</a></li>
+        <li><a href="2-Lex.html#Lex.PPTokens" id="toc-Lex.PPTokens"><span
+        class="toc-section-number">2.4</span> Preprocessing
+        Tokens[Lex.PPTokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Tokens" id="toc-Lex.Tokens"><span
+        class="toc-section-number">2.5</span> Tokens[Lex.Tokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Comments" id="toc-Lex.Comments"><span
+        class="toc-section-number">2.6</span> Comments[Lex.Comments]</a></li>
+        <li><a href="2-Lex.html#Lex.Headers" id="toc-Lex.Headers"><span
+        class="toc-section-number">2.7</span> Header Names[Lex.Headers]</a></li>
+        <li><a href="2-Lex.html#Lex.PPNumber" id="toc-Lex.PPNumber"><span
+        class="toc-section-number">2.8</span> Preprocessing
+        numbers[Lex.PPNumber]</a></li>
+        <li><a href="2-Lex.html#Lex.Literals" id="toc-Lex.Literals"><span
+        class="toc-section-number">2.9</span> Literals[Lex.Literals]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Literal.Kinds"
+        id="toc-Lex.Literal.Kinds"><span class="toc-section-number">2.9.1</span>
+        Literal Classifications[Lex.Literal.Kinds]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Int" id="toc-Lex.Literal.Int"><span
+        class="toc-section-number">2.9.2</span> Integer
+        Literals[Lex.Literal.Int]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Float"
+        id="toc-Lex.Literal.Float"><span class="toc-section-number">2.9.3</span>
+        Floating-point Literals[Lex.Literal.Float]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Vector"
+        id="toc-Lex.Literal.Vector"><span
+        class="toc-section-number">2.9.4</span> Vector
+        Literals[Lex.Literal.Vector]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="3-Basic.html" id="toc-Basic"><span
+        class="toc-section-number">3</span> Basic Concepts[Basic]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.preamble" id="toc-Basic.preamble"><span
+        class="toc-section-number">3.1</span> Preamble[Basic.preamble]</a></li>
+        <li><a href="3-Basic.html#Basic.Decl" id="toc-Basic.Decl"><span
+        class="toc-section-number">3.2</span> Declarations and
+        definitions[Basic.Decl]</a></li>
+        <li><a href="3-Basic.html#Basic.ODR" id="toc-Basic.ODR"><span
+        class="toc-section-number">3.3</span> One-Definition
+        Rule[Basic.ODR]</a></li>
+        <li><a href="3-Basic.html#Basic.Scope" id="toc-Basic.Scope"><span
+        class="toc-section-number">3.4</span> Scope[Basic.Scope]</a></li>
+        <li><a href="3-Basic.html#Basic.Lookup" id="toc-Basic.Lookup"><span
+        class="toc-section-number">3.5</span> Name Lookup[Basic.Lookup]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage" id="toc-Basic.Storage"><span
+        class="toc-section-number">3.6</span> Storage
+        Duration[Basic.Storage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Storage.Static"
+        id="toc-Basic.Storage.Static"><span
+        class="toc-section-number">3.6.1</span> Static Storage
+        Duration[Basic.Storage.Static]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Auto"
+        id="toc-Basic.Storage.Auto"><span
+        class="toc-section-number">3.6.2</span> Automatic Storage
+        Duration[Basic.Storage.Auto]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Program"
+        id="toc-Basic.Storage.Program"><span
+        class="toc-section-number">3.6.3</span> Program Storage
+        Duration[Basic.Storage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Groupshared"
+        id="toc-Basic.Storage.Groupshared"><span
+        class="toc-section-number">3.6.4</span> Groupshared Storage
+        Duration[Basic.Storage.Groupshared]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Linkage" id="toc-Basic.Linkage"><span
+        class="toc-section-number">3.7</span> Program and
+        linkage[Basic.Linkage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Linkage.Program"
+        id="toc-Basic.Linkage.Program"><span
+        class="toc-section-number">3.7.1</span> Program
+        Linkage[Basic.Linkage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.External"
+        id="toc-Basic.Linkage.External"><span
+        class="toc-section-number">3.7.2</span> External
+        Linkage[Basic.Linkage.External]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.Internal"
+        id="toc-Basic.Linkage.Internal"><span
+        class="toc-section-number">3.7.3</span> Internal
+        Linkage[Basic.Linkage.Internal]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.NoLinkage"
+        id="toc-Basic.Linkage.NoLinkage"><span
+        class="toc-section-number">3.7.4</span> No
+        Linkage[Basic.Linkage.NoLinkage]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Start" id="toc-Basic.Start"><span
+        class="toc-section-number">3.8</span> Start[Basic.Start]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Start.Mode"
+        id="toc-Basic.Start.Mode"><span class="toc-section-number">3.8.1</span>
+        Execution Mode[Basic.Start.Mode]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.types" id="toc-Basic.types"><span
+        class="toc-section-number">3.9</span> Types[Basic.types]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.types.arithmetic"
+        id="toc-Basic.types.arithmetic"><span
+        class="toc-section-number">3.9.1</span> Arithmetic
+        Types[Basic.types.arithmetic]</a></li>
+        <li><a href="3-Basic.html#Basic.types.scalarized"
+        id="toc-Basic.types.scalarized"><span
+        class="toc-section-number">3.9.2</span> Scalarized Type
+        Compatability[Basic.types.scalarized]</a></li>
+        <li><a href="3-Basic.html#Basic.types.intangible"
+        id="toc-Basic.types.intangible"><span
+        class="toc-section-number">3.9.3</span> Usage of Intangible
+        Types[Basic.types.intangible]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.lval" id="toc-Basic.lval"><span
+        class="toc-section-number">3.10</span> Lvalues and
+        rvalues[Basic.lval]</a></li>
+        </ul></li>
+        <li><a href="4-Conv.html" id="toc-Conv"><span
+        class="toc-section-number">4</span> Standard Conversions[Conv]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.lval" id="toc-Conv.lval"><span
+        class="toc-section-number">4.1</span> Lvalue-to-rvalue
+        conversion[Conv.lval]</a></li>
+        <li><a href="4-Conv.html#Conv.array" id="toc-Conv.array"><span
+        class="toc-section-number">4.2</span> Array-to-pointer
+        conversion[Conv.array]</a></li>
+        <li><a href="4-Conv.html#Conv.ipromote" id="toc-Conv.ipromote"><span
+        class="toc-section-number">4.3</span> Integral
+        promotion[Conv.ipromote]</a></li>
+        <li><a href="4-Conv.html#Conv.fppromote" id="toc-Conv.fppromote"><span
+        class="toc-section-number">4.4</span> Floating point
+        promotion[Conv.fppromote]</a></li>
+        <li><a href="4-Conv.html#Conv.iconv" id="toc-Conv.iconv"><span
+        class="toc-section-number">4.5</span> Integral
+        conversion[Conv.iconv]</a></li>
+        <li><a href="4-Conv.html#Conv.bitfield" id="toc-Conv.bitfield"><span
+        class="toc-section-number">4.6</span> Bit-field
+        conversion[Conv.bitfield]</a></li>
+        <li><a href="4-Conv.html#Conv.fconv" id="toc-Conv.fconv"><span
+        class="toc-section-number">4.7</span> Floating point
+        conversion[Conv.fconv]</a></li>
+        <li><a href="4-Conv.html#Conv.fpint" id="toc-Conv.fpint"><span
+        class="toc-section-number">4.8</span> Floating point-integral
+        conversion[Conv.fpint]</a></li>
+        <li><a href="4-Conv.html#Conv.bool" id="toc-Conv.bool"><span
+        class="toc-section-number">4.9</span> Boolean
+        conversion[Conv.bool]</a></li>
+        <li><a href="4-Conv.html#Conv.flat" id="toc-Conv.flat"><span
+        class="toc-section-number">4.10</span> Elementwise
+        conversion[Conv.flat]</a></li>
+        <li><a href="4-Conv.html#Conv.vsplat" id="toc-Conv.vsplat"><span
+        class="toc-section-number">4.11</span> Vector splat
+        conversion[Conv.vsplat]</a></li>
+        <li><a href="4-Conv.html#Conv.msplat" id="toc-Conv.msplat"><span
+        class="toc-section-number">4.12</span> Matrix splat
+        conversion[Conv.msplat]</a></li>
+        <li><a href="4-Conv.html#Conv.asplat" id="toc-Conv.asplat"><span
+        class="toc-section-number">4.13</span> Array and Class splat
+        conversion[Conv.asplat]</a></li>
+        <li><a href="4-Conv.html#Conv.vtrunc" id="toc-Conv.vtrunc"><span
+        class="toc-section-number">4.14</span> Vector and matrix truncation
+        conversion[Conv.vtrunc]</a></li>
+        <li><a href="4-Conv.html#Conv.cwise" id="toc-Conv.cwise"><span
+        class="toc-section-number">4.15</span> Component-wise
+        conversions[Conv.cwise]</a></li>
+        <li><a href="4-Conv.html#Conv.qual" id="toc-Conv.qual"><span
+        class="toc-section-number">4.16</span> Qualification
+        conversion[Conv.qual]</a></li>
+        <li><a href="4-Conv.html#Conv.rank" id="toc-Conv.rank"><span
+        class="toc-section-number">4.17</span> Conversion Rank[Conv.rank]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.rank.int" id="toc-Conv.rank.int"><span
+        class="toc-section-number">4.17.1</span> Integer Conversion
+        Rank[Conv.rank.int]</a></li>
+        <li><a href="4-Conv.html#Conv.rank.float" id="toc-Conv.rank.float"><span
+        class="toc-section-number">4.17.2</span> Floating Point Conversion
+        Rank[Conv.rank.float]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="5-Expr.html" id="toc-Expr"><span
+        class="toc-section-number">5</span> Expressions[Expr]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.conv" id="toc-Expr.conv"><span
+        class="toc-section-number">5.1</span> Usual Arithmetic
+        Conversions[Expr.conv]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary" id="toc-Expr.Primary"><span
+        class="toc-section-number">5.2</span> Primary
+        Expressions[Expr.Primary]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Primary.Literal"
+        id="toc-Expr.Primary.Literal"><span
+        class="toc-section-number">5.2.1</span>
+        Literals[Expr.Primary.Literal]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.This"
+        id="toc-Expr.Primary.This"><span class="toc-section-number">5.2.2</span>
+        This[Expr.Primary.This]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.Paren"
+        id="toc-Expr.Primary.Paren"><span
+        class="toc-section-number">5.2.3</span>
+        Parenthesis[Expr.Primary.Paren]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.ID" id="toc-Expr.Primary.ID"><span
+        class="toc-section-number">5.2.4</span> Names[Expr.Primary.ID]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post" id="toc-Expr.Post"><span
+        class="toc-section-number">5.3</span> Postfix
+        Expressions[Expr.Post]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Subscript"
+        id="toc-Expr.Post.Subscript"><span class="toc-section-number">5.4</span>
+        Subscript[Expr.Post.Subscript]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle"
+        id="toc-Expr.Post.Swizzle"><span class="toc-section-number">5.5</span>
+        Swizzle Expressions[Expr.Post.Swizzle]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Vector"
+        id="toc-Expr.Post.Swizzle.Vector"><span
+        class="toc-section-number">5.5.1</span> Vector
+        Swizzle[Expr.Post.Swizzle.Vector]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Matrix"
+        id="toc-Expr.Post.Swizzle.Matrix"><span
+        class="toc-section-number">5.5.2</span> Matrix
+        Swizzle[Expr.Post.Swizzle.Matrix]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post.Call" id="toc-Expr.Post.Call"><span
+        class="toc-section-number">5.6</span> Function
+        Calls[Expr.Post.Call]</a></li>
+        </ul></li>
+        <li><a href="6-Stmt.html" id="toc-Stmt"><span
+        class="toc-section-number">6</span> Statements[Stmt]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Label" id="toc-Stmt.Label"><span
+        class="toc-section-number">6.1</span> Label
+        Statements[Stmt.Label]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr" id="toc-Stmt.Attr"><span
+        class="toc-section-number">6.2</span> Attributes[Stmt.Attr]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Attr.Unroll"
+        id="toc-Stmt.Attr.Unroll"><span class="toc-section-number">6.2.1</span>
+        Unroll Attribute[Stmt.Attr.Unroll]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr.Loop" id="toc-Stmt.Attr.Loop"><span
+        class="toc-section-number">6.2.2</span> Loop
+        Attribute[Stmt.Attr.Loop]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="7-Decl.html" id="toc-Decl"><span
+        class="toc-section-number">7</span> Declarations[Decl]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Pre" id="toc-Decl.Pre"><span
+        class="toc-section-number">7.1</span> Preamble[Decl.Pre]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec" id="toc-Decl.Spec"><span
+        class="toc-section-number">7.2</span> Specifiers[Decl.Spec]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Spec.General"
+        id="toc-Decl.Spec.General"><span class="toc-section-number">7.2.1</span>
+        General[Decl.Spec.General]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec.Fct" id="toc-Decl.Spec.Fct"><span
+        class="toc-section-number">7.2.2</span> Function
+        specifiers[Decl.Spec.Fct]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Decl" id="toc-Decl.Decl"><span
+        class="toc-section-number">7.3</span> Declarators[Decl.Decl]</a></li>
+        <li><a href="7-Decl.html#Decl.Init" id="toc-Decl.Init"><span
+        class="toc-section-number">7.4</span> Initializers[Decl.Init]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Init.Agg" id="toc-Decl.Init.Agg"><span
+        class="toc-section-number">7.4.1</span> Aggregate
+        Initialization[Decl.Init.Agg]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Function" id="toc-Decl.Function"><span
+        class="toc-section-number">7.5</span> Function
+        Definitions[Decl.Function]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr" id="toc-Decl.Attr"><span
+        class="toc-section-number">7.6</span> Attributes[Decl.Attr]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Attr.Semantic"
+        id="toc-Decl.Attr.Semantic"><span
+        class="toc-section-number">7.6.1</span> Semantic
+        Annotations[Decl.Attr.Semantic]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr.Entry" id="toc-Decl.Attr.Entry"><span
+        class="toc-section-number">7.6.2</span> Entry
+        Attributes[Decl.Attr.Entry]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Export" id="toc-Decl.Export"><span
+        class="toc-section-number">7.7</span> Export
+        Declarations[Decl.Export]</a></li>
+        <li><a href="7-Decl.html#Decl.cbuffer" id="toc-Decl.cbuffer"><span
+        class="toc-section-number">7.8</span> Constant Buffer
+        Declarations[Decl.cbuffer]</a></li>
+        </ul></li>
+        <li><a href="8-Overload.html" id="toc-Overload"><span
+        class="toc-section-number">8</span> Overloading[Overload]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Decl" id="toc-Overload.Decl"><span
+        class="toc-section-number">8.1</span> Overloadable
+        Declarations[Overload.Decl]</a></li>
+        <li><a href="8-Overload.html#Overload.Res" id="toc-Overload.Res"><span
+        class="toc-section-number">8.2</span> Overload
+        Resolution[Overload.Res]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Res.Sets"
+        id="toc-Overload.Res.Sets"><span class="toc-section-number">8.2.1</span>
+        Candidate Functions and Argument Lists[Overload.Res.Sets]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Viable"
+        id="toc-Overload.Res.Viable"><span
+        class="toc-section-number">8.2.2</span> Viable
+        Functions[Overload.Res.Viable]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Best"
+        id="toc-Overload.Res.Best"><span class="toc-section-number">8.2.3</span>
+        Best Viable Function[Overload.Res.Best]</a></li>
+        <li><a href="8-Overload.html#Overload.ICS" id="toc-Overload.ICS"><span
+        class="toc-section-number">8.2.4</span> Implicit Conversion
+        Sequences[Overload.ICS]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="9-Resources.html" id="toc-Resources"><span
+        class="toc-section-number">9</span> Resource Types[Resources]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs"
+        id="toc-Resources.tybufs"><span class="toc-section-number">9.1</span>
+        Typed Buffers[Resources.tybufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs.ctrs"
+        id="toc-Resources.tybufs.ctrs"><span
+        class="toc-section-number">9.1.1</span>
+        Constructors[Resources.tybufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.dims"
+        id="toc-Resources.tybufs.dims"><span
+        class="toc-section-number">9.1.2</span>
+        Dimensions[Resources.tybufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.access"
+        id="toc-Resources.tybufs.access"><span
+        class="toc-section-number">9.1.3</span> Element
+        Access[Resources.tybufs.access]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.rawbufs"
+        id="toc-Resources.rawbufs"><span class="toc-section-number">9.2</span>
+        Raw Buffers[Resources.rawbufs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs"
+        id="toc-Resources.babufs"><span class="toc-section-number">9.3</span>
+        Byte Access Buffers[Resources.babufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.babufs.ctrs"
+        id="toc-Resources.babufs.ctrs"><span
+        class="toc-section-number">9.3.1</span>
+        Constructors[Resources.babufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.dims"
+        id="toc-Resources.babufs.dims"><span
+        class="toc-section-number">9.3.2</span>
+        Dimensions[Resources.babufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.access"
+        id="toc-Resources.babufs.access"><span
+        class="toc-section-number">9.3.3</span> Element
+        Access[Resources.babufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.atomics"
+        id="toc-Resources.babufs.atomics"><span
+        class="toc-section-number">9.3.4</span> Atomic
+        Operations[Resources.babufs.atomics]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.stbufs"
+        id="toc-Resources.stbufs"><span class="toc-section-number">9.4</span>
+        Structured Buffers[Resources.stbufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.stbufs.ctrs"
+        id="toc-Resources.stbufs.ctrs"><span
+        class="toc-section-number">9.4.1</span>
+        Constructors[Resources.stbufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.dims"
+        id="toc-Resources.stbufs.dims"><span
+        class="toc-section-number">9.4.2</span>
+        Dimensions[Resources.stbufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.access"
+        id="toc-Resources.stbufs.access"><span
+        class="toc-section-number">9.4.3</span> Element
+        Access[Resources.stbufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.counter"
+        id="toc-Resources.stbufs.counter"><span
+        class="toc-section-number">9.4.4</span> Counter
+        Manipulation[Resources.stbufs.counter]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.append"
+        id="toc-Resources.stbufs.append"><span
+        class="toc-section-number">9.4.5</span>
+        Append[Resources.stbufs.append]</a></li>
+        <li><a href="9-Resources.html#Resources.cnstbufs.consume"
+        id="toc-Resources.cnstbufs.consume"><span
+        class="toc-section-number">9.4.6</span>
+        Consume[Resources.cnstbufs.consume]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.cnbuf"
+        id="toc-Resources.cnbuf"><span class="toc-section-number">9.5</span>
+        Constant Buffers[Resources.cnbuf]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.cnbuf.cbclass"
+        id="toc-Resources.cnbuf.cbclass"><span
+        class="toc-section-number">9.5.1</span> Constant Buffer
+        Class[Resources.cnbuf.cbclass]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.lay"
+        id="toc-Resources.cnbuf.lay"><span
+        class="toc-section-number">9.5.2</span> Constant Buffer
+        Layout[Resources.cnbuf.lay]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.po"
+        id="toc-Resources.cnbuf.po"><span
+        class="toc-section-number">9.5.3</span> Packoffset
+        annotations[Resources.cnbuf.po]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.defcb"
+        id="toc-Resources.cnbuf.defcb"><span
+        class="toc-section-number">9.5.4</span> Default Constant
+        Buffer[Resources.cnbuf.defcb]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.samp"
+        id="toc-Resources.samp"><span class="toc-section-number">9.6</span>
+        Samplers[Resources.samp]</a></li>
+        <li><a href="9-Resources.html#Resources.mapcheck"
+        id="toc-Resources.mapcheck"><span class="toc-section-number">9.7</span>
+        CheckAccessFullyMapped[Resources.mapcheck]</a></li>
+        <li><a href="9-Resources.html#Resources.binding"
+        id="toc-Resources.binding"><span class="toc-section-number">9.8</span>
+        Resource Binding[Resources.binding]</a></li>
+        </ul></li>
+        <li><a href="10-Template.html" id="toc-Template"><span
+        class="toc-section-number">10</span> Templates[Template]</a>
+        <ul>
+        <li><a href="10-Template.html#Template.Inst"
+        id="toc-Template.Inst"><span class="toc-section-number">10.1</span>
+        Template Instantiation[Template.Inst]</a></li>
+        <li><a href="10-Template.html#Template.Func.Order"
+        id="toc-Template.Func.Order"><span
+        class="toc-section-number">10.2</span> Partial Ordering of Function
+        Templates[Template.Func.Order]</a></li>
+        </ul></li>
+        <li><a href="11-Intangible.html" id="toc-Intangible"><span
+        class="toc-section-number">11</span> Intangible
+        Types[Intangible]</a></li>
+        <li><a href="12-Runtime.html" id="toc-Runtime"><span
+        class="toc-section-number">12</span> Runtime[Runtime]</a></li>
+        </ul>
+
+        </div>
+      </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        var toc = document.querySelector('.toc');
+        if(!toc) return;
+        toc.querySelectorAll('li').forEach(function(li){
+          var childUL = li.querySelector('ul');
+          if(childUL){
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'toc-toggle';
+            toggle.setAttribute('aria-expanded','false');
+            toggle.innerHTML = '\u25B8';
+            toggle.addEventListener('click', function(e){
+              e.preventDefault();
+              li.classList.toggle('expanded');
+              var expanded = li.classList.contains('expanded');
+              toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            });
+            var firstLink = li.querySelector('a');
+            if(firstLink) li.insertBefore(toggle, firstLink);
+            else li.insertBefore(toggle, li.firstChild);
+          }
+        });
+      });
+      </script>
+
+      <div id="content" class="col-md-9">
+
+      
+      <nav id="sitenav">
+      <div class="sitenav">
+      <span class="navlink">
+            <span class="navlink-label">Next:</span> <a href="7-Decl.html" accesskey="n" rel="next">Declarations[Decl]</a>
+            </span>
+      <span class="navlink">
+            <span class="navlink-label">Previous:</span> <a href="5-Expr.html" accesskey="p" rel="previous">Expressions[Expr]</a>
+            </span>
+      </div>
+      </nav>
+
+            <h1 data-number="6" id="Stmt"><span
+            class="header-section-number">6</span> Statements[Stmt]</h1>
+            <p><em></em></p>
+            <div class="grammarlist">
+            <p><span><em>statement</em><span
+            class="nodecor">:</span></span><br />
+            labeled-statement<br />
+            <span>attribute-specifier-sequence<sub><em>opt</em></sub></span>
+            expression-statement<br />
+            <span>attribute-specifier-sequence<sub><em>opt</em></sub></span>
+            compound-statement<br />
+            <span>attribute-specifier-sequence<sub><em>opt</em></sub></span>
+            iteration-statement<br />
+            <span>attribute-specifier-sequence<sub><em>opt</em></sub></span>
+            selection-statement<br />
+            declaration-statement</p>
+            </div>
+            <h2 data-number="6.1" id="Stmt.Label"><span
+            class="header-section-number">6.1</span> Label
+            Statements[Stmt.Label]</h2>
+            <p>The optional <em>attribute-specifier-sequence</em>
+            applies to the statement that immediately follows it.</p>
+            <h2 data-number="6.2" id="Stmt.Attr"><span
+            class="header-section-number">6.2</span>
+            Attributes[Stmt.Attr]</h2>
+            <h3 data-number="6.2.1" id="Stmt.Attr.Unroll"><span
+            class="header-section-number">6.2.1</span> Unroll
+            Attribute[Stmt.Attr.Unroll]</h3>
+            <p>The <em>[unroll]</em> attribute is only valid when
+            applied to <em>iteration-statements</em>. It is used to
+            indicate that <em>iteration-statements</em> like
+            <span>for</span>, <span>while</span> and <span>do
+            while</span> can be unrolled. This attribute qualifier can
+            be used to specify full unrolling or partial unrolling by a
+            specified amount. This is a compiler hint and the compiler
+            may ignore this directive.</p>
+            <p>The unroll attribute may optionally have an unroll factor
+            represented as a single argument <span>n</span> that is an
+            integer constant expression value greater than zero. If n is
+            not specified, the compiler determines the unrolling factor
+            for the loop. The <em>[unroll]</em> attribute can not be
+            applied to the same <em>iteration-statement</em> as the
+            attribute.</p>
+            <h3 data-number="6.2.2" id="Stmt.Attr.Loop"><span
+            class="header-section-number">6.2.2</span> Loop
+            Attribute[Stmt.Attr.Loop]</h3>
+            <p>The Attribute tells the compiler to execute each
+            iteration of the loop. In other words, its a hint to
+            indicate a loop should not be unrolled. Therefore it is not
+            compatible with the attribute.</p>
+                  </div>
+    </div>
+  </div>
+</body>
+</html>

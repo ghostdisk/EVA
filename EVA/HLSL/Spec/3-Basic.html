@@ -1,0 +1,1312 @@
+<!doctype html>
+<html lang="en-GB-oxendict"></html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+
+    <!-- <link rel="stylesheet" type="text/css" href="template.css" /> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <meta name="generator" content="pandoc" />
+
+  <title>Basic Concepts[Basic]</title>
+
+  <link rel="stylesheet" href="assets/style.css" />
+
+<a href="index.html" accesskey="t" rel="top">
+<img
+  src="https://microsoft.github.io/hlsl-specs/resources/HLSL.png"
+  class="logo"
+  width="128"
+/>
+</a>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <span class="doc-title">High-Level Shader Language
+Specification<br />
+<span>Working Draft</span></span>
+    </div>
+  </nav>
+    <div class="container">
+    <div class="row">
+
+      <div id="toc" class="col-md-3">
+        <div class="well toc">
+
+        <ul>
+        <li><a href="1-Intro.html" id="toc-Intro"><span
+        class="toc-section-number">1</span> Introduction[Intro]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Scope" id="toc-Intro.Scope"><span
+        class="toc-section-number">1.1</span> Scope[Intro.Scope]</a></li>
+        <li><a href="1-Intro.html#Intro.Refs" id="toc-Intro.Refs"><span
+        class="toc-section-number">1.2</span> Normative
+        References[Intro.Refs]</a></li>
+        <li><a href="1-Intro.html#Intro.Terms" id="toc-Intro.Terms"><span
+        class="toc-section-number">1.3</span> Terms and
+        definitions[Intro.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs" id="toc-Intro.Defs"><span
+        class="toc-section-number">1.4</span> Common Definitions[Intro.Defs]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Defs.CorrectData"
+        id="toc-Intro.Defs.CorrectData"><span
+        class="toc-section-number">1.4.1</span> Correct
+        Data[Intro.Defs.CorrectData]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Diags"
+        id="toc-Intro.Defs.Diags"><span class="toc-section-number">1.4.2</span>
+        Diagnostic Message[Intro.Defs.Diags]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.IllFormed"
+        id="toc-Intro.Defs.IllFormed"><span
+        class="toc-section-number">1.4.3</span> Ill-formed
+        Program[Intro.Defs.IllFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpDef"
+        id="toc-Intro.Defs.ImpDef"><span class="toc-section-number">1.4.4</span>
+        Implementation-defined Behavior[Intro.Defs.ImpDef]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpLimits"
+        id="toc-Intro.Defs.ImpLimits"><span
+        class="toc-section-number">1.4.5</span> Implementation
+        Limits[Intro.Defs.ImpLimits]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Undefined"
+        id="toc-Intro.Defs.Undefined"><span
+        class="toc-section-number">1.4.6</span> Undefined
+        Behavior[Intro.Defs.Undefined]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Unspecified"
+        id="toc-Intro.Defs.Unspecified"><span
+        class="toc-section-number">1.4.7</span> Unspecified
+        Behavior[Intro.Defs.Unspecified]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.WellFormed"
+        id="toc-Intro.Defs.WellFormed"><span
+        class="toc-section-number">1.4.8</span> Well-formed
+        Program[Intro.Defs.WellFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Runtime"
+        id="toc-Intro.Defs.Runtime"><span
+        class="toc-section-number">1.4.9</span> Runtime
+        Implementation[Intro.Defs.Runtime]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Runtime" id="toc-Intro.Runtime"><span
+        class="toc-section-number">1.5</span> Runtime
+        Targeting[Intro.Runtime]</a></li>
+        <li><a href="1-Intro.html#Intro.Model" id="toc-Intro.Model"><span
+        class="toc-section-number">1.6</span> <span data-acronym-label="spmd"
+        data-acronym-form="singular+long">spmd</span> Programming
+        Model[Intro.Model]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Model.Terms"
+        id="toc-Intro.Model.Terms"><span class="toc-section-number">1.6.1</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span>
+        Terminology[Intro.Model.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Exec"
+        id="toc-Intro.Model.Exec"><span class="toc-section-number">1.6.2</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span> Execution
+        Model[Intro.Model.Exec]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Restrictions"
+        id="toc-Intro.Model.Restrictions"><span
+        class="toc-section-number">1.6.3</span> Optimization
+        Restrictions[Intro.Model.Restrictions]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Memory" id="toc-Intro.Memory"><span
+        class="toc-section-number">1.7</span> <span data-acronym-label="hlsl"
+        data-acronym-form="singular+abbrv">hlsl</span> Memory
+        Models[Intro.Memory]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Memory.Spaces"
+        id="toc-Intro.Memory.Spaces"><span
+        class="toc-section-number">1.7.1</span> Memory
+        Spaces[Intro.Memory.Spaces]</a></li>
+        <li><a href="1-Intro.html#Intro.Memory.Alignment"
+        id="toc-Intro.Memory.Alignment"><span
+        class="toc-section-number">1.7.2</span> Memory
+        Spaces[Intro.Memory.Alignment]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="2-Lex.html" id="toc-Lex"><span
+        class="toc-section-number">2</span> Lexical Conventions[Lex]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Translation" id="toc-Lex.Translation"><span
+        class="toc-section-number">2.1</span> Unit of
+        Translation[Lex.Translation]</a></li>
+        <li><a href="2-Lex.html#Lex.Phases" id="toc-Lex.Phases"><span
+        class="toc-section-number">2.2</span> Phases of
+        Translation[Lex.Phases]</a></li>
+        <li><a href="2-Lex.html#Lex.CharSet" id="toc-Lex.CharSet"><span
+        class="toc-section-number">2.3</span> Character
+        Sets[Lex.CharSet]</a></li>
+        <li><a href="2-Lex.html#Lex.PPTokens" id="toc-Lex.PPTokens"><span
+        class="toc-section-number">2.4</span> Preprocessing
+        Tokens[Lex.PPTokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Tokens" id="toc-Lex.Tokens"><span
+        class="toc-section-number">2.5</span> Tokens[Lex.Tokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Comments" id="toc-Lex.Comments"><span
+        class="toc-section-number">2.6</span> Comments[Lex.Comments]</a></li>
+        <li><a href="2-Lex.html#Lex.Headers" id="toc-Lex.Headers"><span
+        class="toc-section-number">2.7</span> Header Names[Lex.Headers]</a></li>
+        <li><a href="2-Lex.html#Lex.PPNumber" id="toc-Lex.PPNumber"><span
+        class="toc-section-number">2.8</span> Preprocessing
+        numbers[Lex.PPNumber]</a></li>
+        <li><a href="2-Lex.html#Lex.Literals" id="toc-Lex.Literals"><span
+        class="toc-section-number">2.9</span> Literals[Lex.Literals]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Literal.Kinds"
+        id="toc-Lex.Literal.Kinds"><span class="toc-section-number">2.9.1</span>
+        Literal Classifications[Lex.Literal.Kinds]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Int" id="toc-Lex.Literal.Int"><span
+        class="toc-section-number">2.9.2</span> Integer
+        Literals[Lex.Literal.Int]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Float"
+        id="toc-Lex.Literal.Float"><span class="toc-section-number">2.9.3</span>
+        Floating-point Literals[Lex.Literal.Float]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Vector"
+        id="toc-Lex.Literal.Vector"><span
+        class="toc-section-number">2.9.4</span> Vector
+        Literals[Lex.Literal.Vector]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="3-Basic.html" id="toc-Basic"><span
+        class="toc-section-number">3</span> Basic Concepts[Basic]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.preamble" id="toc-Basic.preamble"><span
+        class="toc-section-number">3.1</span> Preamble[Basic.preamble]</a></li>
+        <li><a href="3-Basic.html#Basic.Decl" id="toc-Basic.Decl"><span
+        class="toc-section-number">3.2</span> Declarations and
+        definitions[Basic.Decl]</a></li>
+        <li><a href="3-Basic.html#Basic.ODR" id="toc-Basic.ODR"><span
+        class="toc-section-number">3.3</span> One-Definition
+        Rule[Basic.ODR]</a></li>
+        <li><a href="3-Basic.html#Basic.Scope" id="toc-Basic.Scope"><span
+        class="toc-section-number">3.4</span> Scope[Basic.Scope]</a></li>
+        <li><a href="3-Basic.html#Basic.Lookup" id="toc-Basic.Lookup"><span
+        class="toc-section-number">3.5</span> Name Lookup[Basic.Lookup]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage" id="toc-Basic.Storage"><span
+        class="toc-section-number">3.6</span> Storage
+        Duration[Basic.Storage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Storage.Static"
+        id="toc-Basic.Storage.Static"><span
+        class="toc-section-number">3.6.1</span> Static Storage
+        Duration[Basic.Storage.Static]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Auto"
+        id="toc-Basic.Storage.Auto"><span
+        class="toc-section-number">3.6.2</span> Automatic Storage
+        Duration[Basic.Storage.Auto]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Program"
+        id="toc-Basic.Storage.Program"><span
+        class="toc-section-number">3.6.3</span> Program Storage
+        Duration[Basic.Storage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Groupshared"
+        id="toc-Basic.Storage.Groupshared"><span
+        class="toc-section-number">3.6.4</span> Groupshared Storage
+        Duration[Basic.Storage.Groupshared]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Linkage" id="toc-Basic.Linkage"><span
+        class="toc-section-number">3.7</span> Program and
+        linkage[Basic.Linkage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Linkage.Program"
+        id="toc-Basic.Linkage.Program"><span
+        class="toc-section-number">3.7.1</span> Program
+        Linkage[Basic.Linkage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.External"
+        id="toc-Basic.Linkage.External"><span
+        class="toc-section-number">3.7.2</span> External
+        Linkage[Basic.Linkage.External]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.Internal"
+        id="toc-Basic.Linkage.Internal"><span
+        class="toc-section-number">3.7.3</span> Internal
+        Linkage[Basic.Linkage.Internal]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.NoLinkage"
+        id="toc-Basic.Linkage.NoLinkage"><span
+        class="toc-section-number">3.7.4</span> No
+        Linkage[Basic.Linkage.NoLinkage]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Start" id="toc-Basic.Start"><span
+        class="toc-section-number">3.8</span> Start[Basic.Start]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Start.Mode"
+        id="toc-Basic.Start.Mode"><span class="toc-section-number">3.8.1</span>
+        Execution Mode[Basic.Start.Mode]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.types" id="toc-Basic.types"><span
+        class="toc-section-number">3.9</span> Types[Basic.types]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.types.arithmetic"
+        id="toc-Basic.types.arithmetic"><span
+        class="toc-section-number">3.9.1</span> Arithmetic
+        Types[Basic.types.arithmetic]</a></li>
+        <li><a href="3-Basic.html#Basic.types.scalarized"
+        id="toc-Basic.types.scalarized"><span
+        class="toc-section-number">3.9.2</span> Scalarized Type
+        Compatability[Basic.types.scalarized]</a></li>
+        <li><a href="3-Basic.html#Basic.types.intangible"
+        id="toc-Basic.types.intangible"><span
+        class="toc-section-number">3.9.3</span> Usage of Intangible
+        Types[Basic.types.intangible]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.lval" id="toc-Basic.lval"><span
+        class="toc-section-number">3.10</span> Lvalues and
+        rvalues[Basic.lval]</a></li>
+        </ul></li>
+        <li><a href="4-Conv.html" id="toc-Conv"><span
+        class="toc-section-number">4</span> Standard Conversions[Conv]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.lval" id="toc-Conv.lval"><span
+        class="toc-section-number">4.1</span> Lvalue-to-rvalue
+        conversion[Conv.lval]</a></li>
+        <li><a href="4-Conv.html#Conv.array" id="toc-Conv.array"><span
+        class="toc-section-number">4.2</span> Array-to-pointer
+        conversion[Conv.array]</a></li>
+        <li><a href="4-Conv.html#Conv.ipromote" id="toc-Conv.ipromote"><span
+        class="toc-section-number">4.3</span> Integral
+        promotion[Conv.ipromote]</a></li>
+        <li><a href="4-Conv.html#Conv.fppromote" id="toc-Conv.fppromote"><span
+        class="toc-section-number">4.4</span> Floating point
+        promotion[Conv.fppromote]</a></li>
+        <li><a href="4-Conv.html#Conv.iconv" id="toc-Conv.iconv"><span
+        class="toc-section-number">4.5</span> Integral
+        conversion[Conv.iconv]</a></li>
+        <li><a href="4-Conv.html#Conv.bitfield" id="toc-Conv.bitfield"><span
+        class="toc-section-number">4.6</span> Bit-field
+        conversion[Conv.bitfield]</a></li>
+        <li><a href="4-Conv.html#Conv.fconv" id="toc-Conv.fconv"><span
+        class="toc-section-number">4.7</span> Floating point
+        conversion[Conv.fconv]</a></li>
+        <li><a href="4-Conv.html#Conv.fpint" id="toc-Conv.fpint"><span
+        class="toc-section-number">4.8</span> Floating point-integral
+        conversion[Conv.fpint]</a></li>
+        <li><a href="4-Conv.html#Conv.bool" id="toc-Conv.bool"><span
+        class="toc-section-number">4.9</span> Boolean
+        conversion[Conv.bool]</a></li>
+        <li><a href="4-Conv.html#Conv.flat" id="toc-Conv.flat"><span
+        class="toc-section-number">4.10</span> Elementwise
+        conversion[Conv.flat]</a></li>
+        <li><a href="4-Conv.html#Conv.vsplat" id="toc-Conv.vsplat"><span
+        class="toc-section-number">4.11</span> Vector splat
+        conversion[Conv.vsplat]</a></li>
+        <li><a href="4-Conv.html#Conv.msplat" id="toc-Conv.msplat"><span
+        class="toc-section-number">4.12</span> Matrix splat
+        conversion[Conv.msplat]</a></li>
+        <li><a href="4-Conv.html#Conv.asplat" id="toc-Conv.asplat"><span
+        class="toc-section-number">4.13</span> Array and Class splat
+        conversion[Conv.asplat]</a></li>
+        <li><a href="4-Conv.html#Conv.vtrunc" id="toc-Conv.vtrunc"><span
+        class="toc-section-number">4.14</span> Vector and matrix truncation
+        conversion[Conv.vtrunc]</a></li>
+        <li><a href="4-Conv.html#Conv.cwise" id="toc-Conv.cwise"><span
+        class="toc-section-number">4.15</span> Component-wise
+        conversions[Conv.cwise]</a></li>
+        <li><a href="4-Conv.html#Conv.qual" id="toc-Conv.qual"><span
+        class="toc-section-number">4.16</span> Qualification
+        conversion[Conv.qual]</a></li>
+        <li><a href="4-Conv.html#Conv.rank" id="toc-Conv.rank"><span
+        class="toc-section-number">4.17</span> Conversion Rank[Conv.rank]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.rank.int" id="toc-Conv.rank.int"><span
+        class="toc-section-number">4.17.1</span> Integer Conversion
+        Rank[Conv.rank.int]</a></li>
+        <li><a href="4-Conv.html#Conv.rank.float" id="toc-Conv.rank.float"><span
+        class="toc-section-number">4.17.2</span> Floating Point Conversion
+        Rank[Conv.rank.float]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="5-Expr.html" id="toc-Expr"><span
+        class="toc-section-number">5</span> Expressions[Expr]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.conv" id="toc-Expr.conv"><span
+        class="toc-section-number">5.1</span> Usual Arithmetic
+        Conversions[Expr.conv]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary" id="toc-Expr.Primary"><span
+        class="toc-section-number">5.2</span> Primary
+        Expressions[Expr.Primary]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Primary.Literal"
+        id="toc-Expr.Primary.Literal"><span
+        class="toc-section-number">5.2.1</span>
+        Literals[Expr.Primary.Literal]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.This"
+        id="toc-Expr.Primary.This"><span class="toc-section-number">5.2.2</span>
+        This[Expr.Primary.This]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.Paren"
+        id="toc-Expr.Primary.Paren"><span
+        class="toc-section-number">5.2.3</span>
+        Parenthesis[Expr.Primary.Paren]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.ID" id="toc-Expr.Primary.ID"><span
+        class="toc-section-number">5.2.4</span> Names[Expr.Primary.ID]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post" id="toc-Expr.Post"><span
+        class="toc-section-number">5.3</span> Postfix
+        Expressions[Expr.Post]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Subscript"
+        id="toc-Expr.Post.Subscript"><span class="toc-section-number">5.4</span>
+        Subscript[Expr.Post.Subscript]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle"
+        id="toc-Expr.Post.Swizzle"><span class="toc-section-number">5.5</span>
+        Swizzle Expressions[Expr.Post.Swizzle]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Vector"
+        id="toc-Expr.Post.Swizzle.Vector"><span
+        class="toc-section-number">5.5.1</span> Vector
+        Swizzle[Expr.Post.Swizzle.Vector]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Matrix"
+        id="toc-Expr.Post.Swizzle.Matrix"><span
+        class="toc-section-number">5.5.2</span> Matrix
+        Swizzle[Expr.Post.Swizzle.Matrix]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post.Call" id="toc-Expr.Post.Call"><span
+        class="toc-section-number">5.6</span> Function
+        Calls[Expr.Post.Call]</a></li>
+        </ul></li>
+        <li><a href="6-Stmt.html" id="toc-Stmt"><span
+        class="toc-section-number">6</span> Statements[Stmt]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Label" id="toc-Stmt.Label"><span
+        class="toc-section-number">6.1</span> Label
+        Statements[Stmt.Label]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr" id="toc-Stmt.Attr"><span
+        class="toc-section-number">6.2</span> Attributes[Stmt.Attr]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Attr.Unroll"
+        id="toc-Stmt.Attr.Unroll"><span class="toc-section-number">6.2.1</span>
+        Unroll Attribute[Stmt.Attr.Unroll]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr.Loop" id="toc-Stmt.Attr.Loop"><span
+        class="toc-section-number">6.2.2</span> Loop
+        Attribute[Stmt.Attr.Loop]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="7-Decl.html" id="toc-Decl"><span
+        class="toc-section-number">7</span> Declarations[Decl]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Pre" id="toc-Decl.Pre"><span
+        class="toc-section-number">7.1</span> Preamble[Decl.Pre]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec" id="toc-Decl.Spec"><span
+        class="toc-section-number">7.2</span> Specifiers[Decl.Spec]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Spec.General"
+        id="toc-Decl.Spec.General"><span class="toc-section-number">7.2.1</span>
+        General[Decl.Spec.General]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec.Fct" id="toc-Decl.Spec.Fct"><span
+        class="toc-section-number">7.2.2</span> Function
+        specifiers[Decl.Spec.Fct]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Decl" id="toc-Decl.Decl"><span
+        class="toc-section-number">7.3</span> Declarators[Decl.Decl]</a></li>
+        <li><a href="7-Decl.html#Decl.Init" id="toc-Decl.Init"><span
+        class="toc-section-number">7.4</span> Initializers[Decl.Init]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Init.Agg" id="toc-Decl.Init.Agg"><span
+        class="toc-section-number">7.4.1</span> Aggregate
+        Initialization[Decl.Init.Agg]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Function" id="toc-Decl.Function"><span
+        class="toc-section-number">7.5</span> Function
+        Definitions[Decl.Function]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr" id="toc-Decl.Attr"><span
+        class="toc-section-number">7.6</span> Attributes[Decl.Attr]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Attr.Semantic"
+        id="toc-Decl.Attr.Semantic"><span
+        class="toc-section-number">7.6.1</span> Semantic
+        Annotations[Decl.Attr.Semantic]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr.Entry" id="toc-Decl.Attr.Entry"><span
+        class="toc-section-number">7.6.2</span> Entry
+        Attributes[Decl.Attr.Entry]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Export" id="toc-Decl.Export"><span
+        class="toc-section-number">7.7</span> Export
+        Declarations[Decl.Export]</a></li>
+        <li><a href="7-Decl.html#Decl.cbuffer" id="toc-Decl.cbuffer"><span
+        class="toc-section-number">7.8</span> Constant Buffer
+        Declarations[Decl.cbuffer]</a></li>
+        </ul></li>
+        <li><a href="8-Overload.html" id="toc-Overload"><span
+        class="toc-section-number">8</span> Overloading[Overload]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Decl" id="toc-Overload.Decl"><span
+        class="toc-section-number">8.1</span> Overloadable
+        Declarations[Overload.Decl]</a></li>
+        <li><a href="8-Overload.html#Overload.Res" id="toc-Overload.Res"><span
+        class="toc-section-number">8.2</span> Overload
+        Resolution[Overload.Res]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Res.Sets"
+        id="toc-Overload.Res.Sets"><span class="toc-section-number">8.2.1</span>
+        Candidate Functions and Argument Lists[Overload.Res.Sets]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Viable"
+        id="toc-Overload.Res.Viable"><span
+        class="toc-section-number">8.2.2</span> Viable
+        Functions[Overload.Res.Viable]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Best"
+        id="toc-Overload.Res.Best"><span class="toc-section-number">8.2.3</span>
+        Best Viable Function[Overload.Res.Best]</a></li>
+        <li><a href="8-Overload.html#Overload.ICS" id="toc-Overload.ICS"><span
+        class="toc-section-number">8.2.4</span> Implicit Conversion
+        Sequences[Overload.ICS]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="9-Resources.html" id="toc-Resources"><span
+        class="toc-section-number">9</span> Resource Types[Resources]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs"
+        id="toc-Resources.tybufs"><span class="toc-section-number">9.1</span>
+        Typed Buffers[Resources.tybufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs.ctrs"
+        id="toc-Resources.tybufs.ctrs"><span
+        class="toc-section-number">9.1.1</span>
+        Constructors[Resources.tybufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.dims"
+        id="toc-Resources.tybufs.dims"><span
+        class="toc-section-number">9.1.2</span>
+        Dimensions[Resources.tybufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.access"
+        id="toc-Resources.tybufs.access"><span
+        class="toc-section-number">9.1.3</span> Element
+        Access[Resources.tybufs.access]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.rawbufs"
+        id="toc-Resources.rawbufs"><span class="toc-section-number">9.2</span>
+        Raw Buffers[Resources.rawbufs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs"
+        id="toc-Resources.babufs"><span class="toc-section-number">9.3</span>
+        Byte Access Buffers[Resources.babufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.babufs.ctrs"
+        id="toc-Resources.babufs.ctrs"><span
+        class="toc-section-number">9.3.1</span>
+        Constructors[Resources.babufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.dims"
+        id="toc-Resources.babufs.dims"><span
+        class="toc-section-number">9.3.2</span>
+        Dimensions[Resources.babufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.access"
+        id="toc-Resources.babufs.access"><span
+        class="toc-section-number">9.3.3</span> Element
+        Access[Resources.babufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.atomics"
+        id="toc-Resources.babufs.atomics"><span
+        class="toc-section-number">9.3.4</span> Atomic
+        Operations[Resources.babufs.atomics]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.stbufs"
+        id="toc-Resources.stbufs"><span class="toc-section-number">9.4</span>
+        Structured Buffers[Resources.stbufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.stbufs.ctrs"
+        id="toc-Resources.stbufs.ctrs"><span
+        class="toc-section-number">9.4.1</span>
+        Constructors[Resources.stbufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.dims"
+        id="toc-Resources.stbufs.dims"><span
+        class="toc-section-number">9.4.2</span>
+        Dimensions[Resources.stbufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.access"
+        id="toc-Resources.stbufs.access"><span
+        class="toc-section-number">9.4.3</span> Element
+        Access[Resources.stbufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.counter"
+        id="toc-Resources.stbufs.counter"><span
+        class="toc-section-number">9.4.4</span> Counter
+        Manipulation[Resources.stbufs.counter]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.append"
+        id="toc-Resources.stbufs.append"><span
+        class="toc-section-number">9.4.5</span>
+        Append[Resources.stbufs.append]</a></li>
+        <li><a href="9-Resources.html#Resources.cnstbufs.consume"
+        id="toc-Resources.cnstbufs.consume"><span
+        class="toc-section-number">9.4.6</span>
+        Consume[Resources.cnstbufs.consume]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.cnbuf"
+        id="toc-Resources.cnbuf"><span class="toc-section-number">9.5</span>
+        Constant Buffers[Resources.cnbuf]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.cnbuf.cbclass"
+        id="toc-Resources.cnbuf.cbclass"><span
+        class="toc-section-number">9.5.1</span> Constant Buffer
+        Class[Resources.cnbuf.cbclass]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.lay"
+        id="toc-Resources.cnbuf.lay"><span
+        class="toc-section-number">9.5.2</span> Constant Buffer
+        Layout[Resources.cnbuf.lay]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.po"
+        id="toc-Resources.cnbuf.po"><span
+        class="toc-section-number">9.5.3</span> Packoffset
+        annotations[Resources.cnbuf.po]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.defcb"
+        id="toc-Resources.cnbuf.defcb"><span
+        class="toc-section-number">9.5.4</span> Default Constant
+        Buffer[Resources.cnbuf.defcb]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.samp"
+        id="toc-Resources.samp"><span class="toc-section-number">9.6</span>
+        Samplers[Resources.samp]</a></li>
+        <li><a href="9-Resources.html#Resources.mapcheck"
+        id="toc-Resources.mapcheck"><span class="toc-section-number">9.7</span>
+        CheckAccessFullyMapped[Resources.mapcheck]</a></li>
+        <li><a href="9-Resources.html#Resources.binding"
+        id="toc-Resources.binding"><span class="toc-section-number">9.8</span>
+        Resource Binding[Resources.binding]</a></li>
+        </ul></li>
+        <li><a href="10-Template.html" id="toc-Template"><span
+        class="toc-section-number">10</span> Templates[Template]</a>
+        <ul>
+        <li><a href="10-Template.html#Template.Inst"
+        id="toc-Template.Inst"><span class="toc-section-number">10.1</span>
+        Template Instantiation[Template.Inst]</a></li>
+        <li><a href="10-Template.html#Template.Func.Order"
+        id="toc-Template.Func.Order"><span
+        class="toc-section-number">10.2</span> Partial Ordering of Function
+        Templates[Template.Func.Order]</a></li>
+        </ul></li>
+        <li><a href="11-Intangible.html" id="toc-Intangible"><span
+        class="toc-section-number">11</span> Intangible
+        Types[Intangible]</a></li>
+        <li><a href="12-Runtime.html" id="toc-Runtime"><span
+        class="toc-section-number">12</span> Runtime[Runtime]</a></li>
+        </ul>
+
+        </div>
+      </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        var toc = document.querySelector('.toc');
+        if(!toc) return;
+        toc.querySelectorAll('li').forEach(function(li){
+          var childUL = li.querySelector('ul');
+          if(childUL){
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'toc-toggle';
+            toggle.setAttribute('aria-expanded','false');
+            toggle.innerHTML = '\u25B8';
+            toggle.addEventListener('click', function(e){
+              e.preventDefault();
+              li.classList.toggle('expanded');
+              var expanded = li.classList.contains('expanded');
+              toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            });
+            var firstLink = li.querySelector('a');
+            if(firstLink) li.insertBefore(toggle, firstLink);
+            else li.insertBefore(toggle, li.firstChild);
+          }
+        });
+      });
+      </script>
+
+      <div id="content" class="col-md-9">
+
+      
+      <nav id="sitenav">
+      <div class="sitenav">
+      <span class="navlink">
+            <span class="navlink-label">Next:</span> <a href="4-Conv.html" accesskey="n" rel="next">Standard Conversions[Conv]</a>
+            </span>
+      <span class="navlink">
+            <span class="navlink-label">Previous:</span> <a href="2-Lex.html" accesskey="p" rel="previous">Lexical Conventions[Lex]</a>
+            </span>
+      </div>
+      </nav>
+
+            <h1 data-number="3" id="Basic"><span
+            class="header-section-number">3</span> Basic
+            Concepts[Basic]</h1>
+            <div class="center">
+            <table>
+            <tbody>
+            <tr class="odd">
+            <td style="text-align: left;"></td>
+            </tr>
+            <tr class="even">
+            <td style="text-align: left;"><p>HLSL inherits a significant
+            portion of its language semantics from C and C++. Some of
+            this is a result of intentional adoption of syntax early in
+            the development of the language and some a side-effect of
+            the Clang-based implementation of DXC.</p>
+            <p>This chapter includes a lot of definitions that are
+            inherited from C and C++. Some are identical to C or C++,
+            others are slightly different. HLSL is neither a subset nor
+            a superset of C or C++, and cannot be simply described in
+            terms of C or C++. This specification includes all necessary
+            definitions for clarity.</p></td>
+            </tr>
+            <tr class="odd">
+            <td style="text-align: left;"></td>
+            </tr>
+            </tbody>
+            </table>
+            </div>
+            <h2 data-number="3.1" id="Basic.preamble"><span
+            class="header-section-number">3.1</span>
+            Preamble[Basic.preamble]</h2>
+            <p>An <em>entity</em> is a value, object, function,
+            enumerator, type, class member, bit-field, template,
+            template specialization, namespace, or pack.</p>
+            <p>A <em>name</em> is a use of an <em>identifier</em> (<a
+            href="5-Expr.html#Expr.Primary.ID" data-reference-type="ref"
+            data-reference="Expr.Primary.ID">5.2.4</a>),
+            <em>operator-function-id</em> (<a href="#Overload.operator"
+            data-reference-type="ref"
+            data-reference="Overload.operator">[Overload.operator]</a>),
+            <em>conversion-function-id</em> (<a
+            href="#Classes.Conversions" data-reference-type="ref"
+            data-reference="Classes.Conversions">[Classes.Conversions]</a>),
+            or <em>template-id</em> (<a href="10-Template.html#Template"
+            data-reference-type="ref" data-reference="Template">10</a>)
+            that denotes any entity or <em>label</em> (<a
+            href="6-Stmt.html#Stmt.Label" data-reference-type="ref"
+            data-reference="Stmt.Label">6.1</a>).</p>
+            <p>Every name that denotes an entity is introduced by a
+            <em>declaration</em>. Every name that denotes a label is
+            introduced by a <em>labeled statement</em> (<a
+            href="6-Stmt.html#Stmt.Label" data-reference-type="ref"
+            data-reference="Stmt.Label">6.1</a>)<a href="#fn1"
+            class="footnote-ref" id="fnref1"
+            role="doc-noteref"><sup>1</sup></a>.</p>
+            <p>A <em>variable</em> is introduced by the declaration of a
+            reference other than a non-static data member of an object.
+            The variable’s name denotes the reference or object.</p>
+            <p>Whenever a name is encountered it is necessary to
+            determine if the name denotes an entity that is a type or
+            template. The process for determining if a name refers to a
+            type or template is called <em>name lookup</em>.</p>
+            <p>Two names are the same name if:</p>
+            <ul>
+            <li><p>they are identifiers comprised of the same character
+            sequence, or</p></li>
+            <li><p>they are operator-function-ids formed with the same
+            operator, or</p></li>
+            <li><p>they are conversion-function-ids formed with the same
+            type, or</p></li>
+            <li><p>they are template-ids that refer to the same class or
+            function.</p></li>
+            </ul>
+            <div class="center">
+            <table>
+            <tbody>
+            <tr class="odd">
+            <td style="text-align: left;"></td>
+            </tr>
+            <tr class="even">
+            <td style="text-align: left;">This section matches <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span> section
+            <strong>[basic]</strong> except for the exclusion of
+            <span>goto</span> and <em>literal operators</em>.</td>
+            </tr>
+            <tr class="odd">
+            <td style="text-align: left;"></td>
+            </tr>
+            </tbody>
+            </table>
+            </div>
+            <h2 data-number="3.2" id="Basic.Decl"><span
+            class="header-section-number">3.2</span> Declarations and
+            definitions[Basic.Decl]</h2>
+            <p>A declaration (<a href="7-Decl.html#Decl"
+            data-reference-type="ref" data-reference="Decl">7</a>) may
+            introduce one or more names into a translation unit or
+            redeclare names introduced by previous declarations. If a
+            declaration introduces names, it specifies the
+            interpretation and attributes of these names. A declaration
+            may also have effects such as:</p>
+            <ul>
+            <li><p>verifying a static assertion (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>use of attributes (<a href="7-Decl.html#Decl"
+            data-reference-type="ref" data-reference="Decl">7</a>),
+            and</p></li>
+            <li><p>controlling template instantiation (<a
+            href="10-Template.html#Template.Inst"
+            data-reference-type="ref"
+            data-reference="Template.Inst">10.1</a>).</p></li>
+            </ul>
+            <p>A declaration is a <em>definition</em> unless:</p>
+            <ul>
+            <li><p>it declares a function without specifying the
+            function’s body (<a href="7-Decl.html#Decl.Function"
+            data-reference-type="ref"
+            data-reference="Decl.Function">7.5</a>),</p></li>
+            <li><p>it is a parameter declaration in a function
+            declaration that does not specify the function’s body (<a
+            href="7-Decl.html#Decl.Function" data-reference-type="ref"
+            data-reference="Decl.Function">7.5</a>),</p></li>
+            <li><p>it is a global or namespace member declaration
+            without the <span>static</span> specifier<a href="#fn2"
+            class="footnote-ref" id="fnref2"
+            role="doc-noteref"><sup>2</sup></a>,</p></li>
+            <li><p>it declares a static data member in a class
+            definition,</p></li>
+            <li><p>it is a class name declaration,</p></li>
+            <li><p>it is a template parameter,</p></li>
+            <li><p>it is a <span>typedef</span> declaration (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>it is an <em>alias-declaration</em> (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>it is a <em>using-declaration</em> (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>it is a <em>static_assert-declaration</em> (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>it is an <em>empty-declaration</em> (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>),</p></li>
+            <li><p>or a <em>using-directive</em> (<a
+            href="7-Decl.html#Decl" data-reference-type="ref"
+            data-reference="Decl">7</a>).</p></li>
+            </ul>
+            <p>The two examples below are adapted from <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span>
+            <strong>[basic.def]</strong>. All but one of the following
+            are definitions:</p>
+            <div class="HLSL">
+            <p>int f(int x) <span> return x+1; </span> // defines f and
+            x struct S <span>int a;int b;</span>; // defines S, S::a,
+            and S::b struct X <span> // defines X int x; // defines
+            non-static member x static int y; // declares static data
+            member y </span>; int X::y = 1; // defines X::y enum <span>
+            up, down </span>; // defines up and down namespace N <span>
+            // defines N int d; // declares N::d static int i; //
+            defines N::i </span></p>
+            </div>
+            <p>All of the following are declarations:</p>
+            <div class="HLSL">
+            <p>int a; // declares a const int c; // declares c X anX; //
+            declares anX int f(int); // declares f struct S; // declares
+            S typedef int Int; // declares Int using N::d; // declares d
+            using Float = float; // declares Float cbuffer CB <span> //
+            does not declare CB int z; // declares z </span> tbuffer TB
+            <span> // does not declare TB int w; // declares w
+            </span></p>
+            </div>
+            <h2 data-number="3.3" id="Basic.ODR"><span
+            class="header-section-number">3.3</span> One-Definition
+            Rule[Basic.ODR]</h2>
+            <p>The <span data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span>
+            <em>One-definition rule</em> is adopted as defined in <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span>
+            <strong>[basic.def.odr]</strong>.</p>
+            <h2 data-number="3.4" id="Basic.Scope"><span
+            class="header-section-number">3.4</span>
+            Scope[Basic.Scope]</h2>
+            <h2 data-number="3.5" id="Basic.Lookup"><span
+            class="header-section-number">3.5</span> Name
+            Lookup[Basic.Lookup]</h2>
+            <h2 data-number="3.6" id="Basic.Storage"><span
+            class="header-section-number">3.6</span> Storage
+            Duration[Basic.Storage]</h2>
+            <p>The storage duration of an object is the portion of the
+            program’s execution time during which the object exists in
+            memory. An object may have one of the following storage
+            durations:</p>
+            <ul>
+            <li><p><em>static storage duration</em></p></li>
+            <li><p><em>automatic storage duration</em></p></li>
+            <li><p><em>program storage duration</em></p></li>
+            <li><p><em>groupshared storage duration</em></p></li>
+            </ul>
+            <h3 data-number="3.6.1" id="Basic.Storage.Static"><span
+            class="header-section-number">3.6.1</span> Static Storage
+            Duration[Basic.Storage.Static]</h3>
+            <p>An object whose name is declared with the
+            <span>static</span> storage specifier has <em>static storage
+            duration</em>. Such an object is created when the thread
+            begins execution and destroyed when the thread ends
+            execution.</p>
+            <h3 data-number="3.6.2" id="Basic.Storage.Auto"><span
+            class="header-section-number">3.6.2</span> Automatic Storage
+            Duration[Basic.Storage.Auto]</h3>
+            <p>An object whose name is declared in a block (including
+            function parameters) without the <span>static</span> storage
+            specifier has <em>automatic storage duration</em>. Such an
+            object is created when the block in which it is declared is
+            entered and destroyed when the block is exited.</p>
+            <h3 data-number="3.6.3" id="Basic.Storage.Program"><span
+            class="header-section-number">3.6.3</span> Program Storage
+            Duration[Basic.Storage.Program]</h3>
+            <p>An object whose name is declared in a global, namespace,
+            or cbuffer scope without the <span>static</span> storage
+            specifier has <em>program storage duration</em>. Such an
+            object is created when the program begins execution and
+            destroyed when the program ends execution.</p>
+            <h3 data-number="3.6.4" id="Basic.Storage.Groupshared"><span
+            class="header-section-number">3.6.4</span> Groupshared
+            Storage Duration[Basic.Storage.Groupshared]</h3>
+            <p>An object whose name is declared with the
+            <span>groupshared</span> storage specifier has
+            <em>groupshared storage duration</em>. Such an object is
+            created when the thread group begins execution and destroyed
+            when the thread group ends.</p>
+            <h2 data-number="3.7" id="Basic.Linkage"><span
+            class="header-section-number">3.7</span> Program and
+            linkage[Basic.Linkage]</h2>
+            <p>A translation unit (<a href="2-Lex.html#Lex.Translation"
+            data-reference-type="ref"
+            data-reference="Lex.Translation">2.1</a>) is comprised of a
+            sequence of declarations:</p>
+            <p><em></em></p>
+            <div class="grammarlist">
+            <p><span><em>translation-unit</em><span
+            class="nodecor">:</span></span><br />
+            <span>declaration-sequence<sub><em>opt</em></sub></span></p>
+            </div>
+            <p>A <em>program</em> is one or more translation units
+            <em>linked</em> together. A program built from a single
+            translation unit, bypassing a linking step is called
+            <em>freestanding</em>.</p>
+            <p>A program is said to be <em>fully linked</em>, when it
+            contains no <em>unresolved external</em> declarations, and
+            all <em>exported</em> declarations are entry point
+            declarations (<a href="3-Basic.html#Basic.Start"
+            data-reference-type="ref"
+            data-reference="Basic.Start">3.8</a>). A program is said to
+            be <em>partially linked</em>, when it contains at least one
+            unresolved external declaration or at least one exported
+            declaration that is not an entry point.</p>
+            <p>An implementation may generate programs as fully linked
+            or partially linked as requested by the user, and a runtime
+            may allow fully linked or partially linked programs as the
+            implementation allows.</p>
+            <p>A name has <em>linkage</em> if it can refer to the same
+            entity as a name introduced by a declaration in another
+            scope. If a variable, function, or another entity with the
+            same name is declared in several scopes, but does not have
+            sufficient <em>linkage</em>, then several instances of the
+            entity are generated.</p>
+            <ul>
+            <li><p>A name with <em>no linkage</em> may not be referred
+            to by names from any other scope.</p></li>
+            <li><p>A name with <em>internal linkage</em> may be referred
+            to by names from other scopes within the same translation
+            unit.</p></li>
+            <li><p>A name with <em>external linkage</em> may be referred
+            to by names from other scopes within the same translation
+            unit, and by names from scopes of other translation
+            units.</p></li>
+            <li><p>A name with <em>program linkage</em> may be referred
+            to by names from other scopes within the same translation
+            unit, by names from scopes of other translation units, by
+            names from scopes of other programs, and by a runtime
+            implementation.</p></li>
+            </ul>
+            <p>When merging translation units through linking or
+            generating a freestanding program only names with program
+            linkage must be retained in the final program.</p>
+            <h3 data-number="3.7.1" id="Basic.Linkage.Program"><span
+            class="header-section-number">3.7.1</span> Program
+            Linkage[Basic.Linkage.Program]</h3>
+            <p>Entities with <em>program linkage</em> can be referred to
+            from other partially linked programs or a runtime
+            implementation.</p>
+            <p>The following entities have program linkage:</p>
+            <ul>
+            <li><p>entry point functions (<a
+            href="3-Basic.html#Basic.Start" data-reference-type="ref"
+            data-reference="Basic.Start">3.8</a>)</p></li>
+            <li><p>functions marked with <span>export</span> keyword (<a
+            href="7-Decl.html#Decl.Export" data-reference-type="ref"
+            data-reference="Decl.Export">7.7</a>)</p></li>
+            <li><p>declarations contained within an
+            <em>export-declaration-group</em> (<a
+            href="7-Decl.html#Decl.Export" data-reference-type="ref"
+            data-reference="Decl.Export">7.7</a>)</p></li>
+            </ul>
+            <h3 data-number="3.7.2" id="Basic.Linkage.External"><span
+            class="header-section-number">3.7.2</span> External
+            Linkage[Basic.Linkage.External]</h3>
+            <p>Entities with <em>external linkage</em> can be referred
+            to from the scopes in the other translation units and enable
+            linking between them.</p>
+            <p>The following entities in HLSL have <em>external
+            linkage</em>:</p>
+            <ul>
+            <li><p>global variables that are not marked
+            <span>static</span> or <span>groupshared</span> <a
+            href="#fn3" class="footnote-ref" id="fnref3"
+            role="doc-noteref"><sup>3</sup></a></p></li>
+            <li><p>static data members of classes or template
+            classes</p></li>
+            </ul>
+            <p>Linkage of functions (including template functions) that
+            are not entry points or marked with <span>export</span>
+            keyword is implementation dependent. <a href="#fn4"
+            class="footnote-ref" id="fnref4"
+            role="doc-noteref"><sup>4</sup></a></p>
+            <h3 data-number="3.7.3" id="Basic.Linkage.Internal"><span
+            class="header-section-number">3.7.3</span> Internal
+            Linkage[Basic.Linkage.Internal]</h3>
+            <p>Entities with <em>internal linkage</em> can be referred
+            to from all scopes in the current translation unit.</p>
+            <p>The following entities in HLSL have <em>internal
+            linkage</em>:</p>
+            <ul>
+            <li><p>global variables marked as <span>static</span> or
+            <span>groupshared</span></p></li>
+            <li><p>all entities declared in an unnamed namespace or a
+            namespace within an unnamed namespace</p></li>
+            <li><p>enumerations</p></li>
+            <li><p>classes or template classes, their member functions,
+            and nested classes and enumerations</p></li>
+            </ul>
+            <h3 data-number="3.7.4" id="Basic.Linkage.NoLinkage"><span
+            class="header-section-number">3.7.4</span> No
+            Linkage[Basic.Linkage.NoLinkage]</h3>
+            <p>An entity with <em>no linkage</em> can be referred to
+            only from the scope it is in.</p>
+            <p>Any of the following entites declared at function scope
+            or block scopes derived from function scope have no
+            linkage:</p>
+            <ul>
+            <li><p>local variables</p></li>
+            <li><p>local classes and their member functions</p></li>
+            <li><p>other entities declared at function scope or block
+            scopes derived from function scope that such as typedefs,
+            enumerations, and enumerators</p></li>
+            </ul>
+            <h2 data-number="3.8" id="Basic.Start"><span
+            class="header-section-number">3.8</span>
+            Start[Basic.Start]</h2>
+            <p>A fully linked program shall contain one or more global
+            functions, which are the designated starting points for the
+            program. These global functions are called <em>entry
+            points</em>, because they denote the location where
+            execution inside the program begins.</p>
+            <p>Entry point functions have different requirements based
+            on the target runtime and execution mode (<a
+            href="3-Basic.html#Basic.Start.Mode"
+            data-reference-type="ref"
+            data-reference="Basic.Start.Mode">3.8.1</a>).</p>
+            <p>Parameters to entry functions and entry function return
+            types must be of scalar, vector, or non-intangible class
+            type (<a href="3-Basic.html#Basic.types"
+            data-reference-type="ref"
+            data-reference="Basic.types">3.9</a>). Scalar and vector
+            parameters and return types must be annotated with semantic
+            annotations (<a href="7-Decl.html#Decl.Attr.Semantic"
+            data-reference-type="ref"
+            data-reference="Decl.Attr.Semantic">7.6.1</a>). Class type
+            input and output parameters must have all fields annotated
+            with semantic annotations.</p>
+            <h3 data-number="3.8.1" id="Basic.Start.Mode"><span
+            class="header-section-number">3.8.1</span> Execution
+            Mode[Basic.Start.Mode]</h3>
+            <p>A runtime may define a set of execution modes in an
+            implementation defined way. Each execution mode will have a
+            set of implementation defined rules which restrict available
+            language functionality as appropriate for the execution
+            mode.</p>
+            <h2 data-number="3.9" id="Basic.types"><span
+            class="header-section-number">3.9</span>
+            Types[Basic.types]</h2>
+            <p>The <em>object representation</em> of an object of type
+            <span>T</span> is the sequence of <em>N</em> bytes taken up
+            by the object of type <span>T</span>, where <em>N</em>
+            equals <span>sizeof(T)</span><a href="#fn5"
+            class="footnote-ref" id="fnref5"
+            role="doc-noteref"><sup>5</sup></a>. The <em>object
+            representation</em> of an object may be different based on
+            the <em>memory space</em> it is stored in (<a
+            href="1-Intro.html#Intro.Memory.Spaces"
+            data-reference-type="ref"
+            data-reference="Intro.Memory.Spaces">1.7.1</a>).</p>
+            <p>The <em>value representation</em> of an object is the set
+            of bits that hold the value of type <span>T</span>. Bits in
+            the object representation that are not part of the value
+            representation are <em>padding bits</em>.</p>
+            <p>An <em>object type</em> is a type that is not a function
+            type, not a reference type, and not a void type.</p>
+            <p>A <em>class type</em> is a data type declared with either
+            the <span>class</span> or <span>struct</span> keywords (<a
+            href="#Classes" data-reference-type="ref"
+            data-reference="Classes">[Classes]</a>). A class type
+            <span>T</span> may be declared as incomplete at one point in
+            a translation unit via a <em>forward declaration</em>, and
+            complete later with a full definition. The type
+            <span>T</span> is the same type throughout the translation
+            unit.</p>
+            <p>There are special implementation-defined types such as
+            <em>handle types</em>, which fall into a category of
+            <em>standard intangible types</em>. Intangible types are
+            types that have no defined object representation or value
+            representation, as such the size is unknown at compile time.
+            Usage restrictions for objects of intangible type are
+            documented in <a href="3-Basic.html#Basic.types.intangible"
+            data-reference-type="ref"
+            data-reference="Basic.types.intangible">3.9.3</a>.</p>
+            <p>A class type <span>T</span> is an <em>intangible class
+            type</em> if it contains a base class or members of
+            intangible class type, standard intangible type, or arrays
+            of such types. Standard intangible types and intangible
+            class types are collectively called <em>intangible
+            types</em>(<a href="11-Intangible.html#Intangible"
+            data-reference-type="ref"
+            data-reference="Intangible">11</a>).</p>
+            <p>An object type is an <em>incomplete type</em> if the
+            compiler lacks sufficient information to determine the size
+            of an object of type <span>T</span>, and it is not an
+            intangible type. It is a <em>complete type</em> if the
+            compiler has sufficient information to determine the size of
+            an object of type <span>T</span>, or if the type is known to
+            be an intangible type. An object may not be defined to have
+            an <em>incomplete</em> type.</p>
+            <p>Arithmetic types (<a
+            href="3-Basic.html#Basic.types.arithmetic"
+            data-reference-type="ref"
+            data-reference="Basic.types.arithmetic">3.9.1</a>),
+            enumeration types, and <em>cv-qualified</em> versions of
+            these types are collectively called <em>scalar
+            types</em>.</p>
+            <p>Vectors of scalar types declared with the built-in
+            <span>vector&lt;T,N&gt;</span> template are <em>vector
+            types</em>. Vector lengths must be between 1 and 4 (i.e.
+            <span class="math inline">1 ≤ <em>N</em> ≤ 4</span> ).</p>
+            <p>Matrices of scalar types declared with the built-in
+            <span>matrix&lt;T,N,M&gt;</span> template are <em>matrix
+            types</em>. Matrix dimensions, <span>N</span> and
+            <span>M</span>, must be between 1 and 4 (i.e. <span
+            class="math inline">1 ≤ <em>N</em> ≤ 4</span> ).</p>
+            <h3 data-number="3.9.1" id="Basic.types.arithmetic"><span
+            class="header-section-number">3.9.1</span> Arithmetic
+            Types[Basic.types.arithmetic]</h3>
+            <p>There are three <em>standard signed integer types</em>:
+            <span>int16_t</span>, <span>int32_t</span>, and
+            <span>int64_t</span>. Each of the signed integer types is
+            explicitly named for the size in bits of the type’s object
+            representation. There is also the type alias
+            <span>int</span> which is an alias of <span>int32_t</span>.
+            There is one <em>minimum precision signed integer type</em>:
+            <span>min16int</span>. The minimum precision signed integer
+            type is named for the required minimum value representation
+            size in bits. The object representation of
+            <span>min16int</span> is <span>int</span>. The standard
+            signed integer types and minimum precision signed integer
+            type are collectively called <em>signed integer
+            types</em>.</p>
+            <p>There are three <em>standard unsigned integer types</em>:
+            <span>uint16_t</span>, <span>uint32_t</span>, and
+            <span>uint64_t</span>. Each of the unsigned integer types is
+            explicitly named for the size in bits of the type’s object
+            representation. There is also the type alias
+            <span>uint</span> which is an alias of
+            <span>uint32_t</span>. There is one <em>minimum precision
+            unsigned integer type</em>: <span>min16uint</span>. The
+            minimum precision unsigned integer type is named for the
+            required minimum value representation size in bits. The
+            object representation of <span>min16uint</span> is
+            <span>uint</span>. The standard unsigned integer types and
+            minimum precision unsigned integer type are collectively
+            called <em>unsigned integer types</em>.</p>
+            <p>The minimum precision signed integer types and minimum
+            precision unsigned integer types are collectively called
+            <em>minimum precision integer types</em>. The standard
+            signed integer types and standard unsigned integer types are
+            collectively called <em>standard integer types</em>. The
+            signed integer types and unsigned integer types are
+            collectively called <em>integer types</em>. Integer types
+            inherit the object representation of integers defined in
+            <span data-acronym-label="isoC23"
+            data-acronym-form="singular+long">isoC23</span><a
+            href="#fn6" class="footnote-ref" id="fnref6"
+            role="doc-noteref"><sup>6</sup></a>. Integer types shall
+            satisfy the constraints defined in <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+long">isoCPP</span>, section
+            <strong>basic.fundamental</strong>.</p>
+            <p>There are three <em>standard floating point types</em>:
+            <span>half</span>, <span>float</span>, and
+            <span>double</span>. The <span>float</span> type is a 32-bit
+            floating point type. The <span>double</span> type is a
+            64-bit floating point type. Both the <span>float</span> and
+            <span>double</span> types have object representations as
+            defined in <span data-acronym-label="IEEE754"
+            data-acronym-form="singular+short">IEEE754</span>. The
+            <span>half</span> type may be either 16-bit or 32-bit as
+            controlled by implementation defined compiler settings. If
+            <span>half</span> is 32-bit it will have an object
+            representation as defined in <span
+            data-acronym-label="IEEE754"
+            data-acronym-form="singular+short">IEEE754</span>, otherwise
+            it will have an object representation matching the
+            <strong>binary16</strong> format defined in <span
+            data-acronym-label="IEEE754"
+            data-acronym-form="singular+short">IEEE754</span><a
+            href="#fn7" class="footnote-ref" id="fnref7"
+            role="doc-noteref"><sup>7</sup></a>. There is one
+            <em>minimum precision floating point type</em>:
+            <span>min16float</span>. The minimum precision floating
+            point type is named for the required minimum value
+            representation size in bits. The object representation of
+            <span>min16float</span> is <span>float</span><a href="#fn8"
+            class="footnote-ref" id="fnref8"
+            role="doc-noteref"><sup>8</sup></a>. The standard floating
+            point types and minimum precision floating point type are
+            collectively called <em>floating point types</em>.</p>
+            <p>Integer and floating point types are collectively called
+            <em>arithmetic types</em>.</p>
+            <p>The <span>void</span> type is inherited from <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span>, which
+            defines it as having an empty set of values and being an
+            incomplete type that can never be completed. The
+            <span>void</span> type is used to signify the return type of
+            a function that returns no value. Any expression can be
+            explicitly converted to <span>void</span>.</p>
+            <h3 data-number="3.9.2" id="Basic.types.scalarized"><span
+            class="header-section-number">3.9.2</span> Scalarized Type
+            Compatability[Basic.types.scalarized]</h3>
+            <p>All types <span>T</span> have a <em>scalarized
+            representation</em>, <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em>)</span>,
+            which is a list of one or more types representing each
+            scalar element of <span>T</span>.</p>
+            <p>Scalarized representations are determined as follows:</p>
+            <ul>
+            <li><p>The scalarized representation of an array
+            <span>T[n]</span> is <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em><sub>0</sub>), ..<em>S</em><em>R</em>(<em>T</em><sub><em>n</em></sub>)</span>.</p></li>
+            <li><p>The scalarized representation of a vector
+            <span>vector&lt;T,n&gt;</span> is <span
+            class="math inline"><em>T</em><sub>0</sub>, ..<em>T</em><sub><em>n</em></sub></span>.</p></li>
+            <li><p>The scalarized representation of a matrix
+            <span>matrix&lt;T,n, m&gt;</span> is <span
+            class="math inline"><em>T</em><sub>0</sub>, ..<em>T</em><sub><em>n</em> × <em>m</em></sub></span>.</p></li>
+            <li><p>The scalarized representation of a class type
+            <span>T</span>, <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em>)</span>
+            is computed recursively as <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em>::<em>b</em><em>a</em><em>s</em><em>e</em>), <em>S</em><em>R</em>(<em>T</em>::<sub>0</sub>), ..<em>S</em><em>R</em>(<em>T</em>::<sub><em>n</em></sub>)</span>
+            where <span>(</span>T::base) is <span>T</span>’s base class
+            if it has one, and <span
+            class="math inline"><em>T</em> : :<sub><em>n</em></sub></span>
+            represents the <em>n</em> non-static members of
+            <span>T</span>.</p></li>
+            <li><p>The scalarized representation for an enumeration type
+            is the underlying arithmetic type.</p></li>
+            <li><p>The scalarized representation for arithmetic,
+            intangible types, and any other type <span>T</span> is <span
+            class="math inline"><em>T</em></span>.</p></li>
+            </ul>
+            <p>Two types <em>cv1</em> <span>T1</span> and <em>cv2</em>
+            <span>T2</span> are <em>scalar-layout-compatible types</em>
+            if <span>T1</span> and <span>T2</span> are the same type or
+            if the sequence of types defined by the scalar
+            representation <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em>1)</span>
+            and scalar representation <span
+            class="math inline"><em>S</em><em>R</em>(<em>T</em>2)</span>
+            are identical.</p>
+            <h3 data-number="3.9.3" id="Basic.types.intangible"><span
+            class="header-section-number">3.9.3</span> Usage of
+            Intangible Types[Basic.types.intangible]</h3>
+            <p>The following usage restrictions apply to intangible
+            types:</p>
+            <ul>
+            <li><p>Instances of objects of intangible type may only be
+            declared in the Thread address space (<a
+            href="1-Intro.html#Intro.Memory.Spaces"
+            data-reference-type="ref"
+            data-reference="Intro.Memory.Spaces">1.7.1</a>).</p></li>
+            <li><p>An object of intangible type may not be loaded or
+            stored to any address space other than the Thread address
+            space (<a href="1-Intro.html#Intro.Memory.Spaces"
+            data-reference-type="ref"
+            data-reference="Intro.Memory.Spaces">1.7.1</a>).<a
+            href="#fn9" class="footnote-ref" id="fnref9"
+            role="doc-noteref"><sup>9</sup></a></p></li>
+            <li><p>An object of intangible type may not be a parameter
+            or return type of a function with program linkage or
+            external linkage (<a
+            href="3-Basic.html#Basic.Linkage.Program"
+            data-reference-type="ref"
+            data-reference="Basic.Linkage.Program">3.7.1</a> and <a
+            href="3-Basic.html#Basic.Linkage.External"
+            data-reference-type="ref"
+            data-reference="Basic.Linkage.External">3.7.2</a>).</p></li>
+            </ul>
+            <h2 data-number="3.10" id="Basic.lval"><span
+            class="header-section-number">3.10</span> Lvalues and
+            rvalues[Basic.lval]</h2>
+            <p>Expressions are classified by the type(s) of values they
+            produce. The valid types of values produced by expressions
+            are:</p>
+            <ol>
+            <li><p>An <em>lvalue</em> represents a function or
+            object.</p></li>
+            <li><p>An <em>rvalue</em> represents a temporary
+            object.</p></li>
+            <li><p>An <em>xvalue</em> (expiring value) represents an
+            object near the end of its lifetime.</p></li>
+            <li><p>A <em>cxvalue</em> (casted expiring value) is an
+            <em>xvalue</em> which, on expiration, assigns its value to a
+            bound <em>lvalue</em>.</p></li>
+            <li><p>A <em>glvalue</em> is an <em>lvalue</em>,
+            <em>xvalue</em>, or <em>cxvalue</em>.</p></li>
+            <li><p>A <em>prvalue</em> is an <em>rvalue</em> that is not
+            an <em>xvalue</em>.</p></li>
+            </ol>
+            <aside id="footnotes"
+            class="footnotes footnotes-end-of-document"
+            role="doc-endnotes">
+            <hr />
+            <ol>
+            <li id="fn1"><p>HLSL does not have <span>goto</span>, and
+            labeled statements are only valid within <span>switch</span>
+            statements.<a href="#fnref1" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn2"><p>Global variable declarations are implicitly
+            constant and external in HLSL.<a href="#fnref2"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            <li id="fn3"><p>These are not really linked with other
+            translation units but rather their values are loaded
+            indirectly based on cbuffer mapping.<a href="#fnref3"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            <li id="fn4"><p>In DXC today functions that are not entry
+            points or exported have <em>internal linkage</em> by
+            default. This can be overriden by
+            <span>-default-linkage</span> compiler option.<a
+            href="#fnref4" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn5"><p><span>sizeof(T)</span> returns the size of
+            the object as-if it’s stored in device memory, and
+            determining the size if it’s stored in another memory space
+            is not possible.<a href="#fnref5" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn6"><p>C23 adopts two’s compliment as the object
+            representation for integer types.<a href="#fnref6"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            <li id="fn7"><p>IEEE-754 only defines a binary encoding for
+            16-bit floating point values, it does not fully specify the
+            behavior of such types.<a href="#fnref7"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            <li id="fn8"><p>This means when stored to memory objects of
+            type <span>min16float</span> are stored as
+            <strong>binary32</strong> as defined in <span
+            data-acronym-label="IEEE754"
+            data-acronym-form="singular+short">IEEE754</span>.<a
+            href="#fnref8" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn9"><p>DXC supports storing objects that contain
+            resources in cbuffer declarations, but it does so by
+            hoisting the resource declaration out to the global scope.<a
+            href="#fnref9" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            </ol>
+            </aside>
+                  </div>
+    </div>
+  </div>
+</body>
+</html>

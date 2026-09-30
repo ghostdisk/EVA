@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en-GB-oxendict"></html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8">
+
+    <!-- <link rel="stylesheet" type="text/css" href="template.css" /> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <meta name="generator" content="pandoc" />
+
+  <title>Standard Conversions[Conv]</title>
+
+  <link rel="stylesheet" href="assets/style.css" />
+
+<a href="index.html" accesskey="t" rel="top">
+<img
+  src="https://microsoft.github.io/hlsl-specs/resources/HLSL.png"
+  class="logo"
+  width="128"
+/>
+</a>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container">
+      <span class="doc-title">High-Level Shader Language
+Specification<br />
+<span>Working Draft</span></span>
+    </div>
+  </nav>
+    <div class="container">
+    <div class="row">
+
+      <div id="toc" class="col-md-3">
+        <div class="well toc">
+
+        <ul>
+        <li><a href="1-Intro.html" id="toc-Intro"><span
+        class="toc-section-number">1</span> Introduction[Intro]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Scope" id="toc-Intro.Scope"><span
+        class="toc-section-number">1.1</span> Scope[Intro.Scope]</a></li>
+        <li><a href="1-Intro.html#Intro.Refs" id="toc-Intro.Refs"><span
+        class="toc-section-number">1.2</span> Normative
+        References[Intro.Refs]</a></li>
+        <li><a href="1-Intro.html#Intro.Terms" id="toc-Intro.Terms"><span
+        class="toc-section-number">1.3</span> Terms and
+        definitions[Intro.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs" id="toc-Intro.Defs"><span
+        class="toc-section-number">1.4</span> Common Definitions[Intro.Defs]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Defs.CorrectData"
+        id="toc-Intro.Defs.CorrectData"><span
+        class="toc-section-number">1.4.1</span> Correct
+        Data[Intro.Defs.CorrectData]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Diags"
+        id="toc-Intro.Defs.Diags"><span class="toc-section-number">1.4.2</span>
+        Diagnostic Message[Intro.Defs.Diags]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.IllFormed"
+        id="toc-Intro.Defs.IllFormed"><span
+        class="toc-section-number">1.4.3</span> Ill-formed
+        Program[Intro.Defs.IllFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpDef"
+        id="toc-Intro.Defs.ImpDef"><span class="toc-section-number">1.4.4</span>
+        Implementation-defined Behavior[Intro.Defs.ImpDef]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.ImpLimits"
+        id="toc-Intro.Defs.ImpLimits"><span
+        class="toc-section-number">1.4.5</span> Implementation
+        Limits[Intro.Defs.ImpLimits]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Undefined"
+        id="toc-Intro.Defs.Undefined"><span
+        class="toc-section-number">1.4.6</span> Undefined
+        Behavior[Intro.Defs.Undefined]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Unspecified"
+        id="toc-Intro.Defs.Unspecified"><span
+        class="toc-section-number">1.4.7</span> Unspecified
+        Behavior[Intro.Defs.Unspecified]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.WellFormed"
+        id="toc-Intro.Defs.WellFormed"><span
+        class="toc-section-number">1.4.8</span> Well-formed
+        Program[Intro.Defs.WellFormed]</a></li>
+        <li><a href="1-Intro.html#Intro.Defs.Runtime"
+        id="toc-Intro.Defs.Runtime"><span
+        class="toc-section-number">1.4.9</span> Runtime
+        Implementation[Intro.Defs.Runtime]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Runtime" id="toc-Intro.Runtime"><span
+        class="toc-section-number">1.5</span> Runtime
+        Targeting[Intro.Runtime]</a></li>
+        <li><a href="1-Intro.html#Intro.Model" id="toc-Intro.Model"><span
+        class="toc-section-number">1.6</span> <span data-acronym-label="spmd"
+        data-acronym-form="singular+long">spmd</span> Programming
+        Model[Intro.Model]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Model.Terms"
+        id="toc-Intro.Model.Terms"><span class="toc-section-number">1.6.1</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span>
+        Terminology[Intro.Model.Terms]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Exec"
+        id="toc-Intro.Model.Exec"><span class="toc-section-number">1.6.2</span>
+        <span data-acronym-label="spmd"
+        data-acronym-form="singular+abbrv">spmd</span> Execution
+        Model[Intro.Model.Exec]</a></li>
+        <li><a href="1-Intro.html#Intro.Model.Restrictions"
+        id="toc-Intro.Model.Restrictions"><span
+        class="toc-section-number">1.6.3</span> Optimization
+        Restrictions[Intro.Model.Restrictions]</a></li>
+        </ul></li>
+        <li><a href="1-Intro.html#Intro.Memory" id="toc-Intro.Memory"><span
+        class="toc-section-number">1.7</span> <span data-acronym-label="hlsl"
+        data-acronym-form="singular+abbrv">hlsl</span> Memory
+        Models[Intro.Memory]</a>
+        <ul>
+        <li><a href="1-Intro.html#Intro.Memory.Spaces"
+        id="toc-Intro.Memory.Spaces"><span
+        class="toc-section-number">1.7.1</span> Memory
+        Spaces[Intro.Memory.Spaces]</a></li>
+        <li><a href="1-Intro.html#Intro.Memory.Alignment"
+        id="toc-Intro.Memory.Alignment"><span
+        class="toc-section-number">1.7.2</span> Memory
+        Spaces[Intro.Memory.Alignment]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="2-Lex.html" id="toc-Lex"><span
+        class="toc-section-number">2</span> Lexical Conventions[Lex]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Translation" id="toc-Lex.Translation"><span
+        class="toc-section-number">2.1</span> Unit of
+        Translation[Lex.Translation]</a></li>
+        <li><a href="2-Lex.html#Lex.Phases" id="toc-Lex.Phases"><span
+        class="toc-section-number">2.2</span> Phases of
+        Translation[Lex.Phases]</a></li>
+        <li><a href="2-Lex.html#Lex.CharSet" id="toc-Lex.CharSet"><span
+        class="toc-section-number">2.3</span> Character
+        Sets[Lex.CharSet]</a></li>
+        <li><a href="2-Lex.html#Lex.PPTokens" id="toc-Lex.PPTokens"><span
+        class="toc-section-number">2.4</span> Preprocessing
+        Tokens[Lex.PPTokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Tokens" id="toc-Lex.Tokens"><span
+        class="toc-section-number">2.5</span> Tokens[Lex.Tokens]</a></li>
+        <li><a href="2-Lex.html#Lex.Comments" id="toc-Lex.Comments"><span
+        class="toc-section-number">2.6</span> Comments[Lex.Comments]</a></li>
+        <li><a href="2-Lex.html#Lex.Headers" id="toc-Lex.Headers"><span
+        class="toc-section-number">2.7</span> Header Names[Lex.Headers]</a></li>
+        <li><a href="2-Lex.html#Lex.PPNumber" id="toc-Lex.PPNumber"><span
+        class="toc-section-number">2.8</span> Preprocessing
+        numbers[Lex.PPNumber]</a></li>
+        <li><a href="2-Lex.html#Lex.Literals" id="toc-Lex.Literals"><span
+        class="toc-section-number">2.9</span> Literals[Lex.Literals]</a>
+        <ul>
+        <li><a href="2-Lex.html#Lex.Literal.Kinds"
+        id="toc-Lex.Literal.Kinds"><span class="toc-section-number">2.9.1</span>
+        Literal Classifications[Lex.Literal.Kinds]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Int" id="toc-Lex.Literal.Int"><span
+        class="toc-section-number">2.9.2</span> Integer
+        Literals[Lex.Literal.Int]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Float"
+        id="toc-Lex.Literal.Float"><span class="toc-section-number">2.9.3</span>
+        Floating-point Literals[Lex.Literal.Float]</a></li>
+        <li><a href="2-Lex.html#Lex.Literal.Vector"
+        id="toc-Lex.Literal.Vector"><span
+        class="toc-section-number">2.9.4</span> Vector
+        Literals[Lex.Literal.Vector]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="3-Basic.html" id="toc-Basic"><span
+        class="toc-section-number">3</span> Basic Concepts[Basic]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.preamble" id="toc-Basic.preamble"><span
+        class="toc-section-number">3.1</span> Preamble[Basic.preamble]</a></li>
+        <li><a href="3-Basic.html#Basic.Decl" id="toc-Basic.Decl"><span
+        class="toc-section-number">3.2</span> Declarations and
+        definitions[Basic.Decl]</a></li>
+        <li><a href="3-Basic.html#Basic.ODR" id="toc-Basic.ODR"><span
+        class="toc-section-number">3.3</span> One-Definition
+        Rule[Basic.ODR]</a></li>
+        <li><a href="3-Basic.html#Basic.Scope" id="toc-Basic.Scope"><span
+        class="toc-section-number">3.4</span> Scope[Basic.Scope]</a></li>
+        <li><a href="3-Basic.html#Basic.Lookup" id="toc-Basic.Lookup"><span
+        class="toc-section-number">3.5</span> Name Lookup[Basic.Lookup]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage" id="toc-Basic.Storage"><span
+        class="toc-section-number">3.6</span> Storage
+        Duration[Basic.Storage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Storage.Static"
+        id="toc-Basic.Storage.Static"><span
+        class="toc-section-number">3.6.1</span> Static Storage
+        Duration[Basic.Storage.Static]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Auto"
+        id="toc-Basic.Storage.Auto"><span
+        class="toc-section-number">3.6.2</span> Automatic Storage
+        Duration[Basic.Storage.Auto]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Program"
+        id="toc-Basic.Storage.Program"><span
+        class="toc-section-number">3.6.3</span> Program Storage
+        Duration[Basic.Storage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Storage.Groupshared"
+        id="toc-Basic.Storage.Groupshared"><span
+        class="toc-section-number">3.6.4</span> Groupshared Storage
+        Duration[Basic.Storage.Groupshared]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Linkage" id="toc-Basic.Linkage"><span
+        class="toc-section-number">3.7</span> Program and
+        linkage[Basic.Linkage]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Linkage.Program"
+        id="toc-Basic.Linkage.Program"><span
+        class="toc-section-number">3.7.1</span> Program
+        Linkage[Basic.Linkage.Program]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.External"
+        id="toc-Basic.Linkage.External"><span
+        class="toc-section-number">3.7.2</span> External
+        Linkage[Basic.Linkage.External]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.Internal"
+        id="toc-Basic.Linkage.Internal"><span
+        class="toc-section-number">3.7.3</span> Internal
+        Linkage[Basic.Linkage.Internal]</a></li>
+        <li><a href="3-Basic.html#Basic.Linkage.NoLinkage"
+        id="toc-Basic.Linkage.NoLinkage"><span
+        class="toc-section-number">3.7.4</span> No
+        Linkage[Basic.Linkage.NoLinkage]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.Start" id="toc-Basic.Start"><span
+        class="toc-section-number">3.8</span> Start[Basic.Start]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.Start.Mode"
+        id="toc-Basic.Start.Mode"><span class="toc-section-number">3.8.1</span>
+        Execution Mode[Basic.Start.Mode]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.types" id="toc-Basic.types"><span
+        class="toc-section-number">3.9</span> Types[Basic.types]</a>
+        <ul>
+        <li><a href="3-Basic.html#Basic.types.arithmetic"
+        id="toc-Basic.types.arithmetic"><span
+        class="toc-section-number">3.9.1</span> Arithmetic
+        Types[Basic.types.arithmetic]</a></li>
+        <li><a href="3-Basic.html#Basic.types.scalarized"
+        id="toc-Basic.types.scalarized"><span
+        class="toc-section-number">3.9.2</span> Scalarized Type
+        Compatability[Basic.types.scalarized]</a></li>
+        <li><a href="3-Basic.html#Basic.types.intangible"
+        id="toc-Basic.types.intangible"><span
+        class="toc-section-number">3.9.3</span> Usage of Intangible
+        Types[Basic.types.intangible]</a></li>
+        </ul></li>
+        <li><a href="3-Basic.html#Basic.lval" id="toc-Basic.lval"><span
+        class="toc-section-number">3.10</span> Lvalues and
+        rvalues[Basic.lval]</a></li>
+        </ul></li>
+        <li><a href="4-Conv.html" id="toc-Conv"><span
+        class="toc-section-number">4</span> Standard Conversions[Conv]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.lval" id="toc-Conv.lval"><span
+        class="toc-section-number">4.1</span> Lvalue-to-rvalue
+        conversion[Conv.lval]</a></li>
+        <li><a href="4-Conv.html#Conv.array" id="toc-Conv.array"><span
+        class="toc-section-number">4.2</span> Array-to-pointer
+        conversion[Conv.array]</a></li>
+        <li><a href="4-Conv.html#Conv.ipromote" id="toc-Conv.ipromote"><span
+        class="toc-section-number">4.3</span> Integral
+        promotion[Conv.ipromote]</a></li>
+        <li><a href="4-Conv.html#Conv.fppromote" id="toc-Conv.fppromote"><span
+        class="toc-section-number">4.4</span> Floating point
+        promotion[Conv.fppromote]</a></li>
+        <li><a href="4-Conv.html#Conv.iconv" id="toc-Conv.iconv"><span
+        class="toc-section-number">4.5</span> Integral
+        conversion[Conv.iconv]</a></li>
+        <li><a href="4-Conv.html#Conv.bitfield" id="toc-Conv.bitfield"><span
+        class="toc-section-number">4.6</span> Bit-field
+        conversion[Conv.bitfield]</a></li>
+        <li><a href="4-Conv.html#Conv.fconv" id="toc-Conv.fconv"><span
+        class="toc-section-number">4.7</span> Floating point
+        conversion[Conv.fconv]</a></li>
+        <li><a href="4-Conv.html#Conv.fpint" id="toc-Conv.fpint"><span
+        class="toc-section-number">4.8</span> Floating point-integral
+        conversion[Conv.fpint]</a></li>
+        <li><a href="4-Conv.html#Conv.bool" id="toc-Conv.bool"><span
+        class="toc-section-number">4.9</span> Boolean
+        conversion[Conv.bool]</a></li>
+        <li><a href="4-Conv.html#Conv.flat" id="toc-Conv.flat"><span
+        class="toc-section-number">4.10</span> Elementwise
+        conversion[Conv.flat]</a></li>
+        <li><a href="4-Conv.html#Conv.vsplat" id="toc-Conv.vsplat"><span
+        class="toc-section-number">4.11</span> Vector splat
+        conversion[Conv.vsplat]</a></li>
+        <li><a href="4-Conv.html#Conv.msplat" id="toc-Conv.msplat"><span
+        class="toc-section-number">4.12</span> Matrix splat
+        conversion[Conv.msplat]</a></li>
+        <li><a href="4-Conv.html#Conv.asplat" id="toc-Conv.asplat"><span
+        class="toc-section-number">4.13</span> Array and Class splat
+        conversion[Conv.asplat]</a></li>
+        <li><a href="4-Conv.html#Conv.vtrunc" id="toc-Conv.vtrunc"><span
+        class="toc-section-number">4.14</span> Vector and matrix truncation
+        conversion[Conv.vtrunc]</a></li>
+        <li><a href="4-Conv.html#Conv.cwise" id="toc-Conv.cwise"><span
+        class="toc-section-number">4.15</span> Component-wise
+        conversions[Conv.cwise]</a></li>
+        <li><a href="4-Conv.html#Conv.qual" id="toc-Conv.qual"><span
+        class="toc-section-number">4.16</span> Qualification
+        conversion[Conv.qual]</a></li>
+        <li><a href="4-Conv.html#Conv.rank" id="toc-Conv.rank"><span
+        class="toc-section-number">4.17</span> Conversion Rank[Conv.rank]</a>
+        <ul>
+        <li><a href="4-Conv.html#Conv.rank.int" id="toc-Conv.rank.int"><span
+        class="toc-section-number">4.17.1</span> Integer Conversion
+        Rank[Conv.rank.int]</a></li>
+        <li><a href="4-Conv.html#Conv.rank.float" id="toc-Conv.rank.float"><span
+        class="toc-section-number">4.17.2</span> Floating Point Conversion
+        Rank[Conv.rank.float]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="5-Expr.html" id="toc-Expr"><span
+        class="toc-section-number">5</span> Expressions[Expr]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.conv" id="toc-Expr.conv"><span
+        class="toc-section-number">5.1</span> Usual Arithmetic
+        Conversions[Expr.conv]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary" id="toc-Expr.Primary"><span
+        class="toc-section-number">5.2</span> Primary
+        Expressions[Expr.Primary]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Primary.Literal"
+        id="toc-Expr.Primary.Literal"><span
+        class="toc-section-number">5.2.1</span>
+        Literals[Expr.Primary.Literal]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.This"
+        id="toc-Expr.Primary.This"><span class="toc-section-number">5.2.2</span>
+        This[Expr.Primary.This]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.Paren"
+        id="toc-Expr.Primary.Paren"><span
+        class="toc-section-number">5.2.3</span>
+        Parenthesis[Expr.Primary.Paren]</a></li>
+        <li><a href="5-Expr.html#Expr.Primary.ID" id="toc-Expr.Primary.ID"><span
+        class="toc-section-number">5.2.4</span> Names[Expr.Primary.ID]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post" id="toc-Expr.Post"><span
+        class="toc-section-number">5.3</span> Postfix
+        Expressions[Expr.Post]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Subscript"
+        id="toc-Expr.Post.Subscript"><span class="toc-section-number">5.4</span>
+        Subscript[Expr.Post.Subscript]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle"
+        id="toc-Expr.Post.Swizzle"><span class="toc-section-number">5.5</span>
+        Swizzle Expressions[Expr.Post.Swizzle]</a>
+        <ul>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Vector"
+        id="toc-Expr.Post.Swizzle.Vector"><span
+        class="toc-section-number">5.5.1</span> Vector
+        Swizzle[Expr.Post.Swizzle.Vector]</a></li>
+        <li><a href="5-Expr.html#Expr.Post.Swizzle.Matrix"
+        id="toc-Expr.Post.Swizzle.Matrix"><span
+        class="toc-section-number">5.5.2</span> Matrix
+        Swizzle[Expr.Post.Swizzle.Matrix]</a></li>
+        </ul></li>
+        <li><a href="5-Expr.html#Expr.Post.Call" id="toc-Expr.Post.Call"><span
+        class="toc-section-number">5.6</span> Function
+        Calls[Expr.Post.Call]</a></li>
+        </ul></li>
+        <li><a href="6-Stmt.html" id="toc-Stmt"><span
+        class="toc-section-number">6</span> Statements[Stmt]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Label" id="toc-Stmt.Label"><span
+        class="toc-section-number">6.1</span> Label
+        Statements[Stmt.Label]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr" id="toc-Stmt.Attr"><span
+        class="toc-section-number">6.2</span> Attributes[Stmt.Attr]</a>
+        <ul>
+        <li><a href="6-Stmt.html#Stmt.Attr.Unroll"
+        id="toc-Stmt.Attr.Unroll"><span class="toc-section-number">6.2.1</span>
+        Unroll Attribute[Stmt.Attr.Unroll]</a></li>
+        <li><a href="6-Stmt.html#Stmt.Attr.Loop" id="toc-Stmt.Attr.Loop"><span
+        class="toc-section-number">6.2.2</span> Loop
+        Attribute[Stmt.Attr.Loop]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="7-Decl.html" id="toc-Decl"><span
+        class="toc-section-number">7</span> Declarations[Decl]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Pre" id="toc-Decl.Pre"><span
+        class="toc-section-number">7.1</span> Preamble[Decl.Pre]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec" id="toc-Decl.Spec"><span
+        class="toc-section-number">7.2</span> Specifiers[Decl.Spec]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Spec.General"
+        id="toc-Decl.Spec.General"><span class="toc-section-number">7.2.1</span>
+        General[Decl.Spec.General]</a></li>
+        <li><a href="7-Decl.html#Decl.Spec.Fct" id="toc-Decl.Spec.Fct"><span
+        class="toc-section-number">7.2.2</span> Function
+        specifiers[Decl.Spec.Fct]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Decl" id="toc-Decl.Decl"><span
+        class="toc-section-number">7.3</span> Declarators[Decl.Decl]</a></li>
+        <li><a href="7-Decl.html#Decl.Init" id="toc-Decl.Init"><span
+        class="toc-section-number">7.4</span> Initializers[Decl.Init]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Init.Agg" id="toc-Decl.Init.Agg"><span
+        class="toc-section-number">7.4.1</span> Aggregate
+        Initialization[Decl.Init.Agg]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Function" id="toc-Decl.Function"><span
+        class="toc-section-number">7.5</span> Function
+        Definitions[Decl.Function]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr" id="toc-Decl.Attr"><span
+        class="toc-section-number">7.6</span> Attributes[Decl.Attr]</a>
+        <ul>
+        <li><a href="7-Decl.html#Decl.Attr.Semantic"
+        id="toc-Decl.Attr.Semantic"><span
+        class="toc-section-number">7.6.1</span> Semantic
+        Annotations[Decl.Attr.Semantic]</a></li>
+        <li><a href="7-Decl.html#Decl.Attr.Entry" id="toc-Decl.Attr.Entry"><span
+        class="toc-section-number">7.6.2</span> Entry
+        Attributes[Decl.Attr.Entry]</a></li>
+        </ul></li>
+        <li><a href="7-Decl.html#Decl.Export" id="toc-Decl.Export"><span
+        class="toc-section-number">7.7</span> Export
+        Declarations[Decl.Export]</a></li>
+        <li><a href="7-Decl.html#Decl.cbuffer" id="toc-Decl.cbuffer"><span
+        class="toc-section-number">7.8</span> Constant Buffer
+        Declarations[Decl.cbuffer]</a></li>
+        </ul></li>
+        <li><a href="8-Overload.html" id="toc-Overload"><span
+        class="toc-section-number">8</span> Overloading[Overload]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Decl" id="toc-Overload.Decl"><span
+        class="toc-section-number">8.1</span> Overloadable
+        Declarations[Overload.Decl]</a></li>
+        <li><a href="8-Overload.html#Overload.Res" id="toc-Overload.Res"><span
+        class="toc-section-number">8.2</span> Overload
+        Resolution[Overload.Res]</a>
+        <ul>
+        <li><a href="8-Overload.html#Overload.Res.Sets"
+        id="toc-Overload.Res.Sets"><span class="toc-section-number">8.2.1</span>
+        Candidate Functions and Argument Lists[Overload.Res.Sets]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Viable"
+        id="toc-Overload.Res.Viable"><span
+        class="toc-section-number">8.2.2</span> Viable
+        Functions[Overload.Res.Viable]</a></li>
+        <li><a href="8-Overload.html#Overload.Res.Best"
+        id="toc-Overload.Res.Best"><span class="toc-section-number">8.2.3</span>
+        Best Viable Function[Overload.Res.Best]</a></li>
+        <li><a href="8-Overload.html#Overload.ICS" id="toc-Overload.ICS"><span
+        class="toc-section-number">8.2.4</span> Implicit Conversion
+        Sequences[Overload.ICS]</a></li>
+        </ul></li>
+        </ul></li>
+        <li><a href="9-Resources.html" id="toc-Resources"><span
+        class="toc-section-number">9</span> Resource Types[Resources]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs"
+        id="toc-Resources.tybufs"><span class="toc-section-number">9.1</span>
+        Typed Buffers[Resources.tybufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.tybufs.ctrs"
+        id="toc-Resources.tybufs.ctrs"><span
+        class="toc-section-number">9.1.1</span>
+        Constructors[Resources.tybufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.dims"
+        id="toc-Resources.tybufs.dims"><span
+        class="toc-section-number">9.1.2</span>
+        Dimensions[Resources.tybufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.tybufs.access"
+        id="toc-Resources.tybufs.access"><span
+        class="toc-section-number">9.1.3</span> Element
+        Access[Resources.tybufs.access]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.rawbufs"
+        id="toc-Resources.rawbufs"><span class="toc-section-number">9.2</span>
+        Raw Buffers[Resources.rawbufs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs"
+        id="toc-Resources.babufs"><span class="toc-section-number">9.3</span>
+        Byte Access Buffers[Resources.babufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.babufs.ctrs"
+        id="toc-Resources.babufs.ctrs"><span
+        class="toc-section-number">9.3.1</span>
+        Constructors[Resources.babufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.dims"
+        id="toc-Resources.babufs.dims"><span
+        class="toc-section-number">9.3.2</span>
+        Dimensions[Resources.babufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.access"
+        id="toc-Resources.babufs.access"><span
+        class="toc-section-number">9.3.3</span> Element
+        Access[Resources.babufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.babufs.atomics"
+        id="toc-Resources.babufs.atomics"><span
+        class="toc-section-number">9.3.4</span> Atomic
+        Operations[Resources.babufs.atomics]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.stbufs"
+        id="toc-Resources.stbufs"><span class="toc-section-number">9.4</span>
+        Structured Buffers[Resources.stbufs]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.stbufs.ctrs"
+        id="toc-Resources.stbufs.ctrs"><span
+        class="toc-section-number">9.4.1</span>
+        Constructors[Resources.stbufs.ctrs]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.dims"
+        id="toc-Resources.stbufs.dims"><span
+        class="toc-section-number">9.4.2</span>
+        Dimensions[Resources.stbufs.dims]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.access"
+        id="toc-Resources.stbufs.access"><span
+        class="toc-section-number">9.4.3</span> Element
+        Access[Resources.stbufs.access]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.counter"
+        id="toc-Resources.stbufs.counter"><span
+        class="toc-section-number">9.4.4</span> Counter
+        Manipulation[Resources.stbufs.counter]</a></li>
+        <li><a href="9-Resources.html#Resources.stbufs.append"
+        id="toc-Resources.stbufs.append"><span
+        class="toc-section-number">9.4.5</span>
+        Append[Resources.stbufs.append]</a></li>
+        <li><a href="9-Resources.html#Resources.cnstbufs.consume"
+        id="toc-Resources.cnstbufs.consume"><span
+        class="toc-section-number">9.4.6</span>
+        Consume[Resources.cnstbufs.consume]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.cnbuf"
+        id="toc-Resources.cnbuf"><span class="toc-section-number">9.5</span>
+        Constant Buffers[Resources.cnbuf]</a>
+        <ul>
+        <li><a href="9-Resources.html#Resources.cnbuf.cbclass"
+        id="toc-Resources.cnbuf.cbclass"><span
+        class="toc-section-number">9.5.1</span> Constant Buffer
+        Class[Resources.cnbuf.cbclass]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.lay"
+        id="toc-Resources.cnbuf.lay"><span
+        class="toc-section-number">9.5.2</span> Constant Buffer
+        Layout[Resources.cnbuf.lay]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.po"
+        id="toc-Resources.cnbuf.po"><span
+        class="toc-section-number">9.5.3</span> Packoffset
+        annotations[Resources.cnbuf.po]</a></li>
+        <li><a href="9-Resources.html#Resources.cnbuf.defcb"
+        id="toc-Resources.cnbuf.defcb"><span
+        class="toc-section-number">9.5.4</span> Default Constant
+        Buffer[Resources.cnbuf.defcb]</a></li>
+        </ul></li>
+        <li><a href="9-Resources.html#Resources.samp"
+        id="toc-Resources.samp"><span class="toc-section-number">9.6</span>
+        Samplers[Resources.samp]</a></li>
+        <li><a href="9-Resources.html#Resources.mapcheck"
+        id="toc-Resources.mapcheck"><span class="toc-section-number">9.7</span>
+        CheckAccessFullyMapped[Resources.mapcheck]</a></li>
+        <li><a href="9-Resources.html#Resources.binding"
+        id="toc-Resources.binding"><span class="toc-section-number">9.8</span>
+        Resource Binding[Resources.binding]</a></li>
+        </ul></li>
+        <li><a href="10-Template.html" id="toc-Template"><span
+        class="toc-section-number">10</span> Templates[Template]</a>
+        <ul>
+        <li><a href="10-Template.html#Template.Inst"
+        id="toc-Template.Inst"><span class="toc-section-number">10.1</span>
+        Template Instantiation[Template.Inst]</a></li>
+        <li><a href="10-Template.html#Template.Func.Order"
+        id="toc-Template.Func.Order"><span
+        class="toc-section-number">10.2</span> Partial Ordering of Function
+        Templates[Template.Func.Order]</a></li>
+        </ul></li>
+        <li><a href="11-Intangible.html" id="toc-Intangible"><span
+        class="toc-section-number">11</span> Intangible
+        Types[Intangible]</a></li>
+        <li><a href="12-Runtime.html" id="toc-Runtime"><span
+        class="toc-section-number">12</span> Runtime[Runtime]</a></li>
+        </ul>
+
+        </div>
+      </div>
+
+      <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        var toc = document.querySelector('.toc');
+        if(!toc) return;
+        toc.querySelectorAll('li').forEach(function(li){
+          var childUL = li.querySelector('ul');
+          if(childUL){
+            var toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'toc-toggle';
+            toggle.setAttribute('aria-expanded','false');
+            toggle.innerHTML = '\u25B8';
+            toggle.addEventListener('click', function(e){
+              e.preventDefault();
+              li.classList.toggle('expanded');
+              var expanded = li.classList.contains('expanded');
+              toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            });
+            var firstLink = li.querySelector('a');
+            if(firstLink) li.insertBefore(toggle, firstLink);
+            else li.insertBefore(toggle, li.firstChild);
+          }
+        });
+      });
+      </script>
+
+      <div id="content" class="col-md-9">
+
+      
+      <nav id="sitenav">
+      <div class="sitenav">
+      <span class="navlink">
+            <span class="navlink-label">Next:</span> <a href="5-Expr.html" accesskey="n" rel="next">Expressions[Expr]</a>
+            </span>
+      <span class="navlink">
+            <span class="navlink-label">Previous:</span> <a href="3-Basic.html" accesskey="p" rel="previous">Basic Concepts[Basic]</a>
+            </span>
+      </div>
+      </nav>
+
+            <h1 data-number="4" id="Conv"><span
+            class="header-section-number">4</span> Standard
+            Conversions[Conv]</h1>
+            <p><span data-acronym-label="hlsl"
+            data-acronym-form="singular+abbrv">hlsl</span> inherits
+            standard conversions similar to <span
+            data-acronym-label="isoCPP"
+            data-acronym-form="singular+short">isoCPP</span>. This
+            chapter enumerates the full set of conversions. A
+            <em>standard conversion sequence</em> is a sequence of
+            standard conversions in the following order:</p>
+            <ol>
+            <li><p>Zero or one conversion of either lvalue-to-rvalue, or
+            array-to-pointer.</p></li>
+            <li><p>Zero or one conversion of either integral conversion,
+            floating point conversion, floating point-integral
+            conversion, or boolean conversion, derived-to-base-lvalue,
+            or flat conversion<a href="#fn1" class="footnote-ref"
+            id="fnref1" role="doc-noteref"><sup>1</sup></a>.</p></li>
+            <li><p>Zero or one conversion of scalar-vector splat, or
+            vector/matrix truncation. <a href="#fn2"
+            class="footnote-ref" id="fnref2"
+            role="doc-noteref"><sup>2</sup></a>.</p></li>
+            <li><p>Zero or one qualification conversion.</p></li>
+            </ol>
+            <p>Standard conversion sequences are applied to expressions,
+            if necessary, to convert it to a required destination
+            type.</p>
+            <h2 data-number="4.1" id="Conv.lval"><span
+            class="header-section-number">4.1</span> Lvalue-to-rvalue
+            conversion[Conv.lval]</h2>
+            <p>A glvalue of a non-function type <span>T</span> can be
+            converted to a prvalue. The program is ill-formed if
+            <span>T</span> is an incomplete type. If the glvalue refers
+            to an object that is not of type <span>T</span> and is not
+            an object of a type derived from <span>T</span>, the program
+            is ill-formed. If the glvalue refers to an object that is
+            uninitialized, the behavior is undefined. Otherwise the
+            prvalue is of type <span>T</span>.</p>
+            <p>If the glvalue refers to an array of type <span>T</span>,
+            the prvalue will refer to a copy of the array, not memory
+            referred to by the glvalue.</p>
+            <p>If the glvalue refers to a bit-field of type
+            <span>T</span>, the conversion produces an object of the
+            underlying type of the bit-field.</p>
+            <h2 data-number="4.2" id="Conv.array"><span
+            class="header-section-number">4.2</span> Array-to-pointer
+            conversion[Conv.array]</h2>
+            <p>An lvalue or rvalue of type <span>T[]</span> (unsized
+            array), can be converted to a prvalue of type pointer to
+            <span>T</span><a href="#fn3" class="footnote-ref"
+            id="fnref3" role="doc-noteref"><sup>3</sup></a><a
+            href="#fn4" class="footnote-ref" id="fnref4"
+            role="doc-noteref"><sup>4</sup></a>.</p>
+            <h2 data-number="4.3" id="Conv.ipromote"><span
+            class="header-section-number">4.3</span> Integral
+            promotion[Conv.ipromote]</h2>
+            <p>An integral promotion is a conversion of:</p>
+            <ul>
+            <li><p>a glvalue of integer type other than
+            <span>bool</span> to a cxvalue of integer type of higher
+            conversion rank, or</p></li>
+            <li><p>a conversion of a prvalue of integer type other than
+            bool to a prvalue of integer type of higher conversion rank,
+            or</p></li>
+            <li><p>a conversion of a glvalue of type <span>bool</span>
+            to a cxvalue of integer type, or</p></li>
+            <li><p>a conversion of a prvalue of type <span>bool</span>
+            to a prvalue of integer type.</p></li>
+            </ul>
+            <p>Integer conversion ranks are defined in section <a
+            href="4-Conv.html#Conv.rank.int" data-reference-type="ref"
+            data-reference="Conv.rank.int">4.17.1</a>.</p>
+            <p>A conversion is only a promotion if the destination type
+            can represent all of the values of the source type.</p>
+            <h2 data-number="4.4" id="Conv.fppromote"><span
+            class="header-section-number">4.4</span> Floating point
+            promotion[Conv.fppromote]</h2>
+            <p>A glvalue of a floating point type can be converted to a
+            cxvalue of a floating point type of higher conversion rank,
+            or a prvalue of a floating point type can be converted to a
+            prvalue of a floating point type of higher conversion
+            rank.</p>
+            <p>Floating point conversion ranks are defined in section <a
+            href="#Conf.rank.float" data-reference-type="ref"
+            data-reference="Conf.rank.float">[Conf.rank.float]</a>.</p>
+            <h2 data-number="4.5" id="Conv.iconv"><span
+            class="header-section-number">4.5</span> Integral
+            conversion[Conv.iconv]</h2>
+            <p>A glvalue of an integer type can be converted to a
+            cxvalue of any other non-enumeration integer type. A prvalue
+            of an integer type can be converted to a prvalue of any
+            other integer type.</p>
+            <p>If the destination type is unsigned, integer conversion
+            maintains the bit pattern of the source value in the
+            destination type truncating or extending the value to the
+            destination type.</p>
+            <p>If the destination type is signed, the value is unchanged
+            if the destination type can represent the source value. If
+            the destination type cannot represent the source value, the
+            result is implementation-defined.</p>
+            <p>If the source type is <span>bool</span>, the values
+            <span>true</span> and <span>false</span> are converted to
+            one and zero respectively.</p>
+            <h2 data-number="4.6" id="Conv.bitfield"><span
+            class="header-section-number">4.6</span> Bit-field
+            conversion[Conv.bitfield]</h2>
+            <p>A glvalue of a named bit-field with underlying integer
+            type <span>T</span> can be converted to a cxvalue of type
+            <span>T<span class="math inline"><sup>′</sup></span></span>
+            if there exists an implicit conversion from <span>T</span>
+            to <span>T<span
+            class="math inline"><sup>′</sup></span></span>.</p>
+            <h2 data-number="4.7" id="Conv.fconv"><span
+            class="header-section-number">4.7</span> Floating point
+            conversion[Conv.fconv]</h2>
+            <p>A glvalue of a floating point type can be converted to a
+            cxvalue of any other floating point type. A prvalue of a
+            floating point type can be converted to a prvalue of any
+            other floating point type.</p>
+            <p>If the source value can be exactly represented in the
+            destination type, the conversion produces the exact
+            representation of the source value. If the source value
+            cannot be exactly represented, the conversion to a
+            best-approximation of the source value is implementation
+            defined.</p>
+            <h2 data-number="4.8" id="Conv.fpint"><span
+            class="header-section-number">4.8</span> Floating
+            point-integral conversion[Conv.fpint]</h2>
+            <p>A glvalue of floating point type can be converted to a
+            cxvalue of integer type. A prvalue of floating point type
+            can be converted to a prvalue of integer type. Conversion of
+            floating point values to integer values truncates by
+            discarding the fractional value. The behavior is undefined
+            if the truncated value cannot be represented in the
+            destination type.</p>
+            <p>A glvalue of integer type can be converted to a cxvalue
+            of floating point type. A prvalue of integer type can be
+            converted to a prvalue of floating point type. If the
+            destination type can exactly represent the source value, the
+            result is the exact value. If the destination type cannot
+            exactly represent the source value, the conversion to a
+            best-approximation of the source value is implementation
+            defined.</p>
+            <h2 data-number="4.9" id="Conv.bool"><span
+            class="header-section-number">4.9</span> Boolean
+            conversion[Conv.bool]</h2>
+            <p>A glvalue of arithmetic type can be converted to a
+            cxvalue of boolean type. A prvalue of arithmetic or unscoped
+            enumeration type can be converted to a prvalue of boolean
+            type. A zero value is converted to <span>false</span>; all
+            other values are converted to <span>true</span>.</p>
+            <h2 data-number="4.10" id="Conv.flat"><span
+            class="header-section-number">4.10</span> Elementwise
+            conversion[Conv.flat]</h2>
+            <p>For a given aggregate <span>A</span>, there is a
+            flattened order of subojects, <span>A<span
+            class="math inline"><sup>′</sup></span></span>, as described
+            in section <a href="7-Decl.html#Decl.Init.Agg"
+            data-reference-type="ref"
+            data-reference="Decl.Init.Agg">7.4.1</a>. A prvalue of
+            <span>A</span>, can be elementwise converted to a prvalue of
+            an aggregate <span>B</span>, whose flattened form is
+            <span>B<span class="math inline"><sup>′</sup></span></span>,
+            if the following conditions are true:</p>
+            <ul>
+            <li><p>The length of <span>A<span
+            class="math inline"><sup>′</sup></span></span>,
+            <span>N</span>, is greater than or equal to the length of
+            <span>B<span class="math inline"><sup>′</sup></span></span>,
+            <span>M</span>.</p></li>
+            <li><p>For every index <span>I</span> from to
+            <span>M-1</span>, there exists an implicit conversion from
+            <span>A<span
+            class="math inline"><sup>′</sup></span>[I]</span> to
+            <span>B<span
+            class="math inline"><sup>′</sup></span>[I]</span>.</p></li>
+            </ul>
+            <p>A glvalue of type <span>T[N]</span> can be converted to a
+            cxvalue of type <span>T</span>.</p>
+            <p>A glvalue of type <span>T[N]</span> can be converted to a
+            cxvalue of type <span>T[M]</span>, if <span>N</span> is
+            greater than <span>M</span>.</p>
+            <p>A glvalue of type <span>T[N]</span> can be converted to a
+            cxvalue of type <span>vector&lt;T,M&gt;</span>, if
+            <span>N</span> is greater than or equal to
+            <span>M</span>.</p>
+            <p>A glvalue of type <span>vector&lt;T,N&gt;</span> can be
+            converted to a cxvalue of type <span>T[M]</span>, if
+            <span>N</span> is greater than or equal to
+            <span>M</span>.</p>
+            <h2 data-number="4.11" id="Conv.vsplat"><span
+            class="header-section-number">4.11</span> Vector splat
+            conversion[Conv.vsplat]</h2>
+            <p>A glvalue of type <span>T</span> can be converted to a
+            cxvalue of type <span>vector&lt;T,x&gt;</span> or a prvalue
+            of type <span>T</span> can be converted to a prvalue of type
+            <span>vector&lt;T,x&gt;</span>. The destination value is the
+            source value replicated into each element of the
+            destination.</p>
+            <p>A prvalue of type <span>vector&lt;T,1&gt;</span> can be
+            converted to a prvalue of type
+            <span>vector&lt;T,x&gt;</span>. The destination value is the
+            value in the source vector replicated into each element of
+            the destination.</p>
+            <h2 data-number="4.12" id="Conv.msplat"><span
+            class="header-section-number">4.12</span> Matrix splat
+            conversion[Conv.msplat]</h2>
+            <p>A glvalue of type <span>T</span> can be converted to a
+            cxvalue of type <span>matrix&lt;T,x,y&gt;</span> or a
+            prvalue of type <span>T</span> can be converted to a prvalue
+            of type <span>matrix&lt;T,x,y&gt;</span>. The destination
+            value is the source value replicated into each element of
+            the destination.</p>
+            <h2 data-number="4.13" id="Conv.asplat"><span
+            class="header-section-number">4.13</span> Array and Class
+            splat conversion[Conv.asplat]</h2>
+            <p>A prvalue of type <span>T</span> can be converted to a
+            prvalue of type <span>struct S</span>, if there are valid
+            conversions from <span>T</span> to each <span>U</span> in
+            flattened <span>S</span>, see section <a
+            href="#Decl.init.Agg" data-reference-type="ref"
+            data-reference="Decl.init.Agg">[Decl.init.Agg]</a> for
+            description of a flattened ordering. The destination value
+            is the source value <span>T</span> replicated into each
+            element of the flattened <span>S</span>.</p>
+            <p>A prvalue of type <span>vector&lt;T,1&gt;</span> can be
+            converted to a prvalue of type <span>struct S</span>, if
+            there are valid conversions from <span>T</span> to each
+            <span>U</span> in flattened <span>S</span>. The destination
+            value is the value in the source vector replicated into each
+            element of the flattened <span>S</span>.</p>
+            <p>A prvalue of type <span>T</span> can be converted to a
+            prvalue of type <span>U[N]</span>, if there are valid
+            conversions from <span>T</span> to each <span>V</span> in
+            flattened <span>U</span>. The destination value is the
+            source value <span>T</span> replicated into each element of
+            the flattened <span>U[N]</span>.</p>
+            <p>A prvalue of type <span>vector&lt;T,1&gt;</span> can be
+            converted to a prvalue of type <span>U[N]</span>, if there
+            are valid conversions from <span>T</span> to each
+            <span>V</span> in flattened <span>U</span>. The destination
+            value is the value in the source vector replicated into each
+            element of the flattened <span>U[N]</span>.</p>
+            <h2 data-number="4.14" id="Conv.vtrunc"><span
+            class="header-section-number">4.14</span> Vector and matrix
+            truncation conversion[Conv.vtrunc]</h2>
+            <p>A prvalue of type <span>vector&lt;T,x&gt;</span> can be
+            converted to a prvalue of type:</p>
+            <ul>
+            <li><p><span>vector&lt;T,y&gt;</span> only if <span
+            class="math inline"><em>y</em> &lt; <em>x</em></span>,
+            or</p></li>
+            <li><p><span>T</span></p></li>
+            </ul>
+            <p>The resulting value of vector truncation is comprised of
+            elements <span class="math inline">[0..<em>y</em>)</span>,
+            dropping elements <span
+            class="math inline">[<em>y</em>..<em>x</em>)</span>.</p>
+            <p>A prvalue of type <span>matrix&lt;T,x,y&gt;</span> can be
+            converted to a prvalue of type:</p>
+            <ul>
+            <li><p><span>matrix&lt;T,z,w&gt;</span> only if <span
+            class="math inline"><em>x</em> ≥ <em>z</em></span> and <span
+            class="math inline"><em>y</em> ≥ <em>w</em></span>,</p></li>
+            <li><p><span>vector&lt;T,z&gt;</span> only if <span
+            class="math inline"><em>x</em> ≥ <em>z</em></span>,
+            or</p></li>
+            <li><p><span>T</span>.</p></li>
+            </ul>
+            <p>Matrix truncation is performed on each row and column
+            dimension separately. The resulting value is comprised of
+            vectors <span class="math inline">[0..<em>z</em>)</span>
+            which are each separately comprised of elements <span
+            class="math inline">[0..<em>w</em>)</span>. Trailing vectors
+            and elements are dropped.</p>
+            <p>Reducing the dimension of a vector to one
+            (<span>vector&lt;T,1&gt;</span>), can produce either a
+            single element vector or a scalar of type <span>T</span>.
+            Reducing the rows of a matrix to one
+            (<span>matrix&lt;T,x,1&gt;</span>), can produce either a
+            single row matrix, a vector of type
+            <span>vector&lt;T,x&gt;</span>, or a scalar of type
+            <span>T</span>.</p>
+            <h2 data-number="4.15" id="Conv.cwise"><span
+            class="header-section-number">4.15</span> Component-wise
+            conversions[Conv.cwise]</h2>
+            <p>A glvalue of type <span>vector&lt;T,x&gt;</span> can be
+            converted to a cxvalue of type
+            <span>vector&lt;V,x&gt;</span>, or a prvalue of type
+            <span>vector&lt;T,x&gt;</span> can be converted to a prvalue
+            of type <span>vector&lt;V,x&gt;</span>. The source value is
+            converted by performing the appropriate conversion of each
+            element of type <span>T</span> to an element of type
+            <span>V</span> following the rules for standard conversions
+            in chapter <a href="4-Conv.html#Conv"
+            data-reference-type="ref" data-reference="Conv">4</a>.</p>
+            <p>A glvalue of type <span>matrix&lt;T,x,y&gt;</span> can be
+            converted to a cxvalue of type
+            <span>matrix&lt;V,x,y&gt;</span>, or a prvalue of type
+            <span>matrix&lt;T,x,y&gt;</span> can be converted to a
+            prvalue of type <span>matrix&lt;V,x,y&gt;</span>. The source
+            value is converted by performing the appropriate conversion
+            of each element of type <span>T</span> to an element of type
+            <span>V</span> following the rules for standard conversions
+            in chapter <a href="4-Conv.html#Conv"
+            data-reference-type="ref" data-reference="Conv">4</a>.</p>
+            <h2 data-number="4.16" id="Conv.qual"><span
+            class="header-section-number">4.16</span> Qualification
+            conversion[Conv.qual]</h2>
+            <p>A prvalue of type "<em>cv1</em> <span>T</span>" can be
+            converted to a prvalue of type "<em>cv2</em> <span>T</span>"
+            if type "<em>cv2</em> <span>T</span>" is more cv-qualified
+            than "<em>cv1</em> <span>T</span>".</p>
+            <h2 data-number="4.17" id="Conv.rank"><span
+            class="header-section-number">4.17</span> Conversion
+            Rank[Conv.rank]</h2>
+            <p>Every integer and floating point type have defined
+            conversion ranks. These conversion ranks are used to
+            differentiate between <em>promotions</em> and other
+            conversions (see: <a href="#Conv.iprom"
+            data-reference-type="ref"
+            data-reference="Conv.iprom">[Conv.iprom]</a> and <a
+            href="#Conv.fpprom" data-reference-type="ref"
+            data-reference="Conv.fpprom">[Conv.fpprom]</a>).</p>
+            <h3 data-number="4.17.1" id="Conv.rank.int"><span
+            class="header-section-number">4.17.1</span> Integer
+            Conversion Rank[Conv.rank.int]</h3>
+            <ul>
+            <li><p>No two signed integer types shall have the same
+            conversion rank even if they have the same
+            representation.</p></li>
+            <li><p>The rank of a signed integer type shall be greater
+            than the rank of any signed integer type with a smaller
+            size.</p></li>
+            <li><p>The rank of any unsigned integer type shall equal the
+            rank of the corresponding signed integer type.</p></li>
+            <li><p>The rank of <span>bool</span> shall be less than the
+            rank of all other standard integer types.</p></li>
+            <li><p>The rank of a minimum precision integer type shall be
+            less than the rank of any other minimum precision integer
+            type with a larger minimum value representation
+            size.</p></li>
+            <li><p>The rank of a minimum precision integer type shall be
+            less than the rank of all standard integer types.</p></li>
+            <li><p>For all integer types <span>T1</span>,
+            <span>T2</span>, and <span>T3</span>: if <span>T1</span> has
+            greater rank than <span>T2</span> and <span>T2</span> has
+            greater rank than <span>T3</span>, then <span>T1</span>
+            shall have greater rank than <span>T3</span>.</p></li>
+            </ul>
+            <h3 data-number="4.17.2" id="Conv.rank.float"><span
+            class="header-section-number">4.17.2</span> Floating Point
+            Conversion Rank[Conv.rank.float]</h3>
+            <ul>
+            <li><p>The rank <span>half</span> shall be greater than the
+            rank of <span>min16float</span>.</p></li>
+            <li><p>The rank <span>float</span> shall be greater than the
+            rank of <span>half</span>.</p></li>
+            <li><p>The rank <span>double</span> shall be greater than
+            the rank of <span>float</span>.</p></li>
+            <li><p>For all floating point types <span>T1</span>,
+            <span>T2</span>, and <span>T3</span>: if <span>T1</span> has
+            greater rank than <span>T2</span> and <span>T2</span> has
+            greater rank than <span>T3</span>, then <span>T1</span>
+            shall have greater rank than <span>T3</span>.</p></li>
+            </ul>
+            <aside id="footnotes"
+            class="footnotes footnotes-end-of-document"
+            role="doc-endnotes">
+            <hr />
+            <ol>
+            <li id="fn1"><p>This differs from C++ with the addition of
+            flat conversion.<a href="#fnref1" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn2"><p>C++ does not support dimension altering
+            conversions for scalar, vector or matrix types.<a
+            href="#fnref2" class="footnote-back"
+            role="doc-backlink">↩︎</a></p></li>
+            <li id="fn3"><p><span data-acronym-label="hlsl"
+            data-acronym-form="singular+abbrv">hlsl</span> does not
+            support grammar for specifying pointer or reference types,
+            however they are used in the type system and must be
+            described in language rules.<a href="#fnref3"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            <li id="fn4"><p>Array-to-pointer conversion of constant
+            sized arrays is not supported.<a href="#fnref4"
+            class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+            </ol>
+            </aside>
+                  </div>
+    </div>
+  </div>
+</body>
+</html>
