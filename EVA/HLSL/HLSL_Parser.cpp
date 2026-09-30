@@ -1,5 +1,6 @@
 #include <EVA/HLSL/HLSL.hpp>
 #include <stdarg.h>
+#include <string.h>
 
 namespace EVA::HLSL
 {
@@ -27,6 +28,40 @@ static bool UnexpectedToken(Parser& parser)
 	if (token.token_type == TokenType::END_OF_FILE)
 		return Error(parser, "unexpected end of file");
 	return Error(parser, "unexpected token '%.*s'", (int)(token.end - token.start), token.start);
+}
+
+// Eats the current token if it's token_type, errors otherwise.
+static bool ExpectToken(Parser& parser, TokenType token_type)
+{
+	TRY(LexToken(parser));
+	Token& token = parser.token;
+	if (token.token_type != token_type)
+	{
+		if (token.token_type == TokenType::END_OF_FILE)
+			return Error(parser, "unexpected end of file while looking for token %d", (int)token_type);
+		return Error(parser, "unexpected token '%.*s' while looking for token %d", (int)(token.end - token.start), token.start, (int)token_type);
+	}
+	EatToken(parser);
+	return true;
+}
+
+static bool CopyName(Parser& parser, char* out_name, size_t capacity, Token token)
+{
+	size_t length = token.end - token.start;
+	if (length >= capacity)
+		return Error(parser, "name '%.*s' is too long", (int)length, token.start);
+	memcpy(out_name, token.start, length);
+	out_name[length] = '\0';
+	return true;
+}
+
+// If the current token is '>>', shrinks it to its first '>'. Eating it then leaves the second '>' to be lexed next.
+static void SplitShiftRight(Parser& parser)
+{
+	if (parser.token.token_type != TokenType::SHIFT_RIGHT)
+		return;
+	parser.token.token_type = TokenType::GREATER;
+	parser.token.end = parser.token.start + 1;
 }
 
 static bool ParseAttributes(Parser& parser, Node** out_attributes)
@@ -79,9 +114,479 @@ static bool ParseModifiers(Parser& parser, uint32* out_modifiers)
 	return true;
 }
 
-static bool ParseType(Parser& parser, Node** out_type)
+// Hardcoded until structs and typedefs register themselves in a type table.
+static const char* template_names[] = {
+	"vector",
+	"matrix",
+	"Buffer",
+	"RWBuffer",
+	"StructuredBuffer",
+	"RWStructuredBuffer",
+	"AppendStructuredBuffer",
+	"ConsumeStructuredBuffer",
+	"Texture1D",
+	"Texture1DArray",
+	"Texture2D",
+	"Texture2DArray",
+	"Texture2DMS",
+	"Texture2DMSArray",
+	"Texture3D",
+	"TextureCube",
+	"TextureCubeArray",
+	"RWTexture1D",
+	"RWTexture1DArray",
+	"RWTexture2D",
+	"RWTexture2DArray",
+	"RWTexture3D",
+};
+
+static const char* scalar_type_names[] = {
+	"bool",
+	"int",
+	"uint",
+	"dword",
+	"half",
+	"float",
+	"double",
+	"min16float",
+	"min10float",
+	"min16int",
+	"min12int",
+	"min16uint",
+	"int16_t",
+	"int32_t",
+	"int64_t",
+	"uint16_t",
+	"uint32_t",
+	"uint64_t",
+	"float16_t",
+	"float32_t",
+	"float64_t",
+};
+
+static const char* other_type_names[] = {
+	"void",
+	"SamplerState",
+	"SamplerComparisonState",
+	"ByteAddressBuffer",
+	"RWByteAddressBuffer",
+};
+
+static bool IsTemplateName(Node* node)
 {
-	return Error(parser, "%s not implemented", __func__);
+	if (node->type != NodeType::IDENTIFIER)
+		return false;
+	for (const char* name : template_names)
+		if (strcmp(node->name, name) == 0)
+			return true;
+	return false;
+}
+
+// A scalar type name, optionally followed by a vector size N or a matrix size NxM, with N and M in 1..4.
+static bool IsNumericTypeName(const char* name)
+{
+	for (const char* scalar : scalar_type_names)
+	{
+		size_t length = strlen(scalar);
+		if (strncmp(name, scalar, length) != 0)
+			continue;
+		const char* size = name + length;
+		if (size[0] == '\0')
+			return true;
+		if (size[0] < '1' || size[0] > '4')
+			continue;
+		if (size[1] == '\0')
+			return true;
+		if (size[1] == 'x' && size[2] >= '1' && size[2] <= '4' && size[3] == '\0')
+			return true;
+	}
+	return false;
+}
+
+static bool IsTypeName(Node* node)
+{
+	if (node->type == NodeType::TEMPLATE)
+		return IsTemplateName(node->child);
+	if (node->type != NodeType::IDENTIFIER)
+		return false;
+	if (IsTemplateName(node) || IsNumericTypeName(node->name))
+		return true;
+	for (const char* name : other_type_names)
+		if (strcmp(node->name, name) == 0)
+			return true;
+	return false;
+}
+
+static const uint32 MAX_EXPRESSION_DEPTH = 256;
+static const uint32 PREFIX_PRECEDENCE = 13;
+static const uint32 TERNARY_PRECEDENCE = 2;
+static const uint32 ASSIGNMENT_PRECEDENCE = 1;
+
+// Higher binds tighter. 0 if the token isn't a binary operator.
+static uint32 BinaryPrecedence(TokenType op)
+{
+	switch (op)
+	{
+	case TokenType::ASTERISK:
+	case TokenType::SLASH:
+	case TokenType::PERCENT: return 12;
+	case TokenType::PLUS:
+	case TokenType::MINUS: return 11;
+	case TokenType::SHIFT_LEFT:
+	case TokenType::SHIFT_RIGHT: return 10;
+	case TokenType::LESS:
+	case TokenType::GREATER:
+	case TokenType::LESS_EQUAL:
+	case TokenType::GREATER_EQUAL: return 9;
+	case TokenType::EQUAL:
+	case TokenType::NOT_EQUAL: return 8;
+	case TokenType::AMPERSAND: return 7;
+	case TokenType::CARET: return 6;
+	case TokenType::PIPE: return 5;
+	case TokenType::LOGICAL_AND: return 4;
+	case TokenType::LOGICAL_OR: return 3;
+	case TokenType::EQUALS:
+	case TokenType::ADD_ASSIGN:
+	case TokenType::SUBTRACT_ASSIGN:
+	case TokenType::MULTIPLY_ASSIGN:
+	case TokenType::DIVIDE_ASSIGN:
+	case TokenType::MODULO_ASSIGN:
+	case TokenType::BIT_AND_ASSIGN:
+	case TokenType::BIT_OR_ASSIGN:
+	case TokenType::BIT_XOR_ASSIGN:
+	case TokenType::SHIFT_LEFT_ASSIGN:
+	case TokenType::SHIFT_RIGHT_ASSIGN: return ASSIGNMENT_PRECEDENCE;
+	default: return 0;
+	}
+}
+
+static uint32 Precedence(const PendingOp& op)
+{
+	switch (op.kind)
+	{
+	case OpKind::PREFIX:
+	case OpKind::CAST: return PREFIX_PRECEDENCE;
+	case OpKind::TERNARY: return TERNARY_PRECEDENCE;
+	case OpKind::INFIX: return BinaryPrecedence(op.op);
+	}
+	return 0;
+}
+
+static bool IsRightAssociative(uint32 precedence)
+{
+	return precedence == ASSIGNMENT_PRECEDENCE || precedence == TERNARY_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
+}
+
+static Node* NewNode(Parser& parser, NodeType type)
+{
+	Node* node = parser.arena->New<Node>();
+	node->type = type;
+	return node;
+}
+
+static AOperator* NewOperator(Parser& parser, NodeType type, TokenType op)
+{
+	AOperator* node = parser.arena->New<AOperator>();
+	node->type = type;
+	node->op = op;
+	return node;
+}
+
+static Node* PopOperand(Parser& parser)
+{
+	Node* node = parser.operands.back();
+	parser.operands.pop_back();
+	return node;
+}
+
+// Pops the top pending operator and its operands, pushing the resulting node as an operand.
+static void ApplyOperator(Parser& parser)
+{
+	PendingOp op = parser.operators.back();
+	parser.operators.pop_back();
+
+	Node* node = nullptr;
+	switch (op.kind)
+	{
+	case OpKind::PREFIX:
+	{
+		node = NewOperator(parser, NodeType::UNARY, op.op);
+		node->child = PopOperand(parser);
+		break;
+	}
+	case OpKind::CAST:
+	{
+		node = NewNode(parser, NodeType::CAST);
+		node->child = op.payload;
+		op.payload->next = PopOperand(parser);
+		break;
+	}
+	case OpKind::INFIX:
+	{
+		Node* right = PopOperand(parser);
+		Node* left = PopOperand(parser);
+		node = NewOperator(parser, NodeType::BINARY, op.op);
+		node->child = left;
+		left->next = right;
+		break;
+	}
+	case OpKind::TERNARY:
+	{
+		Node* otherwise = PopOperand(parser);
+		Node* condition = PopOperand(parser);
+		node = NewNode(parser, NodeType::TERNARY);
+		node->child = condition;
+		condition->next = op.payload;
+		op.payload->next = otherwise;
+		break;
+	}
+	}
+	parser.operands.push_back(node);
+}
+
+// Applies pending operators that bind tighter than an incoming infix operator of the given precedence.
+static void ApplyOperatorsAbove(Parser& parser, size_t operator_base, uint32 precedence)
+{
+	while (parser.operators.size() > operator_base)
+	{
+		uint32 top = Precedence(parser.operators.back());
+		if (top < precedence || (top == precedence && IsRightAssociative(precedence)))
+			break;
+		ApplyOperator(parser);
+	}
+}
+
+static Node* ParseExpression(Parser& parser, bool in_template_arguments);
+
+// Parses comma-separated expressions up to and including the closing token.
+// out_arguments receives the first argument, the rest are chained via next. Empty lists are allowed.
+static bool ParseArguments(Parser& parser, TokenType closing, Node** out_arguments)
+{
+	bool in_template_arguments = closing == TokenType::GREATER;
+	Node** tail = out_arguments;
+
+	TRY(LexToken(parser));
+	if (in_template_arguments)
+		SplitShiftRight(parser);
+	if (parser.token.token_type == closing)
+	{
+		EatToken(parser);
+		return true;
+	}
+
+	for (;;)
+	{
+		Node* argument = ParseExpression(parser, in_template_arguments);
+		TRY(argument);
+		*tail = argument;
+		tail = &argument->next;
+
+		TRY(LexToken(parser));
+		if (parser.token.token_type == TokenType::COMMA)
+		{
+			EatToken(parser);
+			continue;
+		}
+		if (in_template_arguments)
+			SplitShiftRight(parser);
+		return ExpectToken(parser, closing);
+	}
+}
+
+// Shunting yard over prefix and infix operators. Anything bracketed is parsed recursively into a single operand,
+// and postfix operators wrap the top operand directly since they bind tighter than everything else.
+// Stops at the first token that can't continue the expression, leaving it for the caller.
+// in_template_arguments: '>' ends the expression instead of being a comparison.
+static Node* ParseExpression(Parser& parser, bool in_template_arguments)
+{
+	if (parser.depth >= MAX_EXPRESSION_DEPTH)
+	{
+		Error(parser, "expression nested too deeply");
+		return nullptr;
+	}
+	parser.depth++;
+	DEFER(parser.depth--);
+
+	size_t operand_base = parser.operands.size();
+	size_t operator_base = parser.operators.size();
+	bool expect_operand = true;
+
+	for (;;)
+	{
+		TRY(LexToken(parser));
+		TokenType token_type = parser.token.token_type;
+
+		if (expect_operand)
+		{
+			switch (token_type)
+			{
+			case TokenType::IDENTIFIER:
+			case TokenType::NUMBER:
+			case TokenType::KW_TRUE:
+			case TokenType::KW_FALSE:
+			{
+				NodeType type = token_type == TokenType::IDENTIFIER ? NodeType::IDENTIFIER : token_type == TokenType::NUMBER ? NodeType::NUMBER
+																															 : NodeType::BOOL;
+				Node* node = NewNode(parser, type);
+				TRY(CopyName(parser, node->name, sizeof(node->name), parser.token));
+				EatToken(parser);
+				parser.operands.push_back(node);
+				expect_operand = false;
+				break;
+			}
+			case TokenType::LEFT_PAREN:
+			{
+				EatToken(parser);
+				Node* inner = ParseExpression(parser, false);
+				TRY(inner);
+				TRY(ExpectToken(parser, TokenType::RIGHT_PAREN));
+				if (IsTypeName(inner))
+				{
+					// (type) is a cast, its operand comes next.
+					parser.operators.push_back({ .op = TokenType::LEFT_PAREN, .kind = OpKind::CAST, .payload = inner });
+				}
+				else
+				{
+					parser.operands.push_back(inner);
+					expect_operand = false;
+				}
+				break;
+			}
+			case TokenType::MINUS:
+			case TokenType::PLUS:
+			case TokenType::EXCLAMATION:
+			case TokenType::TILDE:
+			case TokenType::INCREMENT:
+			case TokenType::DECREMENT:
+			{
+				EatToken(parser);
+				parser.operators.push_back({ .op = token_type, .kind = OpKind::PREFIX });
+				break;
+			}
+			default:
+			{
+				UnexpectedToken(parser);
+				return nullptr;
+			}
+			}
+			continue;
+		}
+
+		// foo(arg1, arg2, arg3):
+		if (token_type == TokenType::LEFT_PAREN)
+		{
+			EatToken(parser);
+			Node* callee = PopOperand(parser);
+			Node* call = NewNode(parser, NodeType::CALL);
+			call->child = callee;
+			TRY(ParseArguments(parser, TokenType::RIGHT_PAREN, &callee->next));
+			parser.operands.push_back(call);
+			continue;
+		}
+
+		// foo<arg1, arg2, arg3>:
+		if (token_type == TokenType::LESS && IsTemplateName(parser.operands.back()))
+		{
+			EatToken(parser);
+			Node* name = PopOperand(parser);
+			Node* instance = NewNode(parser, NodeType::TEMPLATE);
+			instance->child = name;
+			TRY(ParseArguments(parser, TokenType::GREATER, &name->next));
+			if (!name->next)
+			{
+				Error(parser, "empty template argument list");
+				return nullptr;
+			}
+			parser.operands.push_back(instance);
+			continue;
+		}
+
+		// foo[bar]:
+		if (token_type == TokenType::LEFT_BRACKET)
+		{
+			EatToken(parser);
+			Node* object = PopOperand(parser);
+			Node* index = ParseExpression(parser, false);
+			TRY(index);
+			TRY(ExpectToken(parser, TokenType::RIGHT_BRACKET));
+			Node* node = NewNode(parser, NodeType::INDEX);
+			node->child = object;
+			object->next = index;
+			parser.operands.push_back(node);
+			continue;
+		}
+
+		// foo.bar:
+		if (token_type == TokenType::DOT)
+		{
+			EatToken(parser);
+			TRY(LexToken(parser));
+			if (parser.token.token_type != TokenType::IDENTIFIER)
+			{
+				UnexpectedToken(parser);
+				return nullptr;
+			}
+			Node* member = NewNode(parser, NodeType::MEMBER);
+			TRY(CopyName(parser, member->name, sizeof(member->name), parser.token));
+			EatToken(parser);
+			member->child = PopOperand(parser);
+			parser.operands.push_back(member);
+			continue;
+		}
+
+		if (token_type == TokenType::INCREMENT || token_type == TokenType::DECREMENT)
+		{
+			EatToken(parser);
+			Node* node = NewOperator(parser, NodeType::POSTFIX, token_type);
+			node->child = PopOperand(parser);
+			parser.operands.push_back(node);
+			continue;
+		}
+
+		if (token_type == TokenType::QUESTION)
+		{
+			EatToken(parser);
+			ApplyOperatorsAbove(parser, operator_base, TERNARY_PRECEDENCE);
+			Node* then = ParseExpression(parser, false);
+			TRY(then);
+			TRY(ExpectToken(parser, TokenType::COLON));
+			parser.operators.push_back({ .op = token_type, .kind = OpKind::TERNARY, .payload = then });
+			expect_operand = true;
+			continue;
+		}
+
+		// if we're in the middle of a template, stop on > (or >>, bleh)
+		if (in_template_arguments && (token_type == TokenType::GREATER || token_type == TokenType::SHIFT_RIGHT))
+			break;
+
+		uint32 precedence = BinaryPrecedence(token_type);
+		if (!precedence)
+			break;
+
+		EatToken(parser);
+		ApplyOperatorsAbove(parser, operator_base, precedence);
+		parser.operators.push_back({ .op = token_type, .kind = OpKind::INFIX });
+		expect_operand = true;
+	}
+
+	while (parser.operators.size() > operator_base)
+		ApplyOperator(parser);
+
+	Node* result = PopOperand(parser);
+	assert(parser.operands.size() == operand_base);
+	return result;
+}
+
+static Node* ParseType(Parser& parser)
+{
+	Node* type = ParseExpression(parser, false);
+	TRY(type);
+	if (!IsTypeName(type))
+	{
+		Error(parser, "expected a type");
+		return nullptr;
+	}
+	return type;
 }
 
 static bool ParseStruct(Parser& parser)
@@ -131,8 +636,8 @@ static bool ParseTopLevel(Parser& parser)
 	uint32 modifiers = 0;
 	TRY(ParseModifiers(parser, &modifiers));
 
-	Node* type = nullptr;
-	TRY(ParseType(parser, &type));
+	Node* type = ParseType(parser);
+	TRY(type);
 
 	TRY(LexToken(parser));
 	if (parser.token.token_type != TokenType::IDENTIFIER)

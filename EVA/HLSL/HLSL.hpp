@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/Arena.hpp>
+#include <vector>
 
 namespace EVA::HLSL
 {
@@ -163,14 +164,14 @@ enum class NodeType : uint8
 	BOOL,       // name: true/false
 	STRING,     // name: text
 	IDENTIFIER, // name
-	TYPE,       // name, flags: type modifiers, child: template arguments
+	TEMPLATE,   // child: template name, arguments...
 	INIT_LIST,  // child: elements
 	UNARY,      // AOperator, op: operator, child: operand
 	POSTFIX,    // AOperator, op: operator, child: operand
 	BINARY,     // AOperator, op: operator (including assignments), child: left, right
 	TERNARY,    // child: condition, then, else
 	CALL,       // child: callee, arguments...
-	CAST,       // child: TYPE, operand
+	CAST,       // child: type, operand
 	MEMBER,     // name: member name (including swizzles), child: object
 	INDEX,      // child: object, index
 };
@@ -214,7 +215,7 @@ struct AOperator : Node
 
 struct AVariable : Node
 {
-	Node* declared_type = nullptr;  // TYPE
+	Node* declared_type = nullptr;  // IDENTIFIER or TEMPLATE
 	Node* array_sizes = nullptr; // one expression per dimension, EMPTY for []
 	char semantic[32] = {};      // empty if absent
 	Node* initializer = nullptr; // expression or INIT_LIST. default value for parameters
@@ -223,7 +224,7 @@ struct AVariable : Node
 struct AFunction : Node
 {
 	Node* attributes = nullptr;  // ATTRIBUTEs
-	Node* return_type = nullptr; // TYPE
+	Node* return_type = nullptr; // IDENTIFIER or TEMPLATE
 	Node* params = nullptr;      // VARIABLEs
 	char semantic[32] = {};      // empty if absent
 	Node* body = nullptr;        // BLOCK, nullptr for a prototype
@@ -231,7 +232,7 @@ struct AFunction : Node
 
 struct ATypedef : Node
 {
-	Node* declared_type = nullptr;  // TYPE
+	Node* declared_type = nullptr;  // IDENTIFIER or TEMPLATE
 	Node* array_sizes = nullptr; // one expression per dimension
 };
 
@@ -270,6 +271,22 @@ struct ACase : Node
 	Node* value = nullptr; // nullptr for default
 };
 
+enum class OpKind : uint8
+{
+	PREFIX,
+	INFIX,
+	CAST,
+	TERNARY,
+};
+
+// An operator waiting on the expression parser's operator stack.
+struct PendingOp
+{
+	TokenType op = TokenType::NONE;
+	OpKind kind = OpKind::INFIX;
+	Node* payload = nullptr; // CAST: the type. TERNARY: the middle expression
+};
+
 struct Parser
 {
 	char* source = nullptr;
@@ -278,6 +295,11 @@ struct Parser
 	Token token = {};
 	Arena* arena = nullptr;
 	Node** tail = nullptr; // where the next node of the list being parsed is appended
+
+	// Expression parser stacks, shared by nested expressions. Each ParseExpression only touches entries above where it started.
+	std::vector<Node*> operands;
+	std::vector<PendingOp> operators;
+	uint32 depth = 0; // expression nesting, bounded so untrusted input can't overflow the stack
 };
 
 bool LexToken(Parser& parser);
