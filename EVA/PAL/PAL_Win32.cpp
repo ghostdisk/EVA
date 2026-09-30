@@ -18,6 +18,8 @@ static LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPA
 		EmitEvent({ .type = EventType::QUIT });
 		return 0;
 	}
+	if (message == WM_SIZE)
+		EmitEvent({ .type = EventType::WINDOW_RESIZE, .width = LOWORD(lparam), .height = HIWORD(lparam) });
 	return DefWindowProcA(window, message, wparam, lparam);
 }
 

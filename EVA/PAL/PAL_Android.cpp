@@ -1,5 +1,6 @@
 #include <EVA/PAL/PAL.hpp>
 #include <android/looper.h>
+#include <android/native_window.h>
 #include <game-activity/native_app_glue/android_native_app_glue.h>
 
 namespace EVA::PAL
@@ -28,6 +29,16 @@ static void OnAppCmd(android_app* android_app, int32_t command)
 		{
 			EmitEvent({ .type = EventType::SURFACE_UNAVAILABLE });
 			active_window->native_handle = nullptr;
+		}
+		break;
+	case APP_CMD_WINDOW_RESIZED:
+		if (active_window && android_app->window)
+		{
+			EmitEvent({
+				.type = EventType::WINDOW_RESIZE,
+				.width = ANativeWindow_getWidth(android_app->window),
+				.height = ANativeWindow_getHeight(android_app->window),
+			});
 		}
 		break;
 	case APP_CMD_PAUSE:
