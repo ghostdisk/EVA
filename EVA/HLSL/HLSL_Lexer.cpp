@@ -263,6 +263,9 @@ bool LexToken(Parser& parser)
 			}
 		}
 
+		if (parser.token.token_type == TokenType::IDENTIFIER)
+			parser.token.atom = GetAtom(parser.head, length);
+
 		return true;
 	}
 

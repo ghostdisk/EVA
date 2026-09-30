@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/Arena.hpp>
+#include <EVA/Core/Atom.hpp>
 #include <vector>
 
 namespace EVA::HLSL
@@ -130,6 +131,7 @@ struct Token
 	TokenType token_type = TokenType::NONE;
 	char* start = nullptr;
 	char* end = nullptr;
+	Atom atom = Atom::NONE; // IDENTIFIER only
 };
 
 // Layouts below: "child" is Node::child, following entries are chained via Node::next.
@@ -160,9 +162,9 @@ enum class NodeType : uint8
 	DISCARD,
 
 	// expressions
-	NUMBER,     // name: text
-	BOOL,       // name: true/false
-	STRING,     // name: text
+	NUMBER,     // ANumber
+	BOOL,       // ABool
+	STRING,     // not lexed yet
 	IDENTIFIER, // name
 	TEMPLATE,   // child: template name, arguments...
 	INIT_LIST,  // child: elements
@@ -172,7 +174,7 @@ enum class NodeType : uint8
 	TERNARY,    // child: condition, then, else
 	CALL,       // child: callee, arguments...
 	CAST,       // child: type, operand
-	MEMBER,     // name: member name (including swizzles), child: object
+	MEMBER,     // name: member (including swizzles), child: object
 	INDEX,      // child: object, index
 };
 
@@ -202,10 +204,20 @@ enum Modifier : uint32
 struct Node
 {
 	NodeType type = NodeType::NONE;
-	char name[16] = {};
+	Atom name = Atom::NONE;
 	uint32 flags = 0;
 	Node* child = nullptr;
 	Node* next = nullptr;
+};
+
+struct ANumber : Node
+{
+	char* text = nullptr; // as written. Parsed once the expected type is known
+};
+
+struct ABool : Node
+{
+	bool value = false;
 };
 
 struct AOperator : Node
@@ -217,7 +229,7 @@ struct AVariable : Node
 {
 	Node* declared_type = nullptr;  // IDENTIFIER or TEMPLATE
 	Node* array_sizes = nullptr; // one expression per dimension, EMPTY for []
-	char semantic[32] = {};      // empty if absent
+	Atom semantic = Atom::NONE;
 	Node* initializer = nullptr; // expression or INIT_LIST. default value for parameters
 };
 
@@ -226,7 +238,7 @@ struct AFunction : Node
 	Node* attributes = nullptr;  // ATTRIBUTEs
 	Node* return_type = nullptr; // IDENTIFIER or TEMPLATE
 	Node* params = nullptr;      // VARIABLEs
-	char semantic[32] = {};      // empty if absent
+	Atom semantic = Atom::NONE;
 	Node* body = nullptr;        // BLOCK, nullptr for a prototype
 };
 

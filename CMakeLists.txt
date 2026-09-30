@@ -10,6 +10,8 @@ add_library(Core STATIC
 	EVA/Core/Common.hpp
 	EVA/Core/Arena.hpp
 	EVA/Core/Arena.cpp
+	EVA/Core/Atom.hpp
+	EVA/Core/Atom.cpp
 )
 eva_init_target(Core)
 

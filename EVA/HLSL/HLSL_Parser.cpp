@@ -1,6 +1,7 @@
 #include <EVA/HLSL/HLSL.hpp>
 #include <stdarg.h>
 #include <string.h>
+#include <unordered_set>
 
 namespace EVA::HLSL
 {
@@ -45,14 +46,14 @@ static bool ExpectToken(Parser& parser, TokenType token_type)
 	return true;
 }
 
-static bool CopyName(Parser& parser, char* out_name, size_t capacity, Token token)
+// Copies the token's text into the arena, NUL-terminated.
+static char* CopyText(Parser& parser, Token token)
 {
 	size_t length = token.end - token.start;
-	if (length >= capacity)
-		return Error(parser, "name '%.*s' is too long", (int)length, token.start);
-	memcpy(out_name, token.start, length);
-	out_name[length] = '\0';
-	return true;
+	char* text = (char*)parser.arena->Allocate(length + 1, 1);
+	memcpy(text, token.start, length);
+	text[length] = '\0';
+	return text;
 }
 
 // If the current token is '>>', shrinks it to its first '>'. Eating it then leaves the second '>' to be lexed next.
@@ -172,49 +173,58 @@ static const char* other_type_names[] = {
 	"RWByteAddressBuffer",
 };
 
-static bool IsTemplateName(Node* node)
+struct BuiltinTypeNames
 {
-	if (node->type != NodeType::IDENTIFIER)
-		return false;
-	for (const char* name : template_names)
-		if (strcmp(node->name, name) == 0)
-			return true;
-	return false;
-}
+	std::unordered_set<Atom> templates;
+	std::unordered_set<Atom> types; // everything that names a type, including the templates
+};
 
-// A scalar type name, optionally followed by a vector size N or a matrix size NxM, with N and M in 1..4.
-static bool IsNumericTypeName(const char* name)
+static BuiltinTypeNames CreateBuiltinTypeNames()
 {
+	BuiltinTypeNames names;
+	for (const char* name : template_names)
+	{
+		names.templates.insert(GetAtom(name));
+		names.types.insert(GetAtom(name));
+	}
+	for (const char* name : other_type_names)
+		names.types.insert(GetAtom(name));
+
+	// Every scalar, optionally followed by a vector size N or a matrix size NxM, with N and M in 1..4.
+	char buffer[64];
 	for (const char* scalar : scalar_type_names)
 	{
-		size_t length = strlen(scalar);
-		if (strncmp(name, scalar, length) != 0)
-			continue;
-		const char* size = name + length;
-		if (size[0] == '\0')
-			return true;
-		if (size[0] < '1' || size[0] > '4')
-			continue;
-		if (size[1] == '\0')
-			return true;
-		if (size[1] == 'x' && size[2] >= '1' && size[2] <= '4' && size[3] == '\0')
-			return true;
+		names.types.insert(GetAtom(scalar));
+		for (int n = 1; n <= 4; ++n)
+		{
+			snprintf(buffer, sizeof(buffer), "%s%d", scalar, n);
+			names.types.insert(GetAtom(buffer));
+			for (int m = 1; m <= 4; ++m)
+			{
+				snprintf(buffer, sizeof(buffer), "%s%dx%d", scalar, n, m);
+				names.types.insert(GetAtom(buffer));
+			}
+		}
 	}
-	return false;
+	return names;
+}
+
+static BuiltinTypeNames& GetBuiltinTypeNames()
+{
+	static BuiltinTypeNames names = CreateBuiltinTypeNames();
+	return names;
+}
+
+static bool IsTemplateName(Node* node)
+{
+	return node->type == NodeType::IDENTIFIER && GetBuiltinTypeNames().templates.count(node->name);
 }
 
 static bool IsTypeName(Node* node)
 {
 	if (node->type == NodeType::TEMPLATE)
 		return IsTemplateName(node->child);
-	if (node->type != NodeType::IDENTIFIER)
-		return false;
-	if (IsTemplateName(node) || IsNumericTypeName(node->name))
-		return true;
-	for (const char* name : other_type_names)
-		if (strcmp(node->name, name) == 0)
-			return true;
-	return false;
+	return node->type == NodeType::IDENTIFIER && GetBuiltinTypeNames().types.count(node->name);
 }
 
 static const uint32 MAX_EXPRESSION_DEPTH = 256;
@@ -421,14 +431,30 @@ static Node* ParseExpression(Parser& parser, bool in_template_arguments)
 			switch (token_type)
 			{
 			case TokenType::IDENTIFIER:
+			{
+				Node* node = NewNode(parser, NodeType::IDENTIFIER);
+				node->name = parser.token.atom;
+				EatToken(parser);
+				parser.operands.push_back(node);
+				expect_operand = false;
+				break;
+			}
 			case TokenType::NUMBER:
+			{
+				ANumber* node = parser.arena->New<ANumber>();
+				node->type = NodeType::NUMBER;
+				node->text = CopyText(parser, parser.token);
+				EatToken(parser);
+				parser.operands.push_back(node);
+				expect_operand = false;
+				break;
+			}
 			case TokenType::KW_TRUE:
 			case TokenType::KW_FALSE:
 			{
-				NodeType type = token_type == TokenType::IDENTIFIER ? NodeType::IDENTIFIER : token_type == TokenType::NUMBER ? NodeType::NUMBER
-																															 : NodeType::BOOL;
-				Node* node = NewNode(parser, type);
-				TRY(CopyName(parser, node->name, sizeof(node->name), parser.token));
+				ABool* node = parser.arena->New<ABool>();
+				node->type = NodeType::BOOL;
+				node->value = token_type == TokenType::KW_TRUE;
 				EatToken(parser);
 				parser.operands.push_back(node);
 				expect_operand = false;
@@ -527,7 +553,7 @@ static Node* ParseExpression(Parser& parser, bool in_template_arguments)
 				return nullptr;
 			}
 			Node* member = NewNode(parser, NodeType::MEMBER);
-			TRY(CopyName(parser, member->name, sizeof(member->name), parser.token));
+			member->name = parser.token.atom;
 			EatToken(parser);
 			member->child = PopOperand(parser);
 			parser.operands.push_back(member);
