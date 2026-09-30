@@ -289,7 +289,7 @@ static bool BeginFrame()
 		VK_ASSERT(result);
 	acquire_suboptimal = result == VK_SUBOPTIMAL_KHR;
 	VK_ASSERT(vkResetCommandPool(device, command_pool, 0));
-	auto begin_info = VkCommandBufferBeginInfo{
+	VkCommandBufferBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 	};
@@ -358,20 +358,20 @@ static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 			.finalLayout = ImageLayout(attachment.state_during),
 		};
 	}
-	auto subpass = VkSubpassDescription{
+	VkSubpassDescription subpass{
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
 		.colorAttachmentCount = color_count,
 		.pColorAttachments = color_count ? color_references.data() : nullptr,
 		.pDepthStencilAttachment = has_depth ? &depth_reference : nullptr,
 	};
-	auto create_info = VkRenderPassCreateInfo{
+	VkRenderPassCreateInfo create_info{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = desc.attachments.count,
 		.pAttachments = attachments.data(),
 		.subpassCount = 1,
 		.pSubpasses = &subpass,
 	};
-	auto* render_pass = new VulkanRenderPass;
+	VulkanRenderPass* render_pass = new VulkanRenderPass;
 	VK_ASSERT(vkCreateRenderPass(device, &create_info, nullptr, &render_pass->handle));
 	render_pass->attachments.assign(desc.attachments.data, desc.attachments.data + desc.attachments.count);
 	return reinterpret_cast<RenderPass*>(render_pass);
@@ -381,7 +381,7 @@ static void DestroyRenderPass(RenderPass* render_pass)
 {
 	if (!render_pass)
 		return;
-	auto* impl = ToImpl(render_pass);
+	VulkanRenderPass* impl = ToImpl(render_pass);
 	VK_ASSERT(vkDeviceWaitIdle(device));
 	vkDestroyRenderPass(device, impl->handle, nullptr);
 	delete impl;
@@ -389,13 +389,13 @@ static void DestroyRenderPass(RenderPass* render_pass)
 
 static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
 {
-	auto* render_pass = ToImpl(desc.render_pass);
+	VulkanRenderPass* render_pass = ToImpl(desc.render_pass);
 	std::vector<VkImageView> views(desc.attachments.count);
-	auto* framebuffer = new VulkanFramebuffer;
+	VulkanFramebuffer* framebuffer = new VulkanFramebuffer;
 	framebuffer->attachments.resize(desc.attachments.count);
 	for (uint32 i = 0; i < desc.attachments.count; ++i)
 	{
-		auto* texture = ToImpl(desc.attachments[i]);
+		VulkanTexture* texture = ToImpl(desc.attachments[i]);
 		if (i == 0)
 		{
 			framebuffer->width = texture->desc.width;
@@ -405,7 +405,7 @@ static Framebuffer* CreateFramebuffer(FramebufferDesc&& desc)
 		views[i] = texture->view;
 		framebuffer->attachments[i] = texture;
 	}
-	auto create_info = VkFramebufferCreateInfo{
+	VkFramebufferCreateInfo create_info{
 		.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		.renderPass = render_pass->handle,
 		.attachmentCount = desc.attachments.count,
@@ -422,7 +422,7 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 {
 	if (!framebuffer)
 		return;
-	auto* impl = ToImpl(framebuffer);
+	VulkanFramebuffer* impl = ToImpl(framebuffer);
 	VK_ASSERT(vkDeviceWaitIdle(device));
 	vkDestroyFramebuffer(device, impl->handle, nullptr);
 	delete impl;
@@ -430,8 +430,8 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 
 static void BeginRenderPass(const RenderPassBeginDesc& desc)
 {
-	auto* render_pass = ToImpl(desc.render_pass);
-	auto* framebuffer = ToImpl(desc.framebuffer);
+	VulkanRenderPass* render_pass = ToImpl(desc.render_pass);
+	VulkanFramebuffer* framebuffer = ToImpl(desc.framebuffer);
 	std::vector<VkClearValue> clear_values(render_pass->attachments.size());
 	for (uint32 i = 0; i < render_pass->attachments.size(); ++i)
 	{
@@ -449,7 +449,7 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 		}
 		ImageBarrier(*texture, attachment.state_before, attachment.state_during);
 	}
-	auto begin_info = VkRenderPassBeginInfo{
+	VkRenderPassBeginInfo begin_info{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = render_pass->handle,
 		.framebuffer = framebuffer->handle,
@@ -478,7 +478,7 @@ static void EndFrame()
 {
 	VK_ASSERT(vkEndCommandBuffer(command_buffer));
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	auto submit_info = VkSubmitInfo{
+	VkSubmitInfo submit_info{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.waitSemaphoreCount = 1,
 		.pWaitSemaphores = &image_available,
@@ -490,7 +490,7 @@ static void EndFrame()
 	};
 	VK_ASSERT(vkResetFences(device, 1, &submit_fence));
 	VK_ASSERT(vkQueueSubmit(graphics_queue, 1, &submit_info, submit_fence));
-	auto present_info = VkPresentInfoKHR{
+	VkPresentInfoKHR present_info{
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
 		.pWaitSemaphores = &render_done_semaphores[current_backbuffer],
@@ -708,7 +708,7 @@ static bool CreateSwapchain()
 	if (capabilities.maxImageCount && requested_count > capabilities.maxImageCount)
 		requested_count = capabilities.maxImageCount;
 
-	auto create_info = VkSwapchainCreateInfoKHR{
+	VkSwapchainCreateInfoKHR create_info{
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = surface,
 		.minImageCount = requested_count,
@@ -740,7 +740,7 @@ static bool CreateSwapchain()
 		texture.desc.width = extent.width;
 		texture.desc.height = extent.height;
 		texture.desc.format = texture_format;
-		auto view_info = VkImageViewCreateInfo{
+		VkImageViewCreateInfo view_info{
 			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			.image = texture.image,
 			.viewType = VK_IMAGE_VIEW_TYPE_2D,
@@ -750,7 +750,7 @@ static bool CreateSwapchain()
 		VK_ASSERT(vkCreateImageView(device, &view_info, nullptr, &texture.view));
 	}
 
-	auto semaphore_info = VkSemaphoreCreateInfo{
+	VkSemaphoreCreateInfo semaphore_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
 	VK_ASSERT(vkCreateSemaphore(device, &semaphore_info, nullptr, &image_available));
@@ -764,7 +764,7 @@ static bool CreateSwapchain()
 static void CreateSurface(PAL::Window* window)
 {
 #ifdef EVA_WIN32
-	auto surface_info = VkWin32SurfaceCreateInfoKHR{
+	VkWin32SurfaceCreateInfoKHR surface_info{
 		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 		.hinstance = GetModuleHandleA(nullptr),
 		.hwnd = static_cast<HWND>(window->native_handle),
@@ -773,7 +773,7 @@ static void CreateSurface(PAL::Window* window)
 #elif defined(EVA_ANDROID)
 	native_window = static_cast<ANativeWindow*>(window->native_handle);
 	ANativeWindow_acquire(native_window);
-	auto surface_info = VkAndroidSurfaceCreateInfoKHR{
+	VkAndroidSurfaceCreateInfoKHR surface_info{
 		.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
 		.window = native_window,
 	};
@@ -853,7 +853,7 @@ static bool InitImpl(const InitOptions& init_options)
 			}
 		}
 
-		auto application_info = VkApplicationInfo{
+		VkApplicationInfo application_info{
 			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 			.pApplicationName = "EVA",
 			.apiVersion = VK_API_VERSION_1_0,
@@ -876,7 +876,7 @@ static bool InitImpl(const InitOptions& init_options)
 						   VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
 			.pfnUserCallback = DebugCallback,
 		};
-		auto instance_info = VkInstanceCreateInfo{
+		VkInstanceCreateInfo instance_info{
 			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 			.pNext = debug_utils ? &debug_info : nullptr,
 			.pApplicationInfo = &application_info,
@@ -904,14 +904,14 @@ static bool InitImpl(const InitOptions& init_options)
 
 	{ // create device:
 		float priority = 1.0f;
-		auto queue_info = VkDeviceQueueCreateInfo{
+		VkDeviceQueueCreateInfo queue_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.queueFamilyIndex = physical_device.graphics_family,
 			.queueCount = 1,
 			.pQueuePriorities = &priority,
 		};
 		const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-		auto device_info = VkDeviceCreateInfo{
+		VkDeviceCreateInfo device_info{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.queueCreateInfoCount = 1,
 			.pQueueCreateInfos = &queue_info,
@@ -929,13 +929,13 @@ static bool InitImpl(const InitOptions& init_options)
 	}
 
 	{ // create command pool and buffers:
-		auto pool_info = VkCommandPoolCreateInfo{
+		VkCommandPoolCreateInfo pool_info{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
 			.queueFamilyIndex = physical_device.graphics_family,
 		};
 		VK_ASSERT(vkCreateCommandPool(device, &pool_info, nullptr, &command_pool));
-		auto allocate_info = VkCommandBufferAllocateInfo{
+		VkCommandBufferAllocateInfo allocate_info{
 			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 			.commandPool = command_pool,
 			.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
@@ -945,7 +945,7 @@ static bool InitImpl(const InitOptions& init_options)
 	}
 
 	{ // create sync resources:
-		auto fence_info = VkFenceCreateInfo{
+		VkFenceCreateInfo fence_info{
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 			.flags = VK_FENCE_CREATE_SIGNALED_BIT,
 		};
