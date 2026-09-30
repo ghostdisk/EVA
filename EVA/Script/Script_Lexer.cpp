@@ -1,13 +1,13 @@
-#include <EVA/HLSL/HLSL.hpp>
+#include <EVA/Script/Script.hpp>
 #include <string.h>
 
-namespace EVA::HLSL
+namespace EVA::Script
 {
 
 struct Keyword
 {
 	TokenType token_type;
-	char keyword[18];
+	char keyword[9];
 };
 
 struct MultiCharOperator
@@ -17,58 +17,16 @@ struct MultiCharOperator
 };
 
 static Keyword keywords[] = {
+	{ TokenType::KW_CONST, "const" },
 	{ TokenType::KW_STRUCT, "struct" },
-	{ TokenType::KW_ENUM, "enum" },
-	{ TokenType::KW_CBUFFER, "cbuffer" },
-	{ TokenType::KW_NAMESPACE, "namespace" },
-	{ TokenType::KW_TYPEDEF, "typedef" },
-	{ TokenType::KW_USING, "using" },
-	{ TokenType::KW_TEMPLATE, "template" },
-	{ TokenType::KW_TYPENAME, "typename" },
-	{ TokenType::KW_OPERATOR, "operator" },
+	{ TokenType::KW_FUNCTION, "function" },
 
 	{ TokenType::KW_IF, "if" },
 	{ TokenType::KW_ELSE, "else" },
-	{ TokenType::KW_FOR, "for" },
-	{ TokenType::KW_WHILE, "while" },
-	{ TokenType::KW_DO, "do" },
-	{ TokenType::KW_SWITCH, "switch" },
-	{ TokenType::KW_CASE, "case" },
-	{ TokenType::KW_DEFAULT, "default" },
-	{ TokenType::KW_BREAK, "break" },
-	{ TokenType::KW_CONTINUE, "continue" },
 	{ TokenType::KW_RETURN, "return" },
-	{ TokenType::KW_DISCARD, "discard" },
 
 	{ TokenType::KW_TRUE, "true" },
 	{ TokenType::KW_FALSE, "false" },
-	{ TokenType::KW_THIS, "this" },
-	{ TokenType::KW_SIZEOF, "sizeof" },
-
-	{ TokenType::KW_CONST, "const" },
-	{ TokenType::KW_STATIC, "static" },
-	{ TokenType::KW_EXTERN, "extern" },
-	{ TokenType::KW_UNIFORM, "uniform" },
-	{ TokenType::KW_EXPORT, "export" },
-	{ TokenType::KW_INLINE, "inline" },
-	{ TokenType::KW_GROUPSHARED, "groupshared" },
-	{ TokenType::KW_GLOBALLYCOHERENT, "globallycoherent" },
-	{ TokenType::KW_PRECISE, "precise" },
-	{ TokenType::KW_ROW_MAJOR, "row_major" },
-	{ TokenType::KW_COLUMN_MAJOR, "column_major" },
-	{ TokenType::KW_SNORM, "snorm" },
-	{ TokenType::KW_UNORM, "unorm" },
-
-	{ TokenType::KW_IN, "in" },
-	{ TokenType::KW_OUT, "out" },
-	{ TokenType::KW_INOUT, "inout" },
-
-	{ TokenType::KW_NOINTERPOLATION, "nointerpolation" },
-	{ TokenType::KW_NOPERSPECTIVE, "noperspective" },
-	{ TokenType::KW_CENTROID, "centroid" },
-
-	{ TokenType::KW_REGISTER, "register" },
-	{ TokenType::KW_PACKOFFSET, "packoffset" },
 };
 
 // Longest first, so the first prefix match is the longest one.
@@ -94,23 +52,22 @@ static MultiCharOperator multi_char_operators[] = {
 	{ TokenType::GREATER_EQUAL, ">=" },
 	{ TokenType::LOGICAL_AND, "&&" },
 	{ TokenType::LOGICAL_OR, "||" },
-	{ TokenType::SCOPE, "::" },
 };
 
 static bool IsSingleCharOperator(char ch)
 {
 	return ch == ';' || ch == ',' || ch == '+' || ch == '-' || ch == '=' ||
 		   ch == '*' || ch == '/' || ch == '%' || ch == '&' || ch == '|' ||
-		   ch == '^' || ch == '~' || ch == '!' || ch == '?' || ch == ':' ||
-		   ch == '.' || ch == '<' || ch == '>' || ch == '(' || ch == ')' ||
-		   ch == '[' || ch == ']' || ch == '{' || ch == '}' || ch == '#';
+		   ch == '^' || ch == '~' || ch == '!' || ch == ':' || ch == '.' ||
+		   ch == '<' || ch == '>' || ch == '(' || ch == ')' || ch == '[' ||
+		   ch == ']' || ch == '{' || ch == '}' || ch == '@';
 }
 
 static bool IsMultiCharOperatorStart(char ch)
 {
 	return ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '%' ||
 		   ch == '&' || ch == '|' || ch == '^' || ch == '<' || ch == '>' ||
-		   ch == '=' || ch == '!' || ch == ':';
+		   ch == '=' || ch == '!';
 }
 
 static bool IsLetter(char ch)

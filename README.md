@@ -20,9 +20,9 @@ Platofrm Abstraction Layer - integration with the window system, HID.
 
 Low-level RHI (GPU API abstraction layer). Unified API for draw calls, buffers, textures.
 
-## EVA/HLSL
+## EVA/Script
 
-HLSL compiler targeting the GPU lib.
+Custom scripting language, also compiled for the GPU lib as the shading language.
 
 # Code style
 

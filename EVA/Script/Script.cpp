@@ -1,10 +1,10 @@
-#include <EVA/HLSL/HLSL.hpp>
+#include <EVA/Script/Script.hpp>
 #include <stdlib.h>
 
-namespace EVA::HLSL
+namespace EVA::Script
 {
 
-Slice<uint8> Compile(const char* source)
+Slice<uint8> CompileShader(const char* source)
 {
 	Parser parser = {
 		.source = (char*)source,
@@ -13,7 +13,7 @@ Slice<uint8> Compile(const char* source)
 	};
 	DEFER(DestroyArena(parser.arena));
 
-	Node* declarations = nullptr;
+	ANode* declarations = nullptr;
 	if (!Parse(parser, &declarations))
 	{
 		printf("error: %s\n", parser.error_buffer);
