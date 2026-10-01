@@ -81,22 +81,23 @@ static char* CopyText(Parser& parser, Token token)
 	return text;
 }
 
-static const uint32 MAX_NESTING_DEPTH = 256;
+uint32 RECURSION_LIMIT = 256;
+
 static const uint32 PREFIX_PRECEDENCE = 13;
 static const uint32 DECLARATION_PRECEDENCE = 2;
 static const uint32 ASSIGNMENT_PRECEDENCE = 1;
 
-// Bounds recursion so untrusted input can't overflow the stack. Pair with DEFER(parser.depth--).
-static bool EnterNesting(Parser& parser)
-{
-	if (parser.depth >= MAX_NESTING_DEPTH)
-	{
-		EmitError(parser, "nested too deeply");
-		return false;
+// Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
+// calling itself, directly or through others. All of them share parser.recursion_depth, so mutual recursion counts too.
+// Returns false / nullptr from the calling function past RECURSION_LIMIT.
+#define CHECK_RECURSION(parser)                               \
+	(parser).recursion_depth++;                               \
+	DEFER((parser).recursion_depth--);                        \
+	if ((parser).recursion_depth > RECURSION_LIMIT)           \
+	{                                                         \
+		EmitError(parser, "nested too deeply");               \
+		return {};                                            \
 	}
-	parser.depth++;
-	return true;
-}
 
 // Higher binds tighter. 0 if the token isn't a binary operator.
 static uint32 BinaryPrecedence(TokenType op)
@@ -311,8 +312,7 @@ static Node* ParseBranch(Parser& parser)
 // expressions. Neither the condition nor the branches need brackets, since expressions end on their own.
 static Node* ParseIf(Parser& parser)
 {
-	TRY(EnterNesting(parser));
-	DEFER(parser.depth--);
+	CHECK_RECURSION(parser);
 
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::IF);
@@ -358,8 +358,7 @@ static bool EndsWithBlock(Node* node)
 // Leading attributes are attached to the resulting node.
 Node* ParseExpression(Parser& parser)
 {
-	TRY(EnterNesting(parser));
-	DEFER(parser.depth--);
+	CHECK_RECURSION(parser);
 
 	Node* attributes = nullptr;
 	TRY(ParseAttributes(parser, &attributes));
@@ -557,8 +556,7 @@ static Node* ParseReturn(Parser& parser)
 
 Node* ParseStatement(Parser& parser)
 {
-	TRY(EnterNesting(parser));
-	DEFER(parser.depth--);
+	CHECK_RECURSION(parser);
 
 	TRY(LexToken(parser));
 	switch (parser.token.token_type)
@@ -686,6 +684,8 @@ static Node* ParseTypedDeclaration(Parser& parser, NodeType type)
 // function name(parameters) [: return_type] { body }
 static Node* ParseFunction(Parser& parser)
 {
+	CHECK_RECURSION(parser); // functions can be declared in function bodies
+
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::FUNCTION);
 	TRY(ExpectIdentifier(parser, &node->name));
@@ -760,6 +760,8 @@ static Node* ParseConst(Parser& parser)
 // struct name { [attributes] name: type [= value]; ... }
 static Node* ParseStruct(Parser& parser)
 {
+	CHECK_RECURSION(parser); // structs don't nest yet, but may
+
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::STRUCT);
 	TRY(ExpectIdentifier(parser, &node->name));

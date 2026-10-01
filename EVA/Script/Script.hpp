@@ -201,6 +201,8 @@ struct ScriptError : Error
 	ScriptError() { error_family = ErrorFamily::SCRIPT_ERROR; }
 };
 
+extern uint32 RECURSION_LIMIT;
+
 struct Parser
 {
 	char* source = nullptr;
@@ -212,7 +214,8 @@ struct Parser
 	// Expression parser stacks, shared by nested expressions. Each ParseExpression only touches entries above where it started.
 	std::vector<Node*> operands;
 	std::vector<PendingOp> operators;
-	uint32 depth = 0; // expression and statement nesting, bounded so untrusted input can't overflow the stack
+
+	uint32 recursion_depth = 0;
 };
 
 ScriptError* EmitError(Parser& parser, const char* format, ...);

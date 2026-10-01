@@ -597,18 +597,95 @@ static ZTStringView Repeat(Arena* arena, const char* prefix, const char* repeate
 	return builder.ToString();
 }
 
-TEST(Parser, NestingWithinLimit)
+// Lowers RECURSION_LIMIT until the end of the scope, so sources that hit it stay short.
+#define SET_RECURSION_LIMIT(limit)                        \
+	uint32 previous_recursion_limit = RECURSION_LIMIT;    \
+	RECURSION_LIMIT = limit;                              \
+	DEFER(RECURSION_LIMIT = previous_recursion_limit)
+
+static void CheckParses(Test::Context& test, const char* file, int line, ParseLevel level, const char* source)
 {
-	CHECK_EXPRESSION(Repeat(test.arena, "", "(", 200, "a", ")").CString(), "([ROOT]IDENTIFIER a)");
+	ZTStringView actual = ParseToString(test.arena, level, source);
+	if (StringView(actual.CString(), actual.length < 7 ? actual.length : 7) == "error: ")
+		Test::ReportFailure(test, file, line, "parsing \"%s\"\n    failed with %s", source, actual.CString());
 }
 
-TEST(Parser, NestingTooDeep)
+#define CHECK_EXPRESSION_PARSES(source) CheckParses(test, __FILE__, __LINE__, ParseLevel::EXPRESSION, source)
+#define CHECK_STATEMENT_PARSES(source) CheckParses(test, __FILE__, __LINE__, ParseLevel::STATEMENT, source)
+#define CHECK_FILE_PARSES(source) CheckParses(test, __FILE__, __LINE__, ParseLevel::FILE, source)
+
+TEST(ParserRecursion, EachRecursiveConstruct)
 {
-	CHECK_EXPRESSION(Repeat(test.arena, "", "(", 300, "a", ")").CString(), "error: nested too deeply");
-	CHECK_EXPRESSION(Repeat(test.arena, "", "f(", 300, "a", ")").CString(), "error: nested too deeply");
-	CHECK_EXPRESSION(Repeat(test.arena, "", "a[", 300, "i", "]").CString(), "error: nested too deeply");
-	CHECK_STATEMENT(Repeat(test.arena, "", "{", 300, "", "}").CString(), "error: nested too deeply");
-	CHECK_EXPRESSION(Repeat(test.arena, "", "if a b else ", 300, "c", "").CString(), "error: nested too deeply");
+	// Right at a limit of 4 and one level past it. Every expression, statement, if, function and struct being parsed
+	// counts one level; const itself doesn't.
+	SET_RECURSION_LIMIT(4);
+
+	CHECK_EXPRESSION_PARSES("(((a)))");
+	CHECK_EXPRESSION("((((a))))", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("f(f(f(a)))");
+	CHECK_EXPRESSION("f(f(f(f(a))))", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("a[a[a[i]]]");
+	CHECK_EXPRESSION("a[a[a[a[i]]]]", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("[[[1]x]x]x");
+	CHECK_EXPRESSION("[[[[1]x]x]x]x", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("{{{a}}}");
+	CHECK_EXPRESSION("{{{{a}}}}", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("@@@a b c d"); // an attribute's expression can start with attributes too
+	CHECK_EXPRESSION("@@@@a b c d e", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("if a if a b");
+	CHECK_EXPRESSION("if a if a if a b", "error: nested too deeply");
+	CHECK_EXPRESSION_PARSES("if a b else if a b else c");
+	CHECK_EXPRESSION("if a b else if a b else if a b else c", "error: nested too deeply");
+
+	CHECK_STATEMENT_PARSES("{{{{}}}}");
+	CHECK_STATEMENT("{{{{{}}}}}", "error: nested too deeply");
+	CHECK_STATEMENT_PARSES("if a { b; }");
+	CHECK_STATEMENT("if a { if a {} }", "error: nested too deeply");
+	CHECK_STATEMENT_PARSES("return ((a));");
+	CHECK_STATEMENT("return (((a)));", "error: nested too deeply");
+
+	CHECK_FILE_PARSES("function f() { function g() {} }");
+	CHECK_PARSE_ERROR("function f() { function g() { function h() {} } }", "nested too deeply");
+	CHECK_FILE_PARSES("function f(a: ((b))): ((c)) {}");
+	CHECK_PARSE_ERROR("function f(a: (((b)))) {}", "nested too deeply");
+	CHECK_PARSE_ERROR("function f(): (((c))) {}", "nested too deeply");
+	CHECK_FILE_PARSES("struct S { a: ((b)); }");
+	CHECK_PARSE_ERROR("struct S { a: (((b))); }", "nested too deeply");
+	CHECK_FILE_PARSES("const x = (((a)));");
+	CHECK_PARSE_ERROR("const x = ((((a))));", "nested too deeply");
+}
+
+TEST(ParserRecursion, MixedConstructsShareOneCounter)
+{
+	// function, if statement, block, return, parentheses, if expression, array size, call: 11 levels at the deepest.
+	const char* source = "function f() { if a { { return (if b [f(c)]d else { e; }); } } }";
+	{
+		SET_RECURSION_LIMIT(11);
+		CHECK_FILE_PARSES(source);
+	}
+	{
+		SET_RECURSION_LIMIT(10);
+		CHECK_PARSE_ERROR(source, "nested too deeply");
+	}
+}
+
+TEST(ParserRecursion, DepthIsRestored)
+{
+	SET_RECURSION_LIMIT(4);
+	const char* sources[] = { "function f() { if a { b; } }", "function f() { function g() { function h() {} } }" };
+	for (const char* source : sources)
+	{
+		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+		Node* declarations = nullptr;
+		Parse(parser, &declarations);
+		CHECK_EQ(parser.recursion_depth, 0u);
+	}
+}
+
+TEST(ParserRecursion, DefaultLimitStopsDeepNesting)
+{
+	CHECK_EXPRESSION(Repeat(test.arena, "", "(", 10000, "a", ")").CString(), "error: nested too deeply");
+	CHECK_STATEMENT(Repeat(test.arena, "", "{", 10000, "", "}").CString(), "error: nested too deeply");
 }
 
 TEST(Parser, LongPrefixChainDoesNotRecurse)
