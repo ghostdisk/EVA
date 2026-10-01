@@ -86,14 +86,14 @@ struct Token
 };
 
 // Layouts below: "child" is ANode::child, following entries are chained via ANode::next.
+// Any node's children may start with attributes, each an arbitrary expression with usage ATTRIBUTE.
 enum class NodeType : uint8
 {
 	NONE = 0,
-	ATTRIBUTE_LIST, // child: attributes, each an arbitrary expression
 
 	// declarations
 	CONST,     // child: expression, e.g. name: type = value
-	STRUCT,    // name, child: members (statements)
+	STRUCT,    // name, child: members (statements, MEMBER)
 	FUNCTION,  // AFunction
 	PARAMETER, // name, child: type
 
@@ -109,18 +109,28 @@ enum class NodeType : uint8
 	UNARY,      // AOperator, op: operator, child: operand
 	POSTFIX,    // AOperator, op: operator, child: operand
 	BINARY,     // AOperator, op: operator (including assignments and ':' declarations), child: left, right
-	CALL,       // child: callee, arguments...
+	CALL,       // child: callee (CALLEE), arguments (ARGUMENT)...
 	MEMBER,     // name: member (including swizzles), child: object
 	INDEX,      // child: object, index
 	ARRAY,      // [size]element, child: size, element
 	IF,         // AIf
 };
 
+// How a node relates to its parent. Set by the parent.
+enum class Usage : uint8
+{
+	NONE = 0,
+	ATTRIBUTE,
+	CALLEE,
+	ARGUMENT,
+	MEMBER,
+};
+
 struct ANode
 {
 	NodeType type = NodeType::NONE;
+	Usage usage = Usage::NONE;
 	Atom name = Atom::NONE;
-	ANode* attribute_list = nullptr; // ATTRIBUTE_LIST, or nullptr
 	ANode* child = nullptr;
 	ANode* next = nullptr;
 };

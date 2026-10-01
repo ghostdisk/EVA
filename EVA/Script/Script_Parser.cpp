@@ -150,6 +150,12 @@ static AOperator* NewOperator(Parser& parser, NodeType type, TokenType op)
 	return node;
 }
 
+static void SetUsage(ANode* first, Usage usage)
+{
+	for (ANode* node = first; node; node = node->next)
+		node->usage = usage;
+}
+
 static ANode* PopOperand(Parser& parser)
 {
 	ANode* node = parser.operands.back();
@@ -236,11 +242,11 @@ static bool ParseArguments(Parser& parser, TokenType closing, ANode** out_argume
 	}
 }
 
-// Parses any number of '@' expression. *out_attribute_list is an ATTRIBUTE_LIST, or nullptr if there's no '@'.
-static bool ParseAttributeList(Parser& parser, ANode** out_attribute_list)
+// Parses any number of '@' expression. out_attributes receives the first attribute, the rest are chained via next.
+static bool ParseAttributes(Parser& parser, ANode** out_attributes)
 {
-	*out_attribute_list = nullptr;
-	ANode** tail = nullptr;
+	*out_attributes = nullptr;
+	ANode** tail = out_attributes;
 	for (;;)
 	{
 		TRY(LexToken(parser));
@@ -248,17 +254,24 @@ static bool ParseAttributeList(Parser& parser, ANode** out_attribute_list)
 			return true;
 		EatToken(parser);
 
-		if (!*out_attribute_list)
-		{
-			*out_attribute_list = NewNode(parser, NodeType::ATTRIBUTE_LIST);
-			tail = &(*out_attribute_list)->child;
-		}
-
 		ANode* attribute = ParseExpression(parser);
 		TRY(attribute);
+		attribute->usage = Usage::ATTRIBUTE;
 		*tail = attribute;
 		tail = &attribute->next;
 	}
+}
+
+// Prepends attributes to the node's children.
+static void AttachAttributes(ANode* node, ANode* attributes)
+{
+	if (!attributes)
+		return;
+	ANode* last = attributes;
+	while (last->next)
+		last = last->next;
+	last->next = node->child;
+	node->child = attributes;
 }
 
 static AIf* ParseIf(Parser& parser);
@@ -318,14 +331,14 @@ static bool EndsWithBlock(ANode* node)
 // Shunting yard over prefix and infix operators. Anything bracketed is parsed recursively into a single operand,
 // and postfix operators wrap the top operand directly since they bind tighter than everything else.
 // Stops at the first token that can't continue the expression, leaving it for the caller.
-// A leading attribute list is attached to the resulting node.
+// Leading attributes are attached to the resulting node.
 static ANode* ParseExpression(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
 
-	ANode* attribute_list = nullptr;
-	TRY(ParseAttributeList(parser, &attribute_list));
+	ANode* attributes = nullptr;
+	TRY(ParseAttributes(parser, &attributes));
 
 	size_t operand_base = parser.operands.size();
 	size_t operator_base = parser.operators.size();
@@ -432,9 +445,11 @@ static ANode* ParseExpression(Parser& parser)
 		{
 			EatToken(parser);
 			ANode* callee = PopOperand(parser);
+			callee->usage = Usage::CALLEE;
 			ANode* call = NewNode(parser, NodeType::CALL);
 			call->child = callee;
 			TRY(ParseArguments(parser, TokenType::RIGHT_PAREN, &callee->next));
+			SetUsage(callee->next, Usage::ARGUMENT);
 			parser.operands.push_back(call);
 			continue;
 		}
@@ -465,6 +480,7 @@ static ANode* ParseExpression(Parser& parser)
 			continue;
 		}
 
+		// foo++, foo--:
 		if (token_type == TokenType::INCREMENT || token_type == TokenType::DECREMENT)
 		{
 			EatToken(parser);
@@ -490,18 +506,8 @@ static ANode* ParseExpression(Parser& parser)
 	ANode* result = PopOperand(parser);
 	assert(parser.operands.size() == operand_base);
 
-	if (attribute_list)
-	{
-		// @a (@b x): the outer attributes go first.
-		if (result->attribute_list)
-		{
-			ANode* last = attribute_list->child;
-			while (last->next)
-				last = last->next;
-			last->next = result->attribute_list->child;
-		}
-		result->attribute_list = attribute_list;
-	}
+	// @a (@b x): prepending puts the outer attributes first.
+	AttachAttributes(result, attributes);
 	return result;
 }
 
@@ -588,11 +594,13 @@ static ANode* ParseBlock(Parser& parser)
 static ANode* ParseParameter(Parser& parser)
 {
 	ANode* node = NewNode(parser, NodeType::PARAMETER);
-	TRY(ParseAttributeList(parser, &node->attribute_list));
+	ANode* attributes = nullptr;
+	TRY(ParseAttributes(parser, &attributes));
 	TRY(ExpectIdentifier(parser, &node->name));
 	TRY(ExpectToken(parser, TokenType::COLON));
 	node->child = ParseExpression(parser);
 	TRY(node->child);
+	AttachAttributes(node, attributes);
 	return node;
 }
 
@@ -668,6 +676,7 @@ static bool ParseDeclaration(Parser& parser, ANode** out_declaration)
 		ANode* node = NewNode(parser, NodeType::STRUCT);
 		TRY(ExpectIdentifier(parser, &node->name));
 		TRY(ParseStatementList(parser, &node->child));
+		SetUsage(node->child, Usage::MEMBER);
 		*out_declaration = node;
 		return true;
 	}
