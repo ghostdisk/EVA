@@ -116,7 +116,7 @@ ZTStringView UsageToString(Usage usage)
 		case Usage::PARAMETER: return "PARAMETER";
 		case Usage::RETURN_TYPE: return "RETURN_TYPE";
 		case Usage::BODY: return "BODY";
-		case Usage::TYPE: return "TYPE";
+		case Usage::DECLARED_TYPE: return "DECLARED_TYPE";
 		case Usage::STATEMENT: return "STATEMENT";
 		case Usage::ELEMENT: return "ELEMENT";
 		case Usage::SIZE: return "SIZE";
@@ -134,13 +134,23 @@ ZTStringView UsageToString(Usage usage)
 	return "?";
 }
 
+ZTStringView TypeToString(Type* type, Arena* arena)
+{
+	if (type->type_kind == TypeKind::ARRAY)
+	{
+		ArrayType* array = (ArrayType*)type;
+		return aprintf(arena, "[%u]%s", array->length, TypeToString(array->element, arena).CString());
+	}
+	return GetAtomString(type->name, arena);
+}
+
 // A node's type, or a built-in's kind and name, e.g. TYPE float4. A constant is named by its type.
 static ZTStringView TargetToString(Element* target, Arena* arena)
 {
 	switch (target->kind)
 	{
 		case ElementKind::NODE: return NodeTypeToString(((Node*)target)->node_type);
-		case ElementKind::TYPE: return aprintf(arena, "TYPE %s", GetAtomString(((Type*)target)->name, arena).CString());
+		case ElementKind::TYPE: return aprintf(arena, "TYPE %s", TypeToString((Type*)target, arena).CString());
 		case ElementKind::INTRINSIC: return aprintf(arena, "INTRINSIC %s", GetAtomString(((Intrinsic*)target)->name, arena).CString());
 		case ElementKind::CONSTANT: return aprintf(arena, "CONSTANT %s", GetAtomString(((Constant*)target)->type->name, arena).CString());
 		case ElementKind::NONE: break;
@@ -155,6 +165,8 @@ void DumpNode(Node* node, Arena* arena, int indent)
 	uint8* mark = arena->head;
 
 	printf("\x1b[33m%s\x1b[0m", NodeTypeToString(node->node_type).CString());
+	if (node->type)
+		printf("\x1b[36m:%s\x1b[0m", TypeToString(node->type, arena).CString());
 	if (node->name != Atom::NONE)
 		printf(" | %s", GetAtomString(node->name, arena).CString());
 
@@ -193,6 +205,11 @@ void DumpNode(Node* node, Arena* arena, int indent)
 void SerializeNode(StringBuilder& builder, Node* node)
 {
 	builder.AppendFormat("([%s]%s", UsageToString(node->usage).CString(), NodeTypeToString(node->node_type).CString());
+	if (node->type)
+	{
+		builder.Append(":");
+		builder.Append(TypeToString(node->type, builder.arena));
+	}
 	if (node->name != Atom::NONE)
 	{
 		builder.Append(" ");

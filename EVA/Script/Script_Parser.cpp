@@ -642,7 +642,7 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 	Node** tail = &node->child;
 	if (type)
 	{
-		type->usage = Usage::TYPE;
+		type->usage = Usage::DECLARED_TYPE;
 		*tail = type;
 		tail = &type->next;
 	}

@@ -63,6 +63,7 @@ static void DefineEnumValue(Context& context, EnumType* type, StringView name, i
 	node->node_type = NodeType::ENUM_VALUE;
 	node->name = GetAtom(name);
 	node->enum_value = value;
+	node->type = type;
 	Define(context, type->scope, node->name, node);
 }
 
@@ -71,19 +72,22 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 {
 	Scope* scope = context.arena->New<Scope>();
 
-	DefineType(context, scope, NewPrimitiveType(context, "void", PrimitiveKind::VOID, 0));
-	DefineType(context, scope, NewPrimitiveType(context, "int", PrimitiveKind::SIGNED, 4));
-	DefineType(context, scope, NewPrimitiveType(context, "uint", PrimitiveKind::UNSIGNED, 4));
-
-	PrimitiveType* float_type = NewPrimitiveType(context, "float", PrimitiveKind::FLOAT, 4);
-	DefineType(context, scope, float_type);
-	DefineType(context, scope, NewVectorType(context, "float2", float_type, 2));
-	DefineType(context, scope, NewVectorType(context, "float3", float_type, 3));
-	DefineType(context, scope, NewVectorType(context, "float4", float_type, 4));
+	context.void_type = NewPrimitiveType(context, "void", PrimitiveKind::VOID, 0);
+	context.int_type = NewPrimitiveType(context, "int", PrimitiveKind::SIGNED, 4);
+	context.uint_type = NewPrimitiveType(context, "uint", PrimitiveKind::UNSIGNED, 4);
+	context.float_type = NewPrimitiveType(context, "float", PrimitiveKind::FLOAT, 4);
+	DefineType(context, scope, context.void_type);
+	DefineType(context, scope, context.int_type);
+	DefineType(context, scope, context.uint_type);
+	DefineType(context, scope, context.float_type);
+	DefineType(context, scope, NewVectorType(context, "float2", context.float_type, 2));
+	DefineType(context, scope, NewVectorType(context, "float3", context.float_type, 3));
+	DefineType(context, scope, NewVectorType(context, "float4", context.float_type, 4));
 
 	if (kind == ContextKind::SHADER)
 	{
 		EnumType* builtin_type = NewEnumType(context, "Builtin");
+		context.builtin_type = builtin_type;
 		DefineEnumValue(context, builtin_type, "vertex_index", (int64)Builtin::VERTEX_INDEX);
 		DefineEnumValue(context, builtin_type, "instance_index", (int64)Builtin::INSTANCE_INDEX);
 		DefineEnumValue(context, builtin_type, "position", (int64)Builtin::POSITION);
@@ -102,6 +106,28 @@ void InitContext(Context& context, Arena* arena, ContextKind kind)
 {
 	context.arena = arena;
 	context.global_scope = CreateGlobalScope(context, kind);
+}
+
+ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
+{
+	for (ArrayType* type : context.array_types)
+	{
+		if (type->element == element && type->length == length)
+			return type;
+	}
+
+	uint64 stride = ((uint64)element->size + element->alignment - 1) / element->alignment * element->alignment;
+	if (stride * length > UINT32_MAX)
+		return nullptr;
+
+	ArrayType* type = context.arena->New<ArrayType>();
+	type->element = element;
+	type->length = length;
+	type->stride = (uint32)stride;
+	type->size = (uint32)(stride * length);
+	type->alignment = element->alignment;
+	context.array_types.push_back(type);
+	return type;
 }
 
 // Copies the list of errors into arena, where the errors themselves already are.
@@ -135,6 +161,10 @@ CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 	Resolver resolver = { .context = &context, .arena = intermediate_arena, .error_arena = arena };
 	if (!Resolve(resolver, module))
 		return { .errors = ToSlice(arena, resolver.errors) };
+
+	Typer typer = { .context = &context, .arena = intermediate_arena, .error_arena = arena };
+	if (!TypeCheck(typer, module))
+		return { .errors = ToSlice(arena, typer.errors) };
 
 	DumpNode(module, intermediate_arena);
 	printf("\n");

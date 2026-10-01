@@ -84,7 +84,7 @@ TEST(Resolver, FunctionsAndStructsCanBeUsedBeforeTheirDeclaration)
 		"([DECLARATION]FUNCTION a ([BODY]BLOCK ([STATEMENT]CALL ([CALLEE]REFERENCE b -> FUNCTION)))) "
 		"([DECLARATION]FUNCTION b ([BODY]BLOCK))");
 	CHECK_RESOLVE("function f(s: S) {} struct S {}",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER s ([TYPE]REFERENCE S -> STRUCT)) ([BODY]BLOCK)) ([DECLARATION]STRUCT S)");
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER s ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([BODY]BLOCK)) ([DECLARATION]STRUCT:S S)");
 	CHECK_RESOLVE("function f() { f(); }", "([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]CALL ([CALLEE]REFERENCE f -> FUNCTION))))");
 }
 
@@ -116,7 +116,7 @@ TEST(Resolver, ErrorsDontStopResolving)
 TEST(Resolver, Parameters)
 {
 	CHECK_RESOLVE("struct S {} function f(a: S) { return a; }",
-		"([DECLARATION]STRUCT S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE S -> STRUCT)) "
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]REFERENCE a -> PARAMETER))))");
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S, b: S = a): S {}", "");
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S = b, b: S) {}", "unknown identifier 'b'");
@@ -125,11 +125,11 @@ TEST(Resolver, Parameters)
 TEST(Resolver, Variables)
 {
 	CHECK_RESOLVE("struct S {} function f() { x: S; return x; }",
-		"([DECLARATION]STRUCT S) ([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([TYPE]REFERENCE S -> STRUCT)) "
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([STATEMENT]RETURN ([VALUE]REFERENCE x -> VARIABLE))))");
 	CHECK_RESOLVE("struct S {} function f(v: S) { x: S = v; }",
-		"([DECLARATION]STRUCT S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER v ([TYPE]REFERENCE S -> STRUCT)) "
-		"([BODY]BLOCK ([STATEMENT]BINARY = ([LEFT]VARIABLE x ([TYPE]REFERENCE S -> STRUCT)) ([RIGHT]REFERENCE v -> PARAMETER))))");
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER v ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
+		"([BODY]BLOCK ([STATEMENT]BINARY = ([LEFT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([RIGHT]REFERENCE v -> PARAMETER))))");
 	CHECK_RESOLVE_ERRORS("struct S {} function f() { x; x: S; }", "unknown identifier 'x'");
 }
 
@@ -158,11 +158,11 @@ TEST(Resolver, NestedFunctions)
 TEST(Resolver, Shadowing)
 {
 	CHECK_RESOLVE("function x() {} function f(x: S) { return x; } struct S {}",
-		"([DECLARATION]FUNCTION x ([BODY]BLOCK)) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([TYPE]REFERENCE S -> STRUCT)) "
-		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]REFERENCE x -> PARAMETER)))) ([DECLARATION]STRUCT S)");
+		"([DECLARATION]FUNCTION x ([BODY]BLOCK)) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
+		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]REFERENCE x -> PARAMETER)))) ([DECLARATION]STRUCT:S S)");
 	CHECK_RESOLVE("struct S {} function f(x: S) { { x: S; x; } }",
-		"([DECLARATION]STRUCT S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([TYPE]REFERENCE S -> STRUCT)) "
-		"([BODY]BLOCK ([STATEMENT]BLOCK ([STATEMENT]VARIABLE x ([TYPE]REFERENCE S -> STRUCT)) ([STATEMENT]REFERENCE x -> VARIABLE))))");
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
+		"([BODY]BLOCK ([STATEMENT]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([STATEMENT]REFERENCE x -> VARIABLE))))");
 }
 
 TEST(Resolver, AlreadyDefined)
@@ -180,7 +180,7 @@ TEST(Resolver, AlreadyDefined)
 TEST(Resolver, MemberNamesAreNotResolved)
 {
 	CHECK_RESOLVE("struct S {} function f(a: S) { a.b.c; }",
-		"([DECLARATION]STRUCT S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE S -> STRUCT)) "
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([BODY]BLOCK ([STATEMENT]MEMBER c ([OBJECT]MEMBER b ([OBJECT]REFERENCE a -> PARAMETER)))))");
 }
 
@@ -260,12 +260,12 @@ TEST(Resolver, BuiltinArgumentsAreBuiltinNames)
 {
 	CHECK_SHADER_RESOLVE("function f(@builtin(vertex_index) id: uint) {}",
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
-		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([TYPE]REFERENCE uint -> TYPE uint)) ([BODY]BLOCK))");
+		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([DECLARED_TYPE]REFERENCE uint -> TYPE uint)) ([BODY]BLOCK))");
 	// Nothing else is visible, and the builtin names win over the module's.
 	CHECK_SHADER_RESOLVE_ERRORS("const c = 1; function f(@builtin(c) a: uint) {}", "unknown identifier 'c'");
 	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(float4) a: uint) {}", "unknown identifier 'float4'");
 	CHECK_SHADER_RESOLVE("function f(position: float4): @builtin(position) float4 {}",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([TYPE]REFERENCE float4 -> TYPE float4)) "
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([DECLARED_TYPE]REFERENCE float4 -> TYPE float4)) "
 		"([RETURN_TYPE]REFERENCE float4 -> TYPE float4 ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
 		"([ARGUMENT]REFERENCE position -> ENUM_VALUE))) ([BODY]BLOCK))");
 	// Builtin names are only visible in the arguments.
@@ -339,9 +339,9 @@ TEST(Resolver, BuiltInConstants)
 TEST(Resolver, BuiltInTypes)
 {
 	CHECK_RESOLVE("function f(a: float2, b: float3): float4 { x: float; }",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE float2 -> TYPE float2)) "
-		"([PARAMETER]PARAMETER b ([TYPE]REFERENCE float3 -> TYPE float3)) ([RETURN_TYPE]REFERENCE float4 -> TYPE float4) "
-		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([TYPE]REFERENCE float -> TYPE float))))");
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([DECLARED_TYPE]REFERENCE float2 -> TYPE float2)) "
+		"([PARAMETER]PARAMETER b ([DECLARED_TYPE]REFERENCE float3 -> TYPE float3)) ([RETURN_TYPE]REFERENCE float4 -> TYPE float4) "
+		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE float -> TYPE float))))");
 	CHECK_RESOLVE("function f(): void { return float4(1.0); }",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE void -> TYPE void) "
 		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL ([CALLEE]REFERENCE float4 -> TYPE float4) ([ARGUMENT]NUMBER 1.0)))))");
@@ -353,7 +353,7 @@ TEST(Resolver, BuiltInTypesCanBeShadowed)
 {
 	// The module's scope is under the global one.
 	CHECK_RESOLVE("struct float2 {} function f(a: float2) {}",
-		"([DECLARATION]STRUCT float2) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE float2 -> STRUCT)) ([BODY]BLOCK))");
+		"([DECLARATION]STRUCT:float2 float2) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([DECLARED_TYPE]REFERENCE float2 -> TYPE float2)) ([BODY]BLOCK))");
 }
 
 TEST(Resolver, RecursionLimit)

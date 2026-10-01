@@ -60,21 +60,31 @@ arguments in a fresh scope under it, so declarations in them don't leak into the
 - Shadowing: `const location = 3;` shadows the attribute in that scope. If it matters, look up an attribute's head
   (`Usage::ATTRIBUTE`) in the intrinsic scope first, then fall back to normal lookup.
 
-## Typer
+## Typer (first version done)
 
-Top-down: the expected type is passed down, falling back to bottom-up where there's no expectation.
+Top-down: the expected type is passed down as a hint (literals and initializer lists use it), and the parent checks
+the result with `ImplicitCast`.
 
-- `Node` gets a `Type* value_type` outside the union.
-- New types: `StructType` (fields with offsets and their FIELD node), `ArrayType`, `FunctionType`. Types built from
-  other types are looked up in a cache, so they compare by pointer.
-- NUMBER text is parsed once the expected type is known.
-- Constant evaluator: folds `const` values, array sizes (`[3]float2`) and attribute arguments into `Constant`s. The
-  optimizer's constant folding later reuses it.
-- Attributes are type-checked as calls and otherwise left alone:
-  - `builtin(b)`: `b` is a `Builtin`.
-  - `location(n)`: `n` is a compile-time constant `uint`.
-  - `vertex`, `fragment`: no arguments.
-  - Each attribute intrinsic lists what it can be applied to (function, parameter, return type, field).
+Done:
+
+- `Node::type`: the value's type, or for a type expression (`DECLARED_TYPE`, `RETURN_TYPE`, an array's `ELEMENT`, a
+  constructor's callee) the type it names.
+- `ArrayType` (unique per element and length, cached in the Context) and `StructType` (made by the resolver, so a
+  struct name is a reference to a type; fields typed and laid out the first time they're needed, with cycle errors).
+- NUMBER parsed for the expected type (int, uint, float; hex ints), defaulting to int, or float with a `.` or exponent.
+- `TryImplicitCast` / `ImplicitCast` / `ImplicitCoCast`: exact matches only for now; lossless conversions later.
+- Constant evaluator: numbers, unary and binary arithmetic, vector constructors, initializer lists, constant indexing,
+  references to consts. Used for `const` values, array sizes and `location`.
+- Arithmetic `+ - * / %` on matching numeric scalars and vectors, vector constructors (components or a splat),
+  indexing arrays (constant indices bounds-checked), struct member access.
+- Attributes: `builtin(Builtin)` and `location(constant uint)` on parameters, fields and return types; `vertex`,
+  `fragment` on functions, without arguments.
+
+Not yet:
+
+- `bool` and comparisons, `if`, assignment and `++`/`--`, calls to user functions (`FunctionType`), swizzles,
+  matrices, vector-scalar arithmetic, field and parameter default values, constructing scalars and structs.
+- Constants aren't interned yet.
 - Shader IO is not part of `FunctionType`: two functions with different builtins have the same type.
 - Shaders: reject call cycles (no recursion on any target).
 - Limits on declared sizes: array lengths, number of locals and functions, nesting.
@@ -413,7 +423,7 @@ struct CompileShaderResult
 ## Order of work
 
 1. ~~Elements, intrinsics, the resolver rule. The resolver's TriangleShader test passes with no errors.~~ Done.
-2. Typer: node types, struct / array / function types, NUMBER parsing, constant evaluator producing `Constant`s.
+2. ~~Typer: node types, struct / array types, NUMBER parsing, constant evaluator producing `Constant`s.~~ First version done.
 3. Shader interface pass producing `EntryPoint`s.
 4. IR: data structures, op table, dumper, validator, IR gen including wrappers.
 5. Safety pass: index clamps (enough for the triangle), then the rest.

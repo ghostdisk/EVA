@@ -43,21 +43,31 @@ static Definition* Lookup(Resolver& resolver, Atom name)
 	return nullptr;
 }
 
-// Adds the node to the current scope under its name. Names from parent scopes can be shadowed, not ones from this scope.
-static bool Declare(Resolver& resolver, Node* node)
+// Adds the element to the current scope under name. Names from parent scopes can be shadowed, not ones from this scope.
+static bool Declare(Resolver& resolver, Atom name, Element* element)
 {
-	if (FindInScope(resolver.scope, node->name))
+	if (FindInScope(resolver.scope, name))
 	{
-		EmitError(resolver, "'%s' is already defined", GetAtomString(node->name, resolver.arena).CString());
+		EmitError(resolver, "'%s' is already defined", GetAtomString(name, resolver.arena).CString());
 		return false;
 	}
 
 	Definition* definition = resolver.arena->New<Definition>();
-	definition->name = node->name;
-	definition->element = node;
+	definition->name = name;
+	definition->element = element;
 	definition->next = resolver.scope->first;
 	resolver.scope->first = definition;
 	return true;
+}
+
+// A struct names its StructType, so references to it are references to a type.
+static StructType* NewStructType(Resolver& resolver, Node* node)
+{
+	StructType* type = resolver.arena->New<StructType>();
+	type->name = node->name;
+	type->declaration = node;
+	node->type = type;
+	return type;
 }
 
 // First pass over a scope's statements or declarations, so functions and structs can be used before they're declared.
@@ -66,8 +76,10 @@ static bool DeclareAhead(Resolver& resolver, Node* node)
 	bool resolved = true;
 	for (Node* child = node->child; child; child = child->next)
 	{
-		if (child->node_type == NodeType::FUNCTION || child->node_type == NodeType::STRUCT)
-			resolved = Declare(resolver, child) && resolved;
+		if (child->node_type == NodeType::FUNCTION)
+			resolved = Declare(resolver, child->name, child) && resolved;
+		else if (child->node_type == NodeType::STRUCT)
+			resolved = Declare(resolver, child->name, NewStructType(resolver, child)) && resolved;
 	}
 	return resolved;
 }
@@ -103,10 +115,10 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 	node->node_type = NodeType::VARIABLE;
 	node->name = left->name;
 	node->text = nullptr; // clears the op
-	right->usage = Usage::TYPE;
+	right->usage = Usage::DECLARED_TYPE;
 
 	bool resolved = ResolveChildren(resolver, node);
-	return Declare(resolver, node) && resolved;
+	return Declare(resolver, node->name, node) && resolved;
 }
 
 static bool ResolveNode(Resolver& resolver, Node* node)
@@ -147,7 +159,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	{
 		// Declared after their type and value, so those can't refer to them.
 		bool resolved = ResolveChildren(resolver, node);
-		return Declare(resolver, node) && resolved;
+		return Declare(resolver, node->name, node) && resolved;
 	}
 	case NodeType::BINARY:
 	{

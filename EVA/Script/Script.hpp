@@ -141,7 +141,7 @@ enum class Usage : uint8
 	PARAMETER,
 	RETURN_TYPE,
 	BODY,
-	TYPE,
+	DECLARED_TYPE,
 	STATEMENT,
 	ELEMENT,
 	SIZE,
@@ -161,6 +161,8 @@ enum class Usage : uint8
 ZTStringView UsageToString(Usage usage);
 
 struct Scope;
+struct Type;
+struct Constant;
 
 enum class ElementKind : uint8
 {
@@ -182,6 +184,7 @@ struct Node : Element
 	NodeType node_type = NodeType::NONE;
 	Usage usage = Usage::NONE;
 	Atom name = Atom::NONE;
+	Type* type = nullptr; // set by the typer: the value's type, or for a type expression the type it names
 	union
 	{
 		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
@@ -190,6 +193,7 @@ struct Node : Element
 		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
 		Element* target;      // REFERENCE
 		int64 enum_value;     // ENUM_VALUE
+		Constant* constant;   // CONST: the value, set by the typer
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -264,6 +268,8 @@ enum class TypeKind : uint8
 	VECTOR,
 	MATRIX,
 	ENUM,
+	ARRAY,
+	STRUCT,
 };
 
 // Base of the type structs, one per TypeKind.
@@ -317,6 +323,41 @@ struct EnumType : Type
 	Scope* scope = nullptr; // the values, as ENUM_VALUE nodes
 
 	EnumType() { type_kind = TypeKind::ENUM; }
+};
+
+struct ArrayType : Type
+{
+	Type* element = nullptr;
+	uint32 length = 0;
+	uint32 stride = 0; // the element's size rounded up to its alignment
+
+	ArrayType() { type_kind = TypeKind::ARRAY; }
+};
+
+struct StructField
+{
+	Atom name = Atom::NONE;
+	Type* type = nullptr;
+	uint32 offset = 0;
+	Node* declaration = nullptr; // the FIELD
+};
+
+enum class StructState : uint8
+{
+	DECLARED,   // by the resolver
+	COMPLETING, // the typer is typing its fields
+	COMPLETE,
+	FAILED,
+};
+
+// Made by the resolver for each STRUCT; the typer fills in the fields, size and alignment when it first needs them.
+struct StructType : Type
+{
+	Node* declaration = nullptr;
+	Slice<StructField> fields;
+	StructState state = StructState::DECLARED;
+
+	StructType() { type_kind = TypeKind::STRUCT; }
 };
 
 // The values of the Builtin enum, the argument of @builtin(...).
@@ -383,11 +424,22 @@ struct Context
 {
 	Arena* arena = nullptr; // the built-ins and the global scope
 	Scope* global_scope = nullptr;
+
+	PrimitiveType* void_type = nullptr;
+	PrimitiveType* int_type = nullptr;
+	PrimitiveType* uint_type = nullptr;
+	PrimitiveType* float_type = nullptr;
+	EnumType* builtin_type = nullptr; // SHADER only
+
+	std::vector<ArrayType*> array_types; // see GetArrayType
 };
 
 // Allocates the context's built-ins and global scope in arena, which has to live as long as the context. Usually an
 // arena of its own; a short-lived context can share a temporary one.
 void InitContext(Context& context, Arena* arena, ContextKind kind);
+
+// The one array type of element and length, made in the context's arena on first use. nullptr if it would be too large.
+ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
 
 struct Resolver
 {
@@ -407,9 +459,25 @@ ScriptError* EmitError(Resolver& resolver, const char* format, ...);
 // Unknown names stay IDENTIFIERs. Errors don't stop resolving the rest of the tree. Returns whether there were none.
 bool Resolve(Resolver& resolver, Node* module);
 
+struct Typer
+{
+	Context* context = nullptr;
+	Arena* arena = nullptr;           // the module's constants, for one compile
+	Arena* error_arena = nullptr;     // errors and their messages
+	std::vector<ScriptError*> errors; // allocated in error_arena
+	Type* return_type = nullptr;      // of the function being typed
+	uint32 recursion_depth = 0;
+};
+
+ScriptError* EmitError(Typer& typer, const char* format, ...);
+
+// Gives every expression and declaration in a resolved module its type, and every CONST its value. Errors don't stop
+// typing the rest of the tree. Returns whether there were none.
+bool TypeCheck(Typer& typer, Node* module);
+
 // Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
 // calling itself, directly or through others; they share owner.recursion_depth, so mutual recursion counts too.
-// owner is a Parser or Resolver. Returns false / nullptr from the calling function past RECURSION_LIMIT.
+// owner is a Parser, Resolver or Typer. Returns false / nullptr from the calling function past RECURSION_LIMIT.
 #define CHECK_RECURSION(owner)                       \
 	(owner).recursion_depth++;                       \
 	DEFER((owner).recursion_depth--);                \
@@ -419,10 +487,13 @@ bool Resolve(Resolver& resolver, Node* module);
 		return {};                                   \
 	}
 
+// e.g. float4, [3]float2. Allocated in arena when it isn't a type's own name.
+ZTStringView TypeToString(Type* type, Arena* arena);
+
 void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
-// ([USAGE]TYPE name payload children...), e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
+// ([USAGE]TYPE:type name payload children...), with :type once the typer has set it, e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
 // A REFERENCE's payload is its target's node type: ([CALLEE]REFERENCE f -> FUNCTION), or for a built-in its kind and
 // name: ([TYPE]REFERENCE float4 -> TYPE float4). A constant is named by its type.
 // Meant for tests and debugging
