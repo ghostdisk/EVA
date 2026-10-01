@@ -90,9 +90,6 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::BOOL: return "BOOL";
 		case NodeType::IDENTIFIER: return "IDENTIFIER";
 		case NodeType::REFERENCE: return "REFERENCE";
-		case NodeType::TYPE_REFERENCE: return "TYPE_REFERENCE";
-		case NodeType::INTRINSIC_REFERENCE: return "INTRINSIC_REFERENCE";
-		case NodeType::CONSTANT_REFERENCE: return "CONSTANT_REFERENCE";
 		case NodeType::INIT_LIST: return "INIT_LIST";
 		case NodeType::UNARY: return "UNARY";
 		case NodeType::POSTFIX: return "POSTFIX";
@@ -137,17 +134,31 @@ ZTStringView UsageToString(Usage usage)
 	return "?";
 }
 
+// A node's type, or a built-in's kind and name, e.g. TYPE float4. A constant is named by its type.
+static ZTStringView TargetToString(Element* target, Arena* arena)
+{
+	switch (target->kind)
+	{
+		case ElementKind::NODE: return NodeTypeToString(((Node*)target)->node_type);
+		case ElementKind::TYPE: return aprintf(arena, "TYPE %s", GetAtomString(((Type*)target)->name, arena).CString());
+		case ElementKind::INTRINSIC: return aprintf(arena, "INTRINSIC %s", GetAtomString(((Intrinsic*)target)->name, arena).CString());
+		case ElementKind::CONSTANT: return aprintf(arena, "CONSTANT %s", GetAtomString(((Constant*)target)->type->name, arena).CString());
+		case ElementKind::NONE: break;
+	}
+	return "?";
+}
+
 // Prints node and its subtree, one node per line. The node's own line is started by the caller (indent and usage)
 // and ended by the caller (newline), so root calls print no usage. The arena is only used for atom strings and is rewound afterwards.
 void DumpNode(Node* node, Arena* arena, int indent)
 {
 	uint8* mark = arena->head;
 
-	printf("\x1b[33m%s\x1b[0m", NodeTypeToString(node->type).CString());
+	printf("\x1b[33m%s\x1b[0m", NodeTypeToString(node->node_type).CString());
 	if (node->name != Atom::NONE)
 		printf(" | %s", GetAtomString(node->name, arena).CString());
 
-	switch (node->type)
+	switch (node->node_type)
 	{
 		case NodeType::NUMBER:
 			printf(" | %s", node->text);
@@ -164,16 +175,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 			printf(" | %s", TokenToString(node->op).CString());
 			break;
 		case NodeType::REFERENCE:
-			printf(" -> %s", NodeTypeToString(node->target->type).CString());
-			break;
-		case NodeType::TYPE_REFERENCE:
-			printf(" -> %s", GetAtomString(node->target_type->name, arena).CString());
-			break;
-		case NodeType::INTRINSIC_REFERENCE:
-			printf(" -> %s", GetAtomString(node->target_intrinsic->name, arena).CString());
-			break;
-		case NodeType::CONSTANT_REFERENCE:
-			printf(" -> %s", GetAtomString(node->target_constant->type->name, arena).CString());
+			printf(" -> %s", TargetToString(node->target, arena).CString());
 			break;
 		default:
 			break;
@@ -190,14 +192,14 @@ void DumpNode(Node* node, Arena* arena, int indent)
 
 void SerializeNode(StringBuilder& builder, Node* node)
 {
-	builder.AppendFormat("([%s]%s", UsageToString(node->usage).CString(), NodeTypeToString(node->type).CString());
+	builder.AppendFormat("([%s]%s", UsageToString(node->usage).CString(), NodeTypeToString(node->node_type).CString());
 	if (node->name != Atom::NONE)
 	{
 		builder.Append(" ");
 		builder.Append(GetAtomString(node->name, builder.arena));
 	}
 
-	switch (node->type)
+	switch (node->node_type)
 	{
 		case NodeType::NUMBER:
 			builder.AppendFormat(" %s", node->text);
@@ -216,19 +218,7 @@ void SerializeNode(StringBuilder& builder, Node* node)
 			break;
 		case NodeType::REFERENCE:
 			builder.Append(" -> ");
-			builder.Append(NodeTypeToString(node->target->type));
-			break;
-		case NodeType::TYPE_REFERENCE:
-			builder.Append(" -> ");
-			builder.Append(GetAtomString(node->target_type->name, builder.arena));
-			break;
-		case NodeType::INTRINSIC_REFERENCE:
-			builder.Append(" -> ");
-			builder.Append(GetAtomString(node->target_intrinsic->name, builder.arena));
-			break;
-		case NodeType::CONSTANT_REFERENCE:
-			builder.Append(" -> ");
-			builder.Append(GetAtomString(node->target_constant->type->name, builder.arena));
+			builder.Append(TargetToString(node->target, builder.arena));
 			break;
 		default:
 			break;

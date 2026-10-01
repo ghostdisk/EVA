@@ -8,8 +8,8 @@ static Type* FindGlobalType(Context& context, const char* name)
 {
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
-		if (definition->kind == DefinitionKind::TYPE && definition->name == GetAtom(name))
-			return definition->type;
+		if (definition->element->kind == ElementKind::TYPE && definition->name == GetAtom(name))
+			return (Type*)definition->element;
 	}
 	return nullptr;
 }
@@ -24,9 +24,8 @@ TEST(Context, GlobalScopeHoldsTheBuiltInTypes)
 	uint32 count = 0;
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
-		CHECK_EQ(definition->kind, DefinitionKind::TYPE);
-		REQUIRE(definition->type);
-		CHECK_EQ(definition->name, definition->type->name); // named by the type's own name
+		CHECK_EQ(definition->element->kind, ElementKind::TYPE);
+		CHECK_EQ(definition->name, ((Type*)definition->element)->name); // named by the type's own name
 		count++;
 	}
 	CHECK_EQ(count, 7u);
@@ -57,10 +56,11 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 				found = definition;
 		}
 		REQUIRE(found);
-		CHECK_EQ(found->kind, DefinitionKind::INTRINSIC);
-		CHECK_EQ(found->intrinsic->kind, e.kind);
-		CHECK_EQ(found->intrinsic->name, GetAtom(e.name));
-		CHECK_EQ(found->intrinsic->argument_scope != nullptr, e.kind == IntrinsicKind::BUILTIN);
+		REQUIRE(found->element->kind == ElementKind::INTRINSIC);
+		Intrinsic* intrinsic = (Intrinsic*)found->element;
+		CHECK_EQ(intrinsic->intrinsic_kind, e.kind);
+		CHECK_EQ(intrinsic->name, GetAtom(e.name));
+		CHECK_EQ(intrinsic->argument_scope != nullptr, e.kind == IntrinsicKind::BUILTIN);
 	}
 
 	CHECK(FindGlobalType(context, "float4"));
@@ -74,7 +74,7 @@ TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
 		if (definition->name == GetAtom("builtin"))
-			builtin = definition->intrinsic;
+			builtin = (Intrinsic*)definition->element;
 	}
 	REQUIRE(builtin);
 	Scope* scope = builtin->argument_scope;
@@ -106,10 +106,11 @@ TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
 				found = definition;
 		}
 		REQUIRE(found);
-		CHECK_EQ(found->kind, DefinitionKind::NODE);
-		CHECK_EQ(found->node->type, NodeType::ENUM_VALUE);
-		CHECK_EQ(found->node->name, GetAtom(e.name));
-		CHECK_EQ(found->node->enum_value, (int64)e.value);
+		REQUIRE(found->element->kind == ElementKind::NODE);
+		Node* node = (Node*)found->element;
+		CHECK_EQ(node->node_type, NodeType::ENUM_VALUE);
+		CHECK_EQ(node->name, GetAtom(e.name));
+		CHECK_EQ(node->enum_value, (int64)e.value);
 	}
 }
 
@@ -120,7 +121,7 @@ TEST(Context, Primitives)
 
 	PrimitiveType* void_type = (PrimitiveType*)FindGlobalType(context, "void");
 	REQUIRE(void_type);
-	CHECK_EQ(void_type->kind, TypeKind::PRIMITIVE);
+	CHECK_EQ(void_type->type_kind, TypeKind::PRIMITIVE);
 	CHECK_EQ(void_type->primitive_kind, PrimitiveKind::VOID);
 	CHECK_EQ(void_type->size, 0u);
 
@@ -138,7 +139,7 @@ TEST(Context, Primitives)
 	{
 		PrimitiveType* type = (PrimitiveType*)FindGlobalType(context, e.name);
 		REQUIRE(type);
-		CHECK_EQ(type->kind, TypeKind::PRIMITIVE);
+		CHECK_EQ(type->type_kind, TypeKind::PRIMITIVE);
 		CHECK_EQ(type->primitive_kind, e.primitive_kind);
 		CHECK_EQ(type->size, 4u);
 		CHECK_EQ(type->alignment, 4u);
@@ -157,7 +158,7 @@ TEST(Context, FloatVectors)
 	{
 		VectorType* vector = (VectorType*)FindGlobalType(context, names[i]);
 		REQUIRE(vector);
-		CHECK_EQ(vector->kind, TypeKind::VECTOR);
+		CHECK_EQ(vector->type_kind, TypeKind::VECTOR);
 		CHECK_EQ(vector->name, GetAtom(names[i]));
 		CHECK_EQ(vector->count, i + 2);
 		CHECK_EQ(vector->size, 4 * (i + 2));

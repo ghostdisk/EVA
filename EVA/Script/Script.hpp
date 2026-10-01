@@ -114,10 +114,7 @@ enum class NodeType : uint8
 	NUMBER,
 	BOOL,
 	IDENTIFIER,
-	REFERENCE,           // an IDENTIFIER the resolver found the declaration of
-	TYPE_REFERENCE,      // an IDENTIFIER the resolver found to name a built-in type
-	INTRINSIC_REFERENCE, // an IDENTIFIER the resolver found to name an intrinsic
-	CONSTANT_REFERENCE,  // an IDENTIFIER the resolver found to name a built-in constant
+	REFERENCE, // an IDENTIFIER the resolver found the definition of
 	INIT_LIST,
 	UNARY,
 	POSTFIX,
@@ -164,29 +161,40 @@ enum class Usage : uint8
 ZTStringView UsageToString(Usage usage);
 
 struct Scope;
-struct Type;
-struct Intrinsic;
-struct Constant;
 
-struct Node
+enum class ElementKind : uint8
 {
-	NodeType type = NodeType::NONE;
+	NONE = 0,
+	NODE,
+	TYPE,
+	INTRINSIC,
+	CONSTANT,
+};
+
+// Base of everything a name can refer to.
+struct Element
+{
+	ElementKind kind = ElementKind::NONE;
+};
+
+struct Node : Element
+{
+	NodeType node_type = NodeType::NONE;
 	Usage usage = Usage::NONE;
 	Atom name = Atom::NONE;
 	union
 	{
-		char* text = nullptr;        // NUMBER: as written. Parsed once the expected type is known
-		bool value;                  // BOOL
-		TokenType op;                // UNARY, POSTFIX, BINARY
-		Scope* scope;                // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
-		Node* target;                // REFERENCE: the declaration
-		Type* target_type;           // TYPE_REFERENCE
-		Intrinsic* target_intrinsic; // INTRINSIC_REFERENCE
-		Constant* target_constant;   // CONSTANT_REFERENCE
-		int64 enum_value;            // ENUM_VALUE
+		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
+		bool value;           // BOOL
+		TokenType op;         // UNARY, POSTFIX, BINARY
+		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
+		Element* target;      // REFERENCE
+		int64 enum_value;     // ENUM_VALUE
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
+
+	Node() { kind = ElementKind::NODE; }
 };
 
 // The first child with the given usage, or nullptr.
@@ -261,12 +269,14 @@ enum class TypeKind : uint8
 // Base of the type structs, one per TypeKind.
 // Types are unique: there's only ever one instance of e.g. float2, so they can be compared by pointer. Types built from
 // other types, like function types later, have to be looked up in a cache before making a new one.
-struct Type
+struct Type : Element
 {
-	TypeKind kind = TypeKind::PRIMITIVE;
+	TypeKind type_kind = TypeKind::PRIMITIVE;
 	Atom name = Atom::NONE; // HLSL style, e.g. float4. Also the type's name in the global scope
 	uint32 size = 0;        // in bytes
 	uint32 alignment = 1; // in bytes. Buffer layout rules are applied on top of this
+
+	Type() { kind = ElementKind::TYPE; }
 };
 
 enum class PrimitiveKind : uint8
@@ -282,7 +292,7 @@ struct PrimitiveType : Type
 {
 	PrimitiveKind primitive_kind = PrimitiveKind::VOID;
 
-	PrimitiveType() { kind = TypeKind::PRIMITIVE; }
+	PrimitiveType() { type_kind = TypeKind::PRIMITIVE; }
 };
 
 struct VectorType : Type
@@ -290,7 +300,7 @@ struct VectorType : Type
 	PrimitiveType* element = nullptr;
 	uint32 count = 0;
 
-	VectorType() { kind = TypeKind::VECTOR; }
+	VectorType() { type_kind = TypeKind::VECTOR; }
 };
 
 struct MatrixType : Type
@@ -299,14 +309,14 @@ struct MatrixType : Type
 	uint32 rows = 0;
 	uint32 columns = 0;
 
-	MatrixType() { kind = TypeKind::MATRIX; }
+	MatrixType() { type_kind = TypeKind::MATRIX; }
 };
 
 struct EnumType : Type
 {
 	Scope* scope = nullptr; // the values, as ENUM_VALUE nodes
 
-	EnumType() { kind = TypeKind::ENUM; }
+	EnumType() { type_kind = TypeKind::ENUM; }
 };
 
 // The values of the Builtin enum, the argument of @builtin(...).
@@ -330,39 +340,28 @@ enum class IntrinsicKind : uint8
 	FRAGMENT,
 };
 
-struct Intrinsic
+struct Intrinsic : Element
 {
-	IntrinsicKind kind = IntrinsicKind::NONE;
+	IntrinsicKind intrinsic_kind = IntrinsicKind::NONE;
 	Atom name = Atom::NONE;
 	Scope* argument_scope = nullptr; // where the arguments of a call to it are resolved. nullptr: the call's own scope
+
+	Intrinsic() { kind = ElementKind::INTRINSIC; }
 };
 
 // Laid out by the type, padding zeroed.
-struct Constant
+struct Constant : Element
 {
 	Type* type = nullptr;
 	Slice<uint8> bytes;
-};
 
-enum class DefinitionKind : uint8
-{
-	NODE,
-	TYPE,
-	INTRINSIC,
-	CONSTANT,
+	Constant() { kind = ElementKind::CONSTANT; }
 };
 
 struct Definition
 {
-	DefinitionKind kind = DefinitionKind::NODE;
 	Atom name = Atom::NONE;
-	union
-	{
-		Node* node = nullptr;
-		Type* type;
-		Intrinsic* intrinsic;
-		Constant* constant;
-	};
+	Element* element = nullptr;
 	Definition* next = nullptr;
 };
 
@@ -402,7 +401,7 @@ struct Resolver
 
 ScriptError* EmitError(Resolver& resolver, const char* format, ...);
 
-// Turns identifiers into REFERENCEs to their declarations, or *_REFERENCEs to built-ins, and gives MODULE, FUNCTION
+// Turns identifiers into REFERENCEs to their definitions, declared in the source or built in, and gives MODULE, FUNCTION
 // and BLOCK nodes their scope. The module's scope sits under the context's global scope.
 // Functions and structs can be referenced from anywhere in their scope, everything else only after it's declared.
 // Unknown names stay IDENTIFIERs. Errors don't stop resolving the rest of the tree. Returns whether there were none.
@@ -424,8 +423,8 @@ void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
 // ([USAGE]TYPE name payload children...), e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
-// A REFERENCE's payload is its target's node type: ([CALLEE]REFERENCE f -> FUNCTION), a TYPE_REFERENCE's is the type's
-// name: ([TYPE]TYPE_REFERENCE float4 -> float4).
+// A REFERENCE's payload is its target's node type: ([CALLEE]REFERENCE f -> FUNCTION), or for a built-in its kind and
+// name: ([TYPE]REFERENCE float4 -> TYPE float4). A constant is named by its type.
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 

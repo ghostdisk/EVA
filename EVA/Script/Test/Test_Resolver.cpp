@@ -249,24 +249,24 @@ function PSMain(): @location(0) float4
 
 TEST(Resolver, ShaderIntrinsics)
 {
-	CHECK_SHADER_RESOLVE("@vertex function f() {}", "([DECLARATION]FUNCTION f ([ATTRIBUTE]INTRINSIC_REFERENCE vertex -> vertex) ([BODY]BLOCK))");
+	CHECK_SHADER_RESOLVE("@vertex function f() {}", "([DECLARATION]FUNCTION f ([ATTRIBUTE]REFERENCE vertex -> INTRINSIC vertex) ([BODY]BLOCK))");
 	CHECK_SHADER_RESOLVE("function f(): @location(0) float4 {}",
-		"([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
-		"([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE location -> location) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE float4 -> TYPE float4 "
+		"([ATTRIBUTE]CALL ([CALLEE]REFERENCE location -> INTRINSIC location) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
 	CHECK_SHADER_RESOLVE_ERRORS("@fragment function f(@builtin(x) a: uint) {}", "unknown identifier 'x'");
 }
 
 TEST(Resolver, BuiltinArgumentsAreBuiltinNames)
 {
 	CHECK_SHADER_RESOLVE("function f(@builtin(vertex_index) id: uint) {}",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE builtin -> builtin) "
-		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([TYPE]TYPE_REFERENCE uint -> uint)) ([BODY]BLOCK))");
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
+		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([TYPE]REFERENCE uint -> TYPE uint)) ([BODY]BLOCK))");
 	// Nothing else is visible, and the builtin names win over the module's.
 	CHECK_SHADER_RESOLVE_ERRORS("const c = 1; function f(@builtin(c) a: uint) {}", "unknown identifier 'c'");
 	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(float4) a: uint) {}", "unknown identifier 'float4'");
 	CHECK_SHADER_RESOLVE("function f(position: float4): @builtin(position) float4 {}",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([TYPE]TYPE_REFERENCE float4 -> float4)) "
-		"([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 ([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE builtin -> builtin) "
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([TYPE]REFERENCE float4 -> TYPE float4)) "
+		"([RETURN_TYPE]REFERENCE float4 -> TYPE float4 ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
 		"([ARGUMENT]REFERENCE position -> ENUM_VALUE))) ([BODY]BLOCK))");
 	// Builtin names are only visible in the arguments.
 	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(position) a: float4) { position; }", "unknown identifier 'position'");
@@ -276,8 +276,8 @@ TEST(Resolver, BuiltinArgumentsAreBuiltinNames)
 TEST(Resolver, OtherIntrinsicArgumentsResolveNormally)
 {
 	CHECK_SHADER_RESOLVE("const SLOT = 0; function f(): @location(SLOT) float4 {}",
-		"([DECLARATION]CONST SLOT ([VALUE]NUMBER 0)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
-		"([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE location -> location) ([ARGUMENT]REFERENCE SLOT -> CONST))) ([BODY]BLOCK))");
+		"([DECLARATION]CONST SLOT ([VALUE]NUMBER 0)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE float4 -> TYPE float4 "
+		"([ATTRIBUTE]CALL ([CALLEE]REFERENCE location -> INTRINSIC location) ([ARGUMENT]REFERENCE SLOT -> CONST))) ([BODY]BLOCK))");
 	CHECK_SHADER_RESOLVE_ERRORS("function f(): @location(position) float4 {}", "unknown identifier 'position'");
 }
 
@@ -308,7 +308,7 @@ TEST(Resolver, ShaderIntrinsicsAreNotInScripts)
 TEST(Resolver, ShaderIntrinsicsCanBeShadowed)
 {
 	CHECK_SHADER_RESOLVE("const location = 1; function f(): @location(0) float4 {}",
-		"([DECLARATION]CONST location ([VALUE]NUMBER 1)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
+		"([DECLARATION]CONST location ([VALUE]NUMBER 1)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE float4 -> TYPE float4 "
 		"([ATTRIBUTE]CALL ([CALLEE]REFERENCE location -> CONST) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
 }
 
@@ -317,11 +317,10 @@ TEST(Resolver, BuiltInConstants)
 	Context context;
 	InitContext(context, test.arena, ContextKind::SCRIPT);
 	Constant* constant = test.arena->New<Constant>();
-	constant->type = context.global_scope->first->type;
+	constant->type = (Type*)context.global_scope->first->element;
 	Definition* definition = test.arena->New<Definition>();
-	definition->kind = DefinitionKind::CONSTANT;
 	definition->name = GetAtom("answer");
-	definition->constant = constant;
+	definition->element = constant;
 	definition->next = context.global_scope->first;
 	context.global_scope->first = definition;
 
@@ -333,19 +332,19 @@ TEST(Resolver, BuiltInConstants)
 	REQUIRE(Resolve(resolver, module));
 
 	Node* value = FindChild(module->child, Usage::VALUE);
-	CHECK_EQ(value->type, NodeType::CONSTANT_REFERENCE);
-	CHECK(value->target_constant == constant);
+	CHECK_EQ(value->node_type, NodeType::REFERENCE);
+	CHECK(value->target == constant);
 }
 
 TEST(Resolver, BuiltInTypes)
 {
 	CHECK_RESOLVE("function f(a: float2, b: float3): float4 { x: float; }",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]TYPE_REFERENCE float2 -> float2)) "
-		"([PARAMETER]PARAMETER b ([TYPE]TYPE_REFERENCE float3 -> float3)) ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4) "
-		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([TYPE]TYPE_REFERENCE float -> float))))");
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE float2 -> TYPE float2)) "
+		"([PARAMETER]PARAMETER b ([TYPE]REFERENCE float3 -> TYPE float3)) ([RETURN_TYPE]REFERENCE float4 -> TYPE float4) "
+		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([TYPE]REFERENCE float -> TYPE float))))");
 	CHECK_RESOLVE("function f(): void { return float4(1.0); }",
-		"([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE void -> void) "
-		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL ([CALLEE]TYPE_REFERENCE float4 -> float4) ([ARGUMENT]NUMBER 1.0)))))");
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE void -> TYPE void) "
+		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL ([CALLEE]REFERENCE float4 -> TYPE float4) ([ARGUMENT]NUMBER 1.0)))))");
 	CHECK_RESOLVE_ERRORS("function f(a: int, b: uint) {}", "");
 	CHECK_RESOLVE_ERRORS("function f(a: bool, b: float5) {}", "unknown identifier 'bool' | unknown identifier 'float5'");
 }

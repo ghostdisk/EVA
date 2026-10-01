@@ -25,28 +25,27 @@ static VectorType* NewVectorType(Context& context, StringView name, PrimitiveTyp
 	return type;
 }
 
-static Definition* NewDefinition(Context& context, Scope* scope, DefinitionKind kind, Atom name)
+static void Define(Context& context, Scope* scope, Atom name, Element* element)
 {
 	Definition* definition = context.arena->New<Definition>();
-	definition->kind = kind;
 	definition->name = name;
+	definition->element = element;
 	definition->next = scope->first;
 	scope->first = definition;
-	return definition;
 }
 
 // Adds a built-in type to the scope, under its name.
 static void DefineType(Context& context, Scope* scope, Type* type)
 {
-	NewDefinition(context, scope, DefinitionKind::TYPE, type->name)->type = type;
+	Define(context, scope, type->name, type);
 }
 
 static Intrinsic* DefineIntrinsic(Context& context, Scope* scope, StringView name, IntrinsicKind kind)
 {
 	Intrinsic* intrinsic = context.arena->New<Intrinsic>();
-	intrinsic->kind = kind;
+	intrinsic->intrinsic_kind = kind;
 	intrinsic->name = GetAtom(name);
-	NewDefinition(context, scope, DefinitionKind::INTRINSIC, intrinsic->name)->intrinsic = intrinsic;
+	Define(context, scope, intrinsic->name, intrinsic);
 	return intrinsic;
 }
 
@@ -61,10 +60,10 @@ static EnumType* NewEnumType(Context& context, StringView name)
 static void DefineEnumValue(Context& context, EnumType* type, StringView name, int64 value)
 {
 	Node* node = context.arena->New<Node>();
-	node->type = NodeType::ENUM_VALUE;
+	node->node_type = NodeType::ENUM_VALUE;
 	node->name = GetAtom(name);
 	node->enum_value = value;
-	NewDefinition(context, type->scope, DefinitionKind::NODE, node->name)->node = node;
+	Define(context, type->scope, node->name, node);
 }
 
 // The scope above every module, naming the built-ins.

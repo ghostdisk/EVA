@@ -146,7 +146,7 @@ static bool IsRightAssociative(uint32 precedence)
 static Node* NewNode(Parser& parser, NodeType type)
 {
 	Node* node = parser.arena->New<Node>();
-	node->type = type;
+	node->node_type = type;
 	return node;
 }
 
@@ -330,9 +330,9 @@ static Node* ParseIf(Parser& parser)
 // Whether the node's source ends with a '}' of a block, so as a statement it doesn't need a ';'.
 static bool EndsWithBlock(Node* node)
 {
-	if (node->type == NodeType::BLOCK)
+	if (node->node_type == NodeType::BLOCK)
 		return true;
-	if (node->type == NodeType::IF)
+	if (node->node_type == NodeType::IF)
 	{
 		Node* otherwise = FindChild(node, Usage::ELSE);
 		return EndsWithBlock(otherwise ? otherwise : FindChild(node, Usage::THEN));
@@ -611,17 +611,17 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 	Node* type = nullptr;
 	Node* value = nullptr;
 
-	if (head->type == NodeType::BINARY && head->op == TokenType::EQUALS)
+	if (head->node_type == NodeType::BINARY && head->op == TokenType::EQUALS)
 	{
 		value = FindChild(head, Usage::RIGHT);
 		head = FindChild(head, Usage::LEFT);
 	}
-	if (head->type == NodeType::BINARY && head->op == TokenType::COLON)
+	if (head->node_type == NodeType::BINARY && head->op == TokenType::COLON)
 	{
 		type = FindChild(head, Usage::RIGHT);
 		head = FindChild(head, Usage::LEFT);
 	}
-	if (head->type != NodeType::IDENTIFIER)
+	if (head->node_type != NodeType::IDENTIFIER)
 	{
 		EmitError(parser, "expected name [: type] [= value]");
 		return false;
@@ -664,7 +664,7 @@ static Node* ParseTypedDeclaration(Parser& parser, NodeType type)
 	Node* node = ParseExpression(parser);
 	TRY(node);
 	TRY(ShapeDeclaration(parser, node, REQUIRE_TYPE));
-	node->type = type;
+	node->node_type = type;
 	AttachAttributes(node, attributes);
 	return node;
 }
@@ -730,7 +730,7 @@ static Node* ParseConst(Parser& parser)
 	Node* node = ParseExpression(parser);
 	TRY(node);
 	TRY(ShapeDeclaration(parser, node, REQUIRE_VALUE));
-	node->type = NodeType::CONST;
+	node->node_type = NodeType::CONST;
 
 	if (EndsWithBlock(FindChild(node, Usage::VALUE)))
 	{

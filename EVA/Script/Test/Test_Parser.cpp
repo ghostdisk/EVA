@@ -710,7 +710,7 @@ TEST(Parser, LongPrefixChainDoesNotRecurse)
 	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = test.arena, .error_arena = test.arena };
 	Node* node = ParseExpression(parser);
 	REQUIRE(node);
-	CHECK_EQ(node->type, NodeType::UNARY);
+	CHECK_EQ(node->node_type, NodeType::UNARY);
 }
 
 // Robustness

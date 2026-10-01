@@ -54,7 +54,7 @@ static bool Declare(Resolver& resolver, Node* node)
 
 	Definition* definition = resolver.arena->New<Definition>();
 	definition->name = node->name;
-	definition->node = node;
+	definition->element = node;
 	definition->next = resolver.scope->first;
 	resolver.scope->first = definition;
 	return true;
@@ -66,7 +66,7 @@ static bool DeclareAhead(Resolver& resolver, Node* node)
 	bool resolved = true;
 	for (Node* child = node->child; child; child = child->next)
 	{
-		if (child->type == NodeType::FUNCTION || child->type == NodeType::STRUCT)
+		if (child->node_type == NodeType::FUNCTION || child->node_type == NodeType::STRUCT)
 			resolved = Declare(resolver, child) && resolved;
 	}
 	return resolved;
@@ -88,7 +88,7 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 {
 	Node* left = FindChild(node, Usage::LEFT);
 	Node* right = FindChild(node, Usage::RIGHT);
-	if (left->type != NodeType::IDENTIFIER)
+	if (left->node_type != NodeType::IDENTIFIER)
 	{
 		EmitError(resolver, "expected a name before ':'");
 		ResolveChildren(resolver, node);
@@ -100,7 +100,7 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 		link = &(*link)->next;
 	*link = left->next;
 
-	node->type = NodeType::VARIABLE;
+	node->node_type = NodeType::VARIABLE;
 	node->name = left->name;
 	node->text = nullptr; // clears the op
 	right->usage = Usage::TYPE;
@@ -115,7 +115,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	Scope* outer = resolver.scope;
 	DEFER(resolver.scope = outer);
 
-	switch (node->type)
+	switch (node->node_type)
 	{
 	case NodeType::MODULE:
 	{
@@ -166,8 +166,11 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 
 		// A fresh scope, so declarations in the arguments don't end up in the intrinsic's, which outlives the module.
 		Node* callee = FindChild(node, Usage::CALLEE);
-		if (callee->type == NodeType::INTRINSIC_REFERENCE && callee->target_intrinsic->argument_scope)
-			resolver.scope = NewScope(resolver, callee->target_intrinsic->argument_scope);
+		if (callee->node_type == NodeType::REFERENCE && callee->target->kind == ElementKind::INTRINSIC)
+		{
+			if (Scope* argument_scope = ((Intrinsic*)callee->target)->argument_scope)
+				resolver.scope = NewScope(resolver, argument_scope);
+		}
 
 		for (Node* child = node->child; child; child = child->next)
 		{
@@ -181,25 +184,8 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 		bool resolved = true;
 		if (Definition* definition = Lookup(resolver, node->name))
 		{
-			switch (definition->kind)
-			{
-			case DefinitionKind::NODE:
-				node->type = NodeType::REFERENCE;
-				node->target = definition->node;
-				break;
-			case DefinitionKind::TYPE:
-				node->type = NodeType::TYPE_REFERENCE;
-				node->target_type = definition->type;
-				break;
-			case DefinitionKind::INTRINSIC:
-				node->type = NodeType::INTRINSIC_REFERENCE;
-				node->target_intrinsic = definition->intrinsic;
-				break;
-			case DefinitionKind::CONSTANT:
-				node->type = NodeType::CONSTANT_REFERENCE;
-				node->target_constant = definition->constant;
-				break;
-			}
+			node->node_type = NodeType::REFERENCE;
+			node->target = definition->element;
 		}
 		else
 		{

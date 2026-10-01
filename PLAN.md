@@ -23,40 +23,27 @@ HLSL and MSL for shaders, bytecode for the script VM.
 
 ## Built-ins and resolver rules
 
-### Definitions
+### Definitions (done)
 
-`Definition` becomes a tagged kind with a union:
+`Node`, `Type`, `Intrinsic` and `Constant` derive from `Element`, which starts with a 1-byte `ElementKind`. A
+`Definition` points to an `Element`, and every resolved identifier is a `REFERENCE` with `Element* target`.
 
-- `NODE`: a declaration in the source.
-- `TYPE`: a built-in type.
-- `INTRINSIC`: points to an `Intrinsic`.
-- `CONSTANT`: a named compile-time value, with a `Constant*` (see Constants).
+An `Intrinsic` has an `IntrinsicKind` (`BUILTIN`, `LOCATION`, `VERTEX`, `FRAGMENT`; later `dot`, `sin`, `sample`...),
+a name and an `argument_scope` (nullptr: arguments resolve normally).
 
-```cpp
-struct Intrinsic
-{
-	IntrinsicKind kind;   // BUILTIN, LOCATION, VERTEX, FRAGMENT; later dot, sin, sample...
-	Atom name;
-	Scope* argument_scope; // nullptr: arguments resolve normally
-};
-```
-
-New node types: `INTRINSIC_REFERENCE` (`target_intrinsic`), `CONSTANT_REFERENCE` (`target_constant`), next to
-`TYPE_REFERENCE`.
-
-### The Context decides what exists
+### The Context decides what exists (done)
 
 `CompileShader` builds a shader Context that registers `builtin`, `location`, `vertex` and `fragment` in the global
 scope. A script Context doesn't, so a script using them gets "unknown identifier" without a dedicated check.
 
-### Resolving calls
+### Resolving calls (done)
 
-Resolve the callee first, as now. If it resolves to an `Intrinsic` with an `argument_scope`, resolve the arguments with
-`resolver.scope = argument_scope`.
+Resolve the attributes and callee first. If the callee is an `Intrinsic` with an `argument_scope`, resolve the
+arguments in a fresh scope under it, so declarations in them don't leak into the context.
 
-- `builtin`'s argument scope has parent `nullptr` and holds the `Builtin` names (`vertex_index`, `position`, ...) as
-  `CONSTANT` definitions of a built-in enum type `Builtin`. Only those are visible inside `@builtin(...)`, so a field
-  or variable named `position` doesn't clash. The `Builtin` type isn't in the global scope.
+- `builtin`'s argument scope is the scope of the `Builtin` enum: an `EnumType` whose values are `ENUM_VALUE` nodes
+  (`vertex_index`, `position`, ...). Only those are visible inside `@builtin(...)`, so a field or variable named
+  `position` doesn't clash. `Builtin` isn't in the global scope.
 - `location` has no argument scope, so `@location(COLOR_SLOT)` with a user `const` works.
 
 ### Where attributes end up in the AST (already the case)
@@ -425,7 +412,7 @@ struct CompileShaderResult
 
 ## Order of work
 
-1. `Definition` kinds, intrinsics, the resolver rule. The resolver's TriangleShader test passes with no errors.
+1. ~~Elements, intrinsics, the resolver rule. The resolver's TriangleShader test passes with no errors.~~ Done.
 2. Typer: node types, struct / array / function types, NUMBER parsing, constant evaluator producing `Constant`s.
 3. Shader interface pass producing `EntryPoint`s.
 4. IR: data structures, op table, dumper, validator, IR gen including wrappers.
