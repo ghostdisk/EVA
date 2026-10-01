@@ -7,6 +7,7 @@
 - Support nested comments
 - An attribute's expression swallows a following parenthesis or prefix operator: `@a (x)` parses as the call `a(x)` and `@a -x` as `a - x`. `@a (@b x)`, the example in ParseExpression's comment, parses as `a(@b x)` and then fails on the missing operand.
 - A lone `;` (empty statement) is an error, so is a `;` after a statement ending with a block, e.g. `if a {};` (unlike `const`, where it's optional).
+- Cap shader source size to a few MB, since shaders come from untrusted content.
 
 ## Core
 

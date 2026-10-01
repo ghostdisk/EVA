@@ -7,6 +7,7 @@ namespace EVA
 {
 
 // Fixed-capacity bump allocator. Panics when out of memory, allocations never return nullptr.
+// Temporary: arenas will reserve virtual memory and grow, so callers don't handle running out.
 struct Arena
 {
 	uint8* begin = nullptr;
