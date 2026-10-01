@@ -64,4 +64,32 @@ ZTStringView InternString(Arena* arena, StringView string)
 	return result;
 }
 
+ZTStringView avprintf(Arena* arena, const char* format, va_list args)
+{
+	// Measure first, args is consumed by each vsnprintf so measure with a copy.
+	va_list measure_args;
+	va_copy(measure_args, args);
+	int length = vsnprintf(nullptr, 0, format, measure_args);
+	va_end(measure_args);
+	if (length < 0)
+		return {};
+
+	char* text = (char*)arena->Allocate((size_t)length + 1, 1);
+	vsnprintf(text, (size_t)length + 1, format, args);
+
+	ZTStringView result;
+	result.data = (uint8*)text;
+	result.length = (size_t)length;
+	return result;
+}
+
+ZTStringView aprintf(Arena* arena, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	ZTStringView result = avprintf(arena, format, args);
+	va_end(args);
+	return result;
+}
+
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
 #include <new>
+#include <stdarg.h>
 
 namespace EVA
 {
@@ -28,5 +29,9 @@ void DestroyArena(Arena* arena);
 
 // Copies the string into the arena, zero terminated.
 ZTStringView InternString(Arena* arena, StringView string);
+
+// printf into the arena. Returns an empty string if formatting fails.
+ZTStringView avprintf(Arena* arena, const char* format, va_list args);
+ZTStringView aprintf(Arena* arena, const char* format, ...);
 
 }
