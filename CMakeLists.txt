@@ -15,6 +15,8 @@ add_library(Core STATIC
 	EVA/Core/Error.hpp
 	EVA/Core/Panic.hpp
 	EVA/Core/Panic.cpp
+	EVA/Core/StringBuilder.hpp
+	EVA/Core/StringBuilder.cpp
 )
 eva_init_target(Core)
 
