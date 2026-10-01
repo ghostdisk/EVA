@@ -13,7 +13,7 @@ Slice<uint8> CompileShader(const char* source)
 	};
 	DEFER(DestroyArena(parser.arena));
 
-	ANode* declarations = nullptr;
+	Node* declarations = nullptr;
 	if (!Parse(parser, &declarations))
 	{
 		printf("error: %s\n", parser.error_buffer);

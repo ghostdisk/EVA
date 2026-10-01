@@ -135,30 +135,23 @@ static bool IsRightAssociative(uint32 precedence)
 	return precedence == ASSIGNMENT_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
 }
 
-static ANode* NewNode(Parser& parser, NodeType type)
+static Node* NewNode(Parser& parser, NodeType type)
 {
-	ANode* node = parser.arena->New<ANode>();
+	Node* node = parser.arena->New<Node>();
 	node->type = type;
 	return node;
 }
 
-static AOperator* NewOperator(Parser& parser, NodeType type, TokenType op)
+static Node* NewOperator(Parser& parser, NodeType type, TokenType op)
 {
-	AOperator* node = parser.arena->New<AOperator>();
-	node->type = type;
+	Node* node = NewNode(parser, type);
 	node->op = op;
 	return node;
 }
 
-static void SetUsage(ANode* first, Usage usage)
+static Node* PopOperand(Parser& parser)
 {
-	for (ANode* node = first; node; node = node->next)
-		node->usage = usage;
-}
-
-static ANode* PopOperand(Parser& parser)
-{
-	ANode* node = parser.operands.back();
+	Node* node = parser.operands.back();
 	parser.operands.pop_back();
 	return node;
 }
@@ -169,26 +162,32 @@ static void ApplyOperator(Parser& parser)
 	PendingOp op = parser.operators.back();
 	parser.operators.pop_back();
 
-	ANode* node = nullptr;
+	Node* node = nullptr;
 	switch (op.kind)
 	{
 	case OpKind::PREFIX:
 	{
 		node = NewOperator(parser, NodeType::UNARY, op.op);
 		node->child = PopOperand(parser);
+		node->child->usage = Usage::OPERAND;
 		break;
 	}
 	case OpKind::ARRAY:
 	{
-		node = NewNode(parser, NodeType::ARRAY);
+		node = NewNode(parser, NodeType::ARRAY_TYPE);
+		Node* element = PopOperand(parser);
+		op.payload->usage = Usage::SIZE;
+		element->usage = Usage::ELEMENT;
 		node->child = op.payload;
-		op.payload->next = PopOperand(parser);
+		op.payload->next = element;
 		break;
 	}
 	case OpKind::INFIX:
 	{
-		ANode* right = PopOperand(parser);
-		ANode* left = PopOperand(parser);
+		Node* right = PopOperand(parser);
+		Node* left = PopOperand(parser);
+		left->usage = Usage::LEFT;
+		right->usage = Usage::RIGHT;
 		node = NewOperator(parser, NodeType::BINARY, op.op);
 		node->child = left;
 		left->next = right;
@@ -210,14 +209,14 @@ static void ApplyOperatorsAbove(Parser& parser, size_t operator_base, uint32 pre
 	}
 }
 
-static ANode* ParseExpression(Parser& parser);
-static ANode* ParseBlock(Parser& parser);
+static Node* ParseExpression(Parser& parser);
+static Node* ParseBlock(Parser& parser);
 
-// Parses comma-separated expressions up to and including the closing token.
+// Parses comma-separated expressions up to and including the closing token, each with the given usage.
 // out_arguments receives the first argument, the rest are chained via next. Empty lists and a trailing comma are allowed.
-static bool ParseArguments(Parser& parser, TokenType closing, ANode** out_arguments)
+static bool ParseArguments(Parser& parser, TokenType closing, Usage usage, Node** out_arguments)
 {
-	ANode** tail = out_arguments;
+	Node** tail = out_arguments;
 	for (;;)
 	{
 		TRY(LexToken(parser));
@@ -227,8 +226,9 @@ static bool ParseArguments(Parser& parser, TokenType closing, ANode** out_argume
 			return true;
 		}
 
-		ANode* argument = ParseExpression(parser);
+		Node* argument = ParseExpression(parser);
 		TRY(argument);
+		argument->usage = usage;
 		*tail = argument;
 		tail = &argument->next;
 
@@ -243,10 +243,10 @@ static bool ParseArguments(Parser& parser, TokenType closing, ANode** out_argume
 }
 
 // Parses any number of '@' expression. out_attributes receives the first attribute, the rest are chained via next.
-static bool ParseAttributes(Parser& parser, ANode** out_attributes)
+static bool ParseAttributes(Parser& parser, Node** out_attributes)
 {
 	*out_attributes = nullptr;
-	ANode** tail = out_attributes;
+	Node** tail = out_attributes;
 	for (;;)
 	{
 		TRY(LexToken(parser));
@@ -254,7 +254,7 @@ static bool ParseAttributes(Parser& parser, ANode** out_attributes)
 			return true;
 		EatToken(parser);
 
-		ANode* attribute = ParseExpression(parser);
+		Node* attribute = ParseExpression(parser);
 		TRY(attribute);
 		attribute->usage = Usage::ATTRIBUTE;
 		*tail = attribute;
@@ -263,21 +263,21 @@ static bool ParseAttributes(Parser& parser, ANode** out_attributes)
 }
 
 // Prepends attributes to the node's children.
-static void AttachAttributes(ANode* node, ANode* attributes)
+static void AttachAttributes(Node* node, Node* attributes)
 {
 	if (!attributes)
 		return;
-	ANode* last = attributes;
+	Node* last = attributes;
 	while (last->next)
 		last = last->next;
 	last->next = node->child;
 	node->child = attributes;
 }
 
-static AIf* ParseIf(Parser& parser);
+static Node* ParseIf(Parser& parser);
 
 // The then / else part of an if: a block or an expression.
-static ANode* ParseBranch(Parser& parser)
+static Node* ParseBranch(Parser& parser)
 {
 	TRY(LexToken(parser));
 	if (parser.token.token_type == TokenType::LEFT_BRACE)
@@ -291,39 +291,45 @@ static ANode* ParseBranch(Parser& parser)
 
 // Called with 'if' as the current token. if condition then [else otherwise], where then and otherwise are blocks or
 // expressions. Neither the condition nor the branches need brackets, since expressions end on their own.
-static AIf* ParseIf(Parser& parser)
+static Node* ParseIf(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
 
 	EatToken(parser);
-	AIf* node = parser.arena->New<AIf>();
-	node->type = NodeType::IF;
+	Node* node = NewNode(parser, NodeType::IF);
 
-	node->condition = ParseExpression(parser);
-	TRY(node->condition);
-	node->then = ParseBranch(parser);
-	TRY(node->then);
+	Node* condition = ParseExpression(parser);
+	TRY(condition);
+	condition->usage = Usage::CONDITION;
+	node->child = condition;
+
+	Node* then = ParseBranch(parser);
+	TRY(then);
+	then->usage = Usage::THEN;
+	condition->next = then;
 
 	TRY(LexToken(parser));
 	if (parser.token.token_type == TokenType::KW_ELSE)
 	{
 		EatToken(parser);
-		node->otherwise = ParseBranch(parser);
-		TRY(node->otherwise);
+		Node* otherwise = ParseBranch(parser);
+		TRY(otherwise);
+		otherwise->usage = Usage::ELSE;
+		then->next = otherwise;
 	}
 	return node;
 }
 
 // Whether the node's source ends with a '}' of a block, so as a statement it doesn't need a ';'.
-static bool EndsWithBlock(ANode* node)
+static bool EndsWithBlock(Node* node)
 {
 	if (node->type == NodeType::BLOCK)
 		return true;
 	if (node->type == NodeType::IF)
 	{
-		AIf* if_node = (AIf*)node;
-		return EndsWithBlock(if_node->otherwise ? if_node->otherwise : if_node->then);
+		Node* otherwise = FindChild(node, Usage::ELSE);
+		return EndsWithBlock(otherwise ? otherwise : FindChild(node, Usage::THEN));
 	}
 	return false;
 }
@@ -332,12 +338,12 @@ static bool EndsWithBlock(ANode* node)
 // and postfix operators wrap the top operand directly since they bind tighter than everything else.
 // Stops at the first token that can't continue the expression, leaving it for the caller.
 // Leading attributes are attached to the resulting node.
-static ANode* ParseExpression(Parser& parser)
+static Node* ParseExpression(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
 
-	ANode* attributes = nullptr;
+	Node* attributes = nullptr;
 	TRY(ParseAttributes(parser, &attributes));
 
 	size_t operand_base = parser.operands.size();
@@ -355,7 +361,7 @@ static ANode* ParseExpression(Parser& parser)
 			{
 			case TokenType::IDENTIFIER:
 			{
-				ANode* node = NewNode(parser, NodeType::IDENTIFIER);
+				Node* node = NewNode(parser, NodeType::IDENTIFIER);
 				node->name = parser.token.atom;
 				EatToken(parser);
 				parser.operands.push_back(node);
@@ -364,8 +370,7 @@ static ANode* ParseExpression(Parser& parser)
 			}
 			case TokenType::NUMBER:
 			{
-				ANumber* node = parser.arena->New<ANumber>();
-				node->type = NodeType::NUMBER;
+				Node* node = NewNode(parser, NodeType::NUMBER);
 				node->text = CopyText(parser, parser.token);
 				EatToken(parser);
 				parser.operands.push_back(node);
@@ -375,8 +380,7 @@ static ANode* ParseExpression(Parser& parser)
 			case TokenType::KW_TRUE:
 			case TokenType::KW_FALSE:
 			{
-				ABool* node = parser.arena->New<ABool>();
-				node->type = NodeType::BOOL;
+				Node* node = NewNode(parser, NodeType::BOOL);
 				node->value = token_type == TokenType::KW_TRUE;
 				EatToken(parser);
 				parser.operands.push_back(node);
@@ -385,7 +389,7 @@ static ANode* ParseExpression(Parser& parser)
 			}
 			case TokenType::KW_IF:
 			{
-				ANode* node = ParseIf(parser);
+				Node* node = ParseIf(parser);
 				TRY(node);
 				parser.operands.push_back(node);
 				expect_operand = false;
@@ -394,7 +398,7 @@ static ANode* ParseExpression(Parser& parser)
 			case TokenType::LEFT_PAREN:
 			{
 				EatToken(parser);
-				ANode* inner = ParseExpression(parser);
+				Node* inner = ParseExpression(parser);
 				TRY(inner);
 				TRY(ExpectToken(parser, TokenType::RIGHT_PAREN));
 				parser.operands.push_back(inner);
@@ -404,8 +408,8 @@ static ANode* ParseExpression(Parser& parser)
 			case TokenType::LEFT_BRACE:
 			{
 				EatToken(parser);
-				ANode* node = NewNode(parser, NodeType::INIT_LIST);
-				TRY(ParseArguments(parser, TokenType::RIGHT_BRACE, &node->child));
+				Node* node = NewNode(parser, NodeType::INIT_LIST);
+				TRY(ParseArguments(parser, TokenType::RIGHT_BRACE, Usage::ELEMENT, &node->child));
 				parser.operands.push_back(node);
 				expect_operand = false;
 				break;
@@ -414,7 +418,7 @@ static ANode* ParseExpression(Parser& parser)
 			{
 				// [size]element. '[' can't otherwise start an operand, so this is never ambiguous with indexing.
 				EatToken(parser);
-				ANode* size = ParseExpression(parser);
+				Node* size = ParseExpression(parser);
 				TRY(size);
 				TRY(ExpectToken(parser, TokenType::RIGHT_BRACKET));
 				parser.operators.push_back({ .op = token_type, .kind = OpKind::ARRAY, .payload = size });
@@ -444,12 +448,11 @@ static ANode* ParseExpression(Parser& parser)
 		if (token_type == TokenType::LEFT_PAREN)
 		{
 			EatToken(parser);
-			ANode* callee = PopOperand(parser);
+			Node* callee = PopOperand(parser);
 			callee->usage = Usage::CALLEE;
-			ANode* call = NewNode(parser, NodeType::CALL);
+			Node* call = NewNode(parser, NodeType::CALL);
 			call->child = callee;
-			TRY(ParseArguments(parser, TokenType::RIGHT_PAREN, &callee->next));
-			SetUsage(callee->next, Usage::ARGUMENT);
+			TRY(ParseArguments(parser, TokenType::RIGHT_PAREN, Usage::ARGUMENT, &callee->next));
 			parser.operands.push_back(call);
 			continue;
 		}
@@ -458,11 +461,13 @@ static ANode* ParseExpression(Parser& parser)
 		if (token_type == TokenType::LEFT_BRACKET)
 		{
 			EatToken(parser);
-			ANode* object = PopOperand(parser);
-			ANode* index = ParseExpression(parser);
+			Node* object = PopOperand(parser);
+			Node* index = ParseExpression(parser);
 			TRY(index);
 			TRY(ExpectToken(parser, TokenType::RIGHT_BRACKET));
-			ANode* node = NewNode(parser, NodeType::INDEX);
+			object->usage = Usage::OBJECT;
+			index->usage = Usage::INDEX;
+			Node* node = NewNode(parser, NodeType::INDEX);
 			node->child = object;
 			object->next = index;
 			parser.operands.push_back(node);
@@ -473,9 +478,10 @@ static ANode* ParseExpression(Parser& parser)
 		if (token_type == TokenType::DOT)
 		{
 			EatToken(parser);
-			ANode* member = NewNode(parser, NodeType::MEMBER);
+			Node* member = NewNode(parser, NodeType::MEMBER);
 			TRY(ExpectIdentifier(parser, &member->name));
 			member->child = PopOperand(parser);
+			member->child->usage = Usage::OBJECT;
 			parser.operands.push_back(member);
 			continue;
 		}
@@ -484,8 +490,9 @@ static ANode* ParseExpression(Parser& parser)
 		if (token_type == TokenType::INCREMENT || token_type == TokenType::DECREMENT)
 		{
 			EatToken(parser);
-			ANode* node = NewOperator(parser, NodeType::POSTFIX, token_type);
+			Node* node = NewOperator(parser, NodeType::POSTFIX, token_type);
 			node->child = PopOperand(parser);
+			node->child->usage = Usage::OPERAND;
 			parser.operands.push_back(node);
 			continue;
 		}
@@ -503,7 +510,7 @@ static ANode* ParseExpression(Parser& parser)
 	while (parser.operators.size() > operator_base)
 		ApplyOperator(parser);
 
-	ANode* result = PopOperand(parser);
+	Node* result = PopOperand(parser);
 	assert(parser.operands.size() == operand_base);
 
 	// @a (@b x): prepending puts the outer attributes first.
@@ -511,25 +518,26 @@ static ANode* ParseExpression(Parser& parser)
 	return result;
 }
 
-static bool ParseDeclaration(Parser& parser, ANode** out_declaration);
+static bool ParseDeclaration(Parser& parser, Node** out_declaration);
 
 // return [value];
-static ANode* ParseReturn(Parser& parser)
+static Node* ParseReturn(Parser& parser)
 {
 	EatToken(parser);
-	ANode* node = NewNode(parser, NodeType::RETURN);
+	Node* node = NewNode(parser, NodeType::RETURN);
 
 	TRY(LexToken(parser));
 	if (parser.token.token_type != TokenType::SEMICOLON)
 	{
 		node->child = ParseExpression(parser);
 		TRY(node->child);
+		node->child->usage = Usage::VALUE;
 	}
 	TRY(ExpectToken(parser, TokenType::SEMICOLON));
 	return node;
 }
 
-static ANode* ParseStatement(Parser& parser)
+static Node* ParseStatement(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
@@ -542,7 +550,7 @@ static ANode* ParseStatement(Parser& parser)
 	case TokenType::KW_IF:
 	{
 		// Parsed directly rather than via ParseExpression, so if a {} else {} doesn't continue into the next statement.
-		ANode* node = ParseIf(parser);
+		Node* node = ParseIf(parser);
 		TRY(node);
 		if (!EndsWithBlock(node))
 			TRY(ExpectToken(parser, TokenType::SEMICOLON));
@@ -551,22 +559,22 @@ static ANode* ParseStatement(Parser& parser)
 	default: break;
 	}
 
-	ANode* declaration = nullptr;
+	Node* declaration = nullptr;
 	TRY(ParseDeclaration(parser, &declaration));
 	if (declaration)
 		return declaration;
 
-	ANode* expression = ParseExpression(parser);
+	Node* expression = ParseExpression(parser);
 	TRY(expression);
 	TRY(ExpectToken(parser, TokenType::SEMICOLON));
 	return expression;
 }
 
-// { statements }. out_statements receives the first statement, the rest are chained via next.
-static bool ParseStatementList(Parser& parser, ANode** out_statements)
+// { statements }, each with the given usage. out_statements receives the first statement, the rest are chained via next.
+static bool ParseStatementList(Parser& parser, Usage usage, Node** out_statements)
 {
 	TRY(ExpectToken(parser, TokenType::LEFT_BRACE));
-	ANode** tail = out_statements;
+	Node** tail = out_statements;
 	for (;;)
 	{
 		TRY(LexToken(parser));
@@ -576,44 +584,45 @@ static bool ParseStatementList(Parser& parser, ANode** out_statements)
 			return true;
 		}
 
-		ANode* statement = ParseStatement(parser);
+		Node* statement = ParseStatement(parser);
 		TRY(statement);
+		statement->usage = usage;
 		*tail = statement;
 		tail = &statement->next;
 	}
 }
 
-static ANode* ParseBlock(Parser& parser)
+static Node* ParseBlock(Parser& parser)
 {
-	ANode* node = NewNode(parser, NodeType::BLOCK);
-	TRY(ParseStatementList(parser, &node->child));
+	Node* node = NewNode(parser, NodeType::BLOCK);
+	TRY(ParseStatementList(parser, Usage::STATEMENT, &node->child));
 	return node;
 }
 
 // [attributes] name: type
-static ANode* ParseParameter(Parser& parser)
+static Node* ParseParameter(Parser& parser)
 {
-	ANode* node = NewNode(parser, NodeType::PARAMETER);
-	ANode* attributes = nullptr;
+	Node* node = NewNode(parser, NodeType::PARAMETER);
+	Node* attributes = nullptr;
 	TRY(ParseAttributes(parser, &attributes));
 	TRY(ExpectIdentifier(parser, &node->name));
 	TRY(ExpectToken(parser, TokenType::COLON));
 	node->child = ParseExpression(parser);
 	TRY(node->child);
+	node->child->usage = Usage::TYPE;
 	AttachAttributes(node, attributes);
 	return node;
 }
 
 // function name(parameters) [: return_type] { body }
-static ANode* ParseFunction(Parser& parser)
+static Node* ParseFunction(Parser& parser)
 {
 	EatToken(parser);
-	AFunction* node = parser.arena->New<AFunction>();
-	node->type = NodeType::FUNCTION;
+	Node* node = NewNode(parser, NodeType::FUNCTION);
 	TRY(ExpectIdentifier(parser, &node->name));
 
 	TRY(ExpectToken(parser, TokenType::LEFT_PAREN));
-	ANode** tail = &node->params;
+	Node** tail = &node->child;
 	for (;;)
 	{
 		TRY(LexToken(parser));
@@ -623,8 +632,9 @@ static ANode* ParseFunction(Parser& parser)
 			break;
 		}
 
-		ANode* param = ParseParameter(parser);
+		Node* param = ParseParameter(parser);
 		TRY(param);
+		param->usage = Usage::PARAMETER;
 		*tail = param;
 		tail = &param->next;
 
@@ -642,18 +652,23 @@ static ANode* ParseFunction(Parser& parser)
 	if (parser.token.token_type == TokenType::COLON)
 	{
 		EatToken(parser);
-		node->return_type = ParseExpression(parser);
-		TRY(node->return_type);
+		Node* return_type = ParseExpression(parser);
+		TRY(return_type);
+		return_type->usage = Usage::RETURN_TYPE;
+		*tail = return_type;
+		tail = &return_type->next;
 	}
 
-	node->body = ParseBlock(parser);
-	TRY(node->body);
+	Node* body = ParseBlock(parser);
+	TRY(body);
+	body->usage = Usage::BODY;
+	*tail = body;
 	return node;
 }
 
 // Parses a const, struct or function declaration. Returns true with *out_declaration = nullptr, eating nothing,
 // if the current token doesn't start one.
-static bool ParseDeclaration(Parser& parser, ANode** out_declaration)
+static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 {
 	*out_declaration = nullptr;
 	TRY(LexToken(parser));
@@ -663,9 +678,10 @@ static bool ParseDeclaration(Parser& parser, ANode** out_declaration)
 	{
 		// const expression, where the expression is typically name: type = value. Self-terminating, no ';'.
 		EatToken(parser);
-		ANode* node = NewNode(parser, NodeType::CONST);
+		Node* node = NewNode(parser, NodeType::CONST);
 		node->child = ParseExpression(parser);
 		TRY(node->child);
+		node->child->usage = Usage::VALUE;
 		*out_declaration = node;
 		return true;
 	}
@@ -673,10 +689,9 @@ static bool ParseDeclaration(Parser& parser, ANode** out_declaration)
 	{
 		// struct name { members }
 		EatToken(parser);
-		ANode* node = NewNode(parser, NodeType::STRUCT);
+		Node* node = NewNode(parser, NodeType::STRUCT);
 		TRY(ExpectIdentifier(parser, &node->name));
-		TRY(ParseStatementList(parser, &node->child));
-		SetUsage(node->child, Usage::MEMBER);
+		TRY(ParseStatementList(parser, Usage::MEMBER, &node->child));
 		*out_declaration = node;
 		return true;
 	}
@@ -689,19 +704,20 @@ static bool ParseDeclaration(Parser& parser, ANode** out_declaration)
 	}
 }
 
-bool Parse(Parser& parser, ANode** out_declarations)
+bool Parse(Parser& parser, Node** out_declarations)
 {
-	ANode** tail = out_declarations;
+	Node** tail = out_declarations;
 	for (;;)
 	{
 		TRY(LexToken(parser));
 		if (parser.token.token_type == TokenType::END_OF_FILE)
 			return true;
 
-		ANode* declaration = nullptr;
+		Node* declaration = nullptr;
 		TRY(ParseDeclaration(parser, &declaration));
 		if (!declaration)
 			return UnexpectedToken(parser);
+		declaration->usage = Usage::DECLARATION;
 		*tail = declaration;
 		tail = &declaration->next;
 	}

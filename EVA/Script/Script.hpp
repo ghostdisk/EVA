@@ -85,84 +85,87 @@ struct Token
 	Atom atom = Atom::NONE; // IDENTIFIER only
 };
 
-// Layouts below: "child" is ANode::child, following entries are chained via ANode::next.
-// Any node's children may start with attributes, each an arbitrary expression with usage ATTRIBUTE.
 enum class NodeType : uint8
 {
 	NONE = 0,
 
 	// declarations
-	CONST,     // child: expression, e.g. name: type = value
-	STRUCT,    // name, child: members (statements, MEMBER)
-	FUNCTION,  // AFunction
-	PARAMETER, // name, child: type
+	CONST,
+	STRUCT,
+	FUNCTION,
+	PARAMETER,
 
 	// statements
-	BLOCK,  // child: statements
-	RETURN, // child: value, or none
+	BLOCK,
+	RETURN,
 
 	// expressions
-	NUMBER,     // ANumber
-	BOOL,       // ABool
-	IDENTIFIER, // name
-	INIT_LIST,  // child: elements
-	UNARY,      // AOperator, op: operator, child: operand
-	POSTFIX,    // AOperator, op: operator, child: operand
-	BINARY,     // AOperator, op: operator (including assignments and ':' declarations), child: left, right
-	CALL,       // child: callee (CALLEE), arguments (ARGUMENT)...
-	MEMBER,     // name: member (including swizzles), child: object
-	INDEX,      // child: object, index
-	ARRAY,      // [size]element, child: size, element
-	IF,         // AIf
+	NUMBER,
+	BOOL,
+	IDENTIFIER,
+	INIT_LIST,
+	UNARY,
+	POSTFIX,
+	BINARY,
+	CALL,
+	MEMBER,
+	INDEX,
+	ARRAY_TYPE,
+	IF,
 };
 
-// How a node relates to its parent. Set by the parent.
+// How a node relates to its parent, set by the parent. Children are looked up by usage, not position.
 enum class Usage : uint8
 {
 	NONE = 0,
+	DECLARATION,
 	ATTRIBUTE,
+	VALUE,
+	MEMBER,
+	PARAMETER,
+	RETURN_TYPE,
+	BODY,
+	TYPE,
+	STATEMENT,
+	ELEMENT,
+	SIZE,
+	OPERAND,
+	LEFT,
+	RIGHT,
 	CALLEE,
 	ARGUMENT,
-	MEMBER,
+	OBJECT,
+	INDEX,
+	CONDITION,
+	THEN,
+	ELSE,
 };
 
-struct ANode
+struct Node
 {
 	NodeType type = NodeType::NONE;
 	Usage usage = Usage::NONE;
 	Atom name = Atom::NONE;
-	ANode* child = nullptr;
-	ANode* next = nullptr;
+	union
+	{
+		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
+		bool value;           // BOOL
+		TokenType op;         // UNARY, POSTFIX, BINARY
+	};
+	Node* child = nullptr; // first child, the rest are chained via next
+	Node* next = nullptr;
 };
 
-struct ANumber : ANode
+// The first child with the given usage, or nullptr.
+inline Node* FindChild(Node* node, Usage usage)
 {
-	char* text = nullptr; // as written. Parsed once the expected type is known
-};
-
-struct ABool : ANode
-{
-	bool value = false;
-};
-
-struct AOperator : ANode
-{
-	TokenType op = TokenType::NONE;
-};
-
-struct AFunction : ANode
-{
-	ANode* params = nullptr;      // PARAMETERs
-	ANode* return_type = nullptr; // expression, nullptr if omitted
-	ANode* body = nullptr;        // BLOCK
-};
-
-struct AIf : ANode
-{
-	ANode* condition = nullptr;
-	ANode* then = nullptr;      // BLOCK or expression
-	ANode* otherwise = nullptr; // BLOCK or expression, nullptr if no else
-};
+	for (Node* child = node->child; child; child = child->next)
+	{
+		if (child->usage == usage)
+			return child;
+	}
+	return nullptr;
+}
 
 enum class OpKind : uint8
 {
@@ -176,7 +179,7 @@ struct PendingOp
 {
 	TokenType op = TokenType::NONE;
 	OpKind kind = OpKind::INFIX;
-	ANode* payload = nullptr; // ARRAY: the size
+	Node* payload = nullptr; // ARRAY: the size
 };
 
 struct Parser
@@ -188,7 +191,7 @@ struct Parser
 	Arena* arena = nullptr;
 
 	// Expression parser stacks, shared by nested expressions. Each ParseExpression only touches entries above where it started.
-	std::vector<ANode*> operands;
+	std::vector<Node*> operands;
 	std::vector<PendingOp> operators;
 	uint32 depth = 0; // expression and statement nesting, bounded so untrusted input can't overflow the stack
 };
@@ -198,7 +201,7 @@ void EatToken(Parser& parser);
 
 // Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
 // Returns false on the first error, with the message in parser.error_buffer.
-bool Parse(Parser& parser, ANode** out_declarations);
+bool Parse(Parser& parser, Node** out_declarations);
 
 Slice<uint8> CompileShader(const char* source);
 
