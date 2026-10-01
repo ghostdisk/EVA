@@ -4,7 +4,74 @@
 namespace EVA::Script
 {
 
-const char* NodeTypeName(NodeType type)
+ZTStringView TokenToString(TokenType token_type)
+{
+	switch (token_type)
+	{
+		case TokenType::END_OF_FILE: return "end of file";
+
+		case TokenType::SEMICOLON: return ";";
+		case TokenType::COMMA: return ",";
+		case TokenType::PLUS: return "+";
+		case TokenType::MINUS: return "-";
+		case TokenType::EQUALS: return "=";
+		case TokenType::ASTERISK: return "*";
+		case TokenType::SLASH: return "/";
+		case TokenType::PERCENT: return "%";
+		case TokenType::AMPERSAND: return "&";
+		case TokenType::PIPE: return "|";
+		case TokenType::CARET: return "^";
+		case TokenType::TILDE: return "~";
+		case TokenType::EXCLAMATION: return "!";
+		case TokenType::COLON: return ":";
+		case TokenType::DOT: return ".";
+		case TokenType::LESS: return "<";
+		case TokenType::GREATER: return ">";
+		case TokenType::LEFT_PAREN: return "(";
+		case TokenType::RIGHT_PAREN: return ")";
+		case TokenType::LEFT_BRACKET: return "[";
+		case TokenType::RIGHT_BRACKET: return "]";
+		case TokenType::LEFT_BRACE: return "{";
+		case TokenType::RIGHT_BRACE: return "}";
+		case TokenType::AT: return "@";
+
+		case TokenType::IDENTIFIER: return "identifier";
+		case TokenType::NUMBER: return "number";
+
+		case TokenType::ADD_ASSIGN: return "+=";
+		case TokenType::SUBTRACT_ASSIGN: return "-=";
+		case TokenType::MULTIPLY_ASSIGN: return "*=";
+		case TokenType::DIVIDE_ASSIGN: return "/=";
+		case TokenType::MODULO_ASSIGN: return "%=";
+		case TokenType::BIT_AND_ASSIGN: return "&=";
+		case TokenType::BIT_OR_ASSIGN: return "|=";
+		case TokenType::BIT_XOR_ASSIGN: return "^=";
+		case TokenType::SHIFT_LEFT_ASSIGN: return "<<=";
+		case TokenType::SHIFT_RIGHT_ASSIGN: return ">>=";
+		case TokenType::INCREMENT: return "++";
+		case TokenType::DECREMENT: return "--";
+		case TokenType::SHIFT_LEFT: return "<<";
+		case TokenType::SHIFT_RIGHT: return ">>";
+		case TokenType::EQUAL: return "==";
+		case TokenType::NOT_EQUAL: return "!=";
+		case TokenType::LESS_EQUAL: return "<=";
+		case TokenType::GREATER_EQUAL: return ">=";
+		case TokenType::LOGICAL_AND: return "&&";
+		case TokenType::LOGICAL_OR: return "||";
+
+		case TokenType::KW_CONST: return "const";
+		case TokenType::KW_STRUCT: return "struct";
+		case TokenType::KW_FUNCTION: return "function";
+		case TokenType::KW_IF: return "if";
+		case TokenType::KW_ELSE: return "else";
+		case TokenType::KW_RETURN: return "return";
+		case TokenType::KW_TRUE: return "true";
+		case TokenType::KW_FALSE: return "false";
+	}
+	return "?";
+}
+
+ZTStringView NodeTypeToString(NodeType type)
 {
 	switch (type)
 	{
@@ -32,11 +99,12 @@ const char* NodeTypeName(NodeType type)
 	return "?";
 }
 
-const char* UsageName(Usage usage)
+ZTStringView UsageToString(Usage usage)
 {
 	switch (usage)
 	{
 		case Usage::NONE: return "NONE";
+		case Usage::ROOT: return "ROOT";
 		case Usage::DECLARATION: return "DECLARATION";
 		case Usage::ATTRIBUTE: return "ATTRIBUTE";
 		case Usage::VALUE: return "VALUE";
@@ -62,49 +130,13 @@ const char* UsageName(Usage usage)
 	return "?";
 }
 
-static void PrintOperator(TokenType op)
-{
-	if ((uint8)op < 128)
-	{
-		printf("%c", (char)op);
-		return;
-	}
-
-	const char* text = "?";
-	switch (op)
-	{
-		case TokenType::ADD_ASSIGN: text = "+="; break;
-		case TokenType::SUBTRACT_ASSIGN: text = "-="; break;
-		case TokenType::MULTIPLY_ASSIGN: text = "*="; break;
-		case TokenType::DIVIDE_ASSIGN: text = "/="; break;
-		case TokenType::MODULO_ASSIGN: text = "%="; break;
-		case TokenType::BIT_AND_ASSIGN: text = "&="; break;
-		case TokenType::BIT_OR_ASSIGN: text = "|="; break;
-		case TokenType::BIT_XOR_ASSIGN: text = "^="; break;
-		case TokenType::SHIFT_LEFT_ASSIGN: text = "<<="; break;
-		case TokenType::SHIFT_RIGHT_ASSIGN: text = ">>="; break;
-		case TokenType::INCREMENT: text = "++"; break;
-		case TokenType::DECREMENT: text = "--"; break;
-		case TokenType::SHIFT_LEFT: text = "<<"; break;
-		case TokenType::SHIFT_RIGHT: text = ">>"; break;
-		case TokenType::EQUAL: text = "=="; break;
-		case TokenType::NOT_EQUAL: text = "!="; break;
-		case TokenType::LESS_EQUAL: text = "<="; break;
-		case TokenType::GREATER_EQUAL: text = ">="; break;
-		case TokenType::LOGICAL_AND: text = "&&"; break;
-		case TokenType::LOGICAL_OR: text = "||"; break;
-		default: break;
-	}
-	printf("%s", text);
-}
-
 // Prints node and its subtree, one node per line. The node's own line is started by the caller (indent and usage)
 // and ended by the caller (newline), so root calls print no usage. The arena is only used for atom strings and is rewound afterwards.
 void DumpNode(Node* node, Arena* arena, int indent)
 {
 	uint8* mark = arena->head;
 
-	printf("\x1b[33m%s\x1b[0m", NodeTypeName(node->type));
+	printf("\x1b[33m%s\x1b[0m", NodeTypeToString(node->type).CString());
 	if (node->name != Atom::NONE)
 		printf(" | %s", GetAtomString(node->name, arena).CString());
 
@@ -119,8 +151,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 		case NodeType::UNARY:
 		case NodeType::POSTFIX:
 		case NodeType::BINARY:
-			printf(" | ");
-			PrintOperator(node->op);
+			printf(" | %s", TokenToString(node->op).CString());
 			break;
 		default:
 			break;
@@ -130,9 +161,44 @@ void DumpNode(Node* node, Arena* arena, int indent)
 
 	for (Node* child = node->child; child; child = child->next)
 	{
-		printf("\n%*s\x1b[90m[%s]\x1b[0m = ", (indent + 1) * 2, "", UsageName(child->usage));
+		printf("\n%*s\x1b[90m[%s]\x1b[0m = ", (indent + 1) * 2, "", UsageToString(child->usage).CString());
 		DumpNode(child, arena, indent + 1);
 	}
+}
+
+void SerializeNode(StringBuilder& builder, Node* node)
+{
+	builder.AppendFormat("([%s]%s", UsageToString(node->usage).CString(), NodeTypeToString(node->type).CString());
+	if (node->name != Atom::NONE)
+	{
+		builder.Append(" ");
+		builder.Append(GetAtomString(node->name, builder.arena));
+	}
+
+	switch (node->type)
+	{
+		case NodeType::NUMBER:
+			builder.AppendFormat(" %s", node->text);
+			break;
+		case NodeType::BOOL:
+			builder.Append(node->value ? " true" : " false");
+			break;
+		case NodeType::UNARY:
+		case NodeType::POSTFIX:
+		case NodeType::BINARY:
+			builder.Append(" ");
+			builder.Append(TokenToString(node->op));
+			break;
+		default:
+			break;
+	}
+
+	for (Node* child = node->child; child; child = child->next)
+	{
+		builder.Append(" ");
+		SerializeNode(builder, child);
+	}
+	builder.Append(")");
 }
 
 }

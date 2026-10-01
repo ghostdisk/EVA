@@ -155,4 +155,5 @@ if(EVA_BUILD_TESTS AND NOT ANDROID)
 	endfunction()
 
 	eva_add_tests(Core)
+	eva_add_tests(Script)
 endif()

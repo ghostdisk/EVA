@@ -228,7 +228,10 @@ bool LexToken(Parser& parser)
 
 	// ...
 
-	EmitError(parser, "unexpected character %d", (int)ch);
+	if (ch >= ' ' && ch <= '~')
+		EmitError(parser, "unexpected character '%c'", ch);
+	else
+		EmitError(parser, "unexpected byte 0x%02X", (uint8)ch);
 	return false;
 }
 

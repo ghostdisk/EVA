@@ -3,6 +3,7 @@
 #include <EVA/Core/Arena.hpp>
 #include <EVA/Core/Atom.hpp>
 #include <EVA/Core/Error.hpp>
+#include <EVA/Core/StringBuilder.hpp>
 #include <vector>
 
 namespace EVA::Script
@@ -78,6 +79,10 @@ enum class TokenType : uint8
 	KW_FALSE,
 };
 
+// The token as written for operators and keywords, otherwise a description like "identifier".
+// Keep in sync with TokenType (Script_Dump.cpp).
+ZTStringView TokenToString(TokenType token_type);
+
 struct Token
 {
 	TokenType token_type = TokenType::NONE;
@@ -117,12 +122,13 @@ enum class NodeType : uint8
 };
 
 // Keep in sync with NodeType (Script_Dump.cpp).
-const char* NodeTypeName(NodeType type);
+ZTStringView NodeTypeToString(NodeType type);
 
 // How a node relates to its parent, set by the parent. Children are looked up by usage, not position.
 enum class Usage : uint8
 {
 	NONE = 0,
+	ROOT, // parsed on its own rather than as part of a parent, e.g. a lone expression in a test
 	DECLARATION,
 	ATTRIBUTE,
 	VALUE,
@@ -147,7 +153,7 @@ enum class Usage : uint8
 };
 
 // Keep in sync with Usage (Script_Dump.cpp).
-const char* UsageName(Usage usage);
+ZTStringView UsageToString(Usage usage);
 
 struct Node
 {
@@ -209,8 +215,6 @@ struct Parser
 	uint32 depth = 0; // expression and statement nesting, bounded so untrusted input can't overflow the stack
 };
 
-// Allocates an error in parser.arena with a printf formatted message and adds it to parser.errors.
-// Returns the error so callers can attach more data, not false: write EmitError(...); return false;
 ScriptError* EmitError(Parser& parser, const char* format, ...);
 
 bool LexToken(Parser& parser);
@@ -220,7 +224,15 @@ void EatToken(Parser& parser);
 // Returns false on the first error, which is added to parser.errors.
 bool Parse(Parser& parser, Node** out_declarations);
 
+Node* ParseExpression(Parser& parser);
+Node* ParseStatement(Parser& parser);
+
 void DumpNode(Node* node, Arena* arena, int indent = 0);
+
+// Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
+// ([USAGE]TYPE name payload children...), e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
+// Meant for tests and debugging
+void SerializeNode(StringBuilder& builder, Node* node);
 
 Slice<uint8> CompileShader(const char* source);
 

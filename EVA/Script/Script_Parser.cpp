@@ -47,9 +47,10 @@ static bool ExpectToken(Parser& parser, TokenType token_type)
 	if (token.token_type != token_type)
 	{
 		if (token.token_type == TokenType::END_OF_FILE)
-			EmitError(parser, "unexpected end of file while looking for token %d", (int)token_type);
+			EmitError(parser, "unexpected end of file, expected '%s'", TokenToString(token_type).CString());
 		else
-			EmitError(parser, "unexpected token '%.*s' while looking for token %d", (int)(token.end - token.start), token.start, (int)token_type);
+			EmitError(parser, "unexpected token '%.*s', expected '%s'", (int)(token.end - token.start), token.start,
+				TokenToString(token_type).CString());
 		return false;
 	}
 	EatToken(parser);
@@ -227,7 +228,6 @@ static void ApplyOperatorsAbove(Parser& parser, size_t operator_base, uint32 pre
 	}
 }
 
-static Node* ParseExpression(Parser& parser);
 static Node* ParseBlock(Parser& parser);
 
 // Parses comma-separated expressions up to and including the closing token, each with the given usage.
@@ -356,7 +356,7 @@ static bool EndsWithBlock(Node* node)
 // and postfix operators wrap the top operand directly since they bind tighter than everything else.
 // Stops at the first token that can't continue the expression, leaving it for the caller.
 // Leading attributes are attached to the resulting node.
-static Node* ParseExpression(Parser& parser)
+Node* ParseExpression(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
@@ -555,7 +555,7 @@ static Node* ParseReturn(Parser& parser)
 	return node;
 }
 
-static Node* ParseStatement(Parser& parser)
+Node* ParseStatement(Parser& parser)
 {
 	TRY(EnterNesting(parser));
 	DEFER(parser.depth--);
