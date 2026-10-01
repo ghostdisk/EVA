@@ -149,7 +149,8 @@ static uint32 Precedence(const PendingOp& op)
 
 static bool IsRightAssociative(uint32 precedence)
 {
-	return precedence == ASSIGNMENT_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
+	// ':' is never valid chained, but groups as a : (b : c) for consistency.
+	return precedence == ASSIGNMENT_PRECEDENCE || precedence == DECLARATION_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
 }
 
 static Node* NewNode(Parser& parser, NodeType type)
@@ -734,7 +735,7 @@ static Node* ParseFunction(Parser& parser)
 	return node;
 }
 
-// const name [: type] = value. Self-terminating, no ';'.
+// const name [: type] = value; The ';' is optional when the value ends with a block.
 static Node* ParseConst(Parser& parser)
 {
 	EatToken(parser);
@@ -742,6 +743,17 @@ static Node* ParseConst(Parser& parser)
 	TRY(node);
 	TRY(ShapeDeclaration(parser, node, REQUIRE_VALUE));
 	node->type = NodeType::CONST;
+
+	if (EndsWithBlock(FindChild(node, Usage::VALUE)))
+	{
+		TRY(LexToken(parser));
+		if (parser.token.token_type == TokenType::SEMICOLON)
+			EatToken(parser);
+	}
+	else
+	{
+		TRY(ExpectToken(parser, TokenType::SEMICOLON));
+	}
 	return node;
 }
 
