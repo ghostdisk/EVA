@@ -16,7 +16,9 @@ static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out
 		return nullptr;
 	}
 
-	Resolver resolver = { .arena = arena, .error_arena = arena };
+	Context context;
+	InitContext(context, arena); // in arena, so the types outlive this function along with the tree referencing them
+	Resolver resolver = { .context = &context, .arena = arena, .error_arena = arena };
 	Resolve(resolver, module);
 
 	StringBuilder builder(arena);
@@ -199,15 +201,17 @@ TEST(Resolver, Scopes)
 	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
-	Resolver resolver = { .arena = test.arena, .error_arena = test.arena };
+	Context context;
+	InitContext(context, test.arena);
+	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
 	REQUIRE(Resolve(resolver, module));
 
 	Node* function = module->child;
 	Node* body = FindChild(function, Usage::BODY);
 	Node* block = body->child;
 	REQUIRE(module->scope);
-	REQUIRE(module->scope->parent); // the global scope
-	CHECK(module->scope->parent->parent == nullptr);
+	CHECK(module->scope->parent == context.global_scope);
+	CHECK(context.global_scope->parent == nullptr);
 	CHECK(function->scope->parent == module->scope);
 	CHECK(body->scope == function->scope);
 	CHECK(block->scope->parent == body->scope);
@@ -216,7 +220,7 @@ TEST(Resolver, Scopes)
 
 TEST(Resolver, TriangleShader)
 {
-	// No built-ins yet, so only those are unknown: the shader's own declarations all resolve.
+	// The shader's own declarations and the built-in types resolve, only the attributes don't yet.
 	CHECK_RESOLVE_ERRORS(R"(
 const positions: [3]float2 = {
 	float2( 0.0,  0.5),
@@ -239,11 +243,28 @@ function PSMain(): @location(0) float4
 	return float4(1.0, 1.0, 1.0, 1.0);
 }
 )",
-		"unknown identifier 'float2' | unknown identifier 'float2' | unknown identifier 'float2' | unknown identifier 'float2' | "
-		"unknown identifier 'float4' | "
-		"unknown identifier 'builtin' | unknown identifier 'vertex_index' | unknown identifier 'uint' | "
-		"unknown identifier 'float4' | unknown identifier 'builtin' | unknown identifier 'position' | unknown identifier 'float4' | "
-		"unknown identifier 'float4' | unknown identifier 'location' | unknown identifier 'float4'");
+		"unknown identifier 'builtin' | unknown identifier 'vertex_index' | "
+		"unknown identifier 'builtin' | unknown identifier 'position' | unknown identifier 'location'");
+}
+
+TEST(Resolver, BuiltInTypes)
+{
+	CHECK_RESOLVE("function f(a: float2, b: float3): float4 { x: float; }",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]TYPE_REFERENCE float2 -> float2)) "
+		"([PARAMETER]PARAMETER b ([TYPE]TYPE_REFERENCE float3 -> float3)) ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4) "
+		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([TYPE]TYPE_REFERENCE float -> float))))");
+	CHECK_RESOLVE("function f(): void { return float4(1.0); }",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE void -> void) "
+		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL ([CALLEE]TYPE_REFERENCE float4 -> float4) ([ARGUMENT]NUMBER 1.0)))))");
+	CHECK_RESOLVE_ERRORS("function f(a: int, b: uint) {}", "");
+	CHECK_RESOLVE_ERRORS("function f(a: bool, b: float5) {}", "unknown identifier 'bool' | unknown identifier 'float5'");
+}
+
+TEST(Resolver, BuiltInTypesCanBeShadowed)
+{
+	// The module's scope is under the global one.
+	CHECK_RESOLVE("struct float2 {} function f(a: float2) {}",
+		"([DECLARATION]STRUCT float2) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([TYPE]REFERENCE float2 -> STRUCT)) ([BODY]BLOCK))");
 }
 
 TEST(Resolver, RecursionLimit)

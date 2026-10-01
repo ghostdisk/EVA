@@ -89,6 +89,7 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::BOOL: return "BOOL";
 		case NodeType::IDENTIFIER: return "IDENTIFIER";
 		case NodeType::REFERENCE: return "REFERENCE";
+		case NodeType::TYPE_REFERENCE: return "TYPE_REFERENCE";
 		case NodeType::INIT_LIST: return "INIT_LIST";
 		case NodeType::UNARY: return "UNARY";
 		case NodeType::POSTFIX: return "POSTFIX";
@@ -159,6 +160,9 @@ void DumpNode(Node* node, Arena* arena, int indent)
 		case NodeType::REFERENCE:
 			printf(" -> %s", NodeTypeToString(node->target->type).CString());
 			break;
+		case NodeType::TYPE_REFERENCE:
+			printf(" -> %s", GetAtomString(node->target_type->name, arena).CString());
+			break;
 		default:
 			break;
 	}
@@ -198,6 +202,10 @@ void SerializeNode(StringBuilder& builder, Node* node)
 		case NodeType::REFERENCE:
 			builder.Append(" -> ");
 			builder.Append(NodeTypeToString(node->target->type));
+			break;
+		case NodeType::TYPE_REFERENCE:
+			builder.Append(" -> ");
+			builder.Append(GetAtomString(node->target_type->name, builder.arena));
 			break;
 		default:
 			break;

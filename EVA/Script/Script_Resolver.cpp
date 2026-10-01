@@ -22,23 +22,23 @@ static Scope* NewScope(Resolver& resolver, Scope* parent)
 	return scope;
 }
 
-static Node* FindInScope(Scope* scope, Atom name)
+static Definition* FindInScope(Scope* scope, Atom name)
 {
 	for (Definition* definition = scope->first; definition; definition = definition->next)
 	{
 		if (definition->name == name)
-			return definition->node;
+			return definition;
 	}
 	return nullptr;
 }
 
-// The declaration the name refers to from the current scope, or nullptr.
-static Node* Lookup(Resolver& resolver, Atom name)
+// What the name refers to from the current scope, or nullptr.
+static Definition* Lookup(Resolver& resolver, Atom name)
 {
 	for (Scope* scope = resolver.scope; scope; scope = scope->parent)
 	{
-		if (Node* node = FindInScope(scope, name))
-			return node;
+		if (Definition* definition = FindInScope(scope, name))
+			return definition;
 	}
 	return nullptr;
 }
@@ -119,8 +119,8 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	{
 	case NodeType::MODULE:
 	{
-		// The module's names live in its own scope. Its parent, the global scope, will hold the built-ins.
-		node->scope = NewScope(resolver, NewScope(resolver, nullptr));
+		// The module's names live in its own scope, under the global scope holding the built-ins.
+		node->scope = NewScope(resolver, resolver.context->global_scope);
 		resolver.scope = node->scope;
 		bool resolved = DeclareAhead(resolver, node);
 		return ResolveChildren(resolver, node) && resolved;
@@ -158,10 +158,16 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::IDENTIFIER:
 	{
 		bool resolved = true;
-		if (Node* target = Lookup(resolver, node->name))
+		Definition* definition = Lookup(resolver, node->name);
+		if (definition && definition->node)
 		{
 			node->type = NodeType::REFERENCE;
-			node->target = target;
+			node->target = definition->node;
+		}
+		else if (definition)
+		{
+			node->type = NodeType::TYPE_REFERENCE;
+			node->target_type = definition->type;
 		}
 		else
 		{

@@ -113,7 +113,8 @@ enum class NodeType : uint8
 	NUMBER,
 	BOOL,
 	IDENTIFIER,
-	REFERENCE, // an IDENTIFIER the resolver found the declaration of
+	REFERENCE,      // an IDENTIFIER the resolver found the declaration of
+	TYPE_REFERENCE, // an IDENTIFIER the resolver found to name a built-in type
 	INIT_LIST,
 	UNARY,
 	POSTFIX,
@@ -160,6 +161,7 @@ enum class Usage : uint8
 ZTStringView UsageToString(Usage usage);
 
 struct Scope;
+struct Type;
 
 struct Node
 {
@@ -173,6 +175,7 @@ struct Node
 		TokenType op;         // UNARY, POSTFIX, BINARY
 		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
 		Node* target;         // REFERENCE: the declaration
+		Type* target_type;    // TYPE_REFERENCE
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -239,10 +242,63 @@ bool Parse(Parser& parser, Node** out_module);
 Node* ParseExpression(Parser& parser);
 Node* ParseStatement(Parser& parser);
 
+enum class TypeKind : uint8
+{
+	PRIMITIVE,
+	VECTOR,
+	MATRIX,
+};
+
+// Base of the type structs, one per TypeKind.
+// Types are unique: there's only ever one instance of e.g. float2, so they can be compared by pointer. Types built from
+// other types, like function types later, have to be looked up in a cache before making a new one.
+struct Type
+{
+	TypeKind kind = TypeKind::PRIMITIVE;
+	Atom name = Atom::NONE; // HLSL style, e.g. float4. Also the type's name in the global scope
+	uint32 size = 0;        // in bytes
+	uint32 alignment = 1; // in bytes. Buffer layout rules are applied on top of this
+};
+
+enum class PrimitiveKind : uint8
+{
+	VOID,
+	BOOL,
+	SIGNED,
+	UNSIGNED,
+	FLOAT,
+};
+
+struct PrimitiveType : Type
+{
+	PrimitiveKind primitive_kind = PrimitiveKind::VOID;
+
+	PrimitiveType() { kind = TypeKind::PRIMITIVE; }
+};
+
+struct VectorType : Type
+{
+	PrimitiveType* element = nullptr;
+	uint32 count = 0;
+
+	VectorType() { kind = TypeKind::VECTOR; }
+};
+
+struct MatrixType : Type
+{
+	PrimitiveType* element = nullptr;
+	uint32 rows = 0;
+	uint32 columns = 0;
+
+	MatrixType() { kind = TypeKind::MATRIX; }
+};
+
+// A name in a scope, for either a declaration or a built-in type. Exactly one of node and type is set.
 struct Definition
 {
 	Atom name = Atom::NONE;
 	Node* node = nullptr;
+	Type* type = nullptr;
 	Definition* next = nullptr;
 };
 
@@ -253,9 +309,21 @@ struct Scope
 	Definition* first = nullptr; // a list for now, scopes are small
 };
 
+// The built-in types and the global scope naming them.
+struct Context
+{
+	Arena* arena = nullptr; // the types and the global scope
+	Scope* global_scope = nullptr;
+};
+
+// Allocates the context's types and global scope in arena, which has to live as long as the context. Usually an arena
+// of its own; a short-lived context can share a temporary one.
+void InitContext(Context& context, Arena* arena);
+
 struct Resolver
 {
-	Arena* arena = nullptr;           // scopes
+	Context* context = nullptr;
+	Arena* arena = nullptr;           // the module's scopes, for one compile
 	Arena* error_arena = nullptr;     // errors and their messages
 	std::vector<ScriptError*> errors; // allocated in error_arena
 	Scope* scope = nullptr;           // the current one
@@ -264,7 +332,8 @@ struct Resolver
 
 ScriptError* EmitError(Resolver& resolver, const char* format, ...);
 
-// Turns identifiers into REFERENCEs to their declarations and gives MODULE, FUNCTION and BLOCK nodes their scope.
+// Turns identifiers into REFERENCEs to their declarations, or TYPE_REFERENCEs to built-in types, and gives MODULE,
+// FUNCTION and BLOCK nodes their scope. The module's scope sits under the context's global scope.
 // Functions and structs can be referenced from anywhere in their scope, everything else only after it's declared.
 // Unknown names stay IDENTIFIERs. Errors don't stop resolving the rest of the tree. Returns whether there were none.
 bool Resolve(Resolver& resolver, Node* module);
@@ -285,7 +354,8 @@ void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
 // ([USAGE]TYPE name payload children...), e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
-// A REFERENCE's payload is its target's type: ([CALLEE]REFERENCE f -> FUNCTION).
+// A REFERENCE's payload is its target's node type: ([CALLEE]REFERENCE f -> FUNCTION), a TYPE_REFERENCE's is the type's
+// name: ([TYPE]TYPE_REFERENCE float4 -> float4).
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 
@@ -295,8 +365,8 @@ struct CompileShaderResult
 	Slice<ScriptError*> errors; // empty on success
 };
 
-// Everything in the result is allocated in arena, so the caller decides how long it lives. The AST and other
-// intermediate data use an arena of their own, destroyed before returning.
+// Everything in the result is allocated in arena, so the caller decides how long it lives. The AST, the context and
+// other intermediate data use an arena of their own, destroyed before returning.
 CompileShaderResult CompileShader(Arena* arena, ZTStringView source);
 
 }
