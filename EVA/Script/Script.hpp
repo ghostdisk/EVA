@@ -94,6 +94,7 @@ enum class NodeType : uint8
 	STRUCT,
 	FUNCTION,
 	PARAMETER,
+	FIELD,
 
 	// statements
 	BLOCK,
@@ -113,6 +114,9 @@ enum class NodeType : uint8
 	ARRAY_TYPE,
 	IF,
 };
+
+// Keep in sync with NodeType (Script_Dump.cpp).
+const char* NodeTypeName(NodeType type);
 
 // How a node relates to its parent, set by the parent. Children are looked up by usage, not position.
 enum class Usage : uint8
@@ -140,6 +144,9 @@ enum class Usage : uint8
 	THEN,
 	ELSE,
 };
+
+// Keep in sync with Usage (Script_Dump.cpp).
+const char* UsageName(Usage usage);
 
 struct Node
 {
@@ -202,6 +209,8 @@ void EatToken(Parser& parser);
 // Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
 // Returns false on the first error, with the message in parser.error_buffer.
 bool Parse(Parser& parser, Node** out_declarations);
+
+void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 Slice<uint8> CompileShader(const char* source);
 

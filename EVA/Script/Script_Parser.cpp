@@ -5,6 +5,13 @@
 namespace EVA::Script
 {
 
+// What ShapeDeclaration requires to be present, combined with |.
+enum DeclarationRequire : uint32
+{
+	REQUIRE_TYPE = 1 << 0,
+	REQUIRE_VALUE = 1 << 1,
+};
+
 // Returns false / nullptr from the calling function if expr is falsy.
 #define TRY(expr)      \
 	do                 \
@@ -599,17 +606,59 @@ static Node* ParseBlock(Parser& parser)
 	return node;
 }
 
-// [attributes] name: type
-static Node* ParseParameter(Parser& parser)
+// Reshapes a parsed name [: type] [= value] expression in place into a declaration: the root node gets the name and
+// TYPE / VALUE children, the identifier and operator nodes are dropped. The caller sets the node type and attributes.
+static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire required)
 {
-	Node* node = NewNode(parser, NodeType::PARAMETER);
+	Node* head = node;
+	Node* type = nullptr;
+	Node* value = nullptr;
+
+	if (head->type == NodeType::BINARY && head->op == TokenType::EQUALS)
+	{
+		value = FindChild(head, Usage::RIGHT);
+		head = FindChild(head, Usage::LEFT);
+	}
+	if (head->type == NodeType::BINARY && head->op == TokenType::COLON)
+	{
+		type = FindChild(head, Usage::RIGHT);
+		head = FindChild(head, Usage::LEFT);
+	}
+	if (head->type != NodeType::IDENTIFIER)
+		return Error(parser, "expected name [: type] [= value]");
+	if ((required & REQUIRE_TYPE) && !type)
+		return Error(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena));
+	if ((required & REQUIRE_VALUE) && !value)
+		return Error(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena));
+
+	node->name = head->name;
+	node->text = nullptr;
+	Node** tail = &node->child;
+	if (type)
+	{
+		type->usage = Usage::TYPE;
+		*tail = type;
+		tail = &type->next;
+	}
+	if (value)
+	{
+		value->usage = Usage::VALUE;
+		*tail = value;
+		tail = &value->next;
+	}
+	*tail = nullptr;
+	return true;
+}
+
+// [attributes] name: type [= value]
+static Node* ParseTypedDeclaration(Parser& parser, NodeType type)
+{
 	Node* attributes = nullptr;
 	TRY(ParseAttributes(parser, &attributes));
-	TRY(ExpectIdentifier(parser, &node->name));
-	TRY(ExpectToken(parser, TokenType::COLON));
-	node->child = ParseExpression(parser);
-	TRY(node->child);
-	node->child->usage = Usage::TYPE;
+	Node* node = ParseExpression(parser);
+	TRY(node);
+	TRY(ShapeDeclaration(parser, node, REQUIRE_TYPE));
+	node->type = type;
 	AttachAttributes(node, attributes);
 	return node;
 }
@@ -632,7 +681,7 @@ static Node* ParseFunction(Parser& parser)
 			break;
 		}
 
-		Node* param = ParseParameter(parser);
+		Node* param = ParseTypedDeclaration(parser, NodeType::PARAMETER);
 		TRY(param);
 		param->usage = Usage::PARAMETER;
 		*tail = param;
@@ -666,42 +715,69 @@ static Node* ParseFunction(Parser& parser)
 	return node;
 }
 
-// Parses a const, struct or function declaration. Returns true with *out_declaration = nullptr, eating nothing,
-// if the current token doesn't start one.
+// const name [: type] = value. Self-terminating, no ';'.
+static Node* ParseConst(Parser& parser)
+{
+	EatToken(parser);
+	Node* node = ParseExpression(parser);
+	TRY(node);
+	TRY(ShapeDeclaration(parser, node, REQUIRE_VALUE));
+	node->type = NodeType::CONST;
+	return node;
+}
+
+// struct name { [attributes] name: type [= value]; ... }
+static Node* ParseStruct(Parser& parser)
+{
+	EatToken(parser);
+	Node* node = NewNode(parser, NodeType::STRUCT);
+	TRY(ExpectIdentifier(parser, &node->name));
+
+	TRY(ExpectToken(parser, TokenType::LEFT_BRACE));
+	Node** tail = &node->child;
+	for (;;)
+	{
+		TRY(LexToken(parser));
+		if (parser.token.token_type == TokenType::RIGHT_BRACE)
+		{
+			EatToken(parser);
+			return node;
+		}
+
+		Node* field = ParseTypedDeclaration(parser, NodeType::FIELD);
+		TRY(field);
+		TRY(ExpectToken(parser, TokenType::SEMICOLON));
+		field->usage = Usage::MEMBER;
+		*tail = field;
+		tail = &field->next;
+	}
+}
+
+// Parses a const, struct or function declaration with its leading attributes. Returns true with
+// *out_declaration = nullptr, eating nothing, if the current token doesn't start one.
 static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 {
 	*out_declaration = nullptr;
+	Node* attributes = nullptr;
+	TRY(ParseAttributes(parser, &attributes));
+
+	Node* node = nullptr;
 	TRY(LexToken(parser));
 	switch (parser.token.token_type)
 	{
-	case TokenType::KW_CONST:
-	{
-		// const expression, where the expression is typically name: type = value. Self-terminating, no ';'.
-		EatToken(parser);
-		Node* node = NewNode(parser, NodeType::CONST);
-		node->child = ParseExpression(parser);
-		TRY(node->child);
-		node->child->usage = Usage::VALUE;
-		*out_declaration = node;
+	case TokenType::KW_CONST: node = ParseConst(parser); break;
+	case TokenType::KW_STRUCT: node = ParseStruct(parser); break;
+	case TokenType::KW_FUNCTION: node = ParseFunction(parser); break;
+	default:
+		// The attributes are already eaten, so the caller can't parse them as something else.
+		if (attributes)
+			return UnexpectedToken(parser);
 		return true;
 	}
-	case TokenType::KW_STRUCT:
-	{
-		// struct name { members }
-		EatToken(parser);
-		Node* node = NewNode(parser, NodeType::STRUCT);
-		TRY(ExpectIdentifier(parser, &node->name));
-		TRY(ParseStatementList(parser, Usage::MEMBER, &node->child));
-		*out_declaration = node;
-		return true;
-	}
-	case TokenType::KW_FUNCTION:
-	{
-		*out_declaration = ParseFunction(parser);
-		return *out_declaration != nullptr;
-	}
-	default: return true;
-	}
+	TRY(node);
+	AttachAttributes(node, attributes);
+	*out_declaration = node;
+	return true;
 }
 
 bool Parse(Parser& parser, Node** out_declarations)

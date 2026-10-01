@@ -20,6 +20,12 @@ Slice<uint8> CompileShader(const char* source)
 		exit(1);
 	}
 
+	for (Node* declaration = declarations; declaration; declaration = declaration->next)
+	{
+		DumpNode(declaration, parser.arena);
+		printf("\n");
+	}
+
 	exit(1);
 	return {};
 }

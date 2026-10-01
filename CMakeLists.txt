@@ -99,6 +99,7 @@ endif()
 add_library(Script STATIC
 	EVA/Script/Script.hpp
 	EVA/Script/Script.cpp
+	EVA/Script/Script_Dump.cpp
 	EVA/Script/Script_Lexer.cpp
 	EVA/Script/Script_Parser.cpp
 )
