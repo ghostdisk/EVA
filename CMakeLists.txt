@@ -129,3 +129,28 @@ else()
 		)
 	endif()
 endif()
+
+option(EVA_BUILD_TESTS "Build the test executables" ON)
+
+if(EVA_BUILD_TESTS AND NOT ANDROID)
+	enable_testing()
+
+	add_library(Test STATIC
+		EVA/Test/Test.hpp
+		EVA/Test/Test.cpp
+	)
+	eva_init_target(Test)
+	target_link_libraries(Test PUBLIC Core)
+
+	# Builds EVA/<module>/Test/Test_*.cpp into a <module>Tests executable linked against the module, registered with CTest.
+	# Test files are compiled into the executable rather than a static library, which would drop their registrations.
+	function(eva_add_tests module)
+		file(GLOB test_sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/EVA/${module}/Test/Test_*.cpp")
+		add_executable(${module}Tests EVA/Test/TestMain.cpp ${test_sources})
+		eva_init_target(${module}Tests)
+		target_link_libraries(${module}Tests PRIVATE Test ${module})
+		add_test(NAME ${module} COMMAND ${module}Tests)
+	endfunction()
+
+	eva_add_tests(Core)
+endif()

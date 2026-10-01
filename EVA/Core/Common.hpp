@@ -59,6 +59,12 @@ struct ZTStringView : StringView
 	}
 };
 
+// Compares contents, not pointers. Works for any mix of StringView, ZTStringView and C strings.
+inline bool operator==(StringView a, StringView b)
+{
+	return a.length == b.length && (a.length == 0 || memcmp(a.data, b.data, a.length) == 0);
+}
+
 template <typename F>
 struct privDefer {
 	F f;
