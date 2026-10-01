@@ -8,7 +8,7 @@ using namespace EVA::Script;
 // Resolve errors go to out_errors joined with " | ", empty if there were none.
 static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out_errors)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
 	Node* module = nullptr;
 	if (!Parse(parser, &module))
 	{
@@ -16,7 +16,7 @@ static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out
 		return nullptr;
 	}
 
-	Resolver resolver = { .arena = arena };
+	Resolver resolver = { .arena = arena, .error_arena = arena };
 	Resolve(resolver, module);
 
 	StringBuilder builder(arena);
@@ -196,10 +196,10 @@ TEST(Resolver, Attributes)
 TEST(Resolver, Scopes)
 {
 	const char* source = "function f() { { } }";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
-	Resolver resolver = { .arena = test.arena };
+	Resolver resolver = { .arena = test.arena, .error_arena = test.arena };
 	REQUIRE(Resolve(resolver, module));
 
 	Node* function = module->child;

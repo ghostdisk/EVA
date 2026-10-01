@@ -6,10 +6,10 @@ namespace EVA::Script
 
 ScriptError* EmitError(Resolver& resolver, const char* format, ...)
 {
-	ScriptError* error = resolver.arena->New<ScriptError>();
+	ScriptError* error = resolver.error_arena->New<ScriptError>();
 	va_list args;
 	va_start(args, format);
-	error->message = avprintf(resolver.arena, format, args);
+	error->message = avprintf(resolver.error_arena, format, args);
 	va_end(args);
 	resolver.errors.push_back(error);
 	return error;

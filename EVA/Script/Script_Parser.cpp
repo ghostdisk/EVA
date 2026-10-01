@@ -22,10 +22,10 @@ enum DeclarationRequire : uint32
 
 ScriptError* EmitError(Parser& parser, const char* format, ...)
 {
-	ScriptError* error = parser.arena->New<ScriptError>();
+	ScriptError* error = parser.error_arena->New<ScriptError>();
 	va_list args;
 	va_start(args, format);
-	error->message = avprintf(parser.arena, format, args);
+	error->message = avprintf(parser.error_arena, format, args);
 	va_end(args);
 	parser.errors.push_back(error);
 	return error;

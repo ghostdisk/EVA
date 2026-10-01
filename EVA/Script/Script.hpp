@@ -216,8 +216,9 @@ struct Parser
 	char* source = nullptr;
 	char* head = nullptr;
 	Token token = {};
-	Arena* arena = nullptr;
-	std::vector<ScriptError*> errors; // allocated in arena
+	Arena* arena = nullptr;           // tokens and the AST
+	Arena* error_arena = nullptr;     // errors and their messages, which can outlive the AST
+	std::vector<ScriptError*> errors; // allocated in error_arena
 
 	// Expression parser stacks, shared by nested expressions. Each ParseExpression only touches entries above where it started.
 	std::vector<Node*> operands;
@@ -254,8 +255,9 @@ struct Scope
 
 struct Resolver
 {
-	Arena* arena = nullptr;
-	std::vector<ScriptError*> errors; // allocated in arena
+	Arena* arena = nullptr;           // scopes
+	Arena* error_arena = nullptr;     // errors and their messages
+	std::vector<ScriptError*> errors; // allocated in error_arena
 	Scope* scope = nullptr;           // the current one
 	uint32 recursion_depth = 0;
 };
@@ -287,6 +289,14 @@ void DumpNode(Node* node, Arena* arena, int indent = 0);
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 
-Slice<uint8> CompileShader(const char* source);
+struct CompileShaderResult
+{
+	Slice<uint8> data;
+	Slice<ScriptError*> errors; // empty on success
+};
+
+// Everything in the result is allocated in arena, so the caller decides how long it lives. The AST and other
+// intermediate data use an arena of their own, destroyed before returning.
+CompileShaderResult CompileShader(Arena* arena, ZTStringView source);
 
 }

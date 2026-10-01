@@ -16,7 +16,7 @@ enum class ParseLevel
 // marked ROOT; a file gives its declarations, space separated. If parsing fails, gives "error: <message>" instead.
 static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* source)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
 	StringBuilder builder(arena);
 
 	Node* first = nullptr;
@@ -424,7 +424,7 @@ TEST(Parser, Module)
 {
 	// CHECK_PARSE shows only the declarations, this checks the MODULE node holding them.
 	const char* source = "const a = 1; function f() {}";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
 
@@ -690,7 +690,7 @@ TEST(ParserRecursion, DepthIsRestored)
 	const char* sources[] = { "function f() { if a { b; } }", "function f() { function g() { function h() {} } }" };
 	for (const char* source : sources)
 	{
-		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 		Node* module = nullptr;
 		Parse(parser, &module);
 		CHECK_EQ(parser.recursion_depth, 0u);
@@ -707,7 +707,7 @@ TEST(Parser, LongPrefixChainDoesNotRecurse)
 {
 	// Prefix operators wait on the parser's operator stack rather than recursing, so they aren't limited by nesting.
 	ZTStringView source = Repeat(test.arena, "", "!", 10000, "a", "");
-	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = test.arena };
+	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = test.arena, .error_arena = test.arena };
 	Node* node = ParseExpression(parser);
 	REQUIRE(node);
 	CHECK_EQ(node->type, NodeType::UNARY);
@@ -720,7 +720,7 @@ static void CheckParseTerminates(Test::Context& test, const char* source)
 {
 	uint8* mark = test.arena->head;
 	{
-		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 		Node* module = nullptr;
 		if (!Parse(parser, &module) && parser.errors.empty())
 			Test::ReportFailure(test, __FILE__, __LINE__, "parse failed without an error for:\n%s", source);

@@ -72,7 +72,16 @@ static void PollEvents()
 
 int EVA::AppMain()
 {
-	Slice<uint8> triangle_shader = Script::CompileShader(triangle_shader_source);
+	Arena* shader_arena = CreateArena(1024 * 1024);
+	DEFER(DestroyArena(shader_arena));
+
+	Script::CompileShaderResult triangle_shader = Script::CompileShader(shader_arena, triangle_shader_source);
+	if (triangle_shader.errors.count)
+	{
+		for (uint32 i = 0; i < triangle_shader.errors.count; ++i)
+			printf("error: %s\n", triangle_shader.errors[i]->message.CString());
+		return 1;
+	}
 
 	PAL::InitWindow(&window,
 		{

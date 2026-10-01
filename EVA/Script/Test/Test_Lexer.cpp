@@ -8,7 +8,7 @@ using namespace EVA::Script;
 // separated: "a <<= 1" gives "identifier(a) <<= number(1)". A lex error ends the string with "error: <message>".
 static ZTStringView LexToString(Arena* arena, const char* source)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
 	StringBuilder builder(arena);
 	for (;;)
 	{
@@ -72,7 +72,7 @@ TEST(Lexer, KeywordLookalikesAreIdentifiers)
 TEST(Lexer, IdentifiersGetAtoms)
 {
 	const char* source = "foo if";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 
 	REQUIRE(LexToken(parser));
 	CHECK_EQ(parser.token.atom, GetAtom("foo"));
@@ -176,7 +176,7 @@ TEST(Lexer, UnexpectedCharacter)
 TEST(Lexer, TokenIsLexedOnceUntilEaten)
 {
 	const char* source = "foo bar";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 
 	REQUIRE(LexToken(parser));
 	Token first = parser.token;
@@ -193,7 +193,7 @@ TEST(Lexer, TokenIsLexedOnceUntilEaten)
 TEST(Lexer, TokenTextPointsIntoSource)
 {
 	const char* source = "  foo";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 	REQUIRE(LexToken(parser));
 	CHECK(parser.token.start == source + 2);
 	CHECK(parser.token.end == source + 5);
@@ -202,7 +202,7 @@ TEST(Lexer, TokenTextPointsIntoSource)
 TEST(Lexer, EndOfFileRepeats)
 {
 	const char* source = "a";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 	REQUIRE(LexToken(parser));
 	EatToken(parser);
 	for (int i = 0; i < 3; ++i)
