@@ -33,6 +33,8 @@ static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* so
 		break;
 	case ParseLevel::FILE:
 		parsed = Parse(parser, &first);
+		if (parsed)
+			first = first->child; // the MODULE's declarations
 		break;
 	}
 
@@ -418,6 +420,19 @@ TEST(Parser, EmptyFile)
 	CHECK_PARSE(" // nothing\n", "");
 }
 
+TEST(Parser, Module)
+{
+	// CHECK_PARSE shows only the declarations, this checks the MODULE node holding them.
+	const char* source = "const a = 1; function f() {}";
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Node* module = nullptr;
+	REQUIRE(Parse(parser, &module));
+
+	StringBuilder builder(test.arena);
+	SerializeNode(builder, module);
+	CHECK_EQ(builder.ToString(), "([ROOT]MODULE ([DECLARATION]CONST a ([VALUE]NUMBER 1)) ([DECLARATION]FUNCTION f ([BODY]BLOCK)))");
+}
+
 TEST(Parser, Const)
 {
 	CHECK_PARSE("const x = 1;", "([DECLARATION]CONST x ([VALUE]NUMBER 1))");
@@ -676,8 +691,8 @@ TEST(ParserRecursion, DepthIsRestored)
 	for (const char* source : sources)
 	{
 		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
-		Node* declarations = nullptr;
-		Parse(parser, &declarations);
+		Node* module = nullptr;
+		Parse(parser, &module);
 		CHECK_EQ(parser.recursion_depth, 0u);
 	}
 }
@@ -706,8 +721,8 @@ static void CheckParseTerminates(Test::Context& test, const char* source)
 	uint8* mark = test.arena->head;
 	{
 		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena };
-		Node* declarations = nullptr;
-		if (!Parse(parser, &declarations) && parser.errors.empty())
+		Node* module = nullptr;
+		if (!Parse(parser, &module) && parser.errors.empty())
 			Test::ReportFailure(test, __FILE__, __LINE__, "parse failed without an error for:\n%s", source);
 	}
 	test.arena->head = mark;

@@ -107,6 +107,7 @@ add_library(Script STATIC
 	EVA/Script/Script_Dump.cpp
 	EVA/Script/Script_Lexer.cpp
 	EVA/Script/Script_Parser.cpp
+	EVA/Script/Script_Resolver.cpp
 )
 eva_init_target(Script)
 target_link_libraries(Script PUBLIC Core)

@@ -13,20 +13,24 @@ Slice<uint8> CompileShader(const char* source)
 	};
 	DEFER(DestroyArena(parser.arena));
 
-	Node* declarations = nullptr;
-	if (!Parse(parser, &declarations))
+	Node* module = nullptr;
+	if (!Parse(parser, &module))
 	{
 		for (ScriptError* error : parser.errors)
 			printf("error: %s\n", error->message.CString());
 		Panic("shader failed to parse");
 	}
 
-	for (Node* declaration = declarations; declaration; declaration = declaration->next)
-	{
-		DumpNode(declaration, parser.arena);
-		printf("\n");
-	}
+	Resolver resolver = { .arena = parser.arena };
+	bool resolved = Resolve(resolver, module);
+	for (ScriptError* error : resolver.errors)
+		printf("error: %s\n", error->message.CString());
 
+	DumpNode(module, parser.arena);
+	printf("\n");
+
+	if (!resolved)
+		Panic("shader failed to resolve");
 	Panic("CompileShader: code generation is not implemented yet");
 }
 

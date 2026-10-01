@@ -76,16 +76,19 @@ ZTStringView NodeTypeToString(NodeType type)
 	switch (type)
 	{
 		case NodeType::NONE: return "NONE";
+		case NodeType::MODULE: return "MODULE";
 		case NodeType::CONST: return "CONST";
 		case NodeType::STRUCT: return "STRUCT";
 		case NodeType::FUNCTION: return "FUNCTION";
 		case NodeType::PARAMETER: return "PARAMETER";
 		case NodeType::FIELD: return "FIELD";
+		case NodeType::VARIABLE: return "VARIABLE";
 		case NodeType::BLOCK: return "BLOCK";
 		case NodeType::RETURN: return "RETURN";
 		case NodeType::NUMBER: return "NUMBER";
 		case NodeType::BOOL: return "BOOL";
 		case NodeType::IDENTIFIER: return "IDENTIFIER";
+		case NodeType::REFERENCE: return "REFERENCE";
 		case NodeType::INIT_LIST: return "INIT_LIST";
 		case NodeType::UNARY: return "UNARY";
 		case NodeType::POSTFIX: return "POSTFIX";
@@ -153,6 +156,9 @@ void DumpNode(Node* node, Arena* arena, int indent)
 		case NodeType::BINARY:
 			printf(" | %s", TokenToString(node->op).CString());
 			break;
+		case NodeType::REFERENCE:
+			printf(" -> %s", NodeTypeToString(node->target->type).CString());
+			break;
 		default:
 			break;
 	}
@@ -188,6 +194,10 @@ void SerializeNode(StringBuilder& builder, Node* node)
 		case NodeType::BINARY:
 			builder.Append(" ");
 			builder.Append(TokenToString(node->op));
+			break;
+		case NodeType::REFERENCE:
+			builder.Append(" -> ");
+			builder.Append(NodeTypeToString(node->target->type));
 			break;
 		default:
 			break;

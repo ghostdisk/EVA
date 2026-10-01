@@ -95,12 +95,15 @@ enum class NodeType : uint8
 {
 	NONE = 0,
 
+	MODULE, // a whole source file, its children are the declarations
+
 	// declarations
 	CONST,
 	STRUCT,
 	FUNCTION,
 	PARAMETER,
 	FIELD,
+	VARIABLE, // name: type, made from a ':' expression by the resolver
 
 	// statements
 	BLOCK,
@@ -110,6 +113,7 @@ enum class NodeType : uint8
 	NUMBER,
 	BOOL,
 	IDENTIFIER,
+	REFERENCE, // an IDENTIFIER the resolver found the declaration of
 	INIT_LIST,
 	UNARY,
 	POSTFIX,
@@ -155,6 +159,8 @@ enum class Usage : uint8
 // Keep in sync with Usage (Script_Dump.cpp).
 ZTStringView UsageToString(Usage usage);
 
+struct Scope;
+
 struct Node
 {
 	NodeType type = NodeType::NONE;
@@ -165,6 +171,8 @@ struct Node
 		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
 		bool value;           // BOOL
 		TokenType op;         // UNARY, POSTFIX, BINARY
+		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
+		Node* target;         // REFERENCE: the declaration
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -223,17 +231,59 @@ ScriptError* EmitError(Parser& parser, const char* format, ...);
 bool LexToken(Parser& parser);
 void EatToken(Parser& parser);
 
-// Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
+// Parses a whole source file into a MODULE node, whose children are the declarations.
 // Returns false on the first error, which is added to parser.errors.
-bool Parse(Parser& parser, Node** out_declarations);
+bool Parse(Parser& parser, Node** out_module);
 
 Node* ParseExpression(Parser& parser);
 Node* ParseStatement(Parser& parser);
+
+struct Definition
+{
+	Atom name = Atom::NONE;
+	Node* node = nullptr;
+	Definition* next = nullptr;
+};
+
+// Names declared in a module, function or block. Inner scopes can shadow names from their parents.
+struct Scope
+{
+	Scope* parent = nullptr;     // nullptr for the global scope
+	Definition* first = nullptr; // a list for now, scopes are small
+};
+
+struct Resolver
+{
+	Arena* arena = nullptr;
+	std::vector<ScriptError*> errors; // allocated in arena
+	Scope* scope = nullptr;           // the current one
+	uint32 recursion_depth = 0;
+};
+
+ScriptError* EmitError(Resolver& resolver, const char* format, ...);
+
+// Turns identifiers into REFERENCEs to their declarations and gives MODULE, FUNCTION and BLOCK nodes their scope.
+// Functions and structs can be referenced from anywhere in their scope, everything else only after it's declared.
+// Unknown names stay IDENTIFIERs. Errors don't stop resolving the rest of the tree. Returns whether there were none.
+bool Resolve(Resolver& resolver, Node* module);
+
+// Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
+// calling itself, directly or through others; they share owner.recursion_depth, so mutual recursion counts too.
+// owner is a Parser or Resolver. Returns false / nullptr from the calling function past RECURSION_LIMIT.
+#define CHECK_RECURSION(owner)                       \
+	(owner).recursion_depth++;                       \
+	DEFER((owner).recursion_depth--);                \
+	if ((owner).recursion_depth > RECURSION_LIMIT)   \
+	{                                                \
+		EmitError(owner, "nested too deeply");       \
+		return {};                                   \
+	}
 
 void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
 // ([USAGE]TYPE name payload children...), e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
+// A REFERENCE's payload is its target's type: ([CALLEE]REFERENCE f -> FUNCTION).
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 

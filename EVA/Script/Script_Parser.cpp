@@ -87,18 +87,6 @@ static const uint32 PREFIX_PRECEDENCE = 13;
 static const uint32 DECLARATION_PRECEDENCE = 2;
 static const uint32 ASSIGNMENT_PRECEDENCE = 1;
 
-// Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
-// calling itself, directly or through others. All of them share parser.recursion_depth, so mutual recursion counts too.
-// Returns false / nullptr from the calling function past RECURSION_LIMIT.
-#define CHECK_RECURSION(parser)                               \
-	(parser).recursion_depth++;                               \
-	DEFER((parser).recursion_depth--);                        \
-	if ((parser).recursion_depth > RECURSION_LIMIT)           \
-	{                                                         \
-		EmitError(parser, "nested too deeply");               \
-		return {};                                            \
-	}
-
 // Higher binds tighter. 0 if the token isn't a binary operator.
 static uint32 BinaryPrecedence(TokenType op)
 {
@@ -816,9 +804,13 @@ static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 	return true;
 }
 
-bool Parse(Parser& parser, Node** out_declarations)
+bool Parse(Parser& parser, Node** out_module)
 {
-	Node** tail = out_declarations;
+	Node* module = NewNode(parser, NodeType::MODULE);
+	module->usage = Usage::ROOT;
+	*out_module = module;
+
+	Node** tail = &module->child;
 	for (;;)
 	{
 		TRY(LexToken(parser));
