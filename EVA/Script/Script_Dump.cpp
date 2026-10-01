@@ -83,6 +83,7 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::PARAMETER: return "PARAMETER";
 		case NodeType::FIELD: return "FIELD";
 		case NodeType::VARIABLE: return "VARIABLE";
+		case NodeType::ENUM_VALUE: return "ENUM_VALUE";
 		case NodeType::BLOCK: return "BLOCK";
 		case NodeType::RETURN: return "RETURN";
 		case NodeType::NUMBER: return "NUMBER";
@@ -154,6 +155,9 @@ void DumpNode(Node* node, Arena* arena, int indent)
 		case NodeType::BOOL:
 			printf(" | %s", node->value ? "true" : "false");
 			break;
+		case NodeType::ENUM_VALUE:
+			printf(" | %lld", (long long)node->enum_value);
+			break;
 		case NodeType::UNARY:
 		case NodeType::POSTFIX:
 		case NodeType::BINARY:
@@ -200,6 +204,9 @@ void SerializeNode(StringBuilder& builder, Node* node)
 			break;
 		case NodeType::BOOL:
 			builder.Append(node->value ? " true" : " false");
+			break;
+		case NodeType::ENUM_VALUE:
+			builder.AppendFormat(" %lld", (long long)node->enum_value);
 			break;
 		case NodeType::UNARY:
 		case NodeType::POSTFIX:

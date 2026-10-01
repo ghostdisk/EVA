@@ -222,7 +222,6 @@ TEST(Resolver, Scopes)
 
 TEST(Resolver, TriangleShader)
 {
-	// Only the attributes' arguments don't resolve yet.
 	CHECK_SHADER_RESOLVE_ERRORS(R"(
 const positions: [3]float2 = {
 	float2( 0.0,  0.5),
@@ -245,7 +244,7 @@ function PSMain(): @location(0) float4
 	return float4(1.0, 1.0, 1.0, 1.0);
 }
 )",
-		"unknown identifier 'vertex_index' | unknown identifier 'position'");
+		"");
 }
 
 TEST(Resolver, ShaderIntrinsics)
@@ -255,6 +254,50 @@ TEST(Resolver, ShaderIntrinsics)
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
 		"([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE location -> location) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
 	CHECK_SHADER_RESOLVE_ERRORS("@fragment function f(@builtin(x) a: uint) {}", "unknown identifier 'x'");
+}
+
+TEST(Resolver, BuiltinArgumentsAreBuiltinNames)
+{
+	CHECK_SHADER_RESOLVE("function f(@builtin(vertex_index) id: uint) {}",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE builtin -> builtin) "
+		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([TYPE]TYPE_REFERENCE uint -> uint)) ([BODY]BLOCK))");
+	// Nothing else is visible, and the builtin names win over the module's.
+	CHECK_SHADER_RESOLVE_ERRORS("const c = 1; function f(@builtin(c) a: uint) {}", "unknown identifier 'c'");
+	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(float4) a: uint) {}", "unknown identifier 'float4'");
+	CHECK_SHADER_RESOLVE("function f(position: float4): @builtin(position) float4 {}",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([TYPE]TYPE_REFERENCE float4 -> float4)) "
+		"([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 ([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE builtin -> builtin) "
+		"([ARGUMENT]REFERENCE position -> ENUM_VALUE))) ([BODY]BLOCK))");
+	// Builtin names are only visible in the arguments.
+	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(position) a: float4) { position; }", "unknown identifier 'position'");
+	CHECK_SHADER_RESOLVE_ERRORS("const x = 1; function f(@@x builtin(position) a: float4) {}", "");
+}
+
+TEST(Resolver, OtherIntrinsicArgumentsResolveNormally)
+{
+	CHECK_SHADER_RESOLVE("const SLOT = 0; function f(): @location(SLOT) float4 {}",
+		"([DECLARATION]CONST SLOT ([VALUE]NUMBER 0)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
+		"([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE location -> location) ([ARGUMENT]REFERENCE SLOT -> CONST))) ([BODY]BLOCK))");
+	CHECK_SHADER_RESOLVE_ERRORS("function f(): @location(position) float4 {}", "unknown identifier 'position'");
+}
+
+TEST(Resolver, DeclarationsInBuiltinArgumentsStayInTheModule)
+{
+	// Both modules share the context, so a declaration leaking into the builtin names would show up in the second.
+	Context context;
+	InitContext(context, test.arena, ContextKind::SHADER);
+	const char* sources[] = { "function f(@builtin(a: position) p: uint) {}", "function f(@builtin(a) p: uint) {}" };
+	bool resolved[2] = {};
+	for (uint32 i = 0; i < 2; ++i)
+	{
+		Parser parser = { .source = (char*)sources[i], .head = (char*)sources[i], .arena = test.arena, .error_arena = test.arena };
+		Node* module = nullptr;
+		REQUIRE(Parse(parser, &module));
+		Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+		resolved[i] = Resolve(resolver, module);
+	}
+	CHECK(resolved[0]);
+	CHECK(!resolved[1]);
 }
 
 TEST(Resolver, ShaderIntrinsicsAreNotInScripts)

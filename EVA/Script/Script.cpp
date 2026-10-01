@@ -41,12 +41,30 @@ static void DefineType(Context& context, Scope* scope, Type* type)
 	NewDefinition(context, scope, DefinitionKind::TYPE, type->name)->type = type;
 }
 
-static void DefineIntrinsic(Context& context, Scope* scope, StringView name, IntrinsicKind kind)
+static Intrinsic* DefineIntrinsic(Context& context, Scope* scope, StringView name, IntrinsicKind kind)
 {
 	Intrinsic* intrinsic = context.arena->New<Intrinsic>();
 	intrinsic->kind = kind;
 	intrinsic->name = GetAtom(name);
 	NewDefinition(context, scope, DefinitionKind::INTRINSIC, intrinsic->name)->intrinsic = intrinsic;
+	return intrinsic;
+}
+
+static EnumType* NewEnumType(Context& context, StringView name)
+{
+	EnumType* type = context.arena->New<EnumType>();
+	type->name = GetAtom(name);
+	type->scope = context.arena->New<Scope>();
+	return type;
+}
+
+static void DefineEnumValue(Context& context, EnumType* type, StringView name, int64 value)
+{
+	Node* node = context.arena->New<Node>();
+	node->type = NodeType::ENUM_VALUE;
+	node->name = GetAtom(name);
+	node->enum_value = value;
+	NewDefinition(context, type->scope, DefinitionKind::NODE, node->name)->node = node;
 }
 
 // The scope above every module, naming the built-ins.
@@ -66,7 +84,14 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 
 	if (kind == ContextKind::SHADER)
 	{
-		DefineIntrinsic(context, scope, "builtin", IntrinsicKind::BUILTIN);
+		EnumType* builtin_type = NewEnumType(context, "Builtin");
+		DefineEnumValue(context, builtin_type, "vertex_index", (int64)Builtin::VERTEX_INDEX);
+		DefineEnumValue(context, builtin_type, "instance_index", (int64)Builtin::INSTANCE_INDEX);
+		DefineEnumValue(context, builtin_type, "position", (int64)Builtin::POSITION);
+		DefineEnumValue(context, builtin_type, "front_facing", (int64)Builtin::FRONT_FACING);
+		DefineEnumValue(context, builtin_type, "frag_depth", (int64)Builtin::FRAG_DEPTH);
+		DefineIntrinsic(context, scope, "builtin", IntrinsicKind::BUILTIN)->argument_scope = builtin_type->scope;
+
 		DefineIntrinsic(context, scope, "location", IntrinsicKind::LOCATION);
 		DefineIntrinsic(context, scope, "vertex", IntrinsicKind::VERTEX);
 		DefineIntrinsic(context, scope, "fragment", IntrinsicKind::FRAGMENT);

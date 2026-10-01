@@ -155,6 +155,27 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 			return ResolveVariable(resolver, node);
 		return ResolveChildren(resolver, node);
 	}
+	case NodeType::CALL:
+	{
+		bool resolved = true;
+		for (Node* child = node->child; child; child = child->next)
+		{
+			if (child->usage != Usage::ARGUMENT)
+				resolved = ResolveNode(resolver, child) && resolved;
+		}
+
+		// A fresh scope, so declarations in the arguments don't end up in the intrinsic's, which outlives the module.
+		Node* callee = FindChild(node, Usage::CALLEE);
+		if (callee->type == NodeType::INTRINSIC_REFERENCE && callee->target_intrinsic->argument_scope)
+			resolver.scope = NewScope(resolver, callee->target_intrinsic->argument_scope);
+
+		for (Node* child = node->child; child; child = child->next)
+		{
+			if (child->usage == Usage::ARGUMENT)
+				resolved = ResolveNode(resolver, child) && resolved;
+		}
+		return resolved;
+	}
 	case NodeType::IDENTIFIER:
 	{
 		bool resolved = true;

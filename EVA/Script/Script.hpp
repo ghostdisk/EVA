@@ -103,7 +103,8 @@ enum class NodeType : uint8
 	FUNCTION,
 	PARAMETER,
 	FIELD,
-	VARIABLE, // name: type, made from a ':' expression by the resolver
+	VARIABLE,   // name: type, made from a ':' expression by the resolver
+	ENUM_VALUE,
 
 	// statements
 	BLOCK,
@@ -182,6 +183,7 @@ struct Node
 		Type* target_type;           // TYPE_REFERENCE
 		Intrinsic* target_intrinsic; // INTRINSIC_REFERENCE
 		Constant* target_constant;   // CONSTANT_REFERENCE
+		int64 enum_value;            // ENUM_VALUE
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -253,6 +255,7 @@ enum class TypeKind : uint8
 	PRIMITIVE,
 	VECTOR,
 	MATRIX,
+	ENUM,
 };
 
 // Base of the type structs, one per TypeKind.
@@ -297,6 +300,23 @@ struct MatrixType : Type
 	uint32 columns = 0;
 
 	MatrixType() { kind = TypeKind::MATRIX; }
+};
+
+struct EnumType : Type
+{
+	Scope* scope = nullptr; // the values, as ENUM_VALUE nodes
+
+	EnumType() { kind = TypeKind::ENUM; }
+};
+
+// The values of the Builtin enum, the argument of @builtin(...).
+enum class Builtin : uint8
+{
+	VERTEX_INDEX,
+	INSTANCE_INDEX,
+	POSITION,
+	FRONT_FACING,
+	FRAG_DEPTH,
 };
 
 enum class IntrinsicKind : uint8

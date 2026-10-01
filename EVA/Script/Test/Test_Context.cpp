@@ -60,10 +60,57 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 		CHECK_EQ(found->kind, DefinitionKind::INTRINSIC);
 		CHECK_EQ(found->intrinsic->kind, e.kind);
 		CHECK_EQ(found->intrinsic->name, GetAtom(e.name));
-		CHECK(found->intrinsic->argument_scope == nullptr);
+		CHECK_EQ(found->intrinsic->argument_scope != nullptr, e.kind == IntrinsicKind::BUILTIN);
 	}
 
 	CHECK(FindGlobalType(context, "float4"));
+}
+
+TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SHADER);
+	Intrinsic* builtin = nullptr;
+	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
+	{
+		if (definition->name == GetAtom("builtin"))
+			builtin = definition->intrinsic;
+	}
+	REQUIRE(builtin);
+	Scope* scope = builtin->argument_scope;
+	REQUIRE(scope);
+	CHECK(scope->parent == nullptr);
+
+	struct Expected
+	{
+		const char* name;
+		Builtin value;
+	};
+	Expected expected[] = {
+		{ "vertex_index", Builtin::VERTEX_INDEX },
+		{ "instance_index", Builtin::INSTANCE_INDEX },
+		{ "position", Builtin::POSITION },
+		{ "front_facing", Builtin::FRONT_FACING },
+		{ "frag_depth", Builtin::FRAG_DEPTH },
+	};
+	uint32 count = 0;
+	for (Definition* definition = scope->first; definition; definition = definition->next)
+		count++;
+	CHECK_EQ(count, 5u);
+	for (const Expected& e : expected)
+	{
+		Definition* found = nullptr;
+		for (Definition* definition = scope->first; definition; definition = definition->next)
+		{
+			if (definition->name == GetAtom(e.name))
+				found = definition;
+		}
+		REQUIRE(found);
+		CHECK_EQ(found->kind, DefinitionKind::NODE);
+		CHECK_EQ(found->node->type, NodeType::ENUM_VALUE);
+		CHECK_EQ(found->node->name, GetAtom(e.name));
+		CHECK_EQ(found->node->enum_value, (int64)e.value);
+	}
 }
 
 TEST(Context, Primitives)
