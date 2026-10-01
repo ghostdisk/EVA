@@ -12,6 +12,9 @@ add_library(Core STATIC
 	EVA/Core/Arena.cpp
 	EVA/Core/Atom.hpp
 	EVA/Core/Atom.cpp
+	EVA/Core/Error.hpp
+	EVA/Core/Panic.hpp
+	EVA/Core/Panic.cpp
 )
 eva_init_target(Core)
 

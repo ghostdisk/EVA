@@ -1,5 +1,5 @@
 #include <EVA/Script/Script.hpp>
-#include <stdlib.h>
+#include <EVA/Core/Panic.hpp>
 
 namespace EVA::Script
 {
@@ -18,7 +18,7 @@ Slice<uint8> CompileShader(const char* source)
 	{
 		for (ScriptError* error : parser.errors)
 			printf("error: %s\n", error->message.CString());
-		exit(1);
+		Panic("shader failed to parse");
 	}
 
 	for (Node* declaration = declarations; declaration; declaration = declaration->next)
@@ -27,8 +27,7 @@ Slice<uint8> CompileShader(const char* source)
 		printf("\n");
 	}
 
-	exit(1);
-	return {};
+	Panic("CompileShader: code generation is not implemented yet");
 }
 
 }

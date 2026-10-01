@@ -6,7 +6,7 @@
 namespace EVA
 {
 
-// Fixed-capacity bump allocator. Exits the process when out of memory, allocations never return nullptr.
+// Fixed-capacity bump allocator. Panics when out of memory, allocations never return nullptr.
 struct Arena
 {
 	uint8* begin = nullptr;

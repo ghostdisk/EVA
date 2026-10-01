@@ -1,31 +1,27 @@
 #include <EVA/GPU/GPU_D3D11.hpp>
 #include <EVA/PAL/PAL.hpp>
+#include <EVA/Core/Panic.hpp>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <cstdio>
-#include <cstdlib>
 #include <vector>
 
-#define HRES_ASSERT(expr)                                                                                             \
-	do                                                                                                                \
-	{                                                                                                                 \
-		HRESULT hres_assert_result = (expr);                                                                           \
-		if (FAILED(hres_assert_result))                                                                                 \
-		{                                                                                                             \
-			fprintf(stderr, "%s failed with HRESULT 0x%08lX at %s:%d\n", #expr, (unsigned long)hres_assert_result, \
-				__FILE__, __LINE__);                                                                                    \
-			exit(1);                                                                                                  \
-		}                                                                                                             \
+#define HRES_ASSERT(expr)                                                                                   \
+	do                                                                                                      \
+	{                                                                                                       \
+		HRESULT hres_assert_result = (expr);                                                                \
+		if (FAILED(hres_assert_result))                                                                     \
+		{                                                                                                   \
+			Panic("%s failed with HRESULT 0x%08lX at %s:%d", #expr, (unsigned long)hres_assert_result,     \
+				__FILE__, __LINE__);                                                                        \
+		}                                                                                                   \
 	} while (0)
 
 #define D3D11_ASSERT(expr)                                                                                  \
-	do                                                                                                     \
-	{                                                                                                      \
-		if (!(expr))                                                                                       \
-		{                                                                                                  \
-			fprintf(stderr, "%s failed at %s:%d\n", #expr, __FILE__, __LINE__);                    \
-			exit(1);                                                                                       \
-		}                                                                                                  \
+	do                                                                                                      \
+	{                                                                                                       \
+		if (!(expr))                                                                                        \
+			Panic("%s failed at %s:%d", #expr, __FILE__, __LINE__);                                         \
 	} while (0)
 
 namespace EVA::GPU::D3D11

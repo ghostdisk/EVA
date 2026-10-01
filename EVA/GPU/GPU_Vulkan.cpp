@@ -1,8 +1,8 @@
 #include <EVA/GPU/GPU_Vulkan.hpp>
 #include <EVA/PAL/PAL.hpp>
+#include <EVA/Core/Panic.hpp>
 #include <volk.h>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <utility>
 #include <vector>
@@ -18,10 +18,7 @@
 	{                                                                                                                   \
 		VkResult vk_assert_result = (expr);                                                                             \
 		if (vk_assert_result != VK_SUCCESS)                                                                             \
-		{                                                                                                               \
-			fprintf(stderr, "%s failed with VkResult %d at %s:%d\n", #expr, (int)vk_assert_result, __FILE__, __LINE__); \
-			exit(1);                                                                                                    \
-		}                                                                                                               \
+			Panic("%s failed with VkResult %d at %s:%d", #expr, (int)vk_assert_result, __FILE__, __LINE__);             \
 	} while (0)
 
 namespace EVA::GPU::Vulkan
@@ -230,8 +227,7 @@ static void ImageBarrier(const VulkanTexture& texture, ImageState before, ImageS
 		}
 		default:
 		{
-			fprintf(stderr, "not implemented");
-			exit(1);
+			Panic("image barrier from UNDEFINED to state %d not implemented", (int)after);
 		}
 		}
 	}

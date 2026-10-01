@@ -9,7 +9,7 @@
 #include <EVA/GPU/GPU_Vulkan.hpp>
 #endif
 
-#include <cstdlib>
+#include <EVA/Core/Panic.hpp>
 
 namespace EVA::GPU
 {
@@ -44,8 +44,10 @@ void Init(const InitOptions& init_options)
 		}
 	}
 
-	if (!backend_desc || !backend_desc->Init(device, init_options))
-		std::abort();
+	if (!backend_desc)
+		Panic("no GPU backend available");
+	if (!backend_desc->Init(device, init_options))
+		Panic("failed to initialize the GPU backend");
 }
 
 }

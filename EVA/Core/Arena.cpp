@@ -1,14 +1,9 @@
 #include <EVA/Core/Arena.hpp>
+#include <EVA/Core/Panic.hpp>
 #include <stdlib.h>
 
 namespace EVA
 {
-
-static void OutOfMemory()
-{
-	fprintf(stderr, "out of memory\n");
-	exit(1);
-}
 
 void Arena::AlignHead(size_t alignment)
 {
@@ -20,7 +15,7 @@ void Arena::AlignHead(size_t alignment)
 void* Arena::Allocate(size_t size)
 {
 	if (size > (size_t)(end - head))
-		OutOfMemory();
+		Panic("arena out of memory: %zu bytes requested, %zu left", size, (size_t)(end - head));
 	void* memory = head;
 	head += size;
 	return memory;
@@ -36,7 +31,7 @@ Arena* CreateArena(size_t capacity)
 {
 	uint8* memory = (uint8*)malloc(sizeof(Arena) + capacity);
 	if (!memory)
-		OutOfMemory();
+		Panic("out of memory: failed to allocate a %zu byte arena", capacity);
 
 	Arena* arena = new (memory) Arena();
 	arena->begin = memory + sizeof(Arena);
