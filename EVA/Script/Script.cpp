@@ -16,7 +16,8 @@ Slice<uint8> CompileShader(const char* source)
 	Node* declarations = nullptr;
 	if (!Parse(parser, &declarations))
 	{
-		printf("error: %s\n", parser.error_buffer);
+		for (ScriptError* error : parser.errors)
+			printf("error: %s\n", error->message.CString());
 		exit(1);
 	}
 

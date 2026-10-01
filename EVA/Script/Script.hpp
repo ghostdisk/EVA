@@ -2,6 +2,7 @@
 #include <EVA/Core/Common.hpp>
 #include <EVA/Core/Arena.hpp>
 #include <EVA/Core/Atom.hpp>
+#include <EVA/Core/Error.hpp>
 #include <vector>
 
 namespace EVA::Script
@@ -189,13 +190,18 @@ struct PendingOp
 	Node* payload = nullptr; // ARRAY: the size
 };
 
+struct ScriptError : Error
+{
+	ScriptError() { error_family = ErrorFamily::SCRIPT_ERROR; }
+};
+
 struct Parser
 {
 	char* source = nullptr;
 	char* head = nullptr;
-	char error_buffer[256] = {}; // temp
 	Token token = {};
 	Arena* arena = nullptr;
+	std::vector<ScriptError*> errors; // allocated in arena
 
 	// Expression parser stacks, shared by nested expressions. Each ParseExpression only touches entries above where it started.
 	std::vector<Node*> operands;
@@ -203,11 +209,15 @@ struct Parser
 	uint32 depth = 0; // expression and statement nesting, bounded so untrusted input can't overflow the stack
 };
 
+// Allocates an error in parser.arena with a printf formatted message and adds it to parser.errors.
+// Returns the error so callers can attach more data, not false: write EmitError(...); return false;
+ScriptError* EmitError(Parser& parser, const char* format, ...);
+
 bool LexToken(Parser& parser);
 void EatToken(Parser& parser);
 
 // Parses a whole source file. out_declarations receives the first top-level declaration, the rest are chained via next.
-// Returns false on the first error, with the message in parser.error_buffer.
+// Returns false on the first error, which is added to parser.errors.
 bool Parse(Parser& parser, Node** out_declarations);
 
 void DumpNode(Node* node, Arena* arena, int indent = 0);

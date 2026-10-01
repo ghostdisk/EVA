@@ -150,7 +150,7 @@ bool LexToken(Parser& parser)
 
 	if (ch == '/' && parser.head[1] == '*')
 	{
-		snprintf(parser.error_buffer, sizeof(parser.error_buffer), "unterminated block comment");
+		EmitError(parser, "unterminated block comment");
 		return false;
 	}
 
@@ -228,7 +228,7 @@ bool LexToken(Parser& parser)
 
 	// ...
 
-	snprintf(parser.error_buffer, sizeof(parser.error_buffer), "unexpected character %d", (int)ch);
+	EmitError(parser, "unexpected character %d", (int)ch);
 	return false;
 }
 

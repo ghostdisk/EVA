@@ -20,21 +20,23 @@ enum DeclarationRequire : uint32
 			return {}; \
 	} while (0)
 
-static bool Error(Parser& parser, const char* format, ...)
+ScriptError* EmitError(Parser& parser, const char* format, ...)
 {
+	ScriptError* error = parser.arena->New<ScriptError>();
 	va_list args;
 	va_start(args, format);
-	vsnprintf(parser.error_buffer, sizeof(parser.error_buffer), format, args);
+	error->message = avprintf(parser.arena, format, args);
 	va_end(args);
-	return false;
+	parser.errors.push_back(error);
+	return error;
 }
 
-static bool UnexpectedToken(Parser& parser)
+static ScriptError* UnexpectedToken(Parser& parser)
 {
 	Token& token = parser.token;
 	if (token.token_type == TokenType::END_OF_FILE)
-		return Error(parser, "unexpected end of file");
-	return Error(parser, "unexpected token '%.*s'", (int)(token.end - token.start), token.start);
+		return EmitError(parser, "unexpected end of file");
+	return EmitError(parser, "unexpected token '%.*s'", (int)(token.end - token.start), token.start);
 }
 
 // Eats the current token if it's token_type, errors otherwise.
@@ -45,8 +47,10 @@ static bool ExpectToken(Parser& parser, TokenType token_type)
 	if (token.token_type != token_type)
 	{
 		if (token.token_type == TokenType::END_OF_FILE)
-			return Error(parser, "unexpected end of file while looking for token %d", (int)token_type);
-		return Error(parser, "unexpected token '%.*s' while looking for token %d", (int)(token.end - token.start), token.start, (int)token_type);
+			EmitError(parser, "unexpected end of file while looking for token %d", (int)token_type);
+		else
+			EmitError(parser, "unexpected token '%.*s' while looking for token %d", (int)(token.end - token.start), token.start, (int)token_type);
+		return false;
 	}
 	EatToken(parser);
 	return true;
@@ -57,7 +61,10 @@ static bool ExpectIdentifier(Parser& parser, Atom* out_name)
 {
 	TRY(LexToken(parser));
 	if (parser.token.token_type != TokenType::IDENTIFIER)
-		return UnexpectedToken(parser);
+	{
+		UnexpectedToken(parser);
+		return false;
+	}
 	*out_name = parser.token.atom;
 	EatToken(parser);
 	return true;
@@ -82,7 +89,10 @@ static const uint32 ASSIGNMENT_PRECEDENCE = 1;
 static bool EnterNesting(Parser& parser)
 {
 	if (parser.depth >= MAX_NESTING_DEPTH)
-		return Error(parser, "nested too deeply");
+	{
+		EmitError(parser, "nested too deeply");
+		return false;
+	}
 	parser.depth++;
 	return true;
 }
@@ -625,11 +635,20 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 		head = FindChild(head, Usage::LEFT);
 	}
 	if (head->type != NodeType::IDENTIFIER)
-		return Error(parser, "expected name [: type] [= value]");
+	{
+		EmitError(parser, "expected name [: type] [= value]");
+		return false;
+	}
 	if ((required & REQUIRE_TYPE) && !type)
-		return Error(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena).CString());
+	{
+		EmitError(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena).CString());
+		return false;
+	}
 	if ((required & REQUIRE_VALUE) && !value)
-		return Error(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena).CString());
+	{
+		EmitError(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena).CString());
+		return false;
+	}
 
 	node->name = head->name;
 	node->text = nullptr;
@@ -771,7 +790,10 @@ static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 	default:
 		// The attributes are already eaten, so the caller can't parse them as something else.
 		if (attributes)
-			return UnexpectedToken(parser);
+		{
+			UnexpectedToken(parser);
+			return false;
+		}
 		return true;
 	}
 	TRY(node);
@@ -792,7 +814,10 @@ bool Parse(Parser& parser, Node** out_declarations)
 		Node* declaration = nullptr;
 		TRY(ParseDeclaration(parser, &declaration));
 		if (!declaration)
-			return UnexpectedToken(parser);
+		{
+			UnexpectedToken(parser);
+			return false;
+		}
 		declaration->usage = Usage::DECLARATION;
 		*tail = declaration;
 		tail = &declaration->next;
