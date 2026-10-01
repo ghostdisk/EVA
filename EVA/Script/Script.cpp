@@ -25,18 +25,32 @@ static VectorType* NewVectorType(Context& context, StringView name, PrimitiveTyp
 	return type;
 }
 
+static Definition* NewDefinition(Context& context, Scope* scope, DefinitionKind kind, Atom name)
+{
+	Definition* definition = context.arena->New<Definition>();
+	definition->kind = kind;
+	definition->name = name;
+	definition->next = scope->first;
+	scope->first = definition;
+	return definition;
+}
+
 // Adds a built-in type to the scope, under its name.
 static void DefineType(Context& context, Scope* scope, Type* type)
 {
-	Definition* definition = context.arena->New<Definition>();
-	definition->name = type->name;
-	definition->type = type;
-	definition->next = scope->first;
-	scope->first = definition;
+	NewDefinition(context, scope, DefinitionKind::TYPE, type->name)->type = type;
 }
 
-// The scope above every module, naming the built-in types.
-static Scope* CreateGlobalScope(Context& context)
+static void DefineIntrinsic(Context& context, Scope* scope, StringView name, IntrinsicKind kind)
+{
+	Intrinsic* intrinsic = context.arena->New<Intrinsic>();
+	intrinsic->kind = kind;
+	intrinsic->name = GetAtom(name);
+	NewDefinition(context, scope, DefinitionKind::INTRINSIC, intrinsic->name)->intrinsic = intrinsic;
+}
+
+// The scope above every module, naming the built-ins.
+static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 {
 	Scope* scope = context.arena->New<Scope>();
 
@@ -49,13 +63,21 @@ static Scope* CreateGlobalScope(Context& context)
 	DefineType(context, scope, NewVectorType(context, "float2", float_type, 2));
 	DefineType(context, scope, NewVectorType(context, "float3", float_type, 3));
 	DefineType(context, scope, NewVectorType(context, "float4", float_type, 4));
+
+	if (kind == ContextKind::SHADER)
+	{
+		DefineIntrinsic(context, scope, "builtin", IntrinsicKind::BUILTIN);
+		DefineIntrinsic(context, scope, "location", IntrinsicKind::LOCATION);
+		DefineIntrinsic(context, scope, "vertex", IntrinsicKind::VERTEX);
+		DefineIntrinsic(context, scope, "fragment", IntrinsicKind::FRAGMENT);
+	}
 	return scope;
 }
 
-void InitContext(Context& context, Arena* arena)
+void InitContext(Context& context, Arena* arena, ContextKind kind)
 {
 	context.arena = arena;
-	context.global_scope = CreateGlobalScope(context);
+	context.global_scope = CreateGlobalScope(context, kind);
 }
 
 // Copies the list of errors into arena, where the errors themselves already are.
@@ -74,7 +96,7 @@ CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 
 	// The shader is only converted, never run, so the context can go with the rest of the intermediate data.
 	Context context;
-	InitContext(context, intermediate_arena);
+	InitContext(context, intermediate_arena, ContextKind::SHADER);
 
 	Parser parser = {
 		.source = (char*)source.CString(),

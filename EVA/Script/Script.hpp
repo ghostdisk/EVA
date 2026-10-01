@@ -113,8 +113,10 @@ enum class NodeType : uint8
 	NUMBER,
 	BOOL,
 	IDENTIFIER,
-	REFERENCE,      // an IDENTIFIER the resolver found the declaration of
-	TYPE_REFERENCE, // an IDENTIFIER the resolver found to name a built-in type
+	REFERENCE,           // an IDENTIFIER the resolver found the declaration of
+	TYPE_REFERENCE,      // an IDENTIFIER the resolver found to name a built-in type
+	INTRINSIC_REFERENCE, // an IDENTIFIER the resolver found to name an intrinsic
+	CONSTANT_REFERENCE,  // an IDENTIFIER the resolver found to name a built-in constant
 	INIT_LIST,
 	UNARY,
 	POSTFIX,
@@ -162,6 +164,8 @@ ZTStringView UsageToString(Usage usage);
 
 struct Scope;
 struct Type;
+struct Intrinsic;
+struct Constant;
 
 struct Node
 {
@@ -170,12 +174,14 @@ struct Node
 	Atom name = Atom::NONE;
 	union
 	{
-		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
-		bool value;           // BOOL
-		TokenType op;         // UNARY, POSTFIX, BINARY
-		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
-		Node* target;         // REFERENCE: the declaration
-		Type* target_type;    // TYPE_REFERENCE
+		char* text = nullptr;        // NUMBER: as written. Parsed once the expected type is known
+		bool value;                  // BOOL
+		TokenType op;                // UNARY, POSTFIX, BINARY
+		Scope* scope;                // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
+		Node* target;                // REFERENCE: the declaration
+		Type* target_type;           // TYPE_REFERENCE
+		Intrinsic* target_intrinsic; // INTRINSIC_REFERENCE
+		Constant* target_constant;   // CONSTANT_REFERENCE
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -293,12 +299,50 @@ struct MatrixType : Type
 	MatrixType() { kind = TypeKind::MATRIX; }
 };
 
-// A name in a scope, for either a declaration or a built-in type. Exactly one of node and type is set.
+enum class IntrinsicKind : uint8
+{
+	NONE,
+
+	// shader attributes:
+	BUILTIN,
+	LOCATION,
+	VERTEX,
+	FRAGMENT,
+};
+
+struct Intrinsic
+{
+	IntrinsicKind kind = IntrinsicKind::NONE;
+	Atom name = Atom::NONE;
+	Scope* argument_scope = nullptr; // where the arguments of a call to it are resolved. nullptr: the call's own scope
+};
+
+// Laid out by the type, padding zeroed.
+struct Constant
+{
+	Type* type = nullptr;
+	Slice<uint8> bytes;
+};
+
+enum class DefinitionKind : uint8
+{
+	NODE,
+	TYPE,
+	INTRINSIC,
+	CONSTANT,
+};
+
 struct Definition
 {
+	DefinitionKind kind = DefinitionKind::NODE;
 	Atom name = Atom::NONE;
-	Node* node = nullptr;
-	Type* type = nullptr;
+	union
+	{
+		Node* node = nullptr;
+		Type* type;
+		Intrinsic* intrinsic;
+		Constant* constant;
+	};
 	Definition* next = nullptr;
 };
 
@@ -309,16 +353,22 @@ struct Scope
 	Definition* first = nullptr; // a list for now, scopes are small
 };
 
-// The built-in types and the global scope naming them.
+enum class ContextKind : uint8
+{
+	SCRIPT,
+	SHADER,
+};
+
+// The built-ins and the global scope naming them.
 struct Context
 {
-	Arena* arena = nullptr; // the types and the global scope
+	Arena* arena = nullptr; // the built-ins and the global scope
 	Scope* global_scope = nullptr;
 };
 
-// Allocates the context's types and global scope in arena, which has to live as long as the context. Usually an arena
-// of its own; a short-lived context can share a temporary one.
-void InitContext(Context& context, Arena* arena);
+// Allocates the context's built-ins and global scope in arena, which has to live as long as the context. Usually an
+// arena of its own; a short-lived context can share a temporary one.
+void InitContext(Context& context, Arena* arena, ContextKind kind);
 
 struct Resolver
 {
@@ -332,8 +382,8 @@ struct Resolver
 
 ScriptError* EmitError(Resolver& resolver, const char* format, ...);
 
-// Turns identifiers into REFERENCEs to their declarations, or TYPE_REFERENCEs to built-in types, and gives MODULE,
-// FUNCTION and BLOCK nodes their scope. The module's scope sits under the context's global scope.
+// Turns identifiers into REFERENCEs to their declarations, or *_REFERENCEs to built-ins, and gives MODULE, FUNCTION
+// and BLOCK nodes their scope. The module's scope sits under the context's global scope.
 // Functions and structs can be referenced from anywhere in their scope, everything else only after it's declared.
 // Unknown names stay IDENTIFIERs. Errors don't stop resolving the rest of the tree. Returns whether there were none.
 bool Resolve(Resolver& resolver, Node* module);

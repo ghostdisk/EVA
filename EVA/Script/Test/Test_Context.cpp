@@ -8,7 +8,7 @@ static Type* FindGlobalType(Context& context, const char* name)
 {
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
-		if (definition->name == GetAtom(name))
+		if (definition->kind == DefinitionKind::TYPE && definition->name == GetAtom(name))
 			return definition->type;
 	}
 	return nullptr;
@@ -17,25 +17,59 @@ static Type* FindGlobalType(Context& context, const char* name)
 TEST(Context, GlobalScopeHoldsTheBuiltInTypes)
 {
 	Context context;
-	InitContext(context, test.arena);
+	InitContext(context, test.arena, ContextKind::SCRIPT);
 	REQUIRE(context.global_scope);
 	CHECK(context.global_scope->parent == nullptr);
 
 	uint32 count = 0;
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
+		CHECK_EQ(definition->kind, DefinitionKind::TYPE);
 		REQUIRE(definition->type);
-		CHECK(definition->node == nullptr);
 		CHECK_EQ(definition->name, definition->type->name); // named by the type's own name
 		count++;
 	}
 	CHECK_EQ(count, 7u);
 }
 
+TEST(Context, ShaderContextAddsTheShaderIntrinsics)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SHADER);
+
+	struct Expected
+	{
+		const char* name;
+		IntrinsicKind kind;
+	};
+	Expected expected[] = {
+		{ "builtin", IntrinsicKind::BUILTIN },
+		{ "location", IntrinsicKind::LOCATION },
+		{ "vertex", IntrinsicKind::VERTEX },
+		{ "fragment", IntrinsicKind::FRAGMENT },
+	};
+	for (const Expected& e : expected)
+	{
+		Definition* found = nullptr;
+		for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
+		{
+			if (definition->name == GetAtom(e.name))
+				found = definition;
+		}
+		REQUIRE(found);
+		CHECK_EQ(found->kind, DefinitionKind::INTRINSIC);
+		CHECK_EQ(found->intrinsic->kind, e.kind);
+		CHECK_EQ(found->intrinsic->name, GetAtom(e.name));
+		CHECK(found->intrinsic->argument_scope == nullptr);
+	}
+
+	CHECK(FindGlobalType(context, "float4"));
+}
+
 TEST(Context, Primitives)
 {
 	Context context;
-	InitContext(context, test.arena);
+	InitContext(context, test.arena, ContextKind::SCRIPT);
 
 	PrimitiveType* void_type = (PrimitiveType*)FindGlobalType(context, "void");
 	REQUIRE(void_type);
@@ -68,7 +102,7 @@ TEST(Context, Primitives)
 TEST(Context, FloatVectors)
 {
 	Context context;
-	InitContext(context, test.arena);
+	InitContext(context, test.arena, ContextKind::SCRIPT);
 	Type* float_type = FindGlobalType(context, "float");
 
 	const char* names[] = { "float2", "float3", "float4" };
@@ -89,7 +123,7 @@ TEST(Context, EachContextHasItsOwnTypes)
 {
 	Context a;
 	Context b;
-	InitContext(a, test.arena);
-	InitContext(b, test.arena);
+	InitContext(a, test.arena, ContextKind::SCRIPT);
+	InitContext(b, test.arena, ContextKind::SCRIPT);
 	CHECK(FindGlobalType(a, "float4") != FindGlobalType(b, "float4"));
 }

@@ -6,7 +6,7 @@ using namespace EVA::Script;
 
 // Parses and resolves source. Returns the module, or nullptr with a "parse error: <message>" in out_errors.
 // Resolve errors go to out_errors joined with " | ", empty if there were none.
-static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out_errors)
+static Node* ParseAndResolve(Arena* arena, ContextKind kind, const char* source, ZTStringView* out_errors)
 {
 	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
 	Node* module = nullptr;
@@ -17,7 +17,7 @@ static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out
 	}
 
 	Context context;
-	InitContext(context, arena); // in arena, so the types outlive this function along with the tree referencing them
+	InitContext(context, arena, kind); // in arena, so the types outlive this function along with the tree referencing them
 	Resolver resolver = { .context = &context, .arena = arena, .error_arena = arena };
 	Resolve(resolver, module);
 
@@ -33,10 +33,10 @@ static Node* ParseAndResolve(Arena* arena, const char* source, ZTStringView* out
 }
 
 // Source must resolve without errors to the expected declarations, serialized like the parser tests.
-static void CheckResolve(Test::Context& test, const char* file, int line, const char* source, StringView expected)
+static void CheckResolve(Test::Context& test, const char* file, int line, ContextKind kind, const char* source, StringView expected)
 {
 	ZTStringView errors;
-	Node* module = ParseAndResolve(test.arena, source, &errors);
+	Node* module = ParseAndResolve(test.arena, kind, source, &errors);
 	if (!module || errors.length)
 	{
 		Test::ReportFailure(test, file, line, "resolving \"%s\"\n    failed with %s", source, errors.CString());
@@ -57,18 +57,20 @@ static void CheckResolve(Test::Context& test, const char* file, int line, const 
 }
 
 // Source must resolve with exactly these errors, joined with " | ". "" for none.
-static void CheckResolveErrors(Test::Context& test, const char* file, int line, const char* source, StringView expected)
+static void CheckResolveErrors(Test::Context& test, const char* file, int line, ContextKind kind, const char* source, StringView expected)
 {
 	ZTStringView errors;
-	ParseAndResolve(test.arena, source, &errors);
+	ParseAndResolve(test.arena, kind, source, &errors);
 	if (errors == expected)
 		return;
 	Test::ReportFailure(test, file, line, "resolving \"%s\"\n    got errors      %s\n    expected errors %.*s", source, errors.CString(),
 		(int)expected.length, (const char*)expected.data);
 }
 
-#define CHECK_RESOLVE(source, expected) CheckResolve(test, __FILE__, __LINE__, source, expected)
-#define CHECK_RESOLVE_ERRORS(source, expected) CheckResolveErrors(test, __FILE__, __LINE__, source, expected)
+#define CHECK_RESOLVE(source, expected) CheckResolve(test, __FILE__, __LINE__, ContextKind::SCRIPT, source, expected)
+#define CHECK_RESOLVE_ERRORS(source, expected) CheckResolveErrors(test, __FILE__, __LINE__, ContextKind::SCRIPT, source, expected)
+#define CHECK_SHADER_RESOLVE(source, expected) CheckResolve(test, __FILE__, __LINE__, ContextKind::SHADER, source, expected)
+#define CHECK_SHADER_RESOLVE_ERRORS(source, expected) CheckResolveErrors(test, __FILE__, __LINE__, ContextKind::SHADER, source, expected)
 
 // Lowers RECURSION_LIMIT until the end of the scope.
 #define SET_RECURSION_LIMIT(limit)                        \
@@ -98,7 +100,7 @@ TEST(Resolver, UnknownIdentifiersStayIdentifiers)
 	CHECK_RESOLVE_ERRORS("const a = b;", "unknown identifier 'b'");
 
 	ZTStringView errors;
-	Node* module = ParseAndResolve(test.arena, "const a = b;", &errors);
+	Node* module = ParseAndResolve(test.arena, ContextKind::SCRIPT, "const a = b;", &errors);
 	REQUIRE(module);
 	StringBuilder builder(test.arena);
 	SerializeNode(builder, module->child);
@@ -202,7 +204,7 @@ TEST(Resolver, Scopes)
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
 	Context context;
-	InitContext(context, test.arena);
+	InitContext(context, test.arena, ContextKind::SCRIPT);
 	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
 	REQUIRE(Resolve(resolver, module));
 
@@ -220,8 +222,8 @@ TEST(Resolver, Scopes)
 
 TEST(Resolver, TriangleShader)
 {
-	// The shader's own declarations and the built-in types resolve, only the attributes don't yet.
-	CHECK_RESOLVE_ERRORS(R"(
+	// Only the attributes' arguments don't resolve yet.
+	CHECK_SHADER_RESOLVE_ERRORS(R"(
 const positions: [3]float2 = {
 	float2( 0.0,  0.5),
 	float2( 0.5, -0.5),
@@ -243,8 +245,53 @@ function PSMain(): @location(0) float4
 	return float4(1.0, 1.0, 1.0, 1.0);
 }
 )",
-		"unknown identifier 'builtin' | unknown identifier 'vertex_index' | "
-		"unknown identifier 'builtin' | unknown identifier 'position' | unknown identifier 'location'");
+		"unknown identifier 'vertex_index' | unknown identifier 'position'");
+}
+
+TEST(Resolver, ShaderIntrinsics)
+{
+	CHECK_SHADER_RESOLVE("@vertex function f() {}", "([DECLARATION]FUNCTION f ([ATTRIBUTE]INTRINSIC_REFERENCE vertex -> vertex) ([BODY]BLOCK))");
+	CHECK_SHADER_RESOLVE("function f(): @location(0) float4 {}",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
+		"([ATTRIBUTE]CALL ([CALLEE]INTRINSIC_REFERENCE location -> location) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
+	CHECK_SHADER_RESOLVE_ERRORS("@fragment function f(@builtin(x) a: uint) {}", "unknown identifier 'x'");
+}
+
+TEST(Resolver, ShaderIntrinsicsAreNotInScripts)
+{
+	CHECK_RESOLVE_ERRORS("@vertex function f(): @location(0) float4 {}", "unknown identifier 'vertex' | unknown identifier 'location'");
+}
+
+TEST(Resolver, ShaderIntrinsicsCanBeShadowed)
+{
+	CHECK_SHADER_RESOLVE("const location = 1; function f(): @location(0) float4 {}",
+		"([DECLARATION]CONST location ([VALUE]NUMBER 1)) ([DECLARATION]FUNCTION f ([RETURN_TYPE]TYPE_REFERENCE float4 -> float4 "
+		"([ATTRIBUTE]CALL ([CALLEE]REFERENCE location -> CONST) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
+}
+
+TEST(Resolver, BuiltInConstants)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SCRIPT);
+	Constant* constant = test.arena->New<Constant>();
+	constant->type = context.global_scope->first->type;
+	Definition* definition = test.arena->New<Definition>();
+	definition->kind = DefinitionKind::CONSTANT;
+	definition->name = GetAtom("answer");
+	definition->constant = constant;
+	definition->next = context.global_scope->first;
+	context.global_scope->first = definition;
+
+	const char* source = "const a = answer;";
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Node* module = nullptr;
+	REQUIRE(Parse(parser, &module));
+	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	REQUIRE(Resolve(resolver, module));
+
+	Node* value = FindChild(module->child, Usage::VALUE);
+	CHECK_EQ(value->type, NodeType::CONSTANT_REFERENCE);
+	CHECK(value->target_constant == constant);
 }
 
 TEST(Resolver, BuiltInTypes)

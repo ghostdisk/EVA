@@ -90,6 +90,8 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::IDENTIFIER: return "IDENTIFIER";
 		case NodeType::REFERENCE: return "REFERENCE";
 		case NodeType::TYPE_REFERENCE: return "TYPE_REFERENCE";
+		case NodeType::INTRINSIC_REFERENCE: return "INTRINSIC_REFERENCE";
+		case NodeType::CONSTANT_REFERENCE: return "CONSTANT_REFERENCE";
 		case NodeType::INIT_LIST: return "INIT_LIST";
 		case NodeType::UNARY: return "UNARY";
 		case NodeType::POSTFIX: return "POSTFIX";
@@ -163,6 +165,12 @@ void DumpNode(Node* node, Arena* arena, int indent)
 		case NodeType::TYPE_REFERENCE:
 			printf(" -> %s", GetAtomString(node->target_type->name, arena).CString());
 			break;
+		case NodeType::INTRINSIC_REFERENCE:
+			printf(" -> %s", GetAtomString(node->target_intrinsic->name, arena).CString());
+			break;
+		case NodeType::CONSTANT_REFERENCE:
+			printf(" -> %s", GetAtomString(node->target_constant->type->name, arena).CString());
+			break;
 		default:
 			break;
 	}
@@ -206,6 +214,14 @@ void SerializeNode(StringBuilder& builder, Node* node)
 		case NodeType::TYPE_REFERENCE:
 			builder.Append(" -> ");
 			builder.Append(GetAtomString(node->target_type->name, builder.arena));
+			break;
+		case NodeType::INTRINSIC_REFERENCE:
+			builder.Append(" -> ");
+			builder.Append(GetAtomString(node->target_intrinsic->name, builder.arena));
+			break;
+		case NodeType::CONSTANT_REFERENCE:
+			builder.Append(" -> ");
+			builder.Append(GetAtomString(node->target_constant->type->name, builder.arena));
 			break;
 		default:
 			break;

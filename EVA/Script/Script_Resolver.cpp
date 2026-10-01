@@ -158,16 +158,27 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::IDENTIFIER:
 	{
 		bool resolved = true;
-		Definition* definition = Lookup(resolver, node->name);
-		if (definition && definition->node)
+		if (Definition* definition = Lookup(resolver, node->name))
 		{
-			node->type = NodeType::REFERENCE;
-			node->target = definition->node;
-		}
-		else if (definition)
-		{
-			node->type = NodeType::TYPE_REFERENCE;
-			node->target_type = definition->type;
+			switch (definition->kind)
+			{
+			case DefinitionKind::NODE:
+				node->type = NodeType::REFERENCE;
+				node->target = definition->node;
+				break;
+			case DefinitionKind::TYPE:
+				node->type = NodeType::TYPE_REFERENCE;
+				node->target_type = definition->type;
+				break;
+			case DefinitionKind::INTRINSIC:
+				node->type = NodeType::INTRINSIC_REFERENCE;
+				node->target_intrinsic = definition->intrinsic;
+				break;
+			case DefinitionKind::CONSTANT:
+				node->type = NodeType::CONSTANT_REFERENCE;
+				node->target_constant = definition->constant;
+				break;
+			}
 		}
 		else
 		{
