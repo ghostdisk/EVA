@@ -627,9 +627,9 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 	if (head->type != NodeType::IDENTIFIER)
 		return Error(parser, "expected name [: type] [= value]");
 	if ((required & REQUIRE_TYPE) && !type)
-		return Error(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena));
+		return Error(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena).CString());
 	if ((required & REQUIRE_VALUE) && !value)
-		return Error(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena));
+		return Error(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena).CString());
 
 	node->name = head->name;
 	node->text = nullptr;

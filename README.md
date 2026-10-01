@@ -26,4 +26,8 @@ Custom scripting language, also compiled for the GPU lib as the shading language
 
 # Code style
 
-STL is discouraged. Prefer the utilities in EVA/Core. std::vector is an exception for now, until we sort out memory management properly.
+STL is discouraged.
+Prefer the utilities in EVA/Core.
+Heavily prefer StringView and ZTStringView over const char* or std::string.
+Use Arena-based memory management when appropriate.
+std::vector is an exception for now, until we sort out memory management properly.

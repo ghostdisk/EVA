@@ -106,7 +106,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 
 	printf("\x1b[33m%s\x1b[0m", NodeTypeName(node->type));
 	if (node->name != Atom::NONE)
-		printf(" | %s", GetAtomString(node->name, arena));
+		printf(" | %s", GetAtomString(node->name, arena).CString());
 
 	switch (node->type)
 	{

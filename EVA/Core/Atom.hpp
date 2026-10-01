@@ -12,10 +12,9 @@ enum class Atom : uint32
 	NONE = 0,
 };
 
-Atom GetAtom(const char* string);
-Atom GetAtom(const char* string, size_t length);
+Atom GetAtom(StringView string);
 
-// Copies the atom's string into the arena, NUL-terminated.
-char* GetAtomString(Atom atom, Arena* arena);
+// Copies the atom's string into the arena.
+ZTStringView GetAtomString(Atom atom, Arena* arena);
 
 }

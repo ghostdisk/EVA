@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <initializer_list>
 #include <assert.h>
+#include <string.h>
 
 typedef uint8_t  uint8;
 typedef uint16_t uint16;
@@ -27,6 +28,35 @@ struct Slice
 	Slice(T (&values)[N]) : data(values), count(N) {}
 
 	T& operator[](uint32 index) const { return data[index]; }
+};
+
+// Sized, non-owning view of a string. Not necessarily zero terminated.
+struct StringView
+{
+	uint8* data = nullptr;
+	size_t length = 0;
+
+	StringView() = default;
+	StringView(const char* cstring) : data((uint8*)cstring), length(cstring ? strlen(cstring) : 0) {}
+	StringView(const char* string, size_t length) : data((uint8*)string), length(length) {}
+
+	// True if non-empty.
+	explicit operator bool() const
+	{ 
+		return length > 0;
+	}
+};
+
+// A StringView that is also zero terminated, usable anywhere a StringView is. Never null: empty views point at "".
+struct ZTStringView : StringView
+{
+	ZTStringView() : StringView("", 0) {}
+	ZTStringView(const char* cstring) : StringView(cstring ? cstring : "") {}
+
+	const char* CString() const
+	{
+		return (const char*)data;
+	}
 };
 
 template <typename F>

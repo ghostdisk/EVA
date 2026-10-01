@@ -26,4 +26,7 @@ struct Arena
 Arena* CreateArena(size_t capacity);
 void DestroyArena(Arena* arena);
 
+// Copies the string into the arena, zero terminated.
+ZTStringView InternString(Arena* arena, StringView string);
+
 }

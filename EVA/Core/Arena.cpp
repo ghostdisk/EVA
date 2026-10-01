@@ -50,4 +50,18 @@ void DestroyArena(Arena* arena)
 	free(arena);
 }
 
+ZTStringView InternString(Arena* arena, StringView string)
+{
+	char* copy = (char*)arena->Allocate(string.length + 1, 1);
+	if (string.length)
+		memcpy(copy, string.data, string.length);
+	copy[string.length] = '\0';
+
+	// Set directly rather than via strlen, which would stop early at a '\0' inside the string.
+	ZTStringView result;
+	result.data = (uint8*)copy;
+	result.length = string.length;
+	return result;
+}
+
 }
