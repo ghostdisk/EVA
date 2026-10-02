@@ -158,7 +158,11 @@ static void ReleaseBlocks(ArenaBlock* block, ArenaBlock* stop)
 	{
 		ArenaBlock* next = block->next.load(std::memory_order_relaxed);
 		if (block->size != block_size)
+		{
+			// The OS can hand the range to someone else, who mustn't find it poisoned.
+			UNPOISON(block, block->size);
 			FreeVirtualMemory(block, block->size);
+		}
 		else
 		{
 			POISON(BlockData(block), block->size - sizeof(ArenaBlock));
