@@ -181,6 +181,7 @@ struct Expected
 const uint32 MAX_DEPTH = 5;
 const uint32 MAX_TYPE_SIZE = 1024;   // in valid mode
 const uint32 MAX_VALUE_SIZE = 65536; // values beyond aren't tracked
+const uint32 MAX_INIT_LIST_SIZE = 4096; // larger initializer lists aren't written out, they'd take most of the time
 const size_t MAX_SOURCE = (size_t)32 * 1024; // no more declarations past this
 
 struct Generator
@@ -642,9 +643,9 @@ struct Generator
 		Expr expr;
 		expr.hint_free = false;
 		uint32 count = type->kind == Kind::ARRAY ? type->length : (uint32)type->fields.size();
-		if (count > 256 || type->size > MAX_VALUE_SIZE)
+		if (count > 256 || type->size > MAX_INIT_LIST_SIZE)
 		{
-			expr.text = "{ }"; // chaos mode's huge arrays, too large to write out
+			expr.text = "{ }"; // chaos mode's huge types
 			return expr;
 		}
 		expr.text = "{";
