@@ -115,9 +115,10 @@ struct Constant
 - Front-end concept, allocated next to `Type`s. The IR references constants and never builds them as trees.
 - Later: constants referring to strings, functions or objects (scripts) need a side list of relocations.
 
-## Shader interface pass
+## Shader interface pass (first version done)
 
-Input: the typed module. Output: one `EntryPoint` per `@vertex` / `@fragment` function.
+`Script_ShaderInterface.cpp`. Input: the typed module. Output: a `ShaderInterface`, for now one `EntryPoint` per
+`@vertex` / `@fragment` function. Resources and bindings go here later.
 
 ```cpp
 enum class IODirection : uint8 { INPUT, OUTPUT };
@@ -158,19 +159,26 @@ Flatten(type, attributes, path):
 		append ShaderIO { direction, semantic, type, path }
 ```
 
-A `void` return produces no outputs. Then check for duplicate locations and builtins per direction.
+A `void` return produces no outputs. Duplicate locations and builtins per direction are errors.
+
+Done, beyond the above:
+
+- Entry points are top-level functions with one stage attribute. Builtins and locations on other functions'
+  parameters and return values are errors; on struct fields they're allowed anywhere, so structs can be shared.
+- Nested structs are allowed. Empty structs, arrays and void can't be inputs or outputs.
+- Locations are below 32 (no target has more). The device's limits are checked at pipeline creation.
+- A vertex entry point has to output `position`.
+- Flattening stops at the first error per parameter. With unique locations and builtins and no empty structs, that
+  bounds the walk even for exponentially large nested structs.
 
 ### Builtins
 
 | Builtin | Stage, direction | Type |
 |---|---|---|
 | `vertex_index` | vertex in | `uint` |
-| `instance_index` | vertex in | `uint` |
 | `position` | vertex out (clip position), fragment in (fragment coordinate) | `float4` |
-| `front_facing` | fragment in | `bool` |
-| `frag_depth` | fragment out | `float` |
 
-Only the first three are needed for the triangle.
+Only what the triangle needs; more are added as they're used.
 
 ### What `location` means
 
@@ -187,10 +195,6 @@ The backends pick the concrete form (SPIR-V `Location`, HLSL `TEXCOORDn` / `SV_T
 
 Not needed for the triangle. When vertex buffers and multiple render targets arrive: the LOCATION entries for vertex
 inputs and fragment outputs, and VS-out / PS-in matching. A filter over the same `io` list, no new metadata.
-
-### Open
-
-- Struct depth: allow nested structs (the walk handles them for free) or restrict to one level.
 
 ## IR
 
@@ -420,13 +424,13 @@ struct CompileShaderResult
   the triangle.
 - Precision: a `half` type or a precision qualifier (`RelaxedPrecision` / `half` / `min16float`). Matters a lot on
   mobile.
-- Attribute shadowing and struct depth (above).
+- Attribute shadowing (above).
 
 ## Order of work
 
 1. ~~Elements, intrinsics, the resolver rule. The resolver's TriangleShader test passes with no errors.~~ Done.
 2. ~~Typer: node types, struct / array types, NUMBER parsing, constant evaluator producing `Constant`s.~~ First version done.
-3. Shader interface pass producing `EntryPoint`s.
+3. ~~Shader interface pass producing `EntryPoint`s.~~ First version done; tests and fuzzing next.
 4. IR: data structures, op table, dumper, validator, IR gen including wrappers.
 5. Safety pass: index clamps (enough for the triangle), then the rest.
 6. SPIR-V emitter, checked by the SPIR-V validator in tests.

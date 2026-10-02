@@ -1,5 +1,5 @@
 @vertex @fragment
-function f(@location(0) a: float4, @location(1 + 1) b: float4, @builtin(front_facing) ff: uint): @location(0) float4
+function f(@location(0) a: float4, @location(1 + 1) b: float4, @builtin(position) p: float4): @location(0) float4
 {
 	return a;
 }
@@ -8,11 +8,10 @@ struct S
 {
 	@builtin(position) p: float4;
 	@location(3) c: float3;
-	@builtin(frag_depth) depth: float;
 }
 
 const loc: uint = 5;
-function g(@location(loc) x: float): @builtin(frag_depth) float
+function g(@location(loc) x: float): @location(1) float
 {
 	return x;
 }

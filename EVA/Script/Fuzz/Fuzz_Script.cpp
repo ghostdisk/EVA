@@ -48,7 +48,7 @@ const char* const multi_char_operators[] = {
 const char* const fragments[] = {
 	"const", "struct", "function", "if", "else", "return", "true", "false",
 	"void", "int", "uint", "float", "float2", "float3", "float4",
-	"builtin", "location", "vertex", "fragment", "vertex_index", "instance_index", "position", "front_facing", "frag_depth",
+	"builtin", "location", "vertex", "fragment", "vertex_index", "position",
 	"@builtin(position)", "@builtin(vertex_index)", "@location(0)", "@vertex", "@fragment",
 	";", ",", ":", "=", ".", "@", "(", ")", "[", "]", "{", "}", "+", "-", "*", "/", "%", "~", "!", "<", ">",
 	"&", "|", "^", "<<", ">>", "==", "!=", "&&", "||", "++", "--", "+=", "<<=",

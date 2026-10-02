@@ -138,6 +138,16 @@ ZTStringView UsageToString(Usage usage)
 	return "?";
 }
 
+ZTStringView BuiltinToString(Builtin builtin)
+{
+	switch (builtin)
+	{
+		case Builtin::VERTEX_INDEX: return "vertex_index";
+		case Builtin::POSITION: return "position";
+	}
+	return "?";
+}
+
 ZTStringView TypeToString(Type* type, Arena* arena)
 {
 	if (type->type_kind == TypeKind::ARRAY)
@@ -414,6 +424,31 @@ void SerializeNode(StringBuilder& builder, Node* node)
 		SerializeNode(builder, child);
 	}
 	builder.Append(")");
+}
+
+ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena)
+{
+	StringBuilder builder(arena);
+	for (uint32 i = 0; i < shader_interface.entry_points.count; ++i)
+	{
+		EntryPoint& entry_point = shader_interface.entry_points[i];
+		builder.AppendFormat("%s %s\n", entry_point.stage == ShaderStage::VERTEX ? "vertex" : "fragment",
+			GetAtomString(entry_point.function->name, arena).CString());
+		for (uint32 j = 0; j < entry_point.io.count; ++j)
+		{
+			ShaderIO& io = entry_point.io[j];
+			builder.Append(io.direction == IODirection::INPUT ? "  input " : "  output ");
+			if (io.io_kind == IOKind::BUILTIN)
+				builder.AppendFormat("builtin(%s)", BuiltinToString(io.builtin).CString());
+			else
+				builder.AppendFormat("location(%u)", io.location);
+			builder.AppendFormat(" %s [", TypeToString(io.type, arena).CString());
+			for (uint32 k = 0; k < io.path.count; ++k)
+				builder.AppendFormat(k ? ", %u" : "%u", io.path[k]);
+			builder.Append("]\n");
+		}
+	}
+	return builder.ToString();
 }
 
 }

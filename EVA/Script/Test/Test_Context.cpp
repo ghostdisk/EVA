@@ -88,15 +88,12 @@ TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
 	};
 	Expected expected[] = {
 		{ "vertex_index", Builtin::VERTEX_INDEX },
-		{ "instance_index", Builtin::INSTANCE_INDEX },
 		{ "position", Builtin::POSITION },
-		{ "front_facing", Builtin::FRONT_FACING },
-		{ "frag_depth", Builtin::FRAG_DEPTH },
 	};
 	uint32 count = 0;
 	for (Definition* definition = scope->first; definition; definition = definition->next)
 		count++;
-	CHECK_EQ(count, 5u);
+	CHECK_EQ(count, 2u);
 	for (const Expected& e : expected)
 	{
 		Definition* found = nullptr;

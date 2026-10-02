@@ -89,10 +89,7 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 		EnumType* builtin_type = NewEnumType(context, "Builtin");
 		context.builtin_type = builtin_type;
 		DefineEnumValue(context, builtin_type, "vertex_index", (int64)Builtin::VERTEX_INDEX);
-		DefineEnumValue(context, builtin_type, "instance_index", (int64)Builtin::INSTANCE_INDEX);
 		DefineEnumValue(context, builtin_type, "position", (int64)Builtin::POSITION);
-		DefineEnumValue(context, builtin_type, "front_facing", (int64)Builtin::FRONT_FACING);
-		DefineEnumValue(context, builtin_type, "frag_depth", (int64)Builtin::FRAG_DEPTH);
 		DefineIntrinsic(context, scope, "builtin", IntrinsicKind::BUILTIN)->argument_scope = builtin_type->scope;
 
 		DefineIntrinsic(context, scope, "location", IntrinsicKind::LOCATION);
@@ -166,8 +163,13 @@ CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 	if (!TypeCheck(typer, module))
 		return { .errors = ToSlice(arena, typer.errors) };
 
+	ShaderInterfaceBuilder interface_builder = { .arena = intermediate_arena, .error_arena = arena };
+	ShaderInterface shader_interface;
+	if (!BuildShaderInterface(interface_builder, module, &shader_interface))
+		return { .errors = ToSlice(arena, interface_builder.errors) };
+
 	DumpNode(module, intermediate_arena);
-	printf("\n");
+	printf("\n%s", ShaderInterfaceToString(shader_interface, intermediate_arena).CString());
 	Panic("CompileShader: code generation is not implemented yet");
 }
 

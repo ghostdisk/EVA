@@ -395,11 +395,11 @@ struct StructType : Type
 enum class Builtin : uint8
 {
 	VERTEX_INDEX,
-	INSTANCE_INDEX,
 	POSITION,
-	FRONT_FACING,
-	FRAG_DEPTH,
 };
+
+// As written in @builtin(...). Keep in sync with Builtin (Script_Dump.cpp).
+ZTStringView BuiltinToString(Builtin builtin);
 
 enum class IntrinsicKind : uint8
 {
@@ -569,6 +569,65 @@ bool TypeConst(Typer& typer, Node* node);
 		return {};                                   \
 	}
 
+enum class ShaderStage : uint8
+{
+	VERTEX,
+	FRAGMENT,
+};
+
+enum class IODirection : uint8
+{
+	INPUT,
+	OUTPUT,
+};
+
+enum class IOKind : uint8
+{
+	BUILTIN,
+	LOCATION,
+};
+
+// One input or output of an entry point: a scalar or vector leaf of a parameter or the return value, which can be
+// nested in structs.
+struct ShaderIO
+{
+	IODirection direction = IODirection::INPUT;
+	IOKind io_kind = IOKind::BUILTIN;
+	Builtin builtin = Builtin::VERTEX_INDEX; // BUILTIN
+	uint32 location = 0;                     // LOCATION
+	Type* type = nullptr;
+	Slice<uint32> path;          // INPUT: [parameter index, field index, ...]. OUTPUT: [field index, ...] into the return value
+	Node* declaration = nullptr; // the PARAMETER, FIELD or RETURN_TYPE with the attribute
+};
+
+// A @vertex or @fragment function.
+struct EntryPoint
+{
+	ShaderStage stage = ShaderStage::VERTEX;
+	Node* function = nullptr;
+	Slice<ShaderIO> io;
+};
+
+// What a shader module exposes to the pipeline.
+struct ShaderInterface
+{
+	Slice<EntryPoint> entry_points;
+};
+
+struct ShaderInterfaceBuilder
+{
+	Arena* arena = nullptr;           // the interface, for one compile
+	Arena* error_arena = nullptr;     // errors and their messages
+	std::vector<ScriptError*> errors; // allocated in error_arena
+	uint32 recursion_depth = 0;
+};
+
+ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
+
+// Finds the entry points of a typed shader module and flattens their parameters and return values into inputs and
+// outputs, checking the builtins and locations. Returns whether there were no errors.
+bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
+
 // e.g. float4, [3]float2. Allocated in arena when it isn't a type's own name.
 ZTStringView TypeToString(Type* type, Arena* arena);
 
@@ -580,6 +639,12 @@ ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
 ZTStringView ConstantToString(Constant* constant, Arena* arena);
 
 void DumpNode(Node* node, Arena* arena, int indent = 0);
+
+// One line per entry point and per input or output, e.g.
+// vertex VSMain
+//   input builtin(vertex_index) uint [0]
+// Meant for tests and debugging. Allocated in arena.
+ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
 // ([USAGE]TYPE:type name payload children...), with :type once the typer has set it, e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).

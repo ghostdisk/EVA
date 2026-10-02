@@ -1001,15 +1001,10 @@ struct Generator
 			text += ": @builtin(position) float4";
 			return_type = vector_types[4];
 		}
-		else if (stage == 2 && Below(2))
+		else if (stage == 2)
 		{
 			text += ": " + Location() + "float4";
 			return_type = vector_types[4];
-		}
-		else if (stage == 2)
-		{
-			text += ": @builtin(frag_depth) float";
-			return_type = float_type;
 		}
 		else if (Below(3))
 		{

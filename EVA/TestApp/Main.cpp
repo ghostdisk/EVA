@@ -23,11 +23,13 @@ struct VSOutput
 	position: float4;
 }
 
+@vertex
 function VSMain(@builtin(vertex_index) vertex_id: uint): @builtin(position) float4
 {
 	return float4(positions[vertex_id], 0.0, 1.0);
 }
 
+@fragment
 function PSMain(): @location(0) float4
 {
 	return float4(1.0, 1.0, 1.0, 1.0);

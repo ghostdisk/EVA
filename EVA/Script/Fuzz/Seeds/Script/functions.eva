@@ -18,7 +18,7 @@ function g(): void
 }
 
 @vertex
-function main(@builtin(vertex_index) id: uint, @builtin(instance_index) instance: uint): @builtin(position) float4
+function main(@builtin(vertex_index) id: uint): @builtin(position) float4
 {
 	return float4(f(1.0, float2(2.0)), 0.0, 1.0);
 }

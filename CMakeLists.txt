@@ -143,6 +143,7 @@ add_library(Script STATIC
 	EVA/Script/Script_Resolver.cpp
 	EVA/Script/Script_EvaluateConstant.cpp
 	EVA/Script/Script_Typer.cpp
+	EVA/Script/Script_ShaderInterface.cpp
 )
 eva_init_target(Script)
 target_link_libraries(Script PUBLIC Core)
