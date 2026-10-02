@@ -34,7 +34,7 @@ static void PrintSource()
 	fprintf(stderr, "---- source (%zu bytes) ----\n", current_source.length);
 	for (size_t i = 0; i < current_source.length; ++i)
 	{
-		uint8 ch = current_source.data[i];
+		uint8 ch = current_source[i];
 		if ((ch >= ' ' && ch <= '~') || ch == '\n' || ch == '\t')
 			fputc(ch, stderr);
 		else
@@ -100,8 +100,8 @@ static void CheckErrors(Compilation& compilation, const std::vector<ScriptError*
 			Fail("%s error's message isn't zero terminated", stage);
 		for (size_t i = 0; i < message.length; ++i)
 		{
-			if (message.data[i] < ' ' || message.data[i] > '~')
-				Fail("%s error's message has byte 0x%02X at %zu: %s", stage, message.data[i], i, message.CString());
+			if (message[i] < ' ' || message[i] > '~')
+				Fail("%s error's message has byte 0x%02X at %zu: %s", stage, message[i], i, message.CString());
 		}
 	}
 }
@@ -589,7 +589,7 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 
 // Allowed arena memory for one compile: enough for TOTAL_CONSTANT_SIZE_LIMIT and the tree of the source, so anything
 // past it means a small input made the compiler use disproportionate memory.
-static const size_t MEMORY_LIMIT = 64 * 1024 * 1024;
+static const size_t MEMORY_LIMIT = (size_t)64 * 1024 * 1024;
 static const size_t MEMORY_LIMIT_PER_SOURCE_BYTE = 1024;
 
 void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)

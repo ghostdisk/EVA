@@ -149,6 +149,7 @@ static Node* NewOperator(Parser& parser, NodeType type, TokenType op)
 
 static Node* PopOperand(Parser& parser)
 {
+	assert(!parser.operands.empty());
 	Node* node = parser.operands.back();
 	parser.operands.pop_back();
 	return node;
@@ -157,6 +158,7 @@ static Node* PopOperand(Parser& parser)
 // Pops the top pending operator and its operands, pushing the resulting node as an operand.
 static void ApplyOperator(Parser& parser)
 {
+	assert(!parser.operators.empty());
 	PendingOp op = parser.operators.back();
 	parser.operators.pop_back();
 

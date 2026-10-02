@@ -32,7 +32,7 @@ TEST(StringView, FromPointerAndLengthKeepsEmbeddedZero)
 {
 	StringView string("ab\0cd", 5);
 	CHECK_EQ(string.length, 5u);
-	CHECK_EQ(string.data[3], 'c');
+	CHECK_EQ(string[3], (uint8)'c');
 }
 
 TEST(StringView, BoolMeansNonEmpty)

@@ -8,7 +8,8 @@ if(EVA_FUZZ)
 	if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 		message(FATAL_ERROR "EVA_FUZZ needs clang")
 	endif()
-	add_compile_options(-fsanitize=address,undefined,fuzzer-no-link -fno-sanitize-recover=all -fno-omit-frame-pointer)
+	# -UNDEBUG keeps asserts on, so each is another check the fuzzers can trip.
+	add_compile_options(-fsanitize=address,undefined,fuzzer-no-link -fno-sanitize-recover=all -fno-omit-frame-pointer -UNDEBUG)
 	add_link_options(-fsanitize=address,undefined)
 	add_compile_definitions(EVA_FUZZ EVA_ARENA_REDZONE=16)
 	if(WIN32)
@@ -29,9 +30,17 @@ if(EVA_COVERAGE)
 	add_link_options(-fprofile-instr-generate)
 endif()
 
+option(EVA_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+
 function(eva_init_target target)
     set_target_properties(${target} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        # Designated initializers leaving out fields with defaults are intended, hence no -Wmissing-field-initializers.
+        target_compile_options(${target} PRIVATE $<$<COMPILE_LANGUAGE:CXX,OBJCXX>:
+            -Wall -Wextra -Wshadow -Wimplicit-fallthrough -Wsign-compare -Wshorten-64-to-32
+            -Wno-missing-field-initializers $<$<BOOL:${EVA_WARNINGS_AS_ERRORS}>:-Werror>>)
+    endif()
 endfunction()
 
 add_library(Core STATIC
@@ -221,6 +230,9 @@ if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 			endif()
 		endif()
 		eva_init_target(Fuzz${name})
+		if(WIN32)
+			target_compile_definitions(Fuzz${name} PRIVATE _CRT_SECURE_NO_WARNINGS) # fopen, getenv
+		endif()
 		target_link_libraries(Fuzz${name} PRIVATE ScriptFuzz)
 	endfunction()
 
@@ -262,4 +274,38 @@ if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 			USES_TERMINAL
 			VERBATIM)
 	endif()
+endif()
+
+# clang-tidy over our sources with the checks in .clang-tidy. A step per file, so they run in parallel, rerun when the
+# file, any header or the checks change.
+get_filename_component(llvm_dir ${CMAKE_CXX_COMPILER} DIRECTORY)
+find_program(CLANG_TIDY clang-tidy HINTS ${llvm_dir})
+if(CLANG_TIDY AND CMAKE_EXPORT_COMPILE_COMMANDS)
+	get_property(targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+	file(GLOB_RECURSE tidy_headers CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/EVA/*.hpp")
+	set(tidy_files)
+	set(tidy_stamps)
+	foreach(target ${targets})
+		get_target_property(sources ${target} SOURCES)
+		if(NOT sources)
+			continue()
+		endif()
+		foreach(source ${sources})
+			get_filename_component(path ${source} ABSOLUTE BASE_DIR ${PROJECT_SOURCE_DIR})
+			if(NOT path MATCHES "\.cpp$" OR path MATCHES "/Vendor/" OR path IN_LIST tidy_files)
+				continue()
+			endif()
+			list(APPEND tidy_files ${path})
+			file(RELATIVE_PATH name ${PROJECT_SOURCE_DIR} ${path})
+			set(stamp "${CMAKE_BINARY_DIR}/tidy/${name}.stamp")
+			add_custom_command(OUTPUT ${stamp}
+				COMMAND ${CLANG_TIDY} -p ${CMAKE_BINARY_DIR} --quiet ${path}
+				COMMAND ${CMAKE_COMMAND} -E touch ${stamp}
+				DEPENDS ${path} ${tidy_headers} "${PROJECT_SOURCE_DIR}/.clang-tidy"
+				COMMENT "clang-tidy ${name}"
+				VERBATIM)
+			list(APPEND tidy_stamps ${stamp})
+		endforeach()
+	endforeach()
+	add_custom_target(Tidy DEPENDS ${tidy_stamps})
 endif()

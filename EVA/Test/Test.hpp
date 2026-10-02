@@ -57,9 +57,7 @@ void FormatValue(char* buffer, size_t size, const T& value)
 {
 	if constexpr (std::is_same_v<T, bool>)
 		snprintf(buffer, size, "%s", value ? "true" : "false");
-	else if constexpr (std::is_enum_v<T>)
-		snprintf(buffer, size, "%lld", (long long)value);
-	else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
+	else if constexpr (std::is_enum_v<T> || (std::is_integral_v<T> && std::is_signed_v<T>))
 		snprintf(buffer, size, "%lld", (long long)value);
 	else if constexpr (std::is_integral_v<T>)
 		snprintf(buffer, size, "%llu", (unsigned long long)value);

@@ -27,7 +27,11 @@ struct Slice
 	template <uint32 N>
 	Slice(T (&values)[N]) : data(values), count(N) {}
 
-	T& operator[](uint32 index) const { return data[index]; }
+	T& operator[](uint32 index) const
+	{
+		assert(index < count);
+		return data[index];
+	}
 };
 
 // Sized, non-owning view of a string. Not necessarily zero terminated.
@@ -44,6 +48,12 @@ struct StringView
 	explicit operator bool() const
 	{ 
 		return length > 0;
+	}
+
+	uint8 operator[](size_t index) const
+	{
+		assert(index < length);
+		return data[index];
 	}
 };
 
@@ -62,7 +72,12 @@ struct ZTStringView : StringView
 // Compares contents, not pointers. Works for any mix of StringView, ZTStringView and C strings.
 inline bool operator==(StringView a, StringView b)
 {
-	return a.length == b.length && (a.length == 0 || memcmp(a.data, b.data, a.length) == 0);
+	if (a.length != b.length)
+		return false;
+	if (a.length == 0)
+		return true;
+	assert(a.data && b.data);
+	return memcmp(a.data, b.data, a.length) == 0;
 }
 
 template <typename F>

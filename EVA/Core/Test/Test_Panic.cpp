@@ -41,6 +41,7 @@ TEST(Panic, RunsDestructorsWhenCaught)
 	}
 	catch (const Test::PanicException&)
 	{
+		CHECK(ran); // during unwinding, before the handler
 	}
 	CHECK(ran);
 }

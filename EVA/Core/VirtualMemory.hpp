@@ -4,7 +4,7 @@
 namespace EVA
 {
 
-static const size_t VIRTUAL_MEMORY_ALIGNMENT = 64 * 1024;
+static const size_t VIRTUAL_MEMORY_ALIGNMENT = (size_t)64 * 1024;
 
 // 0 if large pages can't be used. On Windows that needs the lock memory privilege granted to the account.
 size_t GetLargePageSize();

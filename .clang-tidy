@@ -1,0 +1,18 @@
+# Run with the Tidy target. Disabled checks flag deliberate style: printf-style variadic functions (cert-dcl50-cpp),
+# ignored printf return values (cert-err33-c), parameters of convertible types next to each other, test registrations
+# in static initializers (cert-err58-cpp), the test runner throwing a named exception (cert-err09-cpp, cert-err61-cpp),
+# and switches without a default, which -Wswitch already covers for enums.
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  -bugprone-easily-swappable-parameters,
+  -cert-dcl50-cpp,
+  -cert-err33-c,
+  -cert-err58-cpp,
+  -cert-err09-cpp,
+  -cert-err61-cpp,
+  -bugprone-switch-missing-default-case
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*[/\\]EVA[/\\](Core|GPU|PAL|Script|Test|TestApp)[/\\].*'

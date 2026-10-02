@@ -27,3 +27,8 @@ Prefer the utilities in EVA/Core.
 Heavily prefer StringView and ZTStringView over const char* or std::string.
 Use Arena-based memory management when appropriate.
 std::vector is an exception for now, until we sort out memory management properly.
+# Checks
+
+- Compiler warnings are errors (`EVA_WARNINGS_AS_ERRORS`, on by default).
+- `cmake --build Build/Debug --target Tidy` runs clang-tidy with the checks in `.clang-tidy`. Keep it clean.
+- The script compiler is fuzzed, see [EVA/Script/Fuzz/README.md](EVA/Script/Fuzz/README.md).

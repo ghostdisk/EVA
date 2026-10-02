@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS // for fopen
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,9 +25,13 @@ static bool RunFile(const std::filesystem::path& path)
 	}
 	std::vector<uint8_t> data;
 	uint8_t buffer[4096];
-	size_t read;
-	while ((read = fread(buffer, 1, sizeof(buffer), file)) > 0)
+	for (;;)
+	{
+		size_t read = fread(buffer, 1, sizeof(buffer), file);
 		data.insert(data.end(), buffer, buffer + read);
+		if (read < sizeof(buffer))
+			break; // end of file or an error
+	}
 	fclose(file);
 
 	if (!quiet)
@@ -40,7 +43,7 @@ static bool RunFile(const std::filesystem::path& path)
 	return true;
 }
 
-int main(int argc, char** argv)
+static int Run(int argc, char** argv)
 {
 	if (argc < 2)
 	{
@@ -79,4 +82,18 @@ int main(int argc, char** argv)
 	}
 	printf("ran %zu inputs\n", count);
 	return ok ? 0 : 1;
+}
+
+int main(int argc, char** argv)
+{
+	// std::filesystem throws, e.g. for a directory that can't be read.
+	try
+	{
+		return Run(argc, argv);
+	}
+	catch (const std::exception& exception)
+	{
+		fprintf(stderr, "%s\n", exception.what());
+		return 1;
+	}
 }

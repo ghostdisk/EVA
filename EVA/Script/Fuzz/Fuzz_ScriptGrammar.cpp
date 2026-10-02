@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS // for getenv
 #include <EVA/Script/Fuzz/FuzzCommon.hpp>
 #include <math.h>
 #include <stdint.h>
@@ -91,11 +90,6 @@ struct GenType
 	std::vector<GenField> fields; // STRUCT
 };
 
-bool IsScalar(GenType* type)
-{
-	return type->kind == Kind::INT || type->kind == Kind::UINT || type->kind == Kind::FLOAT;
-}
-
 bool IsComposite(GenType* type)
 {
 	return type->kind == Kind::ARRAY || type->kind == Kind::STRUCT;
@@ -117,13 +111,13 @@ typedef std::vector<uint8> Bytes;
 uint32 ReadComponent(const Bytes& bytes, uint32 index)
 {
 	uint32 bits;
-	memcpy(&bits, bytes.data() + index * 4, 4);
+	memcpy(&bits, bytes.data() + (size_t)index * 4, 4);
 	return bits;
 }
 
 void WriteComponent(Bytes& bytes, uint32 index, uint32 bits)
 {
-	memcpy(bytes.data() + index * 4, &bits, 4);
+	memcpy(bytes.data() + (size_t)index * 4, &bits, 4);
 }
 
 float ToFloat(uint32 bits)
@@ -177,7 +171,7 @@ struct Expected
 const uint32 MAX_DEPTH = 5;
 const uint32 MAX_TYPE_SIZE = 1024;   // in valid mode
 const uint32 MAX_VALUE_SIZE = 65536; // values beyond aren't tracked
-const size_t MAX_SOURCE = 32 * 1024; // no more declarations past this
+const size_t MAX_SOURCE = (size_t)32 * 1024; // no more declarations past this
 
 struct Generator
 {
@@ -741,7 +735,7 @@ struct Generator
 			const char* const closes[] = { ")", ")", "}", "", ")" };
 			uint32 kind = Below(5);
 			std::string inner = kind == 3 ? "float" : "1.0";
-			expr.text.reserve(levels * 8);
+			expr.text.reserve((size_t)levels * 8);
 			for (uint32 i = 0; i < levels; ++i)
 				expr.text += opens[kind];
 			expr.text += inner;
@@ -1047,7 +1041,7 @@ struct Generator
 		for (uint32 i = 0; i < struct_types.size(); ++i)
 		{
 			size_t position = Below((uint32)declarations.size() + 1);
-			declarations.insert(declarations.begin() + position, Struct(struct_types[i], i));
+			declarations.insert(declarations.begin() + (ptrdiff_t)position, Struct(struct_types[i], i));
 		}
 
 		module_symbols = symbols.size();
@@ -1104,7 +1098,7 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 			continue;
 		Constant* constant = node->constant;
 		if (constant->bytes.count != expected.value.size() ||
-			(constant->bytes.count && memcmp(constant->bytes.data, expected.value.data(), constant->bytes.count)))
+			(constant->bytes.count && memcmp(constant->bytes.data, expected.value.data(), constant->bytes.count) != 0))
 		{
 			std::string got;
 			std::string want;

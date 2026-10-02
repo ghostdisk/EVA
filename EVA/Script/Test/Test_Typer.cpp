@@ -98,7 +98,7 @@ static bool ConstantBits(Test::Context& test, const char* source, uint32* out_bi
 	Node* node = LastDeclaration(test, source);
 	if (!node || node->node_type != NodeType::CONST || !node->constant || node->constant->bytes.count != count * 4)
 		return false;
-	memcpy(out_bits, node->constant->bytes.data, count * 4);
+	memcpy(out_bits, node->constant->bytes.data, (size_t)count * 4);
 	return true;
 }
 

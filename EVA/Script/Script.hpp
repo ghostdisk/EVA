@@ -9,7 +9,7 @@
 namespace EVA::Script
 {
 
-enum class TokenType : uint8
+enum class TokenType : uint8 // NOLINT(cert-int09-c): END_OF_FILE shares 0 with NONE, operators are their ASCII
 {
 	NONE = 0,
 	END_OF_FILE = 0,

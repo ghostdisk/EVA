@@ -12,6 +12,7 @@ namespace EVA
 
 static size_t RoundUp(size_t size, size_t alignment)
 {
+	assert(alignment);
 	return (size + alignment - 1) / alignment * alignment;
 }
 

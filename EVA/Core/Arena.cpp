@@ -28,7 +28,7 @@
 #endif
 
 #ifndef EVA_ARENA_BLOCK_SIZE
-#define EVA_ARENA_BLOCK_SIZE (64 * 1024)
+#define EVA_ARENA_BLOCK_SIZE ((size_t)64 * 1024)
 #endif
 
 namespace EVA

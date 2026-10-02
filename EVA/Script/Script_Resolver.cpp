@@ -122,7 +122,10 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 
 	Node** link = &node->child;
 	while (*link != left)
+	{
+		assert(*link);
 		link = &(*link)->next;
+	}
 	*link = replacement;
 
 	node->node_type = NodeType::VARIABLE;

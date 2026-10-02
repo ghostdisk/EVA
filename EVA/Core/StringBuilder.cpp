@@ -27,7 +27,10 @@ void StringBuilder::Reserve(size_t extra)
 
 	char* new_data = (char*)arena->Allocate(new_capacity, 1);
 	if (length)
+	{
+		assert(data);
 		memcpy(new_data, data, length);
+	}
 	new_data[length] = '\0';
 	data = new_data;
 	capacity = new_capacity;

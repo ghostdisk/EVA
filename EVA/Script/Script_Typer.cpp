@@ -151,7 +151,7 @@ static uint32 NumberBits(NumberLiteral* number, PrimitiveType* type)
 }
 
 uint32 CONSTANT_SIZE_LIMIT = 4 * 1024 * 1024;
-uint64 TOTAL_CONSTANT_SIZE_LIMIT = 16 * 1024 * 1024;
+uint64 TOTAL_CONSTANT_SIZE_LIMIT = 16ull * 1024 * 1024;
 
 // nullptr with an error past the limits, which keep a small source from building huge constants out of references to
 // other constants.
@@ -181,13 +181,15 @@ static Constant* NewConstant(Typer& typer, Type* type)
 static uint32 ReadComponent(Constant* constant, uint32 index)
 {
 	uint32 bits;
-	memcpy(&bits, constant->bytes.data + index * 4, 4);
+	assert((uint64)index * 4 + 4 <= constant->bytes.count);
+	memcpy(&bits, constant->bytes.data + (size_t)index * 4, 4);
 	return bits;
 }
 
 static void WriteComponent(Constant* constant, uint32 index, uint32 bits)
 {
-	memcpy(constant->bytes.data + index * 4, &bits, 4);
+	assert((uint64)index * 4 + 4 <= constant->bytes.count);
+	memcpy(constant->bytes.data + (size_t)index * 4, &bits, 4);
 }
 
 // A constant scalar int or uint as int64.
@@ -359,6 +361,7 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 			Constant* value = EvaluateConstant(typer, argument);
 			if (!value)
 				return nullptr;
+			assert((uint64)offset + value->bytes.count <= constant->bytes.count);
 			memcpy(constant->bytes.data + offset, value->bytes.data, value->bytes.count);
 			offset += value->bytes.count;
 		}
@@ -381,6 +384,7 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 		if (!constant)
 			return nullptr;
 		uint32 offset = (uint32)ConstantToInteger(index) * ((ArrayType*)object->type)->stride; // checked by TypeIndex
+		assert((uint64)offset + constant->bytes.count <= array->bytes.count);
 		memcpy(constant->bytes.data, array->bytes.data + offset, constant->bytes.count);
 		return constant;
 	}
@@ -402,6 +406,7 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 				offset = index * ((ArrayType*)node->type)->stride;
 			else
 				offset = ((StructType*)node->type)->fields[index].offset;
+			assert((uint64)offset + value->bytes.count <= constant->bytes.count);
 			memcpy(constant->bytes.data + offset, value->bytes.data, value->bytes.count);
 			index++;
 		}
@@ -555,6 +560,7 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 			continue;
 		}
 		offset = (offset + field_type->alignment - 1) / field_type->alignment * field_type->alignment;
+		assert(index < count);
 		fields[index] = { .name = field->name, .type = field_type, .offset = (uint32)offset, .declaration = field };
 		index++;
 		offset += field_type->size;
@@ -631,6 +637,7 @@ static bool TypeConst(Typer& typer, Node* node)
 {
 	Node* declared = FindChild(node, Usage::DECLARED_TYPE);
 	Node* value = FindChild(node, Usage::VALUE);
+	assert(value); // required by the parser
 	Type* type = nullptr;
 	if (declared)
 	{
@@ -806,9 +813,7 @@ static bool TypeInitList(Typer& typer, Node* node, Type* expected)
 			element_type = ((StructType*)expected)->fields[index].type;
 		index++;
 
-		if (!TypeNode(typer, element, element_type))
-			typed = false;
-		else if (!ImplicitCast(typer, element, element_type))
+		if (!TypeNode(typer, element, element_type) || !ImplicitCast(typer, element, element_type))
 			typed = false;
 	}
 	node->type = expected;
