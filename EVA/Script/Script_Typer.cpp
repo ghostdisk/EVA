@@ -367,8 +367,7 @@ static bool TypeConstValue(Typer& typer, Node* node)
 		EmitError(typer, "expected %s, got %s", TypeName(typer, type), TypeName(typer, constant->type));
 		return false;
 	}
-	node->type = constant->type;
-	node->constant = constant;
+	node->type = constant->type; // the value is now a CONSTANT
 	return true;
 }
 
@@ -808,6 +807,7 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 		if (!TypeNumber(typer, node, expected))
 			typed = false;
 		break;
+	case NodeType::CONSTANT: break; // folded, already typed
 	case NodeType::REFERENCE:
 		if (!TypeReference(typer, node))
 			typed = false;

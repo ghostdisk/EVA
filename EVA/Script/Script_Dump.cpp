@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 namespace EVA::Script
 {
@@ -92,6 +93,7 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::BOOL: return "BOOL";
 		case NodeType::IDENTIFIER: return "IDENTIFIER";
 		case NodeType::REFERENCE: return "REFERENCE";
+		case NodeType::CONSTANT: return "CONSTANT";
 		case NodeType::INIT_LIST: return "INIT_LIST";
 		case NodeType::UNARY: return "UNARY";
 		case NodeType::POSTFIX: return "POSTFIX";
@@ -175,6 +177,133 @@ ZTStringView NumberToString(NumberLiteral* number, Arena* arena)
 }
 
 // A node's type, or a built-in's kind and name, e.g. TYPE float4. A constant is named by its type.
+// Like a float NUMBER: the fewest decimals that parse back to the same float, an exponent outside the usual range.
+static void AppendFloat(StringBuilder& builder, float value)
+{
+	if (isnan(value) || isinf(value))
+	{
+		builder.Append(isnan(value) ? "nan" : (value < 0 ? "-inf" : "inf"));
+		return;
+	}
+	char text[64];
+	double magnitude = fabs(value);
+	if (magnitude == 0.0 || (magnitude >= 1e-4 && magnitude < 1e15))
+	{
+		for (int decimals = 1; decimals <= 48; ++decimals)
+		{
+			snprintf(text, sizeof(text), "%.*f", decimals, (double)value);
+			if (strtof(text, nullptr) == value)
+				break;
+		}
+	}
+	else
+	{
+		for (int precision = 1; precision <= 9; ++precision)
+		{
+			snprintf(text, sizeof(text), "%.*g", precision, (double)value);
+			if (strtof(text, nullptr) == value)
+				break;
+		}
+	}
+	builder.Append(text);
+}
+
+// Prints at most budget scalars, then "...", so large constants don't make huge dumps.
+struct ValuePrinter
+{
+	StringBuilder& builder;
+	uint32 budget = 256;
+	bool truncated = false;
+
+	void Separator(uint32 index)
+	{
+		if (index && !truncated)
+			builder.Append(", ");
+	}
+
+	void Print(Type* type, const uint8* bytes)
+	{
+		if (truncated)
+			return;
+		switch (type->type_kind)
+		{
+		case TypeKind::PRIMITIVE:
+		{
+			if (!budget)
+			{
+				builder.Append("...");
+				truncated = true;
+				return;
+			}
+			budget--;
+			uint32 bits = 0;
+			memcpy(&bits, bytes, type->size < 4 ? type->size : 4);
+			switch (((PrimitiveType*)type)->primitive_kind)
+			{
+			case PrimitiveKind::SIGNED: builder.AppendFormat("%d", (int32)bits); break;
+			case PrimitiveKind::UNSIGNED: builder.AppendFormat("%u", bits); break;
+			case PrimitiveKind::BOOL: builder.Append(bits ? "true" : "false"); break;
+			case PrimitiveKind::FLOAT:
+			{
+				float value;
+				memcpy(&value, &bits, 4);
+				AppendFloat(builder, value);
+				break;
+			}
+			case PrimitiveKind::VOID: break;
+			}
+			break;
+		}
+		case TypeKind::VECTOR:
+		{
+			VectorType* vector = (VectorType*)type;
+			builder.Append("(");
+			for (uint32 i = 0; i < vector->count && !truncated; ++i)
+			{
+				Separator(i);
+				Print(vector->element, bytes + (size_t)i * vector->element->size);
+			}
+			builder.Append(")");
+			break;
+		}
+		case TypeKind::ARRAY:
+		{
+			ArrayType* array = (ArrayType*)type;
+			builder.Append("{");
+			for (uint32 i = 0; i < array->length && !truncated; ++i)
+			{
+				Separator(i);
+				Print(array->element, bytes + (size_t)i * array->stride);
+			}
+			builder.Append("}");
+			break;
+		}
+		case TypeKind::STRUCT:
+		{
+			StructType* structure = (StructType*)type;
+			builder.Append("{");
+			for (uint32 i = 0; i < structure->fields.count && !truncated; ++i)
+			{
+				Separator(i);
+				Print(structure->fields[i].type, bytes + structure->fields[i].offset);
+			}
+			builder.Append("}");
+			break;
+		}
+		case TypeKind::MATRIX:
+		case TypeKind::ENUM: builder.Append("?"); break;
+		}
+	}
+};
+
+ZTStringView ConstantToString(Constant* constant, Arena* arena)
+{
+	StringBuilder builder(arena);
+	ValuePrinter printer = { .builder = builder };
+	printer.Print(constant->type, constant->bytes.data);
+	return builder.ToString();
+}
+
 static ZTStringView TargetToString(Element* target, Arena* arena)
 {
 	switch (target->kind)
@@ -210,6 +339,9 @@ void DumpNode(Node* node, Arena* arena, int indent)
 			break;
 		case NodeType::ENUM_VALUE:
 			printf(" | %lld", (long long)node->enum_value);
+			break;
+		case NodeType::CONSTANT:
+			printf(" | %s", ConstantToString(node->constant, arena).CString());
 			break;
 		case NodeType::UNARY:
 		case NodeType::POSTFIX:
@@ -257,6 +389,10 @@ void SerializeNode(StringBuilder& builder, Node* node)
 			break;
 		case NodeType::ENUM_VALUE:
 			builder.AppendFormat(" %lld", (long long)node->enum_value);
+			break;
+		case NodeType::CONSTANT:
+			builder.Append(" ");
+			builder.Append(ConstantToString(node->constant, builder.arena));
 			break;
 		case NodeType::UNARY:
 		case NodeType::POSTFIX:

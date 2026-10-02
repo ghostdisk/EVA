@@ -339,6 +339,7 @@ static Type* ConstantType(Evaluation& evaluation, Node* node, Type* expected)
 	switch (node->node_type)
 	{
 	case NodeType::NUMBER: return NumberType(typer, node->number, expected);
+	case NodeType::CONSTANT: return node->type;
 	case NodeType::REFERENCE: return ReferenceType(evaluation, node);
 	case NodeType::UNARY:
 	{
@@ -389,10 +390,11 @@ static const uint8* ConstantPlace(Evaluation& evaluation, Node* node, Type* type
 	CHECK_RECURSION(typer);
 	switch (node->node_type)
 	{
+	case NodeType::CONSTANT: return node->constant->bytes.data;
 	case NodeType::REFERENCE:
 		if (node->target->kind == ElementKind::CONSTANT)
 			return ((Constant*)node->target)->bytes.data;
-		return ((Node*)node->target)->constant->bytes.data;
+		return FindChild((Node*)node->target, Usage::VALUE)->constant->bytes.data; // a CONST's folded value
 	case NodeType::INDEX:
 	{
 		Node* object = FindChild(node, Usage::OBJECT);
@@ -435,6 +437,7 @@ static bool EvaluateInto(Evaluation& evaluation, Node* node, Type* type, Slice<u
 	switch (node->node_type)
 	{
 	case NodeType::NUMBER: WriteComponent(out, 0, NumberBits(node->number, (PrimitiveType*)type)); return true;
+	case NodeType::CONSTANT:
 	case NodeType::REFERENCE:
 	case NodeType::INDEX:
 	case NodeType::MEMBER:
@@ -547,6 +550,27 @@ static Constant* NewConstant(Typer& typer, Type* type)
 	return constant;
 }
 
+// Replaces node with a CONSTANT of its value. Attributes stay, ignored for now.
+static void Fold(Node* node, Constant* constant)
+{
+	Node* attributes = nullptr;
+	Node** tail = &attributes;
+	for (Node* child = node->child; child; child = child->next)
+	{
+		if (child->usage == Usage::ATTRIBUTE)
+		{
+			*tail = child;
+			tail = &child->next;
+		}
+	}
+	*tail = nullptr;
+	node->node_type = NodeType::CONSTANT;
+	node->name = Atom::NONE;
+	node->type = constant->type;
+	node->constant = constant;
+	node->child = attributes;
+}
+
 // what: for the error if node isn't a constant expression, nullptr for none.
 static Constant* Evaluate(Typer& typer, Node* node, Type* expected, const char* what)
 {
@@ -562,6 +586,8 @@ static Constant* Evaluate(Typer& typer, Node* node, Type* expected, const char* 
 	assert(constant || evaluation.not_constant || evaluation.failed_before || typer.errors.size() > error_count);
 	if (!constant && what && evaluation.not_constant && typer.errors.size() == error_count)
 		EmitError(typer, "%s must be a constant", what);
+	if (constant)
+		Fold(node, constant);
 	return constant;
 }
 

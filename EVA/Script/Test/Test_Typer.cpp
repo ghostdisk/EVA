@@ -96,9 +96,12 @@ static Node* LastDeclaration(Test::Context& test, const char* source)
 static bool ConstantBits(Test::Context& test, const char* source, uint32* out_bits, uint32 count)
 {
 	Node* node = LastDeclaration(test, source);
-	if (!node || node->node_type != NodeType::CONST || !node->constant || node->constant->bytes.count != count * 4)
+	if (!node || node->node_type != NodeType::CONST)
 		return false;
-	memcpy(out_bits, node->constant->bytes.data, (size_t)count * 4);
+	Constant* constant = FindChild(node, Usage::VALUE)->constant;
+	if (constant->bytes.count != count * 4)
+		return false;
+	memcpy(out_bits, constant->bytes.data, (size_t)count * 4);
 	return true;
 }
 
@@ -111,13 +114,13 @@ static uint32 Bits(float value)
 
 TEST(Typer, Numbers)
 {
-	// A const's value is evaluated rather than typed, so only the const has a type.
-	CHECK_TYPE("const a = 1;", "([DECLARATION]CONST:int a ([VALUE]NUMBER 1))");
-	CHECK_TYPE("const a = 1.5;", "([DECLARATION]CONST:float a ([VALUE]NUMBER 1.5))");
-	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]NUMBER 1000.0))");
-	CHECK_TYPE("const a: uint = 1;", "([DECLARATION]CONST:uint a ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]NUMBER 1))");
+	// A const's value is evaluated and folded into a CONSTANT.
+	CHECK_TYPE("const a = 1;", "([DECLARATION]CONST:int a ([VALUE]CONSTANT:int 1))");
+	CHECK_TYPE("const a = 1.5;", "([DECLARATION]CONST:float a ([VALUE]CONSTANT:float 1.5))");
+	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]CONSTANT:float 1000.0))");
+	CHECK_TYPE("const a: uint = 1;", "([DECLARATION]CONST:uint a ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]CONSTANT:uint 1))");
 	// Literals take the expected type.
-	CHECK_TYPE("const a: float = 1;", "([DECLARATION]CONST:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]NUMBER 1))");
+	CHECK_TYPE("const a: float = 1;", "([DECLARATION]CONST:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]CONSTANT:float 1.0))");
 	CHECK_TYPE("function f(): uint { return 1; }",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:uint uint -> TYPE uint) ([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]NUMBER:uint 1))))");
 	CHECK_TYPE_ERRORS("function f(): int { return 1.5; }", "'1.5' is not an integer");
@@ -149,7 +152,7 @@ TEST(Typer, Numbers)
 
 TEST(Typer, Unary)
 {
-	CHECK_TYPE("const a = -1;", "([DECLARATION]CONST:int a ([VALUE]UNARY - ([OPERAND]NUMBER 1)))");
+	CHECK_TYPE("const a = -1;", "([DECLARATION]CONST:int a ([VALUE]CONSTANT:int -1))");
 	CHECK_TYPE("function f(): int { return -1; }",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:int int -> TYPE int) ([BODY]BLOCK ([STATEMENT]RETURN "
 		"([VALUE]UNARY:int - ([OPERAND]NUMBER:int 1)))))");
@@ -169,9 +172,9 @@ TEST(Typer, Unary)
 
 TEST(Typer, Binary)
 {
-	CHECK_TYPE("const a = 1 + 2;", "([DECLARATION]CONST:int a ([VALUE]BINARY + ([LEFT]NUMBER 1) ([RIGHT]NUMBER 2)))");
+	CHECK_TYPE("const a = 1 + 2;", "([DECLARATION]CONST:int a ([VALUE]CONSTANT:int 3))");
 	// A literal takes the other side's type, whichever side it's on.
-	CHECK_TYPE("const a = 1 + 2.0;", "([DECLARATION]CONST:float a ([VALUE]BINARY + ([LEFT]NUMBER 1) ([RIGHT]NUMBER 2.0)))");
+	CHECK_TYPE("const a = 1 + 2.0;", "([DECLARATION]CONST:float a ([VALUE]CONSTANT:float 3.0))");
 	CHECK_TYPE("function f(x: float): float { return 2 * x; }",
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER:float x ([DECLARED_TYPE]REFERENCE:float float -> TYPE float)) "
 		"([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN "
@@ -199,9 +202,7 @@ TEST(Typer, Binary)
 
 TEST(Typer, VectorConstructors)
 {
-	CHECK_TYPE("const v = float2(1.0, 2.0);",
-		"([DECLARATION]CONST:float2 v ([VALUE]CALL ([CALLEE]REFERENCE float2 -> TYPE float2) "
-		"([ARGUMENT]NUMBER 1.0) ([ARGUMENT]NUMBER 2.0)))");
+	CHECK_TYPE("const v = float2(1.0, 2.0);", "([DECLARATION]CONST:float2 v ([VALUE]CONSTANT:float2 (1.0, 2.0)))");
 	CHECK_TYPE("function f(): float2 { return float2(1.0, 2.0); }",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:float2 float2 -> TYPE float2) ([BODY]BLOCK ([STATEMENT]RETURN "
 		"([VALUE]CALL:float2 ([CALLEE]REFERENCE:float2 float2 -> TYPE float2) ([ARGUMENT]NUMBER:float 1.0) ([ARGUMENT]NUMBER:float 2.0)))))");
@@ -232,8 +233,8 @@ TEST(Typer, VectorConstructors)
 TEST(Typer, Arrays)
 {
 	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 };",
-		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER 2) "
-		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST ([ELEMENT]NUMBER 1.0) ([ELEMENT]NUMBER 2.0)))");
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]CONSTANT:uint 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]CONSTANT:[2]float {1.0, 2.0}))");
 	CHECK_TYPE_ERRORS("const n = 2; const a: [n]float = { 1.0, 2.0 };", "");
 	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0 };", "[2]float needs 2 elements, got 1");
 	CHECK_TYPE_ERRORS("const a: [0]float = {};", "array size must be at least 1, got 0");
@@ -245,9 +246,12 @@ TEST(Typer, Arrays)
 	CHECK_TYPE_ERRORS("const a: float = { 1.0 };", "can't initialize float with an initializer list");
 
 	// Array types are unique.
-	Node* node = LastDeclaration(test, "const a: [3]float2 = { float2(1.0), float2(2.0), float2(3.0) }; const b: [3]float2 = a;");
-	REQUIRE(node);
-	Node* a = (Node*)FindChild(node, Usage::VALUE)->target;
+	ZTStringView errors;
+	Node* module = ParseResolveAndType(test.arena, ContextKind::SCRIPT,
+		"const a: [3]float2 = { float2(1.0), float2(2.0), float2(3.0) }; const b: [3]float2 = a;", &errors);
+	REQUIRE(module && !errors.length);
+	Node* a = module->child;
+	Node* node = a->next;
 	CHECK(a->type == node->type);
 	CHECK_EQ(node->type->type_kind, TypeKind::ARRAY);
 	ArrayType* array = (ArrayType*)node->type;
@@ -265,8 +269,8 @@ TEST(Typer, Arrays)
 TEST(Typer, Indexing)
 {
 	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 }; function f(i: uint): float { return a[i]; }",
-		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER 2) "
-		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST ([ELEMENT]NUMBER 1.0) ([ELEMENT]NUMBER 2.0))) "
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]CONSTANT:uint 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]CONSTANT:[2]float {1.0, 2.0})) "
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER:uint i ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint)) "
 		"([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]INDEX:float "
 		"([OBJECT]REFERENCE:[2]float a -> CONST) ([INDEX]REFERENCE:uint i -> PARAMETER)))))");
@@ -359,6 +363,19 @@ TEST(Typer, ConstsMustBeConstant)
 
 TEST(Typer, ConstantExpressions)
 {
+	CHECK_TYPE("const p: [3]float2 = { float2(0.0, 0.5), float2(0.5, -0.5), float2(-0.5, -0.5) };",
+		"([DECLARATION]CONST:[3]float2 p ([DECLARED_TYPE]ARRAY_TYPE:[3]float2 ([SIZE]CONSTANT:uint 3) "
+		"([ELEMENT]REFERENCE:float2 float2 -> TYPE float2)) ([VALUE]CONSTANT:[3]float2 {(0.0, 0.5), (0.5, -0.5), (-0.5, -0.5)}))");
+	CHECK_TYPE("const n = 2; const a: [n * 2]int = { 1, 2, 3, n };",
+		"([DECLARATION]CONST:int n ([VALUE]CONSTANT:int 2)) ([DECLARATION]CONST:[4]int a ([DECLARED_TYPE]ARRAY_TYPE:[4]int "
+		"([SIZE]CONSTANT:int 4) ([ELEMENT]REFERENCE:int int -> TYPE int)) ([VALUE]CONSTANT:[4]int {1, 2, 3, 2}))");
+	// Constant indices in code are folded too.
+	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 }; function f(): float { return a[1 - 1]; }",
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]CONSTANT:uint 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]CONSTANT:[2]float {1.0, 2.0})) "
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]INDEX:float ([OBJECT]REFERENCE:[2]float a -> CONST) ([INDEX]CONSTANT:uint 0)))))");
+
 	uint32 bits[1];
 	REQUIRE(ConstantBits(test, "struct S { a: float; b: [2]int; } const s: S = { 1.0, { 2, 3 } }; const x = s.b[1];", bits, 1));
 	CHECK_EQ(bits[0], 3u);

@@ -134,6 +134,7 @@ enum class NodeType : uint8
 	BOOL,
 	IDENTIFIER,
 	REFERENCE, // an IDENTIFIER the resolver found the definition of
+	CONSTANT,  // a constant expression the typer evaluated, which it replaces
 	INIT_LIST,
 	UNARY,
 	POSTFIX,
@@ -223,7 +224,7 @@ struct Node : Element
 		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
 		Element* target;      // REFERENCE
 		int64 enum_value;     // ENUM_VALUE
-		Constant* constant;   // CONST: the value, set by the typer
+		Constant* constant;   // CONSTANT
 	};
 	Node* child = nullptr; // first child, the rest are chained via next
 	Node* next = nullptr;
@@ -516,7 +517,7 @@ bool TypeCheck(Typer& typer, Node* module);
 // vector constructors. Anything else isn't one.
 // The value of node, or nullptr with an error if it isn't a constant expression ("<what> must be a constant") or is
 // invalid. expected is a hint like in the typer: literals take it, initializer lists need it. The caller checks the
-// result's type.
+// result's type. On success node becomes a CONSTANT of the value, its children dropped except for attributes.
 Constant* EvaluateConstant(Typer& typer, Node* node, Type* expected, const char* what);
 
 // EvaluateConstant, but nullptr without an error if node isn't a constant expression. Still errors for invalid ones,
@@ -552,8 +553,8 @@ bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 compone
 // The type a type expression names, also stored in the node.
 Type* EvaluateType(Typer& typer, Node* node);
 
-// Types a CONST and evaluates its value, the first time it's needed. That can be before its turn: a struct laid out
-// early can use a const as an array size.
+// Types a CONST and evaluates its value, which becomes a CONSTANT node, the first time it's needed. That can be before
+// its turn: a struct laid out early can use a const as an array size.
 bool TypeConst(Typer& typer, Node* node);
 
 // Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
@@ -575,12 +576,15 @@ ZTStringView TypeToString(Type* type, Arena* arena);
 // always with a '.' or an exponent. Allocated in arena.
 ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
 
+// e.g. 3, 0.5, (1.0, 2.0) for vectors, {1, 2} for arrays and structs. Allocated in arena.
+ZTStringView ConstantToString(Constant* constant, Arena* arena);
+
 void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // Appends node and its subtree on one line, as compactly as possible while keeping everything a node holds:
 // ([USAGE]TYPE:type name payload children...), with :type once the typer has set it, e.g. a + b is ([ROOT]BINARY + ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)).
 // A REFERENCE's payload is its target's node type: ([CALLEE]REFERENCE f -> FUNCTION), or for a built-in its kind and
-// name: ([TYPE]REFERENCE float4 -> TYPE float4). A constant is named by its type.
+// name: ([TYPE]REFERENCE float4 -> TYPE float4). A constant is named by its type. A CONSTANT's payload is its value.
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 

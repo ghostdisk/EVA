@@ -124,6 +124,7 @@ static bool IsExpression(NodeType type)
 	case NodeType::BOOL:
 	case NodeType::IDENTIFIER:
 	case NodeType::REFERENCE:
+	case NodeType::CONSTANT:
 	case NodeType::INIT_LIST:
 	case NodeType::UNARY:
 	case NodeType::POSTFIX:
@@ -427,7 +428,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 	{
 		Node* node;
 		bool in_attribute;
-		bool in_constant; // a constant expression, evaluated without typing its nodes
+		bool on_constant; // an attribute of a CONSTANT, ignored for now
 	};
 	std::vector<Entry> stack = { { compilation.module, false, false } };
 	std::unordered_set<Node*> seen;
@@ -477,7 +478,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			if (node->type)
 				CheckType(compilation, node->type);
 
-			if (node->usage == Usage::ATTRIBUTE)
+			if (node->usage == Usage::ATTRIBUTE && !entry.on_constant)
 			{
 				// Typing succeeded, so every attribute is one the typer understood.
 				Node* callee = node->node_type == NodeType::CALL ? FindChild(node, Usage::CALLEE) : node;
@@ -485,7 +486,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 					Fail("attribute %s on a %s isn't an intrinsic", NodeTypeToString(callee->node_type).CString(),
 						NodeTypeToString(node->node_type).CString());
 			}
-			else if (!entry.in_attribute && !entry.in_constant)
+			else if (!entry.in_attribute)
 			{
 				bool untyped = node->node_type == NodeType::MODULE || node->node_type == NodeType::STRUCT ||
 							   node->node_type == NodeType::FUNCTION || node->node_type == NodeType::BLOCK ||
@@ -494,23 +495,27 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 					Fail("%s %s has no type", name, UsageToString(node->usage).CString());
 			}
 
-			if (node->node_type == NodeType::CONST)
+			// Constant expressions are folded into CONSTANTs.
+			if (node->node_type == NodeType::CONST && FindChild(node, Usage::VALUE)->node_type != NodeType::CONSTANT)
+				Fail("CONST's value isn't a CONSTANT");
+			if (node->node_type == NodeType::ARRAY_TYPE && FindChild(node, Usage::SIZE)->node_type != NodeType::CONSTANT)
+				Fail("array size isn't a CONSTANT");
+			if (node->node_type == NodeType::CONSTANT)
 			{
 				Constant* constant = node->constant;
 				if (!constant || constant->kind != ElementKind::CONSTANT)
-					Fail("CONST without a constant");
+					Fail("CONSTANT without a constant");
 				if (constant->type != node->type || constant->bytes.count != node->type->size ||
 					(constant->bytes.count && !constant->bytes.data))
-					Fail("CONST's constant is a %s of %u bytes", TypeToString(constant->type, compilation.intermediate_arena).CString(),
-						constant->bytes.count);
+					Fail("CONSTANT of type %s has a %s of %u bytes", TypeToString(node->type, compilation.intermediate_arena).CString(),
+						TypeToString(constant->type, compilation.intermediate_arena).CString(), constant->bytes.count);
 			}
 		}
 
 		for (Node* child = node->child; child; child = child->next)
 		{
-			bool constant = (node->node_type == NodeType::CONST && child->usage == Usage::VALUE) ||
-							(node->node_type == NodeType::ARRAY_TYPE && child->usage == Usage::SIZE);
-			stack.push_back({ child, entry.in_attribute || child->usage == Usage::ATTRIBUTE, entry.in_constant || constant });
+			stack.push_back({ child, entry.in_attribute || child->usage == Usage::ATTRIBUTE,
+				entry.on_constant || node->node_type == NodeType::CONSTANT });
 		}
 	}
 

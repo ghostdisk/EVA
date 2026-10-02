@@ -1096,7 +1096,7 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 			Fuzz::Fail("%s has type %s, expected %s", expected.name.c_str(), type.CString(), expected.type->name.c_str());
 		if (!expected.has_value)
 			continue;
-		Constant* constant = node->constant;
+		Constant* constant = FindChild(node, Usage::VALUE)->constant; // folded
 		if (constant->bytes.count != expected.value.size() ||
 			(constant->bytes.count && memcmp(constant->bytes.data, expected.value.data(), constant->bytes.count) != 0))
 		{
