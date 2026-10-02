@@ -2,9 +2,6 @@
 #include <EVA/Script/Script.hpp>
 #include <EVA/PAL/PAL.hpp>
 #include <vector>
-#ifdef EVA_MACOS
-#include <unistd.h>
-#endif
 
 using namespace EVA;
 
@@ -94,22 +91,8 @@ int EVA::AppMain()
 		.debug = true,
 	});
 	DEFER(GPU::Shutdown());
-	uint32 backbuffer_count = GPU::device.GetBackbufferCount();
-	if (!backbuffer_count)
-	{
-#ifdef EVA_MACOS
-		// Keep the PAL test window responsive until Metal exposes backbuffers.
-		while (!quit)
-		{
-			PollEvents();
-			if (!quit)
-				usleep(16000);
-		}
-		return 0;
-#else
+	if (!GPU::device.GetBackbufferCount())
 		return 1;
-#endif
-	}
 
 	GPU::RenderPass* render_pass = GPU::device.CreateRenderPass({
 		.attachments = {
