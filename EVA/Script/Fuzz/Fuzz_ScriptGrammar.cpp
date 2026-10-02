@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <algorithm>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -173,6 +175,7 @@ struct Where
 struct Expected
 {
 	std::string name;
+	uint32 occurrence = 0; // of declarations with the name, in source order, since inner scopes can reuse names
 	GenType* type = nullptr;
 	bool has_value = false;
 	Bytes value;
@@ -209,6 +212,38 @@ struct Generator
 	std::string NewName(const char* prefix)
 	{
 		return prefix + std::to_string(next_name++);
+	}
+
+	// Where the innermost scope's symbols start. Names from before it can be shadowed.
+	size_t scope_start = 0;
+
+	// Whether symbols[i] isn't shadowed by a later symbol of the same name.
+	bool Visible(size_t i)
+	{
+		for (size_t k = i + 1; k < symbols.size(); ++k)
+		{
+			if (symbols[k].name == symbols[i].name)
+				return false;
+		}
+		return true;
+	}
+
+	// The name of a const, variable or parameter: a new one, or sometimes one that shadows a name from an outer scope,
+	// or an enum value's, which attributes' arguments still have to find.
+	std::string DeclName(const char* prefix)
+	{
+		if (Below(8) != 0)
+			return NewName(prefix);
+		std::vector<std::string> names = { "position", "vertex_index", "vertex", "fragment" };
+		for (size_t i = 0; i < scope_start; ++i)
+			names.push_back(symbols[i].name);
+		std::string name = names[Below((uint32)names.size())];
+		for (size_t i = scope_start; i < symbols.size(); ++i)
+		{
+			if (symbols[i].name == name)
+				return NewName(prefix); // already defined in this scope
+		}
+		return name;
 	}
 
 	GenType* NewType(Kind kind, std::string name, uint32 size, uint32 alignment)
@@ -329,7 +364,7 @@ struct Generator
 				for (size_t i = symbols.size(); i-- > 0;)
 				{
 					Symbol& symbol = symbols[i];
-					if (symbol.constant && symbol.value.size() == 4 &&
+					if (Visible(i) && symbol.constant && symbol.value.size() == 4 &&
 						(symbol.type->kind == Kind::INT || symbol.type->kind == Kind::UINT) &&
 						ReadComponent(symbol.value, 0) == length)
 						return symbol.name;
@@ -436,6 +471,26 @@ struct Generator
 			WriteComponent(index.value, 0, value);
 			return index;
 		}
+		// An int, which the safety pass converts before clamping. Indices are typed expecting uint, which literals would
+		// take, so it starts from an int place. % keeps the sign, so when it isn't constant it can be negative at run
+		// time. A constant has to be in bounds, so it's wrapped once more.
+		Expr base;
+		if (depth < MAX_DEPTH && length <= (1u << 30) && Below(3) == 0 &&
+			Place(int_type, { .constant_only = where.constant_only }, depth + 1, base))
+		{
+			Expr inner = Generate(int_type, { .constant_only = where.constant_only }, depth + 1);
+			std::string modulo = ") % " + std::to_string(length);
+			index.text = "(" + base.text + " + (" + inner.text + ")" + modulo;
+			index.constant = base.constant && inner.constant;
+			if (index.constant)
+			{
+				int32 value = (int32)(ReadComponent(base.value, 0) + ReadComponent(inner.value, 0)) % (int32)length;
+				index.text = "(" + index.text + " + " + std::to_string(length) + modulo;
+				index.value.resize(4);
+				WriteComponent(index.value, 0, (uint32)((value + (int32)length) % (int32)length));
+			}
+			return index;
+		}
 		Expr inner = Generate(uint_type, { .constant_only = where.constant_only }, depth + 1);
 		index.text = "(" + inner.text + ") % " + std::to_string(length);
 		index.constant = inner.constant;
@@ -453,9 +508,10 @@ struct Generator
 		// The compiler doesn't evaluate member access as a constant.
 		bool members = !where.constant_only;
 		std::vector<Symbol*> candidates;
-		for (Symbol& symbol : symbols)
+		for (size_t i = 0; i < symbols.size(); ++i)
 		{
-			if ((symbol.constant || !where.constant_only) && Contains(symbol.type, type, members))
+			Symbol& symbol = symbols[i];
+			if ((symbol.constant || !where.constant_only) && Visible(i) && Contains(symbol.type, type, members))
 				candidates.push_back(&symbol);
 		}
 		if (candidates.empty())
@@ -793,8 +849,18 @@ struct Generator
 
 	// Declarations
 
+	// Declarations of each name so far, all of which go in source order.
+	std::map<std::string, uint32> declared;
+
+	// What the next declaration of name has to be.
+	void Expect(const std::string& name, GenType* type, bool has_value, const Bytes& value)
+	{
+		expected.push_back({ name, declared[name], type, has_value, value });
+	}
+
 	void AddSymbol(const std::string& name, GenType* type, const Expr* value)
 	{
+		declared[name]++;
 		Symbol symbol;
 		symbol.name = name;
 		symbol.type = type;
@@ -875,7 +941,7 @@ struct Generator
 
 	std::string Const(const char* indent)
 	{
-		std::string name = NewName("c");
+		std::string name = DeclName("c");
 		GenType* type = PickType((uint32)struct_types.size());
 		Expr value;
 
@@ -906,16 +972,20 @@ struct Generator
 		text += " = " + value.text + ";\n";
 
 		if (value.constant)
-			expected.push_back({ name, type, true, value.value });
+			Expect(name, type, true, value.value);
 		AddSymbol(name, type, &value);
 		return text;
 	}
 
-	// A function's body: statements, then a return of its type.
-	std::string Body(GenType* return_type, std::string indent, uint32 depth)
+	// A function's body: statements, then a return of its type. Nested blocks are scopes of their own, a function's
+	// body shares its parameters' scope.
+	std::string Body(GenType* return_type, std::string indent, uint32 depth, bool nested)
 	{
 		std::string text = indent + "{\n";
 		size_t scope = symbols.size();
+		size_t outer_scope_start = scope_start;
+		if (nested)
+			scope_start = scope;
 		std::string inner = indent + "\t";
 		uint32 count = Below(5);
 		for (uint32 i = 0; i < count && source_size + text.size() < MAX_SOURCE; ++i)
@@ -925,10 +995,10 @@ struct Generator
 			case 0: text += Return(return_type, inner); break;
 			case 1:
 			{
-				std::string name = NewName("v");
+				std::string name = DeclName("v");
 				GenType* type = PickType((uint32)struct_types.size());
 				text += inner + name + ": " + TypeText(type, true) + ";\n";
-				expected.push_back({ name, type, false, {} });
+				Expect(name, type, false, {});
 				AddSymbol(name, type, nullptr);
 				break;
 			}
@@ -937,7 +1007,7 @@ struct Generator
 				if (chaos)
 					text += inner + Chaos({}, 0).text + ";\n";
 				break;
-			case 4: text += Body(return_type, inner, depth + 1); break;
+			case 4: text += Body(return_type, inner, depth + 1, true); break;
 			case 5:
 			{
 				// Nested functions only see the module's names.
@@ -951,6 +1021,7 @@ struct Generator
 		}
 		text += Return(return_type, inner);
 		symbols.resize(scope);
+		scope_start = outer_scope_start;
 		return text + indent + "}\n";
 	}
 
@@ -987,7 +1058,7 @@ struct Generator
 				for (size_t i = symbols.size(); i-- > 0;)
 				{
 					Symbol& symbol = symbols[i];
-					if (symbol.constant && symbol.value.size() == 4 && symbol.type->kind == Kind::UINT &&
+					if (Visible(i) && symbol.constant && symbol.value.size() == 4 && symbol.type->kind == Kind::UINT &&
 						ReadComponent(symbol.value, 0) == location)
 						return symbol.name;
 				}
@@ -1201,6 +1272,8 @@ struct Generator
 		std::string interface_lines;
 		std::vector<uint32> path;
 		size_t scope = symbols.size();
+		size_t outer_scope_start = scope_start;
+		scope_start = scope;
 		uint32 parameter_count = Below(4);
 		uint32 used_locations = 0;
 		uint32 used_semantics = 0;
@@ -1223,7 +1296,7 @@ struct Generator
 			else
 				type = PickType((uint32)struct_types.size());
 
-			std::string parameter = NewName("p");
+			std::string parameter = DeclName("p");
 			if (i)
 				text += ", ";
 			text += attribute;
@@ -1232,7 +1305,7 @@ struct Generator
 			text += parameter + ": " + TypeText(type, true);
 			if (chaos && Chance(10))
 				text += " = " + Chaos({}, 0).text;
-			expected.push_back({ parameter, type, false, {} });
+			Expect(parameter, type, false, {});
 			AddSymbol(parameter, type, nullptr);
 		}
 		text += ")";
@@ -1270,8 +1343,9 @@ struct Generator
 			text += ": void";
 		text += "\n";
 
-		text += Body(return_type, indent, depth);
+		text += Body(return_type, indent, depth, false);
 		symbols.resize(scope);
+		scope_start = outer_scope_start;
 		return text;
 	}
 
@@ -1316,6 +1390,7 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 	if (compilation.failed_stage != Fuzz::Stage::DONE)
 		Fuzz::Fail("a valid program failed: %s", compilation.errors[0]->message.CString());
 
+	// In source order.
 	std::vector<Node*> declarations;
 	std::vector<Node*> stack = { compilation.module };
 	while (!stack.empty())
@@ -1325,22 +1400,25 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 		if (node->node_type == NodeType::CONST || node->node_type == NodeType::PARAMETER ||
 			node->node_type == NodeType::VARIABLE || node->node_type == NodeType::STRUCT)
 			declarations.push_back(node);
+		size_t first = stack.size();
 		for (Node* child = node->child; child; child = child->next)
 			stack.push_back(child);
+		std::reverse(stack.begin() + (ptrdiff_t)first, stack.end());
 	}
 	Arena* arena = compilation.intermediate_arena;
-	auto find = [&](const std::string& name) -> Node* {
+	auto find = [&](const std::string& name, uint32 occurrence) -> Node* {
+		uint32 remaining = occurrence;
 		for (Node* node : declarations)
 		{
-			if (GetAtomString(node->name, arena) == StringView(name.c_str()))
+			if (GetAtomString(node->name, arena) == StringView(name.c_str()) && remaining-- == 0)
 				return node;
 		}
-		Fuzz::Fail("no declaration named %s", name.c_str());
+		Fuzz::Fail("no declaration %u named %s", occurrence, name.c_str());
 	};
 
 	for (Expected& expected : generator.expected)
 	{
-		Node* node = find(expected.name);
+		Node* node = find(expected.name, expected.occurrence);
 		ZTStringView type = node->type ? TypeToString(node->type, arena) : "(none)";
 		if (!(type == StringView(expected.type->name.c_str())))
 			Fuzz::Fail("%s has type %s, expected %s", expected.name.c_str(), type.CString(), expected.type->name.c_str());
@@ -1363,7 +1441,7 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 
 	for (GenType* expected : generator.struct_types)
 	{
-		StructType* type = (StructType*)find(expected->name)->type;
+		StructType* type = (StructType*)find(expected->name, 0)->type;
 		bool same = type->size == expected->size && type->alignment == expected->alignment &&
 					type->fields.count == expected->fields.size();
 		for (uint32 i = 0; same && i < type->fields.count; ++i)
