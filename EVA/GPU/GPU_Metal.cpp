@@ -14,7 +14,8 @@
 	} while (0)
 
 // Metal through metal-cpp. Objects from new*, alloc and CreateSystemDefaultDevice are owned and released here; the rest
-// are autoreleased, so code getting them runs inside the frame's autorelease pool, from BeginFrame to EndFrame.
+// are autoreleased, so code getting them runs inside an autorelease pool: the frame's from BeginFrame to EndFrame, or one
+// of its own.
 //
 // Metal tracks hazards between passes itself, so the attachments' image states need no barriers.
 
@@ -30,6 +31,11 @@ struct MetalTexture
 struct MetalRenderPass
 {
 	std::vector<AttachmentDesc> attachments;
+};
+
+struct MetalPipeline
+{
+	MTL::RenderPipelineState* state = nullptr;
 };
 
 // Keeps the textures rather than their MTL::Textures: the backbuffer's changes every frame.
@@ -68,6 +74,25 @@ static MetalRenderPass* ToImpl(RenderPass* render_pass)
 static MetalFramebuffer* ToImpl(Framebuffer* framebuffer)
 {
 	return reinterpret_cast<MetalFramebuffer*>(framebuffer);
+}
+static MetalPipeline* ToImpl(Pipeline* pipeline)
+{
+	return reinterpret_cast<MetalPipeline*>(pipeline);
+}
+
+static MTL::PixelFormat ToMTLPixelFormat(TextureFormat format)
+{
+	switch (format)
+	{
+	case TextureFormat::RGBA8_UNORM:
+		return MTL::PixelFormatRGBA8Unorm;
+	case TextureFormat::BGRA8_UNORM:
+		return MTL::PixelFormatBGRA8Unorm;
+	case TextureFormat::D24_UNORM_S8_UINT:
+		// Apple GPUs have no 24-bit depth, so it's the nearest format they all have.
+		return MTL::PixelFormatDepth32Float_Stencil8;
+	}
+	return MTL::PixelFormatInvalid;
 }
 
 static MTL::LoadAction ToMTLLoadAction(AttachmentLoadOp op)
@@ -199,14 +224,91 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 	delete ToImpl(framebuffer);
 }
 
-// Pipelines aren't implemented yet, so frames are only cleared.
-static Pipeline* CreatePipeline(const CreatePipelineOptions&)
+// The shader's MSL compiled by Metal, or nullptr with the errors printed. Metal's compiler is LLVM based, and fast math
+// would let it assume floats are never NaN or infinite, which the other targets don't, so it's off.
+static MTL::Function* CompileMSL(const CompiledEntryPoint& shader)
 {
-	return nullptr;
+	NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+	DEFER(pool->release());
+	MTL::CompileOptions* options = MTL::CompileOptions::alloc()->init();
+	DEFER(options->release());
+	options->setLanguageVersion(MTL::LanguageVersion2_0);
+	options->setFastMathEnabled(false);
+	NS::Error* error = nullptr;
+	NS::String* source = NS::String::string((const char*)shader.code.data, NS::UTF8StringEncoding);
+	MTL::Library* library = device->newLibrary(source, options, &error);
+	if (!library)
+	{
+		fprintf(stderr, "Metal failed to compile a shader: %s\n",
+			error ? error->localizedDescription()->utf8String() : "no message");
+		return nullptr;
+	}
+	DEFER(library->release());
+	MTL::Function* function = library->newFunction(NS::String::string(MSL_ENTRY_POINT_NAME, NS::UTF8StringEncoding));
+	MTL_ASSERT(function);
+	return function;
 }
 
-static void DestroyPipeline(Pipeline*)
+static Pipeline* CreatePipeline(const CreatePipelineOptions& options)
 {
+	MTL_ASSERT(options.render_pass);
+	MetalRenderPass* render_pass = ToImpl(options.render_pass);
+	NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+	DEFER(pool->release());
+	MTL::RenderPipelineDescriptor* descriptor = MTL::RenderPipelineDescriptor::alloc()->init();
+	DEFER(descriptor->release());
+
+	std::vector<MTL::Function*> functions;
+	DEFER(for (MTL::Function* function : functions) function->release());
+	for (uint32 i = 0; i < options.shaders.count; ++i)
+	{
+		const CompiledEntryPoint& shader = options.shaders[i];
+		MTL::Function* function = CompileMSL(shader);
+		if (!function)
+			return nullptr;
+		functions.push_back(function);
+		if (shader.stage == ShaderStage::VERTEX)
+			descriptor->setVertexFunction(function);
+		else
+			descriptor->setFragmentFunction(function);
+	}
+	MTL_ASSERT(descriptor->vertexFunction());
+
+	uint32 color_count = 0;
+	for (const AttachmentDesc& attachment : render_pass->attachments)
+	{
+		MTL::PixelFormat format = ToMTLPixelFormat(attachment.format);
+		if (attachment.state_during == ImageState::COLOR_ATTACHMENT)
+			descriptor->colorAttachments()->object(color_count++)->setPixelFormat(format);
+		else
+		{
+			descriptor->setDepthAttachmentPixelFormat(format);
+			if (attachment.format == TextureFormat::D24_UNORM_S8_UINT)
+				descriptor->setStencilAttachmentPixelFormat(format);
+		}
+	}
+
+	NS::Error* error = nullptr;
+	MTL::RenderPipelineState* state = device->newRenderPipelineState(descriptor, &error);
+	if (!state)
+	{
+		fprintf(stderr, "Metal failed to create a pipeline: %s\n",
+			error ? error->localizedDescription()->utf8String() : "no message");
+		return nullptr;
+	}
+	MetalPipeline* pipeline = new MetalPipeline;
+	pipeline->state = state;
+	return reinterpret_cast<Pipeline*>(pipeline);
+}
+
+static void DestroyPipeline(Pipeline* pipeline)
+{
+	if (!pipeline)
+		return;
+	// Command buffers keep what they use alive, so there's nothing to wait for.
+	MetalPipeline* impl = ToImpl(pipeline);
+	impl->state->release();
+	delete impl;
 }
 
 static void CmdBeginRenderPass(const RenderPassBeginDesc& desc)
@@ -264,12 +366,19 @@ static void CmdEndRenderPass()
 	encoder = nullptr;
 }
 
-static void CmdBindPipeline(Pipeline*)
+static void CmdBindPipeline(Pipeline* pipeline)
 {
+	MTL_ASSERT(pipeline && encoder);
+	encoder->setRenderPipelineState(ToImpl(pipeline)->state);
+	// Clockwise on screen is the front, like every backend's. Metal's clip space and framebuffer coordinates are D3D's,
+	// so unlike Vulkan's, the vertex shader doesn't flip Y.
+	encoder->setFrontFacingWinding(MTL::WindingClockwise);
+	encoder->setCullMode(MTL::CullModeNone);
 }
 
-static void CmdDraw(uint32, uint32)
+static void CmdDraw(uint32 vertex_count, uint32 first_vertex)
 {
+	encoder->drawPrimitives(MTL::PrimitiveTypeTriangle, first_vertex, vertex_count);
 }
 
 static void EndFrame()

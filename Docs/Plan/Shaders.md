@@ -3,8 +3,8 @@
 The work from shader source to drawing on every target, as numbered items. Each says what's done and what's left.
 Design that has landed moves into docs ([IR.md](../IR.md)) and code comments.
 
-**Where we are:** the front end, IR gen and the SPIR-V and D3D11 HLSL backends are done (1-8). Next is the GPU side of
-the triangle (9), then the binding model (10). The binding model may force major changes to the language, so work that
+**Where we are:** the front end, IR gen and the SPIR-V and D3D11 HLSL backends are done (1-8), and the triangle draws
+on Vulkan, D3D11 and Metal (9), with a first MSL backend (13.2). Next is the binding model (10). The binding model may force major changes to the language, so work that
 would be thrown away by those changes waits until it settles: most of the safety pass (11), the optimizer (12) and the
 remaining typer work (2). The index clamps (11.1) landed with the backends, since fxc needs them. Programs too large
 for a target fail there, like ANGLE's do, rather than being limited by the front end (11.4.5).
@@ -41,7 +41,7 @@ for shaders, later bytecode for the script VM.
 | 6 | Zero-initialization | Done |
 | 7 | SPIR-V emitter | Done |
 | 8 | HLSL emitter for D3D11 | Done, loops left |
-| 9 | Compile result, the triangle on Vulkan and D3D11 | Compile result done, GPU side next |
+| 9 | Compile result, the triangle on Vulkan, D3D11 and Metal | Done |
 | 10 | Binding model | Next, the goal of 6-9 |
 | 11 | Safety pass and limits | Index clamps done, rest deferred |
 | 12 | Optimizer | Later |
@@ -366,7 +366,7 @@ Microsoft's D3D12On7 package for Windows 7 SP1, 64-bit (https://microsoft.github
 DXIL works, but presenting is windowed blits through `ID3D12CommandQueueDownlevel::Present` rather than DXGI, and
 there's no debug layer or PIX. Windows 8.1 has neither.
 
-## 9. Compile result, the triangle on Vulkan and D3D11 (compile result done, GPU side next)
+## 9. Compile result, the triangle on Vulkan, D3D11 and Metal (done)
 
 ```cpp
 struct CompiledEntryPoint
@@ -384,8 +384,9 @@ struct CompileShaderResult
 ```
 
 1. `CompileShaderResult` per entry point, for the backend the device uses.
-2. Vulkan pipeline creation from the SPIR-V, D3D11 shader creation from fxc's bytecode.
-3. TestApp draws the triangle from the compiled shader on both.
+2. Vulkan pipeline creation from the SPIR-V, D3D11 shader creation from fxc's bytecode, Metal's from the MSL compiled
+   with `newLibraryWithSource`.
+3. TestApp draws the triangle from the compiled shader on all three.
 4. Engine side, later: compile off the main thread, cache by a hash of the generated code plus the compiler version,
    treat device loss as a normal event.
 
@@ -559,6 +560,8 @@ block0:
    - The entry function is `main0`: Metal doesn't allow `main` (`GPU::MSL_ENTRY_POINT_NAME`).
    - `*`, `/` and `fmod` on matrices column by column, since MSL's `*` is the matrix product. Float `%` is `fmod`.
    - Floats printed as in HLSL, with `as_type<float>(...)` for NaN, infinity, negative zero and denormals.
+   - The GPU backend compiles with fast math off: it lets Metal's compiler assume floats are never NaN or infinite,
+     which the other targets don't.
    - Metal compiles every output in the tests and the fuzzers (on macOS).
 
    Left:
