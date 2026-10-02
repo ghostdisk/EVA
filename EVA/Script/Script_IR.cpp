@@ -342,6 +342,63 @@ Slice<IRRef> GetIROperands(IRModule& module, IRRef instruction)
 	return Slice<IRRef>(module.operands.data() + data.operands, data.operand_count);
 }
 
+void FindReachable(IRModule& module, IRRef wrapper, IRReachable& out)
+{
+	out.functions.clear();
+	out.globals.clear();
+	std::vector<uint8> seen(module.count, 0);
+
+	// Depth first without recursion, so a long chain of calls can't overflow the stack. A function is added once all its
+	// callees are.
+	struct Frame
+	{
+		IRRef function;
+		std::vector<IRRef> callees;
+		size_t next;
+	};
+	std::vector<Frame> stack;
+	auto visit = [&](IRRef function) {
+		seen[function] = 1;
+		Frame frame = { .function = function, .next = 0 };
+		for (IRRef block = module[function].function.first_block; block; block = module[block].block.next)
+		{
+			for (IRRef instruction = module[block].block.first; instruction; instruction = module[instruction].instruction.next)
+			{
+				Slice<IRRef> operands = GetIROperands(module, instruction);
+				for (uint32 i = 0; i < operands.count; ++i)
+				{
+					IRValueKind kind = module[operands[i]].kind;
+					if (kind == IRValueKind::GLOBAL)
+						seen[operands[i]] = 1;
+					else if (kind == IRValueKind::FUNCTION)
+						frame.callees.push_back(operands[i]);
+				}
+			}
+		}
+		stack.push_back(std::move(frame));
+	};
+	visit(wrapper);
+	while (!stack.empty())
+	{
+		Frame& frame = stack.back();
+		if (frame.next < frame.callees.size())
+		{
+			IRRef callee = frame.callees[frame.next++];
+			if (!seen[callee])
+				visit(callee);
+			continue;
+		}
+		out.functions.push_back(frame.function);
+		stack.pop_back();
+	}
+
+	for (IRRef global = module.first_global; global; global = module[global].global.next)
+	{
+		if (seen[global])
+			out.globals.push_back(global);
+	}
+}
+
 // Dumping
 
 namespace

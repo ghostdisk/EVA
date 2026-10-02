@@ -77,7 +77,11 @@ int EVA::AppMain()
 	Arena* shader_arena = CreateArena();
 	DEFER(DestroyArena(shader_arena));
 
-	Script::CompileShaderResult triangle_shader = Script::CompileShader(shader_arena, triangle_shader_source);
+	Script::CompileShaderResult triangle_shader = Script::CompileShader({
+		.arena = shader_arena,
+		.source = triangle_shader_source,
+		.target = Script::Target::SPIRV,
+	});
 	if (triangle_shader.errors.count)
 	{
 		for (uint32 i = 0; i < triangle_shader.errors.count; ++i)

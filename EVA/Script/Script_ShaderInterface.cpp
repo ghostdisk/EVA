@@ -4,9 +4,10 @@
 namespace EVA::Script
 {
 
-// Locations go up to 31: no target has more than 32 vertex attributes or inter-stage values, or 8 color targets. The
-// device's own limits are checked when creating the pipeline.
+// Locations go up to 31: no target has more than 32 vertex attributes or inter-stage values. Fragment outputs are color
+// targets, of which D3D has 8. The device's own limits are checked when creating the pipeline.
 static const uint32 LOCATION_LIMIT = 32;
+static const uint32 COLOR_TARGET_LIMIT = 8;
 
 ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...)
 {
@@ -222,9 +223,12 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 	}
 	else
 	{
-		if (io.location >= LOCATION_LIMIT)
+		bool color_target = flattening.stage == ShaderStage::FRAGMENT && flattening.direction == IODirection::OUTPUT;
+		uint32 limit = color_target ? COLOR_TARGET_LIMIT : LOCATION_LIMIT;
+		if (io.location >= limit)
 		{
-			EmitError(builder, "location %u is out of range, the limit is %u", io.location, LOCATION_LIMIT - 1);
+			EmitError(builder, "location %u is out of range, the limit is %u%s", io.location, limit - 1,
+				color_target ? " for fragment outputs" : "");
 			return false;
 		}
 		uint32 bit = 1u << io.location;

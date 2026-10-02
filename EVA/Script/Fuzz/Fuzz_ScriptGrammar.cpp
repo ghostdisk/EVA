@@ -1246,7 +1246,8 @@ struct Generator
 				return_type = PickVertexOutput(semantic);
 			else if (Below(3))
 			{
-				uint32 output_locations = 0;
+				// Fragment outputs are color targets, of which there are 8: the rest count as used.
+				uint32 output_locations = stage == 2 ? ~0xFFu : 0;
 				uint32 output_semantics = 0;
 				return_type = PickIO(stage, false, output_locations, output_semantics, semantic, location);
 			}

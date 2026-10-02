@@ -148,6 +148,9 @@ add_library(Script STATIC
 	EVA/Script/Script_IR.cpp
 	EVA/Script/Script_IRGen.cpp
 	EVA/Script/Script_IRValidate.cpp
+	EVA/Script/Script_Safety.cpp
+	EVA/Script/Script_Backend_SPIRV.cpp
+	EVA/Script/Script_Backend_HLSL.cpp
 )
 eva_init_target(Script)
 target_link_libraries(Script PUBLIC Core)
@@ -175,6 +178,39 @@ endif()
 
 option(EVA_BUILD_TESTS "Build the test executables" ON)
 
+# Checks the shader backends' output with the targets' own tools, for the tests and fuzzers (EVA/Script/Test/
+# OutputValidation.hpp): fxc on Windows, and SPIRV-Tools' validator from the Vulkan SDK when it's installed. The SDK's
+# shared library has a C API, so it works with any C runtime, including the fuzz build's static one.
+if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
+	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp)
+	eva_init_target(OutputValidation)
+	target_link_libraries(OutputValidation PUBLIC Script)
+	if(WIN32)
+		target_link_libraries(OutputValidation PRIVATE d3dcompiler)
+	endif()
+	find_library(SPIRV_TOOLS_SHARED_LIBRARY SPIRV-Tools-shared HINTS "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/lib")
+	find_path(SPIRV_TOOLS_INCLUDE_DIR spirv-tools/libspirv.h HINTS "$ENV{VULKAN_SDK}/Include" "$ENV{VULKAN_SDK}/include")
+	if(SPIRV_TOOLS_SHARED_LIBRARY AND SPIRV_TOOLS_INCLUDE_DIR)
+		target_link_libraries(OutputValidation PRIVATE ${SPIRV_TOOLS_SHARED_LIBRARY})
+		target_include_directories(OutputValidation PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
+		target_compile_definitions(OutputValidation PRIVATE EVA_HAVE_SPIRV_TOOLS SPIRV_TOOLS_SHAREDLIB)
+		if(WIN32)
+			find_file(SPIRV_TOOLS_SHARED_DLL SPIRV-Tools-shared.dll HINTS "$ENV{VULKAN_SDK}/Bin")
+		endif()
+	else()
+		message(STATUS "SPIRV-Tools not found (install the Vulkan SDK): SPIR-V output won't be validated")
+	endif()
+
+	# Links the validators into an executable, with the DLL they need next to it.
+	function(eva_link_output_validation target)
+		target_link_libraries(${target} PRIVATE OutputValidation)
+		if(SPIRV_TOOLS_SHARED_DLL)
+			add_custom_command(TARGET ${target} POST_BUILD
+				COMMAND ${CMAKE_COMMAND} -E copy_if_different ${SPIRV_TOOLS_SHARED_DLL} $<TARGET_FILE_DIR:${target}>)
+		endif()
+	endfunction()
+endif()
+
 if(EVA_BUILD_TESTS AND NOT ANDROID)
 	enable_testing()
 
@@ -197,6 +233,7 @@ if(EVA_BUILD_TESTS AND NOT ANDROID)
 
 	eva_add_tests(Core)
 	eva_add_tests(Script)
+	eva_link_output_validation(ScriptTests)
 endif()
 
 # Fuzz targets, EVA/Script/Fuzz/Fuzz_<name>.cpp, each defining LLVMFuzzerTestOneInput (see EVA/Script/Fuzz/README.md).
@@ -206,7 +243,7 @@ if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 	set(fuzz_dir "${PROJECT_SOURCE_DIR}/EVA/Script/Fuzz")
 	add_library(ScriptFuzz STATIC ${fuzz_dir}/FuzzCommon.hpp ${fuzz_dir}/FuzzCommon.cpp)
 	eva_init_target(ScriptFuzz)
-	target_link_libraries(ScriptFuzz PUBLIC Script)
+	target_link_libraries(ScriptFuzz PUBLIC Script OutputValidation)
 
 	if(EVA_FUZZ AND WIN32)
 		execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-resource-dir OUTPUT_VARIABLE clang_resource_dir
@@ -240,6 +277,7 @@ if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 			target_compile_definitions(Fuzz${name} PRIVATE _CRT_SECURE_NO_WARNINGS) # fopen, getenv
 		endif()
 		target_link_libraries(Fuzz${name} PRIVATE ScriptFuzz)
+		eva_link_output_validation(Fuzz${name})
 	endfunction()
 
 	eva_add_fuzzer(Script)

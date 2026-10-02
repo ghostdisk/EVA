@@ -151,7 +151,7 @@ struct IRParameterData
 
 struct IRLocalData
 {
-	Constant* initializer; // nullptr: zeroed by the safety pass
+	Constant* initializer; // nullptr: zero
 	IRRef next;
 	uint32 index; // dense within its function
 };
@@ -278,6 +278,31 @@ Slice<IRRef> GetIROperands(IRModule& module, IRRef instruction);
 // Lowers a module that passed the front end into module, which has to be empty. shader_interface is the module's for
 // shaders, nullptr for scripts. Never fails: anything the front end accepts can be lowered.
 void GenerateIR(IRModule& module, Node* ast, ShaderInterface* shader_interface);
+
+// Clamps every index into an array, vector or matrix that isn't a constant to the last element: min(uint(i), N - 1).
+// Constant indices are already bounds-checked by the typer. Shaders only, before the backends. See Docs/Plan/Shaders.md
+// (11.1).
+void ClampIndices(IRModule& module);
+
+// What an entry point uses: the functions it reaches from its wrapper, callees before their callers and the wrapper
+// last, and the globals those reference, in module order.
+struct IRReachable
+{
+	std::vector<IRRef> functions;
+	std::vector<IRRef> globals;
+};
+
+void FindReachable(IRModule& module, IRRef wrapper, IRReachable& out);
+
+// Backends. Each emits one entry point, from its wrapper function: everything the wrapper reaches, with the wrapper as
+// the entry function named main. Nothing fails: anything that validates and went through ClampIndices can be emitted,
+// and the output is always valid for the target. Allocated in arena; intermediate data goes in the module's arena.
+
+// SPIR-V 1.0 for Vulkan, as words.
+Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena);
+
+// HLSL for fxc at shader model 5.0.
+ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena);
 
 // Checks the module's structure and types. Returns an empty string if it's valid, otherwise what's wrong, allocated in
 // arena. A problem is a compiler bug, never the user's: user errors all come from the front end. For tests, fuzzing and

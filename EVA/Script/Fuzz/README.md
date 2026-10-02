@@ -35,6 +35,9 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
   input and output's path leads to its declaration and leaf type, that declaration has exactly the recorded semantic
   or location, every leaf of the parameters and return value is covered once, semantics match their stage, direction
   and type, nothing is used twice, and vertex shaders output `position`.
+- Backends: every program that gets through the front end has its indices clamped, the IR validated again, and each
+  entry point emitted as SPIR-V and HLSL. The output has to pass SPIRV-Tools' validator (from the Vulkan SDK, when CMake
+  finds it) and compile with fxc (`D3DCompile`, Windows), on one of the two compiles of each input.
 - Determinism: the shader is compiled twice with arenas filled with different garbage, and the results must match,
   which catches reads of uninitialized arena memory.
 - The source is also compiled as a script, which has a different global scope.

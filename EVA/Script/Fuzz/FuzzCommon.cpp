@@ -1,5 +1,6 @@
 #include <EVA/Script/Fuzz/FuzzCommon.hpp>
 #include <EVA/Core/Panic.hpp>
+#include <EVA/Script/Test/OutputValidation.hpp>
 #include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -652,7 +653,8 @@ static void CheckShaderIO(Compilation& compilation, EntryPoint& entry_point, Sha
 	if (kind != io.io_kind || value != recorded)
 		Fail("%s has an IO recorded as %u %u, declared as %u %u", function_name, (uint32)io.io_kind, recorded, (uint32)kind, value);
 
-	if (io.io_kind == IOKind::LOCATION && io.location >= 32)
+	bool color_target = entry_point.stage == ShaderStage::FRAGMENT && io.direction == IODirection::OUTPUT;
+	if (io.io_kind == IOKind::LOCATION && io.location >= (color_target ? 8u : 32u))
 		Fail("%s has location %u", function_name, io.location);
 	if (io.io_kind == IOKind::SEMANTIC)
 	{
@@ -768,7 +770,32 @@ static uint32 CountAttributes(ZTStringView source)
 
 static bool BuildInterface(Compilation& compilation);
 
-static void CompileStages(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
+// Emits each entry point for both targets, checking the output with the targets' tools if validate.
+static void EmitBackends(Compilation& compilation, bool validate)
+{
+	IRModule& ir = compilation.ir;
+	Arena* arena = compilation.intermediate_arena;
+	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
+	{
+		EntryPoint* entry_point = ir[function].function.info->entry_point;
+		if (!entry_point)
+			continue;
+		Slice<uint32> words = EmitSPIRV(ir, function, arena);
+		ZTStringView hlsl = EmitHLSL(ir, function, arena);
+		compilation.spirv.push_back(words);
+		compilation.hlsl.push_back(hlsl);
+		if (!validate)
+			continue;
+		ZTStringView problem = Validation::ValidateSPIRV(words, arena);
+		if (problem.length)
+			Fail("invalid SPIR-V: %s\n%s", problem.CString(), Validation::DisassembleSPIRV(words, arena).CString());
+		problem = Validation::CompileHLSL(hlsl, entry_point->stage, arena);
+		if (problem.length)
+			Fail("invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+	}
+}
+
+static void CompileStages(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill, bool validate)
 {
 	SetArenaFill(fill);
 	DEFER(SetArenaFill(-1));
@@ -837,6 +864,15 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 	ZTStringView error = ValidateIR(compilation.ir, compilation.intermediate_arena);
 	if (error.length)
 		Fail("IR gen made invalid IR: %s\n%s", error.CString(), IRModuleToString(compilation.ir, compilation.intermediate_arena).CString());
+	if (kind != ContextKind::SHADER)
+		return;
+
+	ClampIndices(compilation.ir);
+	error = ValidateIR(compilation.ir, compilation.intermediate_arena);
+	if (error.length)
+		Fail("clamping indices made invalid IR: %s\n%s", error.CString(),
+			IRModuleToString(compilation.ir, compilation.intermediate_arena).CString());
+	EmitBackends(compilation, validate);
 }
 
 static bool BuildInterface(Compilation& compilation)
@@ -858,9 +894,9 @@ static bool BuildInterface(Compilation& compilation)
 static const size_t MEMORY_LIMIT = (size_t)64 * 1024 * 1024;
 static const size_t MEMORY_LIMIT_PER_SOURCE_BYTE = 1024;
 
-void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
+void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill, bool validate)
 {
-	CompileStages(compilation, source, kind, fill);
+	CompileStages(compilation, source, kind, fill, validate);
 	size_t memory = compilation.intermediate_arena->Size() + compilation.output_arena->Size();
 	if (memory > MEMORY_LIMIT + MEMORY_LIMIT_PER_SOURCE_BYTE * source.length)
 		Fail("compiling %zu bytes of source used %zu bytes of arenas", source.length, memory);
@@ -885,6 +921,14 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 	}
 	if (compilation.failed_stage == Stage::DONE)
 		builder.Append(IRModuleToString(compilation.ir, arena));
+	for (size_t i = 0; i < compilation.hlsl.size(); ++i)
+	{
+		builder.Append(compilation.hlsl[i]);
+		Slice<uint32> words = compilation.spirv[i];
+		for (uint32 w = 0; w < words.count; ++w)
+			builder.AppendFormat("%08x%s", words[w], w % 8 == 7 ? "\n" : " ");
+		builder.Append("\n");
+	}
 	return builder.ToString();
 }
 
@@ -913,7 +957,7 @@ void CheckSource(ZTStringView source, void (*check)(Compilation& compilation, vo
 
 	// Different garbage in the arenas has to give the same result.
 	Compilation first;
-	Compile(first, source, ContextKind::SHADER, 0x00);
+	Compile(first, source, ContextKind::SHADER, 0x00, true);
 	if (check)
 		check(first, user);
 	Compilation second;

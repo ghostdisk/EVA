@@ -699,14 +699,37 @@ ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* a
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 
-struct CompileShaderResult
+// What CompileShader generates code for.
+enum class Target : uint8
 {
-	Slice<uint8> data;
-	Slice<ScriptError*> errors; // empty on success
+	SPIRV, // SPIR-V 1.0 for Vulkan
+	HLSL,  // HLSL for fxc, shader model 5.0 (D3D11)
 };
 
-// Everything in the result is allocated in arena, so the caller decides how long it lives. The AST, the context and
-// other intermediate data use an arena of their own, destroyed before returning.
-CompileShaderResult CompileShader(Arena* arena, ZTStringView source);
+struct CompileShaderOptions
+{
+	Arena* arena = nullptr; // where the result goes, so the caller decides how long it lives
+	ZTStringView source;
+	Target target = Target::SPIRV;
+};
+
+// One @entry(...) function, compiled on its own: its code holds only what the entry point uses. The entry function in
+// the code is always named main.
+struct CompiledEntryPoint
+{
+	ShaderStage stage = ShaderStage::VERTEX;
+	Atom name = Atom::NONE; // the user's name, e.g. VSMain
+	Slice<uint8> code;      // SPIR-V words, or HLSL text (zero terminated, not counted)
+};
+
+struct CompileShaderResult
+{
+	Slice<CompiledEntryPoint> entry_points; // in source order
+	Slice<ScriptError*> errors;             // empty on success
+};
+
+// Every error is reported by the front end: anything past it can't fail. The AST, the context and other intermediate
+// data use an arena of their own, destroyed before returning.
+CompileShaderResult CompileShader(const CompileShaderOptions& options);
 
 }

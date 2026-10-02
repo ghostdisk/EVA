@@ -3,9 +3,11 @@
 The work from shader source to drawing on every target, as numbered items. Each says what's done and what's left.
 Design that has landed moves into docs ([IR.md](../IR.md)) and code comments.
 
-**Where we are:** the front end and IR gen are done (1-5). Next are the SPIR-V and D3D11 HLSL backends (7-9), to get
-to the binding model (10). The binding model may force major changes to the language, so work that would be thrown away
-by those changes waits until it settles: the safety pass (11), the optimizer (12) and the remaining typer work (2).
+**Where we are:** the front end, IR gen and the SPIR-V and D3D11 HLSL backends are done (1-8). Next is the GPU side of
+the triangle (9), then the binding model (10). The binding model may force major changes to the language, so work that
+would be thrown away by those changes waits until it settles: most of the safety pass (11), the optimizer (12) and the
+remaining typer work (2). The index clamps (11.1) landed with the backends, since fxc needs them, and the size limits
+(11.4.5) are needed next: valid programs past them make fxc fail.
 
 ## Context
 
@@ -21,7 +23,7 @@ by those changes waits until it settles: the safety pass (11), the optimizer (12
 
 ```
 lexer -> parser -> resolver -> typer -> shader interface pass -> IR gen -> safety pass -> optimizer -> emitters
-(done)   (done)    (done)      (first)  (done, shaders only)     (done)    (deferred)     (later)      per entry point
+(done)   (done)    (done)      (first)  (done, shaders only)     (done)    (clamps)       (later)      (SPIR-V, HLSL)
 ```
 
 Lexer through the optimizer are shared with scripts, except the shader interface pass. Emitters: SPIR-V and HLSL
@@ -36,12 +38,12 @@ first, later MSL for shaders, bytecode for the script VM.
 | 3 | Constants | Done except interning |
 | 4 | Shader interface pass | Done |
 | 5 | IR and IR gen | Done |
-| 6 | Zero-initialization | Next, with the emitters |
-| 7 | SPIR-V emitter | Next |
-| 8 | HLSL emitter for D3D11 | Next |
-| 9 | Compile result, the triangle on Vulkan and D3D11 | Next |
+| 6 | Zero-initialization | Done |
+| 7 | SPIR-V emitter | Done |
+| 8 | HLSL emitter for D3D11 | Done, loops left |
+| 9 | Compile result, the triangle on Vulkan and D3D11 | Compile result done, GPU side next |
 | 10 | Binding model | Next, the goal of 6-9 |
-| 11 | Safety pass and limits | Deferred, decided |
+| 11 | Safety pass and limits | Index clamps done, size limits next, rest deferred |
 | 12 | Optimizer | Later |
 | 13 | DX12 and Metal backends | Later |
 
@@ -262,63 +264,80 @@ Left:
 1. When assignment lands: build values for assignment into existing memory in a temporary and `copy` it (see
    [TODO.md](../../TODO.md)).
 
-## 6. Zero-initialization (next, with the emitters)
+## 6. Zero-initialization (done)
 
 Language semantics, for scripts and shaders alike, not a safety measure: everything starts zeroed unless its type
 specifies another initial value.
 
-1. IR: a local or `private` global without an initializer starts as zero (written into [IR.md](../IR.md)).
-2. IR gen keeps leaving the initializer empty for zero, and emits one when the type has a declared initial value (once
-   field default values exist, 2).
-3. Emitters: SPIR-V an `OpConstantNull` initializer on `Function` and `Private` variables; HLSL `= (T)0`; MSL `= {}`.
-   All three existing compilers (Tint, naga, ANGLE) zero locals this way.
-4. The optimizer (12) may drop the zeroing when every path stores before reading.
-5. Later, with compute: workgroup memory has no initializer in HLSL and needs Vulkan's
+1. Done: in the IR a local or `private` global without an initializer starts as zero ([IR.md](../IR.md)). SPIR-V
+   gives such variables an `OpConstantNull` initializer, HLSL `= (T)0` (`(T[N])0` for arrays). All three existing
+   compilers (Tint, naga, ANGLE) zero locals this way.
+2. Left: IR gen emits an initializer when the type has a declared initial value, once field default values exist (2).
+3. Left: the optimizer (12) may drop the zeroing when every path stores before reading.
+4. Later, with compute: workgroup memory has no initializer in HLSL and needs Vulkan's
    `VK_KHR_zero_initialize_workgroup_memory` in SPIR-V. Tint and naga fall back to zero stores by the first invocations
    followed by a barrier.
 
-## 7. SPIR-V emitter (next)
+## 7. SPIR-V emitter (done)
 
-Per entry point: walk the call graph from the entry's wrapper and emit only what it reaches (functions, constants,
-globals).
+`Script_Backend_SPIRV.cpp`. Per entry point, from its wrapper: everything it reaches, with the wrapper as `main`.
 
-1. SPIR-V 1.0, one module per entry point with a single `OpEntryPoint`. Its interface list holds the entry's
-   `SHADER_INPUT` / `SHADER_OUTPUT` globals.
-2. Interface globals: `Input` / `Output` variables with `BuiltIn` / `Location` decorations.
-3. `local` slots: `Function` storage variables, zeroed (6).
-4. Constants, expanded only here. A cache from `(type, bytes)` to SPIR-V id, local to the module being emitted:
+Done:
 
-   ```
-   EmitConstant(type, bytes) -> id:
-   	if cache has (type, bytes): return it
-   	scalar:                    OpConstant type <bits>   (bool: OpConstantTrue / OpConstantFalse)
-   	vector/matrix/array/struct:
-   		for each element i:    element_ids[i] = EmitConstant(element type of i, bytes + offset of i)
-   		OpConstantComposite type element_ids
-   	cache and return the id
-   ```
+- SPIR-V 1.0, one module per entry point with a single `OpEntryPoint` listing its `Input` / `Output` variables, with
+  `BuiltIn` / `Location` decorations. Integer fragment inputs are `Flat`.
+- Constants expanded only here, cached by `(type, bytes)`; elements before the composites using them.
+- Shaped like glslang's output, which mobile drivers are tested on: `copy` is a load and store of the whole object
+  rather than `OpCopyMemory`.
+- Matrix arithmetic and selects column by column, a scalar select condition splat (SPIR-V 1.0 needs as many components
+  as the result).
+- Signed `%` is `a - b * (a / b)`: truncated like C and HLSL. `OpSRem` with negative operands is undefined in the Vulkan
+  environment without `VK_KHR_maintenance8`, and naga saw wrong results on NVIDIA (`-1 % 768 = 255`).
+- Only blocks reachable from the entry block; a merge block nothing reaches gets a bare `OpUnreachable`.
+- SPIRV-Tools' validator (from the Vulkan SDK) runs on every output in the tests and the fuzzers.
 
-   Elements are emitted before the composites using them, so the order is valid without sorting. All-zero constants
-   may use `OpConstantNull`.
-5. Signed `%`: `OpSRem` / `OpSMod` with negative operands are undefined in the Vulkan environment without
-   `VK_KHR_maintenance8`, and naga saw wrong results on NVIDIA (`-1 % 768 = 255`), so it emits `a - b * (a / b)`.
-   A correctness question, not a safety one: decide what `%` means for negative operands and emit that.
-6. Keep the output conventional (shaped like glslang's): mobile drivers are tested on that.
-7. SPIRV-Tools' validator in tests, fuzzing and debug builds. No spirv-opt for now; revisit when doing Android
-   seriously (mostly for driver compile time on mobile).
+Left:
 
-## 8. HLSL emitter for D3D11 (next)
+1. A single constant array of more than 65,532 elements doesn't fit in an instruction (16-bit word count), and the
+   emitter panics. The front end has to reject it (11.4.5).
+2. No spirv-opt for now; revisit when doing Android seriously (mostly for driver compile time on mobile).
 
-1. One emitter with a shader model setting, so DX12 (13) reuses it. For D3D11: fxc (`D3DCompile`, part of Windows) at
-   SM 5.0.
-2. Entry point inputs and outputs as fields of in / out structs, with `SV_*` and `TEXCOORDn` / `SV_Targetn` semantics.
-3. Locals zeroed (6).
-4. `[loop]` on loops so fxc doesn't unroll.
-5. Floats printed with 9 significant digits; NaN, infinity and denormals through bit-casts (`asfloat(0x7fc00000u)`).
-6. Generated names only (5).
-7. Tests compile the output with fxc.
+## 8. HLSL emitter for D3D11 (done, loops left)
 
-## 9. Compile result, the triangle on Vulkan and D3D11 (next)
+`Script_Backend_HLSL.cpp`, for fxc (`D3DCompile`, part of Windows) at shader model 5.0. Per entry point, like SPIR-V.
+
+Done:
+
+- Every value a variable assigned once. Pointers, which HLSL doesn't have, are the lvalue text they stand for
+  (`l0.m1[v2]`); pointer parameters are `inout`.
+- Inputs and outputs are parameters of `main` rather than struct fields: inputs before outputs, sorted by location with
+  `SV_*` semantics last. Vertex inputs are `ATTRIBn`, values between stages `TEXCOORDn` (integers `nointerpolation`),
+  fragment outputs `SV_Targetn`.
+- `if` / `else` printed from `selection_merge`; an empty `else` is left out.
+- Floats printed as the shortest text that round trips; NaN, infinity, negative zero and denormals through
+  `asfloat(0x...u)`.
+- fxc rejects some valid code it can fold to something undefined, so:
+  - Integer `/` and `%` by anything but a nonzero constant are printed with a divisor that's never zero,
+    `a / (b == 0 ? 1 : b)`. Otherwise `x / 0`, even folded through variables, is error X4010.
+  - Indices are clamped (11.1). Otherwise an index that folds to an out of bounds constant is error X3504.
+  - Storing to a vector component picked at runtime is a select of the whole vector, like Tint's
+    (`v = i == uint4(0u, 1u, 2u, 3u) ? (float4)x : v`); a matrix row is a chain of ifs. fxc can't address them
+    (X3500).
+- fxc compiles every output in the tests and the fuzzers.
+
+Left:
+
+1. Loops, once the language has them: `[loop]` so fxc doesn't unroll, and `continue` with the continue block's code.
+   The emitter panics on `loop_merge` until then.
+2. fxc's resource limits, which valid programs can exceed: at most 4,096 vec4 slots of dynamically indexed constant
+   data (X4600), and 4,096 temporary registers including indexable arrays. The front end has to reject what doesn't
+   fit (11.4.5).
+3. A shader model setting, for DX12 (13). `Target` only says HLSL for now.
+4. D3D11 matches a pixel shader's inputs to the vertex shader's outputs by register, so a pixel shader that skips one of
+   the vertex shader's locations doesn't line up. Sorting by location covers the common cases; the rest needs the
+   VS-out / PS-in matching from reflection (4).
+
+## 9. Compile result, the triangle on Vulkan and D3D11 (compile result done, GPU side next)
 
 ```cpp
 struct CompiledEntryPoint

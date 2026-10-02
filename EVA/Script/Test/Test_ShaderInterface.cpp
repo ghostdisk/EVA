@@ -226,6 +226,10 @@ TEST(ShaderInterface, IOErrors)
 	CHECK_INTERFACE_ERRORS("@entry(fragment) function f(@location(32) a: float) {}", "location 32 is out of range, the limit is 31");
 	CHECK_INTERFACE_ERRORS("@entry(fragment) function f(@location(4294967295) a: float) {}",
 		"location 4294967295 is out of range, the limit is 31");
+	// Fragment outputs are color targets, of which there are 8.
+	CHECK_INTERFACE_ERRORS("@entry(fragment) function f(): @location(8) float4 {}",
+		"location 8 is out of range, the limit is 7 for fragment outputs");
+	CHECK_INTERFACE("@entry(fragment) function f(): @location(7) float4 {}", "fragment f\n  output location(7) float4 []\n");
 	// Each parameter reports its own errors.
 	CHECK_INTERFACE_ERRORS("@entry(fragment) function f(a: float, b: float) {}",
 		"'a' needs a semantic or location | 'b' needs a semantic or location");

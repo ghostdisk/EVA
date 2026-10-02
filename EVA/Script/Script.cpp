@@ -188,8 +188,10 @@ static Slice<ScriptError*> ToSlice(Arena* arena, const std::vector<ScriptError*>
 	return Slice<ScriptError*>(data, (uint32)errors.size());
 }
 
-CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
+CompileShaderResult CompileShader(const CompileShaderOptions& options)
 {
+	Arena* arena = options.arena;
+	ZTStringView source = options.source;
 	Arena* intermediate_arena = CreateArena();
 	DEFER(DestroyArena(intermediate_arena));
 
@@ -223,8 +225,32 @@ CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 	IRModule ir;
 	InitIRModule(ir, &context, intermediate_arena);
 	GenerateIR(ir, module, &shader_interface);
-	printf("%s", IRModuleToString(ir, intermediate_arena).CString());
-	Panic("CompileShader: code generation is not implemented yet");
+	ClampIndices(ir);
+
+	// The wrappers, one per entry point, come in the same order as the entry points.
+	uint32 count = shader_interface.entry_points.count;
+	CompiledEntryPoint* entry_points = (CompiledEntryPoint*)arena->Allocate(count * sizeof(CompiledEntryPoint), alignof(CompiledEntryPoint));
+	uint32 index = 0;
+	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
+	{
+		EntryPoint* entry_point = ir[function].function.info->entry_point;
+		if (!entry_point)
+			continue;
+		CompiledEntryPoint& compiled = entry_points[index++];
+		compiled = { .stage = entry_point->stage, .name = entry_point->function->name };
+		if (options.target == Target::SPIRV)
+		{
+			Slice<uint32> words = EmitSPIRV(ir, function, arena);
+			compiled.code = Slice<uint8>((uint8*)words.data, words.count * 4);
+		}
+		else
+		{
+			ZTStringView text = EmitHLSL(ir, function, arena);
+			compiled.code = Slice<uint8>(text.data, (uint32)text.length);
+		}
+	}
+	assert(index == count);
+	return { .entry_points = Slice<CompiledEntryPoint>(entry_points, count) };
 }
 
 }
