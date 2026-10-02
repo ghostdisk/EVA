@@ -107,7 +107,7 @@ Kind ComponentKind(GenType* type)
 	return type->kind == Kind::VECTOR ? Kind::FLOAT : type->kind;
 }
 
-uint32 RoundUp(uint32 value, uint32 alignment)
+uint64 RoundUp(uint64 value, uint64 alignment)
 {
 	return (value + alignment - 1) / alignment * alignment;
 }
@@ -236,14 +236,14 @@ struct Generator
 			if (type->element == element && type->length == length)
 				return type;
 		}
-		uint32 stride = RoundUp(element->size, element->alignment);
-		uint64 size = (uint64)stride * length;
+		uint64 stride = RoundUp(element->size, element->alignment);
+		uint64 size = stride * length;
 		if (size > UINT32_MAX)
 			return nullptr;
 		GenType* type = NewType(Kind::ARRAY, "[" + std::to_string(length) + "]" + element->name, (uint32)size, element->alignment);
 		type->element = element;
 		type->length = length;
-		type->stride = stride;
+		type->stride = (uint32)stride;
 		array_types.push_back(type);
 		return type;
 	}
@@ -274,7 +274,17 @@ struct Generator
 			GenType* element = PickType(max_struct, depth + 1);
 			uint32 length = 1 + Below(4);
 			if (chaos && Chance(5))
-				length = Chance(50) ? 0xFFFFFFFF : 1 + Below(1u << 24);
+			{
+				switch (Below(3))
+				{
+				case 0: length = 0xFFFFFFFF; break;
+				case 1: length = 1 + Below(1u << 24); break;
+				default: // just fits
+					length = (uint32)(UINT32_MAX / RoundUp(element->size ? element->size : 1, element->alignment));
+					length = length ? length : 1;
+					break;
+				}
+			}
 			type = ArrayOf(element, length);
 		}
 		else if (max_struct)
@@ -289,6 +299,9 @@ struct Generator
 	{
 		if (chaos && Chance(5))
 		{
+			// Any name, so also consts that aren't integers, and things that aren't values.
+			if (!symbols.empty() && Below(2))
+				return symbols[Below((uint32)symbols.size())].name;
 			const char* const bad[] = { "0", "-1", "1.5", "4294967296", "x", "float", "", "1, 2" };
 			return bad[Below(8)];
 		}
@@ -695,7 +708,8 @@ struct Generator
 		}
 
 		auto any = [&]() { return Generate(PickScalarOrVector(), where, depth + 1).text; };
-		switch (Below(16))
+		auto any_symbol = [&]() { return symbols.empty() ? std::string("x") : symbols[Below((uint32)symbols.size())].name; };
+		switch (Below(19))
 		{
 		case 0: expr.text = any(); break; // just the wrong type, usually
 		case 1: expr.text = "if " + any() + " { " + any() + " } else " + any(); break;
@@ -757,6 +771,16 @@ struct Generator
 			// Intrinsics and enum values used as values.
 			expr.text = Below(2) ? "builtin(position)" : (Below(2) ? "location" : "vertex_index");
 			break;
+		case 15: expr.text = TypeText(PickType((uint32)struct_types.size()), true) + "(" + any() + ")"; break; // int(1), S(1)
+		case 16:
+		{
+			// Arithmetic on whatever the names are: structs, arrays, types, functions.
+			const char* const ops[] = { "+", "-", "*", "/", "%" };
+			std::string operand = Below(2) ? any_symbol() : any();
+			expr.text = "(" + any_symbol() + " " + ops[Below(5)] + " " + operand + ")";
+			break;
+		}
+		case 17: expr.text = "fn" + std::to_string(Below(next_name + 1)); break; // a function as a value
 		default: expr.text = "fn" + std::to_string(Below(next_name + 1)) + "(" + any() + ")"; break;
 		}
 		return expr;
@@ -810,22 +834,23 @@ struct Generator
 		{
 			GenType* type = NewType(Kind::STRUCT, NewName("S"), 0, 1);
 			uint32 field_count = Below(5);
-			uint32 offset = 0;
+			uint64 offset = 0;
 			for (uint32 k = 0; k < field_count; ++k)
 			{
 				GenField field;
 				field.name = "m" + std::to_string(k);
 				field.type = PickType((uint32)struct_types.size());
 				offset = RoundUp(offset, field.type->alignment);
-				field.offset = offset;
-				if ((uint64)offset + field.type->size > UINT32_MAX / 2)
+				field.offset = (uint32)offset;
+				if (!chaos && offset + field.type->size > UINT32_MAX / 2) // chaos mode wants structs too large
 					break;
 				offset += field.type->size;
 				if (field.type->alignment > type->alignment)
 					type->alignment = field.type->alignment;
 				type->fields.push_back(field);
 			}
-			type->size = RoundUp(offset, type->alignment);
+			offset = RoundUp(offset, type->alignment);
+			type->size = offset > UINT32_MAX ? UINT32_MAX : (uint32)offset;
 			if (!chaos && type->size > MAX_TYPE_SIZE)
 				type->fields.clear(), type->size = 0, type->alignment = 1;
 			struct_types.push_back(type);
@@ -840,13 +865,19 @@ struct Generator
 
 		if (chaos && Chance(15) && !symbols.empty())
 		{
-			// Each const four copies of the previous one: sizes grow exponentially with the source.
+			// Copies of the previous const. Several grow sizes exponentially with the source, one at a time they add up,
+			// against both limits on constant sizes.
+			static const uint32 copies[] = { 1, 2, 4, 16 };
+			uint32 count = copies[Below(4)];
 			Symbol& previous = symbols.back();
-			GenType* grown = ArrayOf(previous.type, 4);
+			GenType* grown = ArrayOf(previous.type, count);
 			if (grown)
 			{
 				type = grown;
-				value.text = "{ " + previous.name + ", " + previous.name + ", " + previous.name + ", " + previous.name + " }";
+				value.text = "{";
+				for (uint32 i = 0; i < count; ++i)
+					value.text += (i ? ", " : " ") + previous.name;
+				value.text += " }";
 				value.hint_free = false;
 			}
 		}
@@ -909,6 +940,8 @@ struct Generator
 
 	std::string Return(GenType* return_type, const std::string& indent)
 	{
+		if (chaos && Chance(10))
+			return indent + (return_type ? "return;\n" : "return " + Chaos({}, 0).text + ";\n");
 		if (!return_type)
 			return indent + "return;\n";
 		return indent + "return " + Generate(return_type, { .init_list = true }, 0).text + ";\n";
@@ -961,6 +994,8 @@ struct Generator
 			if (chaos && Chance(10))
 				text += Attribute();
 			text += parameter + ": " + TypeText(type, true);
+			if (chaos && Chance(10))
+				text += " = " + Chaos({}, 0).text;
 			expected.push_back({ parameter, type, false, {} });
 			AddSymbol(parameter, type, nullptr);
 		}

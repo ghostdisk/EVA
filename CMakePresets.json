@@ -27,6 +27,14 @@
 			}
 		},
 		{
+			"name": "Coverage",
+			"inherits": "Common",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug",
+				"EVA_COVERAGE": true
+			}
+		},
+		{
 			"name": "Fuzz",
 			"inherits": "Common",
 			"cacheVariables": {

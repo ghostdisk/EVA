@@ -1,0 +1,41 @@
+struct S { a: float; b: [2]int; }
+struct Big { a: [1073741823]float; b: [1073741823]float; }
+
+const f = 1.5;
+const sizes: [f]int = { 1 };
+const n = int(1);
+const s = S(1.0);
+const sum = s + s;
+const arrays = s.b * s.b;
+
+function g(a: int = 1): int
+{
+	(@S x): S;
+	return a;
+}
+
+function h()
+{
+	const k = g;
+	return 1;
+}
+
+function i(): float
+{
+	return;
+}
+
+function j(p: S): S
+{
+	return p + p;
+}
+
+function k(p: S): [2]int
+{
+	return p.b * p.b;
+}
+
+function l(p: S, q: float): int
+{
+	return p.b[q];
+}

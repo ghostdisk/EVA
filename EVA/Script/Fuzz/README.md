@@ -65,6 +65,19 @@ Build/Fuzz/FuzzScriptGrammar Build/Fuzz/Corpus/ScriptGrammar -fork=8 -ignore_cra
 
 The `Crashes/<target>` directories have to exist. Progress lines in the logs end with `oom/timeout/crash` counts.
 
+## Coverage
+
+To see which code the fuzzers reach, replay the seeds, regressions and `Build/Fuzz/Corpus` through a build instrumented
+for coverage (the `Coverage` preset, also clang only):
+
+```
+cmake --preset Coverage
+cmake --build Build/Coverage --target CoverageReport
+```
+
+It prints a summary per file and writes a line by line HTML report to `Build/Coverage/coverage/html/index.html`. Code
+the corpora never reach is what to write seeds, dictionary entries or generator rules for.
+
 ## A crash
 
 Run the target on the saved input to reproduce it. A failed check prints the source; for the grammar target,

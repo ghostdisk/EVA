@@ -19,6 +19,16 @@ if(EVA_FUZZ)
 	endif()
 endif()
 
+# Instruments everything for source-based coverage, for the CoverageReport target. Clang only.
+option(EVA_COVERAGE "Build with coverage instrumentation" OFF)
+if(EVA_COVERAGE)
+	if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		message(FATAL_ERROR "EVA_COVERAGE needs clang")
+	endif()
+	add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+	add_link_options(-fprofile-instr-generate)
+endif()
+
 function(eva_init_target target)
     set_target_properties(${target} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}")
@@ -216,4 +226,40 @@ if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 
 	eva_add_fuzzer(Script)
 	eva_add_fuzzer(ScriptGrammar)
+
+	# Replays the seeds, regressions and fuzzing corpora through the fuzz targets and reports which code they reach:
+	# a summary per file, and an HTML report in coverage/html.
+	if(EVA_COVERAGE AND NOT EVA_FUZZ)
+		set(EVA_FUZZ_CORPUS "${PROJECT_SOURCE_DIR}/Build/Fuzz/Corpus" CACHE PATH "The corpora to measure coverage of")
+		get_filename_component(llvm_dir ${CMAKE_CXX_COMPILER} DIRECTORY)
+		find_program(LLVM_PROFDATA llvm-profdata HINTS ${llvm_dir} REQUIRED)
+		find_program(LLVM_COV llvm-cov HINTS ${llvm_dir} REQUIRED)
+
+		set(coverage_dir "${CMAKE_BINARY_DIR}/coverage")
+		set(coverage_commands)
+		foreach(name Script ScriptGrammar)
+			set(inputs "${EVA_FUZZ_CORPUS}/${name}")
+			foreach(inputs_dir Seeds Regressions)
+				if(EXISTS "${fuzz_dir}/${inputs_dir}/${name}")
+					list(APPEND inputs "${fuzz_dir}/${inputs_dir}/${name}")
+				endif()
+			endforeach()
+			list(APPEND coverage_commands
+				COMMAND ${CMAKE_COMMAND} -E make_directory "${EVA_FUZZ_CORPUS}/${name}"
+				COMMAND ${CMAKE_COMMAND} -E env "LLVM_PROFILE_FILE=${coverage_dir}/${name}.profraw" $<TARGET_FILE:Fuzz${name}> --quiet ${inputs})
+		endforeach()
+
+		# Only the code under test, not the fuzz harness, tests or libraries.
+		set(coverage_filter "${PROJECT_SOURCE_DIR}/EVA/Core" "${PROJECT_SOURCE_DIR}/EVA/Script" "-ignore-filename-regex=[/\\\\](Fuzz|Test)[/\\\\]")
+		add_custom_target(CoverageReport
+			COMMAND ${CMAKE_COMMAND} -E rm -rf "${coverage_dir}"
+			${coverage_commands}
+			COMMAND ${LLVM_PROFDATA} merge -sparse "${coverage_dir}/Script.profraw" "${coverage_dir}/ScriptGrammar.profraw" -o "${coverage_dir}/merged.profdata"
+			COMMAND ${LLVM_COV} report $<TARGET_FILE:FuzzScript> -object $<TARGET_FILE:FuzzScriptGrammar> "-instr-profile=${coverage_dir}/merged.profdata" ${coverage_filter}
+			COMMAND ${LLVM_COV} show $<TARGET_FILE:FuzzScript> -object $<TARGET_FILE:FuzzScriptGrammar> "-instr-profile=${coverage_dir}/merged.profdata" -format=html "-output-dir=${coverage_dir}/html" -show-line-counts-or-regions ${coverage_filter}
+			COMMAND ${CMAKE_COMMAND} -E echo "Report: ${coverage_dir}/html/index.html"
+			DEPENDS FuzzScript FuzzScriptGrammar
+			USES_TERMINAL
+			VERBATIM)
+	endif()
 endif()
