@@ -317,6 +317,9 @@ TEST(Typer, Functions)
 	CHECK_TYPE_ERRORS("function g() {} function f() { g(); }", "calling functions isn't supported yet");
 	CHECK_TYPE_ERRORS("function g() {} const a = g;", "'g' is a function, which can only be called");
 	CHECK_TYPE_ERRORS("const a = 1; const b = a();", "int can't be called");
+	CHECK_TYPE_ERRORS("const a = (1)(2);", "int can't be called");
+	CHECK_TYPE_ERRORS("const a = float2(1.0)(2.0);", "float2 can't be called");
+	CHECK_TYPE_ERRORS("const a: int = 1; const b: uint = 2; const c = (a + b)(1);", "mismatched types int and uint");
 	// Nested functions have their own return type.
 	CHECK_TYPE_ERRORS("function f(): float { function g(): int { return 1; } return 1.0; }", "");
 }
@@ -354,6 +357,9 @@ TEST(Typer, ShaderAttributes)
 	CHECK_SHADER_TYPE_ERRORS("function f(n: uint, @location(n) a: float4) {}", "a location must be a constant");
 	CHECK_SHADER_TYPE_ERRORS("function f(@builtin(0) a: uint) {}", "expected Builtin, got int");
 	CHECK_SHADER_TYPE_ERRORS("struct S {} @S function f() {}", "'S' isn't an attribute");
+	CHECK_SHADER_TYPE_ERRORS("@1 const a = 1;", "expected an attribute name");
+	CHECK_SHADER_TYPE_ERRORS("function f(@(location)(0) a: float4) {}", "");
+	CHECK_SHADER_TYPE_ERRORS("function f(@location(0)(1) a: float4) {}", "expected an attribute name");
 }
 
 TEST(Typer, TriangleShader)

@@ -409,8 +409,13 @@ static Node* SingleArgument(Typer& typer, Node* attribute, const char* name)
 static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 {
 	Node* callee = attribute->node_type == NodeType::CALL ? FindChild(attribute, Usage::CALLEE) : attribute;
-	if (callee->node_type != NodeType::REFERENCE)
+	if (callee->node_type == NodeType::IDENTIFIER)
 		return false; // unresolved, already reported
+	if (callee->node_type != NodeType::REFERENCE)
+	{
+		EmitError(typer, "expected an attribute name");
+		return false;
+	}
 	if (callee->target->kind != ElementKind::INTRINSIC)
 	{
 		EmitError(typer, "'%s' isn't an attribute", AtomName(typer, callee->name));
@@ -899,8 +904,15 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 static bool TypeCall(Typer& typer, Node* node)
 {
 	Node* callee = FindChild(node, Usage::CALLEE);
-	if (callee->node_type != NodeType::REFERENCE)
+	if (callee->node_type == NodeType::IDENTIFIER)
 		return false; // unresolved, already reported
+	if (callee->node_type != NodeType::REFERENCE)
+	{
+		// Typed for its own errors, then it can't be called whatever it is.
+		if (TypeNode(typer, callee, nullptr))
+			EmitError(typer, "%s can't be called", TypeName(typer, callee->type));
+		return false;
+	}
 
 	if (callee->target->kind == ElementKind::TYPE)
 	{
