@@ -1,0 +1,19 @@
+struct Inner
+{
+	a: float;
+	b: float3;
+}
+
+struct Outer
+{
+	@location(1) inner: Inner;
+	values: [2]Inner;
+	count: uint;
+}
+
+const o: Outer = { { 1.0, float3(2.0) }, { { 3.0, float3(4.0) }, { 5.0, float3(6.0) } }, 7 };
+
+function get(p: Outer): float
+{
+	return p.values[1].a + p.inner.b[0];
+}

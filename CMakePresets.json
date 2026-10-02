@@ -25,6 +25,16 @@
 			"cacheVariables": {
 				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
 			}
+		},
+		{
+			"name": "Fuzz",
+			"inherits": "Common",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo",
+				"EVA_FUZZ": true,
+				"EVA_BUILD_TESTS": false,
+				"CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded"
+			}
 		}
 	]
 }

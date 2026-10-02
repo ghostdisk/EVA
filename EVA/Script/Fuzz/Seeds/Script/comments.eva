@@ -1,0 +1,6 @@
+// line comment
+/* block
+   comment */ const a = 1; /**/ const b = a/**//2;
+/* * / ** */
+const c = a // trailing
++ b;

@@ -1,0 +1,24 @@
+function f(a: float, b: float2): float2
+{
+	x: float2;
+	{
+		const k = 2.0;
+		y: float;
+		return b * float2(k) + x;
+	}
+}
+
+function g(): void
+{
+	function nested(v: int): int
+	{
+		return -v;
+	}
+	return;
+}
+
+@vertex
+function main(@builtin(vertex_index) id: uint, @builtin(instance_index) instance: uint): @builtin(position) float4
+{
+	return float4(f(1.0, float2(2.0)), 0.0, 1.0);
+}

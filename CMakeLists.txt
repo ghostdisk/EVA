@@ -1,6 +1,24 @@
 cmake_minimum_required(VERSION 3.20)
 project(EVA LANGUAGES CXX)
 
+# Instruments everything for fuzzing (see EVA/Script/Fuzz/README.md): coverage for libFuzzer, AddressSanitizer and
+# UndefinedBehaviorSanitizer. Clang only. Set before any target is added, so all of them get the flags.
+option(EVA_FUZZ "Build the fuzz targets, with every library instrumented" OFF)
+if(EVA_FUZZ)
+	if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+		message(FATAL_ERROR "EVA_FUZZ needs clang")
+	endif()
+	add_compile_options(-fsanitize=address,undefined,fuzzer-no-link -fno-sanitize-recover=all -fno-omit-frame-pointer)
+	add_link_options(-fsanitize=address,undefined)
+	add_compile_definitions(EVA_FUZZ EVA_ARENA_REDZONE=16)
+	if(WIN32)
+		# LLVM's prebuilt libFuzzer comes with an older MSVC STL, and where the linker picks its copy of an STL function
+		# the container annotations disagree with ours, giving false container-overflow reports. Overflows past an
+		# allocation are still caught without them.
+		add_compile_definitions(_DISABLE_STRING_ANNOTATION _DISABLE_VECTOR_ANNOTATION)
+	endif()
+endif()
+
 function(eva_init_target target)
     set_target_properties(${target} PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
     target_include_directories(${target} PUBLIC "${PROJECT_SOURCE_DIR}")
@@ -158,4 +176,48 @@ if(EVA_BUILD_TESTS AND NOT ANDROID)
 
 	eva_add_tests(Core)
 	eva_add_tests(Script)
+endif()
+
+# Fuzz targets, EVA/Script/Fuzz/Fuzz_<name>.cpp, each defining LLVMFuzzerTestOneInput (see EVA/Script/Fuzz/README.md).
+# With EVA_FUZZ they're linked with libFuzzer. Otherwise with ReplayMain.cpp, which runs them over files, so the seeds
+# and regressions are CTest tests in every build.
+if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
+	set(fuzz_dir "${PROJECT_SOURCE_DIR}/EVA/Script/Fuzz")
+	add_library(ScriptFuzz STATIC ${fuzz_dir}/FuzzCommon.hpp ${fuzz_dir}/FuzzCommon.cpp)
+	eva_init_target(ScriptFuzz)
+	target_link_libraries(ScriptFuzz PUBLIC Script)
+
+	if(EVA_FUZZ AND WIN32)
+		execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-resource-dir OUTPUT_VARIABLE clang_resource_dir
+			OUTPUT_STRIP_TRAILING_WHITESPACE)
+		set(asan_dll "${clang_resource_dir}/lib/windows/clang_rt.asan_dynamic-x86_64.dll")
+	endif()
+
+	function(eva_add_fuzzer name)
+		if(EVA_FUZZ)
+			add_executable(Fuzz${name} ${fuzz_dir}/Fuzz_${name}.cpp)
+			target_link_options(Fuzz${name} PRIVATE -fsanitize=fuzzer)
+			if(asan_dll)
+				# The ASan runtime is a DLL on Windows, needed next to the executable.
+				add_custom_command(TARGET Fuzz${name} POST_BUILD
+					COMMAND ${CMAKE_COMMAND} -E copy_if_different ${asan_dll} $<TARGET_FILE_DIR:Fuzz${name}>)
+			endif()
+		else()
+			add_executable(Fuzz${name} ${fuzz_dir}/Fuzz_${name}.cpp ${fuzz_dir}/ReplayMain.cpp)
+			set(inputs)
+			foreach(inputs_dir Seeds Regressions)
+				if(EXISTS "${fuzz_dir}/${inputs_dir}/${name}")
+					list(APPEND inputs "${fuzz_dir}/${inputs_dir}/${name}")
+				endif()
+			endforeach()
+			if(inputs)
+				add_test(NAME Fuzz${name} COMMAND Fuzz${name} ${inputs})
+			endif()
+		endif()
+		eva_init_target(Fuzz${name})
+		target_link_libraries(Fuzz${name} PRIVATE ScriptFuzz)
+	endfunction()
+
+	eva_add_fuzzer(Script)
+	eva_add_fuzzer(ScriptGrammar)
 endif()

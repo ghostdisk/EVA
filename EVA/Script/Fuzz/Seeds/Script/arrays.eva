@@ -1,0 +1,6 @@
+const n: uint = 3;
+const a: [n]int = { 1, 2, 3 };
+const b: [2][3]int = { a, { 4, 5, 6 } };
+const c = b[1][2] + a[0];
+const d: [4]float4 = { float4(1.0), float4(2.0), float4(3.0), float4(4.0) };
+const e = d[3 % 4];

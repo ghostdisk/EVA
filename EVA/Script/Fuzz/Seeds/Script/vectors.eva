@@ -1,0 +1,7 @@
+const x = 2.0;
+const v2 = float2(1.0, x);
+const v3 = float3(v2, 3.0);
+const v4 = float4(v3, -x);
+const splat = float4(0.25);
+const sum = v4 + splat * float4(2.0) - -v4;
+const mixed: float4 = float4(float2(1.0, 2.0), v2);

@@ -2,6 +2,31 @@
 #include <EVA/Core/Panic.hpp>
 #include <stdlib.h>
 
+// Under AddressSanitizer the unallocated part of an arena is poisoned, so reading or writing past the last allocation
+// is reported. EVA_ARENA_REDZONE (set by fuzzing builds) also leaves that many poisoned bytes before each aligned
+// allocation, catching overflows into the next one. It changes the layout, so tests that check it fail with it on.
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define EVA_ASAN 1
+#endif
+#endif
+#if defined(__SANITIZE_ADDRESS__) && !defined(EVA_ASAN)
+#define EVA_ASAN 1
+#endif
+
+#ifdef EVA_ASAN
+#include <sanitizer/asan_interface.h>
+#define POISON(memory, size) ASAN_POISON_MEMORY_REGION(memory, size)
+#define UNPOISON(memory, size) ASAN_UNPOISON_MEMORY_REGION(memory, size)
+#else
+#define POISON(memory, size) ((void)(memory), (void)(size))
+#define UNPOISON(memory, size) ((void)(memory), (void)(size))
+#endif
+
+#ifndef EVA_ARENA_REDZONE
+#define EVA_ARENA_REDZONE 0
+#endif
+
 namespace EVA
 {
 
@@ -18,11 +43,14 @@ void* Arena::Allocate(size_t size)
 		Panic("arena out of memory: %zu bytes requested, %zu left", size, (size_t)(end - head));
 	void* memory = head;
 	head += size;
+	UNPOISON(memory, size);
 	return memory;
 }
 
 void* Arena::Allocate(size_t size, size_t alignment)
 {
+	if (EVA_ARENA_REDZONE)
+		head += EVA_ARENA_REDZONE < end - head ? EVA_ARENA_REDZONE : end - head;
 	AlignHead(alignment);
 	return Allocate(size);
 }
@@ -37,11 +65,13 @@ Arena* CreateArena(size_t capacity)
 	arena->begin = memory + sizeof(Arena);
 	arena->end = arena->begin + capacity;
 	arena->head = arena->begin;
+	POISON(arena->begin, capacity);
 	return arena;
 }
 
 void DestroyArena(Arena* arena)
 {
+	UNPOISON(arena->begin, arena->end - arena->begin);
 	free(arena);
 }
 

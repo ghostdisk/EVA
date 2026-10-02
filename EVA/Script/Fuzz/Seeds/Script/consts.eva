@@ -1,0 +1,10 @@
+const a = 1;
+const b: uint = 0xFFFFFFFF;
+const c = 1.5e3;
+const d: float = 16777216;
+const e = -2147483647 - 1;
+const f = (a + 2) * 3 / 4 % 5;
+const g: uint = ~0;
+const h = 1.0 / 3.0;
+const i = 0.1 + 0.2;
+const j = .5;

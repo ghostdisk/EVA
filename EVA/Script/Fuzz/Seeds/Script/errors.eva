@@ -1,0 +1,12 @@
+struct A { b: B; }
+struct B { a: A; }
+struct C { c: [2]C; }
+const big: [4294967295]float4 = {};
+const zero = 1 / 0;
+const overflow = (-2147483647 - 1) / -1;
+const index = { 1, 2 }[5];
+function f(): float { return unknown + float2(1.0); }
+function f(): int { return 1.5; }
+const x: float = 16777217;
+const y = 1e39;
+const z: int = 4294967296;
