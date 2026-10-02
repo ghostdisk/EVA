@@ -101,12 +101,18 @@ static bool IsDecimalFloat(const char* text)
 {
 	uint32 digits = 0;
 	while (*text >= '0' && *text <= '9')
-		text++, digits++;
+	{
+		text++;
+		digits++;
+	}
 	if (*text == '.')
 	{
 		text++;
 		while (*text >= '0' && *text <= '9')
-			text++, digits++;
+		{
+			text++;
+			digits++;
+		}
 	}
 	if (!digits)
 		return false;
@@ -157,10 +163,13 @@ static bool ParseNumber(Typer& typer, Node* node, PrimitiveType* type, uint32* o
 	for (; *digit; ++digit)
 	{
 		char ch = *digit;
-		uint32 digit_value = ch >= '0' && ch <= '9'	  ? ch - '0'
-							 : ch >= 'a' && ch <= 'f' ? ch - 'a' + 10
-							 : ch >= 'A' && ch <= 'F' ? ch - 'A' + 10
-													  : 16;
+		uint32 digit_value = 16;
+		if (ch >= '0' && ch <= '9')
+			digit_value = ch - '0';
+		else if (ch >= 'a' && ch <= 'f')
+			digit_value = ch - 'a' + 10;
+		else if (ch >= 'A' && ch <= 'F')
+			digit_value = ch - 'A' + 10;
 		if (digit_value >= base)
 		{
 			EmitError(typer, "'%s' is not a valid %s", text, TypeName(typer, type));
@@ -224,7 +233,10 @@ static uint32 FoldUnary(PrimitiveKind kind, TokenType op, uint32 a)
 {
 	switch (op)
 	{
-	case TokenType::MINUS: return kind == PrimitiveKind::FLOAT ? FloatToBits(-BitsToFloat(a)) : 0u - a;
+	case TokenType::MINUS:
+		if (kind == PrimitiveKind::FLOAT)
+			return FloatToBits(-BitsToFloat(a));
+		return 0u - a;
 	case TokenType::TILDE: return ~a;
 	default: return a;
 	}
@@ -237,23 +249,34 @@ static bool FoldBinary(Typer& typer, PrimitiveKind kind, TokenType op, uint32 a,
 	{
 		float x = BitsToFloat(a);
 		float y = BitsToFloat(b);
+		float result = 0.0f;
 		switch (op)
 		{
-		case TokenType::PLUS: *out = FloatToBits(x + y); return true;
-		case TokenType::MINUS: *out = FloatToBits(x - y); return true;
-		case TokenType::ASTERISK: *out = FloatToBits(x * y); return true;
-		case TokenType::SLASH: *out = FloatToBits(x / y); return true;
-		case TokenType::PERCENT: *out = FloatToBits(fmodf(x, y)); return true;
+		case TokenType::PLUS: result = x + y; break;
+		case TokenType::MINUS: result = x - y; break;
+		case TokenType::ASTERISK: result = x * y; break;
+		case TokenType::SLASH: result = x / y; break;
+		case TokenType::PERCENT: result = fmodf(x, y); break;
 		default: return false;
 		}
+		*out = FloatToBits(result);
+		return true;
 	}
 
-	switch (op)
+	if (op == TokenType::PLUS)
 	{
-	case TokenType::PLUS: *out = a + b; return true;
-	case TokenType::MINUS: *out = a - b; return true;
-	case TokenType::ASTERISK: *out = a * b; return true;
-	default: break;
+		*out = a + b;
+		return true;
+	}
+	if (op == TokenType::MINUS)
+	{
+		*out = a - b;
+		return true;
+	}
+	if (op == TokenType::ASTERISK)
+	{
+		*out = a * b;
+		return true;
 	}
 
 	if (b == 0)
@@ -270,10 +293,16 @@ static bool FoldBinary(Typer& typer, PrimitiveKind kind, TokenType op, uint32 a,
 			EmitError(typer, "integer overflow");
 			return false;
 		}
-		*out = (uint32)(op == TokenType::SLASH ? x / y : x % y);
+		if (op == TokenType::SLASH)
+			*out = (uint32)(x / y);
+		else
+			*out = (uint32)(x % y);
 		return true;
 	}
-	*out = op == TokenType::SLASH ? a / b : a % b;
+	if (op == TokenType::SLASH)
+		*out = a / b;
+	else
+		*out = a % b;
 	return true;
 }
 
@@ -346,8 +375,12 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 			memcpy(constant->bytes.data + offset, value->bytes.data, value->bytes.count);
 			offset += value->bytes.count;
 		}
-		for (; offset && offset < constant->bytes.count; offset += 4)
-			memcpy(constant->bytes.data + offset, constant->bytes.data, 4);
+		uint32 component_count = ComponentCount(node->type);
+		if (offset == 4 && component_count > 1)
+		{
+			for (uint32 i = 1; i < component_count; ++i)
+				WriteComponent(constant, i, ReadComponent(constant, 0));
+		}
 		return constant;
 	}
 	case NodeType::INDEX:
@@ -373,8 +406,11 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 			Constant* value = EvaluateConstant(typer, element);
 			if (!value)
 				return nullptr;
-			uint32 offset = node->type->type_kind == TypeKind::ARRAY ? index * ((ArrayType*)node->type)->stride
-																	 : ((StructType*)node->type)->fields[index].offset;
+			uint32 offset = 0;
+			if (node->type->type_kind == TypeKind::ARRAY)
+				offset = index * ((ArrayType*)node->type)->stride;
+			else
+				offset = ((StructType*)node->type)->fields[index].offset;
 			memcpy(constant->bytes.data + offset, value->bytes.data, value->bytes.count);
 			index++;
 		}
@@ -436,12 +472,16 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		Node* argument = SingleArgument(typer, attribute, name);
 		if (!argument)
 			return false;
+		Type* argument_type = typer.context->uint_type;
 		if (intrinsic->intrinsic_kind == IntrinsicKind::BUILTIN)
-			return TypeNode(typer, argument, typer.context->builtin_type) &&
-				   ImplicitCast(typer, argument, typer.context->builtin_type);
-		return TypeNode(typer, argument, typer.context->uint_type) &&
-			   ImplicitCast(typer, argument, typer.context->uint_type) &&
-			   RequireConstant(typer, argument, "a location") != nullptr;
+			argument_type = typer.context->builtin_type;
+		if (!TypeNode(typer, argument, argument_type))
+			return false;
+		if (!ImplicitCast(typer, argument, argument_type))
+			return false;
+		if (intrinsic->intrinsic_kind == IntrinsicKind::LOCATION && !RequireConstant(typer, argument, "a location"))
+			return false;
+		return true;
 	}
 	case IntrinsicKind::VERTEX:
 	case IntrinsicKind::FRAGMENT:
@@ -519,7 +559,8 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 			continue;
 		}
 		offset = (offset + field_type->alignment - 1) / field_type->alignment * field_type->alignment;
-		fields[index++] = { .name = field->name, .type = field_type, .offset = (uint32)offset, .declaration = field };
+		fields[index] = { .name = field->name, .type = field_type, .offset = (uint32)offset, .declaration = field };
+		index++;
 		offset += field_type->size;
 		if (field_type->alignment > alignment)
 			alignment = field_type->alignment;
@@ -548,8 +589,11 @@ static Type* EvaluateType(Typer& typer, Node* node)
 	if (node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::TYPE)
 	{
 		type = (Type*)node->target;
-		if (type->type_kind == TypeKind::STRUCT && !CompleteStruct(typer, (StructType*)type))
-			return nullptr;
+		if (type->type_kind == TypeKind::STRUCT)
+		{
+			if (!CompleteStruct(typer, (StructType*)type))
+				return nullptr;
+		}
 	}
 	else if (node->node_type == NodeType::ARRAY_TYPE)
 	{
@@ -592,9 +636,15 @@ static bool TypeConst(Typer& typer, Node* node)
 	Node* declared = FindChild(node, Usage::DECLARED_TYPE);
 	Node* value = FindChild(node, Usage::VALUE);
 	Type* type = nullptr;
-	if (declared && !(type = EvaluateType(typer, declared)))
+	if (declared)
+	{
+		type = EvaluateType(typer, declared);
+		if (!type)
+			return false;
+	}
+	if (!TypeNode(typer, value, type))
 		return false;
-	if (!TypeNode(typer, value, type) || (type && !ImplicitCast(typer, value, type)))
+	if (type && !ImplicitCast(typer, value, type))
 		return false;
 	node->type = type ? type : value->type;
 	node->constant = RequireConstant(typer, value, "a const's value");
@@ -621,19 +671,30 @@ static bool TypeFunction(Typer& typer, Node* node)
 	Type* return_type = typer.context->void_type;
 	if (Node* return_node = FindChild(node, Usage::RETURN_TYPE))
 		return_type = EvaluateType(typer, return_node);
+	if (!return_type)
+		typed = false;
 
 	Type* outer = typer.return_type;
 	typer.return_type = return_type;
 	DEFER(typer.return_type = outer);
-	return TypeNode(typer, FindChild(node, Usage::BODY), nullptr) && return_type != nullptr && typed;
+
+	if (!TypeNode(typer, FindChild(node, Usage::BODY), nullptr))
+		typed = false;
+
+	return typed;
 }
 
 static bool TypeReturn(Typer& typer, Node* node)
 {
 	Node* value = FindChild(node, Usage::VALUE);
 	Type* return_type = typer.return_type;
-	if (!return_type) // the function's return type failed, already reported
-		return value && TypeNode(typer, value, nullptr) && false;
+	if (!return_type)
+	{
+		// The function's return type failed, already reported. The value is still typed for its own errors.
+		if (value)
+			TypeNode(typer, value, nullptr);
+		return false;
+	}
 
 	if (return_type == typer.context->void_type)
 	{
@@ -647,14 +708,20 @@ static bool TypeReturn(Typer& typer, Node* node)
 		EmitError(typer, "'return' needs a value of type %s", TypeName(typer, return_type));
 		return false;
 	}
-	return TypeNode(typer, value, return_type) && ImplicitCast(typer, value, return_type);
+	if (!TypeNode(typer, value, return_type))
+		return false;
+	if (!ImplicitCast(typer, value, return_type))
+		return false;
+	return true;
 }
 
 static bool TypeNumber(Typer& typer, Node* node, Type* expected)
 {
-	PrimitiveType* type = expected ? ComponentType(expected) : nullptr;
-	if (!type || expected->type_kind != TypeKind::PRIMITIVE || !IsNumeric(type))
-		type = LooksLikeFloat(node->text) ? typer.context->float_type : typer.context->int_type;
+	PrimitiveType* type = typer.context->int_type;
+	if (expected && expected->type_kind == TypeKind::PRIMITIVE && IsNumeric((PrimitiveType*)expected))
+		type = (PrimitiveType*)expected;
+	else if (LooksLikeFloat(node->text))
+		type = typer.context->float_type;
 	uint32 bits = 0;
 	if (!ParseNumber(typer, node, type, &bits))
 		return false;
@@ -686,9 +753,15 @@ static bool TypeReference(Typer& typer, Node* node)
 			return false;
 		}
 	}
-	case ElementKind::TYPE: EmitError(typer, "'%s' is a type, not a value", name); return false;
-	case ElementKind::INTRINSIC: EmitError(typer, "'%s' can only be used as an attribute", name); return false;
-	case ElementKind::CONSTANT: node->type = ((Constant*)node->target)->type; return true;
+	case ElementKind::TYPE:
+		EmitError(typer, "'%s' is a type, not a value", name);
+		return false;
+	case ElementKind::INTRINSIC:
+		EmitError(typer, "'%s' can only be used as an attribute", name);
+		return false;
+	case ElementKind::CONSTANT:
+		node->type = ((Constant*)node->target)->type;
+		return true;
 	case ElementKind::NONE: break;
 	}
 	return false;
@@ -704,7 +777,10 @@ static bool TypeInitList(Typer& typer, Node* node, Type* expected)
 
 	uint32 count = 0;
 	for (Node* element = node->child; element; element = element->next)
-		count += element->usage == Usage::ELEMENT;
+	{
+		if (element->usage == Usage::ELEMENT)
+			count++;
+	}
 
 	uint32 expected_count = 0;
 	if (expected->type_kind == TypeKind::ARRAY)
@@ -728,10 +804,17 @@ static bool TypeInitList(Typer& typer, Node* node, Type* expected)
 	{
 		if (element->usage != Usage::ELEMENT)
 			continue;
-		Type* element_type = expected->type_kind == TypeKind::ARRAY ? ((ArrayType*)expected)->element
-																	: ((StructType*)expected)->fields[index].type;
-		typed = TypeNode(typer, element, element_type) && ImplicitCast(typer, element, element_type) && typed;
+		Type* element_type = nullptr;
+		if (expected->type_kind == TypeKind::ARRAY)
+			element_type = ((ArrayType*)expected)->element;
+		else
+			element_type = ((StructType*)expected)->fields[index].type;
 		index++;
+
+		if (!TypeNode(typer, element, element_type))
+			typed = false;
+		else if (!ImplicitCast(typer, element, element_type))
+			typed = false;
 	}
 	node->type = expected;
 	return typed;
@@ -749,10 +832,13 @@ static bool TypeUnary(Typer& typer, Node* node, Type* expected)
 	if (!TypeNode(typer, operand, expected))
 		return false;
 	PrimitiveType* component = ComponentType(operand->type);
-	bool valid = component && (node->op == TokenType::TILDE		 ? IsInteger(component)
-								  : node->op == TokenType::MINUS ? component->primitive_kind == PrimitiveKind::SIGNED ||
-																	   component->primitive_kind == PrimitiveKind::FLOAT
-																 : IsNumeric(component));
+	bool valid = false;
+	if (component && node->op == TokenType::TILDE)
+		valid = IsInteger(component);
+	else if (component && node->op == TokenType::MINUS)
+		valid = component->primitive_kind == PrimitiveKind::SIGNED || component->primitive_kind == PrimitiveKind::FLOAT;
+	else if (component)
+		valid = IsNumeric(component);
 	if (!valid)
 	{
 		EmitError(typer, "can't apply '%s' to %s", TokenToString(node->op).CString(), TypeName(typer, operand->type));
@@ -771,7 +857,9 @@ static bool TypeBinary(Typer& typer, Node* node, Type* expected)
 	case TokenType::ASTERISK:
 	case TokenType::SLASH:
 	case TokenType::PERCENT: break;
-	default: EmitError(typer, "'%s' isn't supported yet", TokenToString(node->op).CString()); return false;
+	default:
+		EmitError(typer, "'%s' isn't supported yet", TokenToString(node->op).CString());
+		return false;
 	}
 
 	// Literals take the other side's type, so the other side goes first.
@@ -781,9 +869,16 @@ static bool TypeBinary(Typer& typer, Node* node, Type* expected)
 	bool right_literal = right->node_type == NodeType::NUMBER;
 	if (left_literal && right_literal && !expected && (LooksLikeFloat(left->text) || LooksLikeFloat(right->text)))
 		expected = typer.context->float_type;
-	Node* first = left_literal && !right_literal ? right : left;
-	Node* second = first == left ? right : left;
-	if (!TypeNode(typer, first, expected) || !TypeNode(typer, second, first->type))
+	Node* first = left;
+	Node* second = right;
+	if (left_literal && !right_literal)
+	{
+		first = right;
+		second = left;
+	}
+	if (!TypeNode(typer, first, expected))
+		return false;
+	if (!TypeNode(typer, second, first->type))
 		return false;
 	if (!ImplicitCoCast(typer, left, right))
 		return false;
@@ -828,15 +923,14 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 			typed = false;
 		}
 	}
-	if (!typed)
-		return false;
-	if (components != vector->count && components != 1)
+	if (typed && components != vector->count && components != 1)
 	{
 		EmitError(typer, "%s needs %u components, got %u", TypeName(typer, type), vector->count, components);
-		return false;
+		typed = false;
 	}
-	node->type = type;
-	return true;
+	if (typed)
+		node->type = type;
+	return typed;
 }
 
 static bool TypeCall(Typer& typer, Node* node)
@@ -866,7 +960,8 @@ static bool TypeIndex(Typer& typer, Node* node)
 	Node* object = FindChild(node, Usage::OBJECT);
 	Node* index = FindChild(node, Usage::INDEX);
 	bool object_typed = TypeNode(typer, object, nullptr);
-	if (!TypeNode(typer, index, typer.context->uint_type) || !object_typed)
+	bool index_typed = TypeNode(typer, index, typer.context->uint_type);
+	if (!object_typed || !index_typed)
 		return false;
 
 	if (object->type->type_kind != TypeKind::ARRAY)
@@ -932,30 +1027,86 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 			if (child->usage != Usage::ATTRIBUTE)
 				typed = TypeNode(typer, child, nullptr) && typed;
 		}
-		return typed;
+		break;
 	}
-	case NodeType::CONST: return TypeConst(typer, node) && typed;
-	case NodeType::STRUCT: return CompleteStruct(typer, (StructType*)node->type) && typed;
-	case NodeType::FUNCTION: return TypeFunction(typer, node) && typed;
+	case NodeType::CONST:
+		if (!TypeConst(typer, node))
+			typed = false;
+		break;
+	case NodeType::STRUCT:
+		if (!CompleteStruct(typer, (StructType*)node->type))
+			typed = false;
+		break;
+	case NodeType::FUNCTION:
+		if (!TypeFunction(typer, node))
+			typed = false;
+		break;
 	case NodeType::VARIABLE:
 		node->type = EvaluateType(typer, FindChild(node, Usage::DECLARED_TYPE));
-		return node->type != nullptr && typed;
-	case NodeType::RETURN: return TypeReturn(typer, node) && typed;
-	case NodeType::NUMBER: return TypeNumber(typer, node, expected) && typed;
-	case NodeType::REFERENCE: return TypeReference(typer, node) && typed;
-	case NodeType::INIT_LIST: return TypeInitList(typer, node, expected) && typed;
-	case NodeType::UNARY: return TypeUnary(typer, node, expected) && typed;
-	case NodeType::BINARY: return TypeBinary(typer, node, expected) && typed;
-	case NodeType::CALL: return TypeCall(typer, node) && typed;
-	case NodeType::INDEX: return TypeIndex(typer, node) && typed;
-	case NodeType::MEMBER: return TypeMember(typer, node) && typed;
-	case NodeType::IDENTIFIER: return false; // unresolved, already reported
-	case NodeType::ARRAY_TYPE: EmitError(typer, "expected a value, got a type"); return false;
-	case NodeType::BOOL: EmitError(typer, "bool isn't supported yet"); return false;
-	case NodeType::IF: EmitError(typer, "'if' isn't supported yet"); return false;
-	case NodeType::POSTFIX: EmitError(typer, "'%s' isn't supported yet", TokenToString(node->op).CString()); return false;
-	default: EmitError(typer, "unexpected %s", NodeTypeToString(node->node_type).CString()); return false;
+		if (!node->type)
+			typed = false;
+		break;
+	case NodeType::RETURN:
+		if (!TypeReturn(typer, node))
+			typed = false;
+		break;
+	case NodeType::NUMBER:
+		if (!TypeNumber(typer, node, expected))
+			typed = false;
+		break;
+	case NodeType::REFERENCE:
+		if (!TypeReference(typer, node))
+			typed = false;
+		break;
+	case NodeType::INIT_LIST:
+		if (!TypeInitList(typer, node, expected))
+			typed = false;
+		break;
+	case NodeType::UNARY:
+		if (!TypeUnary(typer, node, expected))
+			typed = false;
+		break;
+	case NodeType::BINARY:
+		if (!TypeBinary(typer, node, expected))
+			typed = false;
+		break;
+	case NodeType::CALL:
+		if (!TypeCall(typer, node))
+			typed = false;
+		break;
+	case NodeType::INDEX:
+		if (!TypeIndex(typer, node))
+			typed = false;
+		break;
+	case NodeType::MEMBER:
+		if (!TypeMember(typer, node))
+			typed = false;
+		break;
+	case NodeType::IDENTIFIER:
+		typed = false; // unresolved, already reported
+		break;
+	case NodeType::ARRAY_TYPE:
+		EmitError(typer, "expected a value, got a type");
+		typed = false;
+		break;
+	case NodeType::BOOL:
+		EmitError(typer, "bool isn't supported yet");
+		typed = false;
+		break;
+	case NodeType::IF:
+		EmitError(typer, "'if' isn't supported yet");
+		typed = false;
+		break;
+	case NodeType::POSTFIX:
+		EmitError(typer, "'%s' isn't supported yet", TokenToString(node->op).CString());
+		typed = false;
+		break;
+	default:
+		EmitError(typer, "unexpected %s", NodeTypeToString(node->node_type).CString());
+		typed = false;
+		break;
 	}
+	return typed;
 }
 
 bool TypeCheck(Typer& typer, Node* module)
