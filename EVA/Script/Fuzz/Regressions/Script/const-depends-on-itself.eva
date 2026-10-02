@@ -1,0 +1,2 @@
+const c: S = { { 1.0 } };
+struct S { x: [c]float; }

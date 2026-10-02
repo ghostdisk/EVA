@@ -1,0 +1,3 @@
+struct A { b: B; }
+const n: uint = 2;
+struct B { x: [n]float; }

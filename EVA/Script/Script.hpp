@@ -198,10 +198,21 @@ struct Element
 	ElementKind kind = ElementKind::NONE;
 };
 
+// Of a CONST, which the typer types on first use. That can be before its turn: a struct laid out early can use a const
+// as an array size.
+enum class TypingState : uint8
+{
+	UNTYPED,
+	TYPING,
+	TYPED,
+	FAILED,
+};
+
 struct Node : Element
 {
 	NodeType node_type = NodeType::NONE;
 	Usage usage = Usage::NONE;
+	TypingState typing_state = TypingState::UNTYPED; // CONST
 	Atom name = Atom::NONE;
 	Type* type = nullptr; // set by the typer: the value's type, or for a type expression the type it names
 	union

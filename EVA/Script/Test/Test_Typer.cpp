@@ -339,6 +339,22 @@ TEST(Typer, ConstsMustBeConstant)
 	CHECK_TYPE_ERRORS("const a = 1; const b = a * 2; const c: [b]float = { 1.0, 2.0 };", "");
 }
 
+TEST(Typer, DeclarationsTypedOnFirstUse)
+{
+	// A is laid out first, which lays out B, which needs n before n's turn.
+	CHECK_TYPE_ERRORS("struct A { b: B; } const n: uint = 2; struct B { x: [n]float; }", "");
+	CHECK_TYPE_ERRORS("struct A { b: B; } const n: uint = 2; struct B { x: [n]float; } const a: A = { { { 1.0, 2.0 } } };", "");
+	// A variable is never a constant, whatever its type.
+	CHECK_TYPE_ERRORS("function f() { a: S; v: uint; struct S { x: [v]float; } }", "array size must be a constant");
+
+	CHECK_TYPE_ERRORS("const c: S = { { 1.0 } }; struct S { x: [c]float; }", "'c' depends on itself");
+	CHECK_TYPE_ERRORS("function f() { v: S; struct S { x: [v]float; } }", "array size must be a constant");
+
+	// A const's value is resolved before the const is declared, so it can't refer to itself, only to one it shadows.
+	CHECK_TYPE_ERRORS("const c: uint = c;", "resolve error: unknown identifier 'c'");
+	CHECK_TYPE_ERRORS("const c: uint = 1; function f(): uint { const c: uint = c + 1; return c; }", "");
+}
+
 TEST(Typer, ConstantSizeLimits)
 {
 	// Each four times the size of the one before, for a few bytes of source: a is 32 bytes with its elements, b 64,

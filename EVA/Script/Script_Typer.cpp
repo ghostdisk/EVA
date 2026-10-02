@@ -581,6 +581,24 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 	return typed;
 }
 
+// Whether the expression refers to no variables or parameters, which are never constants.
+static bool RefersOnlyToConstants(Typer& typer, Node* node)
+{
+	CHECK_RECURSION(typer);
+	if (node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::NODE)
+	{
+		NodeType target = ((Node*)node->target)->node_type;
+		if (target == NodeType::VARIABLE || target == NodeType::PARAMETER)
+			return false;
+	}
+	for (Node* child = node->child; child; child = child->next)
+	{
+		if (!RefersOnlyToConstants(typer, child))
+			return false;
+	}
+	return true;
+}
+
 // The type a type expression names, also stored in the node.
 static Type* EvaluateType(Typer& typer, Node* node)
 {
@@ -601,6 +619,12 @@ static Type* EvaluateType(Typer& typer, Node* node)
 	{
 		Node* size = FindChild(node, Usage::SIZE);
 		Type* element = EvaluateType(typer, FindChild(node, Usage::ELEMENT));
+		// Checked first: a struct laid out early can get here before a variable it refers to has been typed.
+		if (!RefersOnlyToConstants(typer, size))
+		{
+			EmitError(typer, "array size must be a constant");
+			return nullptr;
+		}
 		if (!TypeNode(typer, size, typer.context->uint_type))
 			return nullptr;
 		PrimitiveType* size_type = ComponentType(size->type);
@@ -652,6 +676,24 @@ static bool TypeConst(Typer& typer, Node* node)
 	node->type = type ? type : value->type;
 	node->constant = RequireConstant(typer, value, "a const's value");
 	return node->constant != nullptr;
+}
+
+// Types a CONST the first time it's needed, at its turn or before from a reference.
+static bool TypeConstOnce(Typer& typer, Node* node)
+{
+	switch (node->typing_state)
+	{
+	case TypingState::TYPED: return true;
+	case TypingState::FAILED: return false; // already reported
+	case TypingState::TYPING:
+		EmitError(typer, "'%s' depends on itself", AtomName(typer, node->name));
+		return false;
+	case TypingState::UNTYPED: break;
+	}
+	node->typing_state = TypingState::TYPING;
+	bool typed = TypeConst(typer, node);
+	node->typing_state = typed ? TypingState::TYPED : TypingState::FAILED;
+	return typed;
 }
 
 static bool TypeFunction(Typer& typer, Node* node)
@@ -742,6 +784,10 @@ static bool TypeReference(Typer& typer, Node* node)
 		switch (target->node_type)
 		{
 		case NodeType::CONST:
+			if (!TypeConstOnce(typer, target))
+				return false;
+			node->type = target->type;
+			return true;
 		case NodeType::PARAMETER:
 		case NodeType::VARIABLE:
 		case NodeType::ENUM_VALUE:
@@ -1040,7 +1086,12 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 		break;
 	}
 	case NodeType::CONST:
-		if (!TypeConst(typer, node))
+		if (!TypeConstOnce(typer, node))
+			typed = false;
+		break;
+	case NodeType::VARIABLE:
+		node->type = EvaluateType(typer, FindChild(node, Usage::DECLARED_TYPE));
+		if (!node->type)
 			typed = false;
 		break;
 	case NodeType::STRUCT:
@@ -1049,11 +1100,6 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 		break;
 	case NodeType::FUNCTION:
 		if (!TypeFunction(typer, node))
-			typed = false;
-		break;
-	case NodeType::VARIABLE:
-		node->type = EvaluateType(typer, FindChild(node, Usage::DECLARED_TYPE));
-		if (!node->type)
 			typed = false;
 		break;
 	case NodeType::RETURN:
@@ -1121,7 +1167,8 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 
 bool TypeCheck(Typer& typer, Node* module)
 {
-	TypeNode(typer, module, nullptr);
+	bool typed = TypeNode(typer, module, nullptr);
+	assert(typed || !typer.errors.empty()); // every failure is reported
 	return typer.errors.empty();
 }
 
