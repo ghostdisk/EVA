@@ -363,6 +363,10 @@ TEST(Typer, ConstsMustBeConstant)
 
 TEST(Typer, ConstantExpressions)
 {
+	// Attributes anywhere in a folded expression move to the CONSTANT.
+	CHECK_TYPE("const x = 2.0; const v = float2(@x 1.0, @x x);",
+		"([DECLARATION]CONST:float x ([VALUE]CONSTANT:float 2.0)) ([DECLARATION]CONST:float2 v ([VALUE]CONSTANT:float2 (1.0, 2.0) "
+		"([ATTRIBUTE]REFERENCE x -> CONST) ([ATTRIBUTE]REFERENCE x -> CONST)))");
 	CHECK_TYPE("const p: [3]float2 = { float2(0.0, 0.5), float2(0.5, -0.5), float2(-0.5, -0.5) };",
 		"([DECLARATION]CONST:[3]float2 p ([DECLARED_TYPE]ARRAY_TYPE:[3]float2 ([SIZE]CONSTANT:uint 3) "
 		"([ELEMENT]REFERENCE:float2 float2 -> TYPE float2)) ([VALUE]CONSTANT:[3]float2 {(0.0, 0.5), (0.5, -0.5), (-0.5, -0.5)}))");

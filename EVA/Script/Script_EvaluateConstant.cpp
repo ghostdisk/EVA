@@ -1,6 +1,7 @@
 #include <EVA/Script/Script.hpp>
 #include <math.h>
 #include <string.h>
+#include <algorithm>
 
 // Constant expressions are evaluated in two passes over the same subtree, neither typing its nodes: ConstantType works
 // out the type, so the result can be allocated, and EvaluateInto writes the value straight into its place in it. Only
@@ -550,18 +551,30 @@ static Constant* NewConstant(Typer& typer, Type* type)
 	return constant;
 }
 
-// Replaces node with a CONSTANT of its value. Attributes stay, ignored for now.
+// Replaces node with a CONSTANT of its value. The attributes of node and of everything under it move to the CONSTANT,
+// ignored for now, so none get lost.
 static void Fold(Node* node, Constant* constant)
 {
 	Node* attributes = nullptr;
 	Node** tail = &attributes;
-	for (Node* child = node->child; child; child = child->next)
+	std::vector<Node*> stack = { node }; // the tree can be as deep as the recursion limit
+	while (!stack.empty())
 	{
-		if (child->usage == Usage::ATTRIBUTE)
+		Node* current = stack.back();
+		stack.pop_back();
+		size_t first = stack.size();
+		for (Node* child = current->child; child; child = child->next)
 		{
-			*tail = child;
-			tail = &child->next;
+			// Linking an attribute only changes the next of the previous one, which the loop is already past.
+			if (child->usage == Usage::ATTRIBUTE)
+			{
+				*tail = child;
+				tail = &child->next;
+			}
+			else
+				stack.push_back(child);
 		}
+		std::reverse(stack.begin() + (ptrdiff_t)first, stack.end()); // source order
 	}
 	*tail = nullptr;
 	node->node_type = NodeType::CONSTANT;

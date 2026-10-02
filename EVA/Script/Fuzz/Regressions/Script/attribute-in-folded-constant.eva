@@ -1,0 +1,2 @@
+const x = 2.0;
+const v = float2(1.0, @semantic(position) x);
