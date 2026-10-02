@@ -95,7 +95,8 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_link_libraries(PAL PRIVATE ${APPKIT_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
 endif()
 
-# metal-cpp, Apple's C++ bindings for Metal. Its implementation is compiled once here, for everything linking it.
+# metal-cpp, Apple's C++ bindings for Metal. Its implementation is compiled once here, for the GPU library and for the
+# shader tests, which compile MSL with Metal.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	add_library(MetalCpp STATIC Vendor/metal-cpp/Metal.hpp Vendor/metal-cpp/Metal.cpp)
 	set_target_properties(MetalCpp PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
@@ -165,6 +166,7 @@ add_library(Script STATIC
 	EVA/Script/Script_Safety.cpp
 	EVA/Script/Script_Backend_SPIRV.cpp
 	EVA/Script/Script_Backend_HLSL.cpp
+	EVA/Script/Script_Backend_MSL.cpp
 )
 eva_init_target(Script)
 target_link_libraries(Script PUBLIC Core)
@@ -193,14 +195,18 @@ endif()
 option(EVA_BUILD_TESTS "Build the test executables" ON)
 
 # Checks the shader backends' output with the targets' own tools, for the tests and fuzzers (EVA/Script/Test/
-# OutputValidation.hpp): fxc on Windows, and SPIRV-Tools' validator from the Vulkan SDK when it's installed. The SDK's
-# shared library has a C API, so it works with any C runtime, including the fuzz build's static one.
+# OutputValidation.hpp): fxc on Windows, Metal's compiler on macOS, and SPIRV-Tools' validator from the Vulkan SDK when
+# it's installed. The SDK's shared library has a C API, so it works with any C runtime, including the fuzz build's static
+# one.
 if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
 	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp)
 	eva_init_target(OutputValidation)
 	target_link_libraries(OutputValidation PUBLIC Script)
 	if(WIN32)
 		target_link_libraries(OutputValidation PRIVATE d3dcompiler)
+	endif()
+	if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		target_link_libraries(OutputValidation PRIVATE MetalCpp)
 	endif()
 	find_library(SPIRV_TOOLS_SHARED_LIBRARY SPIRV-Tools-shared HINTS "$ENV{VULKAN_SDK}/Lib" "$ENV{VULKAN_SDK}/lib")
 	find_path(SPIRV_TOOLS_INCLUDE_DIR spirv-tools/libspirv.h HINTS "$ENV{VULKAN_SDK}/Include" "$ENV{VULKAN_SDK}/include")

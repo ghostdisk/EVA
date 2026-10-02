@@ -8,7 +8,7 @@ using GPU::Backend;
 using GPU::CompiledEntryPoint;
 
 // Every output is checked with the target's own tools when they're available (OutputValidation.hpp): SPIRV-Tools'
-// validator and fxc.
+// validator, fxc and Metal.
 
 static StringView Text(CompiledEntryPoint& entry_point)
 {
@@ -25,6 +25,8 @@ static ZTStringView Check(Test::Context& test, Backend target, CompiledEntryPoin
 {
 	if (target == Backend::VULKAN)
 		return Validation::ValidateSPIRV(Words(entry_point), test.arena);
+	if (target == Backend::METAL)
+		return Validation::CompileMSL(Text(entry_point), test.arena);
 	return Validation::CompileHLSL(Text(entry_point), entry_point.stage, test.arena);
 }
 
@@ -33,7 +35,7 @@ static ZTStringView Check(Test::Context& test, Backend target, CompiledEntryPoin
 static Slice<CompiledEntryPoint> Compile(Test::Context& test, const char* file, int line, const char* source, Backend target)
 {
 	CompileShaderResult result = CompileShader({ .arena = test.arena, .source = source, .backend = target });
-	const char* target_name = target == Backend::VULKAN ? "SPIR-V" : "HLSL";
+	const char* target_name = target == Backend::VULKAN ? "SPIR-V" : target == Backend::METAL ? "MSL" : "HLSL";
 	if (result.errors.count)
 	{
 		Test::ReportFailure(test, file, line, "\"%s\"\n    failed to compile: %s", source, result.errors[0]->message.CString());
@@ -58,6 +60,7 @@ static void CheckValid(Test::Context& test, const char* file, int line, const ch
 {
 	Compile(test, file, line, source, Backend::VULKAN);
 	Compile(test, file, line, source, Backend::D3D11);
+	Compile(test, file, line, source, Backend::METAL);
 }
 
 // The output for each entry point, SPIR-V disassembled, separated by blank lines.
@@ -86,6 +89,7 @@ static void CheckOutput(Test::Context& test, const char* file, int line, const c
 #define CHECK_BACKENDS(source) CheckValid(test, __FILE__, __LINE__, source)
 #define CHECK_HLSL(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Backend::D3D11, expected)
 #define CHECK_SPIRV(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Backend::VULKAN, expected)
+#define CHECK_MSL(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Backend::METAL, expected)
 
 static const char* TRIANGLE = R"(
 const positions: [3]float2 = { float2(0.0, 0.5), float2(0.5, -0.5), float2(-0.5, -0.5) };
@@ -136,6 +140,67 @@ TEST(Backend, TriangleHLSL)
 		"{\n"
 		"\tfloat4 v0 = f0();\n"
 		"\tout0 = v0;\n"
+		"}\n");
+}
+
+TEST(Backend, TriangleMSL)
+{
+	CHECK_MSL(TRIANGLE,
+		"#include <metal_stdlib>\n"
+		"using namespace metal;\n"
+		"\n"
+		"struct A0\n"
+		"{\n"
+		"\tfloat2 e[3];\n"
+		"};\n"
+		"\n"
+		"struct Out\n"
+		"{\n"
+		"\tfloat4 out0 [[position]];\n"
+		"};\n"
+		"\n"
+		"constant A0 g0 = { { float2(0.0, 0.5), float2(0.5, (-0.5)), float2((-0.5), (-0.5)) } };\n"
+		"\n"
+		"float4 f0(uint p0)\n"
+		"{\n"
+		"\tuint l0 = {};\n"
+		"\tl0 = p0;\n"
+		"\tuint v0 = l0;\n"
+		"\tuint v1 = min(v0, 2u);\n"
+		"\tfloat2 v2 = g0.e[v1];\n"
+		"\tfloat4 v3 = float4(v2, 0.0, 1.0);\n"
+		"\treturn v3;\n"
+		"}\n"
+		"\n"
+		"vertex Out main0(uint in0 [[vertex_id]])\n"
+		"{\n"
+		"\tOut out = {};\n"
+		"\tuint v0 = in0;\n"
+		"\tfloat4 v1 = f0(v0);\n"
+		"\tout.out0 = v1;\n"
+		"\treturn out;\n"
+		"}\n"
+		"\n"
+		"#include <metal_stdlib>\n"
+		"using namespace metal;\n"
+		"\n"
+		"struct Out\n"
+		"{\n"
+		"\tfloat4 out0 [[color(0)]];\n"
+		"};\n"
+		"\n"
+		"float4 f0()\n"
+		"{\n"
+		"\tfloat4 v0 = float4(1.0, 1.0, 1.0, 1.0);\n"
+		"\treturn v0;\n"
+		"}\n"
+		"\n"
+		"fragment Out main0()\n"
+		"{\n"
+		"\tOut out = {};\n"
+		"\tfloat4 v0 = f0();\n"
+		"\tout.out0 = v0;\n"
+		"\treturn out;\n"
 		"}\n");
 }
 
@@ -242,6 +307,126 @@ function PS(input: Varyings): @location(0) float4
 }
 )";
 	CHECK_BACKENDS(source);
+	CHECK_MSL(source,
+		"#include <metal_stdlib>\n"
+		"using namespace metal;\n"
+		"\n"
+		"struct S1\n"
+		"{\n"
+		"\tfloat4 m0;\n"
+		"\tuint m1;\n"
+		"};\n"
+		"\n"
+		"struct S0\n"
+		"{\n"
+		"\tfloat4 m0;\n"
+		"\tfloat2 m1;\n"
+		"\tS1 m2;\n"
+		"};\n"
+		"\n"
+		"struct In\n"
+		"{\n"
+		"\tint in0 [[attribute(0)]];\n"
+		"\tfloat2 in1 [[attribute(3)]];\n"
+		"};\n"
+		"\n"
+		"struct Out\n"
+		"{\n"
+		"\tfloat2 out0 [[user(locn0)]];\n"
+		"\tfloat4 out1 [[user(locn1)]];\n"
+		"\tuint out2 [[user(locn2)]];\n"
+		"\tfloat4 out3 [[position]];\n"
+		"};\n"
+		"\n"
+		"void f0(uint p0, float2 p1, int p2, thread S0& p3)\n"
+		"{\n"
+		"\tuint l0 = {};\n"
+		"\tfloat2 l1 = {};\n"
+		"\tint l2 = {};\n"
+		"\tl0 = p0;\n"
+		"\tl1 = p1;\n"
+		"\tl2 = p2;\n"
+		"\tfloat2 v0 = l1;\n"
+		"\tfloat4 v1 = float4(v0, 0.0, 1.0);\n"
+		"\tp3.m0 = v1;\n"
+		"\tfloat2 v2 = l1;\n"
+		"\tp3.m1 = v2;\n"
+		"\tfloat4 v3 = float4(1.0, 1.0, 1.0, 1.0);\n"
+		"\tp3.m2.m0 = v3;\n"
+		"\tuint v4 = l0;\n"
+		"\tp3.m2.m1 = v4;\n"
+		"}\n"
+		"\n"
+		"vertex Out main0(uint in2 [[vertex_id]], In in [[stage_in]])\n"
+		"{\n"
+		"\tOut out = {};\n"
+		"\tS0 l0 = {};\n"
+		"\tuint v0 = in2;\n"
+		"\tfloat2 v1 = in.in1;\n"
+		"\tint v2 = in.in0;\n"
+		"\tf0(v0, v1, v2, l0);\n"
+		"\tfloat4 v3 = l0.m0;\n"
+		"\tout.out3 = v3;\n"
+		"\tfloat2 v4 = l0.m1;\n"
+		"\tout.out0 = v4;\n"
+		"\tfloat4 v5 = l0.m2.m0;\n"
+		"\tout.out1 = v5;\n"
+		"\tuint v6 = l0.m2.m1;\n"
+		"\tout.out2 = v6;\n"
+		"\treturn out;\n"
+		"}\n"
+		"\n"
+		"#include <metal_stdlib>\n"
+		"using namespace metal;\n"
+		"\n"
+		"struct S1\n"
+		"{\n"
+		"\tfloat4 m0;\n"
+		"\tuint m1;\n"
+		"};\n"
+		"\n"
+		"struct S0\n"
+		"{\n"
+		"\tfloat4 m0;\n"
+		"\tfloat2 m1;\n"
+		"\tS1 m2;\n"
+		"};\n"
+		"\n"
+		"struct In\n"
+		"{\n"
+		"\tfloat2 in0 [[user(locn0)]];\n"
+		"\tfloat4 in1 [[user(locn1)]];\n"
+		"\tuint in2 [[user(locn2), flat]];\n"
+		"\tfloat4 in3 [[position]];\n"
+		"};\n"
+		"\n"
+		"struct Out\n"
+		"{\n"
+		"\tfloat4 out0 [[color(0)]];\n"
+		"};\n"
+		"\n"
+		"float4 f0(thread S0& p0)\n"
+		"{\n"
+		"\tfloat4 v0 = p0.m2.m0;\n"
+		"\treturn v0;\n"
+		"}\n"
+		"\n"
+		"fragment Out main0(In in [[stage_in]])\n"
+		"{\n"
+		"\tOut out = {};\n"
+		"\tS0 l0 = {};\n"
+		"\tfloat4 v0 = in.in3;\n"
+		"\tl0.m0 = v0;\n"
+		"\tfloat2 v1 = in.in0;\n"
+		"\tl0.m1 = v1;\n"
+		"\tfloat4 v2 = in.in1;\n"
+		"\tl0.m2.m0 = v2;\n"
+		"\tuint v3 = in.in2;\n"
+		"\tl0.m2.m1 = v3;\n"
+		"\tfloat4 v4 = f0(l0);\n"
+		"\tout.out0 = v4;\n"
+		"\treturn out;\n"
+		"}\n");
 	CHECK_HLSL(source,
 		"struct S1\n"
 		"{\n"
@@ -414,7 +599,7 @@ function VS(@semantic(vertex_index) id: uint): @semantic(position) float4
 }
 
 // IR the front end can't produce yet: a fragment entry point calling @f(%0: uint, %1: float4, %2: int): float4, whose
-// body the test builds. Both outputs have to pass the targets' tools.
+// body the test builds. Every output has to pass the targets' tools.
 namespace
 {
 
@@ -495,7 +680,7 @@ static bool CheckBackendError(Test::Context& test, const char* file, int line, c
 }
 
 static void CheckFixture(Test::Context& test, const char* file, int line, Fixture& f, const char* spirv_error = nullptr,
-	const char* hlsl_error = nullptr)
+	const char* hlsl_error = nullptr, const char* msl_error = nullptr)
 {
 	f.Finish();
 	ZTStringView error = ValidateIR(f.module, test.arena);
@@ -525,6 +710,15 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 		ZTStringView problem = Check(test, Backend::D3D11, entry_point);
 		if (problem.length)
 			Test::ReportFailure(test, file, line, "invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+	}
+	errors.clear();
+	ZTStringView msl = EmitMSL(f.module, f.wrapper, test.arena, errors);
+	if (CheckBackendError(test, file, line, "MSL", msl.length != 0, errors, msl_error) && !msl_error)
+	{
+		entry_point.code = Slice<uint8>(msl.data, (uint32)msl.length);
+		ZTStringView problem = Check(test, Backend::METAL, entry_point);
+		if (problem.length)
+			Test::ReportFailure(test, file, line, "invalid MSL: %s\n%s", problem.CString(), msl.CString());
 	}
 }
 
@@ -632,13 +826,14 @@ TEST(Backend, ControlFlow)
 
 TEST(Backend, ArrayTooLargeForHLSL)
 {
-	// fxc allows 65536 elements in an array, all its dimensions together. SPIR-V has no such limit for a variable.
+	// fxc allows 65536 elements in an array, all its dimensions together. SPIR-V and MSL have no such limit for a variable.
 	const char* source = "@entry(fragment) function PS(@location(0) i: uint): @location(0) float4 { v: [2][40000]float4; return v[i][1]; }";
 	CompileShaderResult hlsl = CompileShader({ .arena = test.arena, .source = source, .backend = Backend::D3D11 });
 	REQUIRE_EQ(hlsl.errors.count, 1u);
 	CHECK_EQ(hlsl.errors[0]->message, "an array of 80000 elements is too large for HLSL, the limit is 65536");
 	CHECK_EQ(hlsl.entry_points.count, 0u);
 	Compile(test, __FILE__, __LINE__, source, Backend::VULKAN);
+	Compile(test, __FILE__, __LINE__, source, Backend::METAL);
 }
 
 TEST(Backend, ConstantTooLargeForSPIRV)

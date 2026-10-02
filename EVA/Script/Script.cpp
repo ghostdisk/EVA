@@ -194,10 +194,10 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	using GPU::CompiledEntryPoint;
 	Arena* arena = options.arena;
 	ZTStringView source = options.source;
-	if (options.backend != Backend::VULKAN && options.backend != Backend::D3D11)
+	if (options.backend == Backend::NONE)
 	{
 		ScriptError* error = arena->New<ScriptError>();
-		error->message = aprintf(arena, "shaders can't be compiled for backend %d yet", (int)options.backend);
+		error->message = InternString(arena, StringView("no backend to compile the shader for"));
 		return { .errors = ToSlice(arena, { error }) };
 	}
 
@@ -240,7 +240,7 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	uint32 count = shader_interface.entry_points.count;
 	CompiledEntryPoint* entry_points = (CompiledEntryPoint*)arena->Allocate(count * sizeof(CompiledEntryPoint), alignof(CompiledEntryPoint));
 	uint32 index = 0;
-	std::vector<ScriptError*> errors; // limits of the target, see EmitSPIRV and EmitHLSL
+	std::vector<ScriptError*> errors; // limits of the target, see EmitSPIRV, EmitHLSL and EmitMSL
 	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
 	{
 		EntryPoint* entry_point = ir[function].function.info->entry_point;
@@ -255,7 +255,8 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 		}
 		else
 		{
-			ZTStringView text = EmitHLSL(ir, function, arena, errors);
+			ZTStringView text = options.backend == Backend::D3D11 ? EmitHLSL(ir, function, arena, errors)
+																  : EmitMSL(ir, function, arena, errors);
 			compiled.code = Slice<uint8>(text.data, (uint32)text.length);
 		}
 	}

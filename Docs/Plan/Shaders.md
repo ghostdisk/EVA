@@ -26,8 +26,8 @@ lexer -> parser -> resolver -> typer -> shader interface pass -> IR gen -> safet
 (done)   (done)    (done)      (first)  (done, shaders only)     (done)    (clamps)       (later)      (SPIR-V, HLSL)
 ```
 
-Lexer through the optimizer are shared with scripts, except the shader interface pass. Emitters: SPIR-V and HLSL
-first, later MSL for shaders, bytecode for the script VM.
+Lexer through the optimizer are shared with scripts, except the shader interface pass. Emitters: SPIR-V, HLSL and MSL
+for shaders, later bytecode for the script VM.
 
 ## Summary
 
@@ -45,7 +45,7 @@ first, later MSL for shaders, bytecode for the script VM.
 | 10 | Binding model | Next, the goal of 6-9 |
 | 11 | Safety pass and limits | Index clamps done, rest deferred |
 | 12 | Optimizer | Later |
-| 13 | DX12 and Metal backends | Later |
+| 13 | DX12 and Metal backends | MSL emitter done except its guards; DX12 later |
 
 ## 1. Built-ins and resolver rules (done)
 
@@ -546,13 +546,28 @@ block0:
 	return
 ```
 
-## 13. DX12 and Metal backends (later)
+## 13. DX12 and Metal backends (MSL emitter done except its guards, DX12 later)
 
 1. DX12: the HLSL emitter (8) at a newer shader model, compiled by DXC (`dxcompiler.dll` + `dxil.dll` shipped with the
    engine). Decide on loop bounding for DXC (11.3).
-2. MSL: compiled at runtime with `newLibraryWithSource` (async). `private` globals lowered to a struct passed down from
-   the entry (5). The arithmetic guards (11.2) and loop forward progress (11.3) in the emitter.
-3. Floats printed as in HLSL, with `as_type<float>(...)` for NaN, infinity and denormals.
+2. MSL: `Script_Backend_MSL.cpp`, MSL 2.0, shaped like the HLSL emitter's output. Done:
+   - Arrays wrapped in structs (`struct A0 { float2 e[3]; }`), so they assign and copy like structs, including from
+     `constant` memory. Pointer parameters are `thread` references.
+   - Interface globals are fields of an `In` struct (`[[stage_in]]`) and an `Out` struct the entry function returns,
+     except `[[vertex_id]]`, which Metal only takes as a parameter. Vertex inputs are `[[attribute(n)]]`, values
+     between stages `[[user(locnN)]]` (integers `flat` in the fragment shader), fragment outputs `[[color(n)]]`.
+   - The entry function is `main0`: Metal doesn't allow `main` (`GPU::MSL_ENTRY_POINT_NAME`).
+   - `*`, `/` and `fmod` on matrices column by column, since MSL's `*` is the matrix product. Float `%` is `fmod`.
+   - Floats printed as in HLSL, with `as_type<float>(...)` for NaN, infinity, negative zero and denormals.
+   - Metal compiles every output in the tests and the fuzzers (on macOS).
+
+   Left:
+   1. The arithmetic guards (11.2). **Until they land, MSL output isn't safe for untrusted shaders:** integer division
+      by zero, shifts past the width, signed overflow and out of range float to int conversions are undefined behavior.
+   2. Loop forward progress (11.3), with loops.
+   3. `private` globals lowered to a struct passed down from the entry (5). Nothing generates them yet; the emitter
+      panics on one.
+   4. Compiling with `newLibraryWithSource` asynchronously (9.4).
 
 ## Open questions
 

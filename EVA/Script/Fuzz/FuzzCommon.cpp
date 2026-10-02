@@ -816,7 +816,7 @@ static bool OnlyRegisterLimits(ZTStringView messages)
 	return any;
 }
 
-// Emits each entry point for both targets, checking the output with the targets' tools if validate. A backend can
+// Emits each entry point for every target, checking the output with the targets' tools if validate. A backend can
 // report a limit of its target instead, in which case there's no output to check.
 static void EmitBackends(Compilation& compilation, bool validate)
 {
@@ -829,16 +829,21 @@ static void EmitBackends(Compilation& compilation, bool validate)
 			continue;
 		std::vector<ScriptError*> spirv_errors;
 		std::vector<ScriptError*> hlsl_errors;
+		std::vector<ScriptError*> msl_errors;
 		Slice<uint32> words = EmitSPIRV(ir, function, arena, spirv_errors);
 		ZTStringView hlsl = EmitHLSL(ir, function, arena, hlsl_errors);
+		ZTStringView msl = EmitMSL(ir, function, arena, msl_errors);
 		CheckErrors(compilation, spirv_errors, words.count != 0, "emitting SPIR-V");
 		CheckErrors(compilation, hlsl_errors, hlsl.length != 0, "emitting HLSL");
+		CheckErrors(compilation, msl_errors, msl.length != 0, "emitting MSL");
 		compilation.spirv.push_back(words);
 		compilation.hlsl.push_back(hlsl);
-		for (ScriptError* error : spirv_errors)
-			compilation.backend_errors.push_back(error);
-		for (ScriptError* error : hlsl_errors)
-			compilation.backend_errors.push_back(error);
+		compilation.msl.push_back(msl);
+		for (std::vector<ScriptError*>* errors : { &spirv_errors, &hlsl_errors, &msl_errors })
+		{
+			for (ScriptError* error : *errors)
+				compilation.backend_errors.push_back(error);
+		}
 		if (!validate)
 			continue;
 		if (words.count)
@@ -855,6 +860,12 @@ static void EmitBackends(Compilation& compilation, bool validate)
 			bool out_of_registers = OnlyRegisterLimits(problem) || LargestArrayInHLSL(hlsl) > FXC_REGISTERS;
 			if (problem.length && !out_of_registers)
 				Fail("invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+		}
+		if (msl.length)
+		{
+			ZTStringView problem = Validation::CompileMSL(msl, arena);
+			if (problem.length)
+				Fail("invalid MSL: %s\n%s", problem.CString(), msl.CString());
 		}
 	}
 }
@@ -993,6 +1004,7 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 	for (size_t i = 0; i < compilation.hlsl.size(); ++i)
 	{
 		builder.Append(compilation.hlsl[i]);
+		builder.Append(compilation.msl[i]);
 		Slice<uint32> words = compilation.spirv[i];
 		for (uint32 w = 0; w < words.count; ++w)
 			builder.AppendFormat("%08x%s", words[w], w % 8 == 7 ? "\n" : " ");

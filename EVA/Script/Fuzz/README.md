@@ -36,9 +36,9 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
   or location, every leaf of the parameters and return value is covered once, semantics match their stage, direction
   and type, nothing is used twice, and vertex shaders output `position`.
 - Backends: every program that gets through the front end has its indices clamped, the IR validated again, and each
-  entry point emitted as SPIR-V and HLSL. The output has to pass SPIRV-Tools' validator (from the Vulkan SDK, when CMake
-  finds it) and compile with fxc (`D3DCompile`, Windows), on one of the two compiles of each input. A backend can
-  report a size limit of its target instead of giving output. fxc may fail only for running out of registers (X4505,
+  entry point emitted as SPIR-V, HLSL and MSL. The output has to pass SPIRV-Tools' validator (from the Vulkan SDK, when
+  CMake finds it), compile with fxc (`D3DCompile`, Windows) and compile with Metal (macOS), on one of the two compiles of
+  each input. A backend can report a size limit of its target instead of giving output. fxc may fail only for running out of registers (X4505,
   X4600), or in any way for a shader with an array of more than 4,096 elements, which can't fit its registers.
 - Determinism: the shader is compiled twice with arenas filled with different garbage, and the results must match,
   which catches reads of uninitialized arena memory.

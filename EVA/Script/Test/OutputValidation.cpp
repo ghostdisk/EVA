@@ -11,6 +11,10 @@
 #include <d3dcompiler.h>
 #endif
 
+#ifdef EVA_MACOS
+#include <Metal.hpp>
+#endif
+
 namespace EVA::Script::Validation
 {
 
@@ -27,6 +31,23 @@ bool HaveFXC()
 {
 #ifdef EVA_WIN32
 	return true;
+#else
+	return false;
+#endif
+}
+
+#ifdef EVA_MACOS
+static MTL::Device* MetalDevice()
+{
+	static MTL::Device* device = MTL::CreateSystemDefaultDevice();
+	return device;
+}
+#endif
+
+bool HaveMetal()
+{
+#ifdef EVA_MACOS
+	return MetalDevice() != nullptr;
 #else
 	return false;
 #endif
@@ -92,6 +113,36 @@ ZTStringView CompileHLSL(StringView text, ShaderStage stage, Arena* arena)
 #else
 	(void)text;
 	(void)stage;
+	(void)arena;
+	return {};
+#endif
+}
+
+ZTStringView CompileMSL(StringView text, Arena* arena)
+{
+#ifdef EVA_MACOS
+	MTL::Device* device = MetalDevice();
+	if (!device)
+		return {};
+	NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
+	DEFER(pool->release());
+	MTL::CompileOptions* options = MTL::CompileOptions::alloc()->init();
+	DEFER(options->release());
+	options->setLanguageVersion(MTL::LanguageVersion2_0);
+	options->setFastMathEnabled(false);
+	NS::String* source = NS::String::string(InternString(arena, text).CString(), NS::UTF8StringEncoding);
+	NS::Error* error = nullptr;
+	MTL::Library* library = device->newLibrary(source, options, &error);
+	if (!library)
+		return aprintf(arena, "%s", error ? error->localizedDescription()->utf8String() : "failed without a message");
+	DEFER(library->release());
+	MTL::Function* function = library->newFunction(NS::String::string(GPU::MSL_ENTRY_POINT_NAME, NS::UTF8StringEncoding));
+	if (!function)
+		return aprintf(arena, "no function %s", GPU::MSL_ENTRY_POINT_NAME);
+	function->release();
+	return {};
+#else
+	(void)text;
 	(void)arena;
 	return {};
 #endif

@@ -201,9 +201,9 @@ side has no side effects.
 Ops have the targets' raw semantics: out-of-bounds `access` and integer division by zero aren't defined by the IR.
 What defines them depends on the target:
 
-- **Shaders:** a safety pass clamps indices that aren't known to be in bounds. The MSL emitter also guards integer
-  division, shifts, signed overflow, float to int conversion and loop termination, which are C++ undefined behavior
-  there. Elsewhere they only give undefined values, which are accepted, as in WebGL. The decisions and what other
+- **Shaders:** a safety pass clamps indices that aren't known to be in bounds. The MSL emitter is to guard integer
+  division, shifts, signed overflow, float to int conversion and loop termination too (not done yet), which are C++
+  undefined behavior there. Elsewhere they only give undefined values, which are accepted, as in WebGL. The decisions and what other
   compilers do are in [Plan/Shaders.md](Plan/Shaders.md) (11).
 - **Scripts:** the VM checks bounds, memory accesses and division itself and raises a script error.
 

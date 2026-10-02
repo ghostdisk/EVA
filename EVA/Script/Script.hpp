@@ -700,7 +700,7 @@ struct CompileShaderOptions
 {
 	Arena* arena = nullptr; // where the result goes, so the caller decides how long it lives
 	ZTStringView source;
-	GPU::Backend backend = GPU::Backend::NONE; // VULKAN: SPIR-V 1.0. D3D11: HLSL for fxc at shader model 5.0
+	GPU::Backend backend = GPU::Backend::NONE; // VULKAN: SPIR-V 1.0. D3D11: HLSL for fxc at shader model 5.0. METAL: MSL 2.0
 };
 
 struct CompileShaderResult

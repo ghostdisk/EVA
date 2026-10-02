@@ -308,6 +308,10 @@ Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena, std::vect
 // temporary and 4096 indexable constant registers), which the backend doesn't model.
 ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors);
 
+// MSL 2.0 for Metal, entry function main0. Not safe for untrusted shaders yet: the guards against MSL's undefined
+// behavior (Docs/Plan/Shaders.md, 11.2) are left to do.
+ZTStringView EmitMSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors);
+
 // Checks the module's structure and types. Returns an empty string if it's valid, otherwise what's wrong, allocated in
 // arena. A problem is a compiler bug, never the user's: user errors all come from the front end. For tests, fuzzing and
 // offline use, not called when compiling.

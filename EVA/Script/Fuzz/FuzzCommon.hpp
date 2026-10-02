@@ -38,15 +38,16 @@ struct Compilation
 	ShaderInterface shader_interface; // shaders, once typing succeeded
 	IRModule ir;                      // once every stage succeeded
 
-	// Shaders, once every stage succeeded: each entry point's output for both targets, empty where the backend reported
+	// Shaders, once every stage succeeded: each entry point's output for every target, empty where the backend reported
 	// one of its target's limits instead, and those errors. In the output arena.
 	std::vector<Slice<uint32>> spirv;
 	std::vector<ZTStringView> hlsl;
+	std::vector<ZTStringView> msl;
 	std::vector<ScriptError*> backend_errors;
 };
 
 // Compiles source as far as it gets, checking the invariants of each stage, and for shaders emits every entry point for
-// both targets. The arenas' blocks are filled with fill, so reading memory nothing wrote shows up as a difference
+// every target. The arenas' blocks are filled with fill, so reading memory nothing wrote shows up as a difference
 // between runs with different fills. With validate, the output also has to pass the targets' own tools
 // (OutputValidation.hpp), which are slow enough that only one of the runs of an input does it.
 void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill, bool validate = false);
