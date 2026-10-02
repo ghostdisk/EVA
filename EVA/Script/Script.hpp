@@ -728,8 +728,9 @@ struct CompileShaderResult
 	Slice<ScriptError*> errors;             // empty on success
 };
 
-// Every error is reported by the front end: anything past it can't fail. The AST, the context and other intermediate
-// data use an arena of their own, destroyed before returning.
+// Errors in the source are reported by the front end. Past it, only the target's own size limits can fail, like an
+// array too long for D3D11. For HLSL, fxc can still reject the output for running out of registers. The AST, the context
+// and other intermediate data use an arena of their own, destroyed before returning.
 CompileShaderResult CompileShader(const CompileShaderOptions& options);
 
 }

@@ -38,9 +38,11 @@ struct Compilation
 	ShaderInterface shader_interface; // shaders, once typing succeeded
 	IRModule ir;                      // once every stage succeeded
 
-	// Shaders, once every stage succeeded: each entry point's output for both targets, in the intermediate arena.
+	// Shaders, once every stage succeeded: each entry point's output for both targets, empty where the backend reported
+	// one of its target's limits instead, and those errors. In the output arena.
 	std::vector<Slice<uint32>> spirv;
 	std::vector<ZTStringView> hlsl;
+	std::vector<ScriptError*> backend_errors;
 };
 
 // Compiles source as far as it gets, checking the invariants of each stage, and for shaders emits every entry point for

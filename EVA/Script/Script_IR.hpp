@@ -295,14 +295,18 @@ struct IRReachable
 void FindReachable(IRModule& module, IRRef wrapper, IRReachable& out);
 
 // Backends. Each emits one entry point, from its wrapper function: everything the wrapper reaches, with the wrapper as
-// the entry function named main. Nothing fails: anything that validates and went through ClampIndices can be emitted,
-// and the output is always valid for the target. Allocated in arena; intermediate data goes in the module's arena.
+// the entry function named main. Anything that validates and went through ClampIndices can be emitted, and the output
+// is valid for the target, unless it's beyond one of the target's size limits the front end doesn't check, like a
+// D3D11 array of more than 65536 elements. Then the backend adds an error to errors and returns no output, the way
+// ANGLE reports a shader the driver's compiler can't take. Output and errors are allocated in arena; intermediate data
+// goes in the module's arena.
 
 // SPIR-V 1.0 for Vulkan, as words.
-Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena);
+Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors);
 
-// HLSL for fxc at shader model 5.0.
-ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena);
+// HLSL for fxc at shader model 5.0. fxc itself can still reject the output for exceeding its register limits (4096
+// temporary and 4096 indexable constant registers), which the backend doesn't model.
+ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors);
 
 // Checks the module's structure and types. Returns an empty string if it's valid, otherwise what's wrong, allocated in
 // arena. A problem is a compiler bug, never the user's: user errors all come from the front end. For tests, fuzzing and

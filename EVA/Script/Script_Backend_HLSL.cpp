@@ -27,6 +27,9 @@ namespace EVA::Script
 namespace
 {
 
+// fxc's limit on the elements of an array, all its dimensions together (X3059).
+static const uint32 MAX_ARRAY_ELEMENTS = 65536;
+
 PrimitiveKind ScalarKind(Type* type)
 {
 	if (type->type_kind == TypeKind::MATRIX)
@@ -724,7 +727,66 @@ struct Emitter
 			names[global].CString(), semantic.CString());
 	}
 
-	ZTStringView Module(IRRef wrapper, Arena* output_arena)
+	// The most elements of any array in type, counting an array of arrays as one, since fxc's limit is on all its
+	// dimensions together. 0 if there's none. Structs are looked up once, so a type that repeats a struct many times over
+	// isn't walked exponentially.
+	std::unordered_map<StructType*, uint64> struct_largest_arrays;
+
+	uint64 LargestArray(Type* type)
+	{
+		if (type->type_kind == TypeKind::ARRAY)
+		{
+			// Below 2^64: every array type is under 4 GB, and its elements take at least a byte.
+			uint64 elements = 1;
+			while (type->type_kind == TypeKind::ARRAY)
+			{
+				elements *= ((ArrayType*)type)->length;
+				type = ((ArrayType*)type)->element;
+			}
+			uint64 inner = LargestArray(type);
+			return elements > inner ? elements : inner;
+		}
+		if (type->type_kind != TypeKind::STRUCT)
+			return 0;
+		StructType* structure = (StructType*)type;
+		auto found = struct_largest_arrays.find(structure);
+		if (found != struct_largest_arrays.end())
+			return found->second;
+		uint64 largest = 0;
+		for (uint32 i = 0; i < structure->fields.count; ++i)
+		{
+			uint64 field = LargestArray(structure->fields[i].type);
+			largest = field > largest ? field : largest;
+		}
+		struct_largest_arrays[structure] = largest;
+		return largest;
+	}
+
+	// Arrays live in globals, locals and pointer parameters. An array larger than fxc allows anywhere among those used is
+	// reported before printing anything, so a huge constant isn't printed for nothing.
+	uint64 LargestUsedArray(IRReachable& used)
+	{
+		uint64 largest = 0;
+		auto check = [&](Type* pointer) {
+			if (pointer->type_kind != TypeKind::POINTER)
+				return;
+			uint64 elements = LargestArray(((PointerType*)pointer)->pointee);
+			largest = elements > largest ? elements : largest;
+		};
+		for (IRRef global : used.globals)
+			check(module[global].type);
+		for (IRRef function : used.functions)
+		{
+			IRFunctionInfo* info = module[function].function.info;
+			for (IRRef local = info->first_local; local; local = module[local].local.next)
+				check(module[local].type);
+			for (IRRef parameter = info->first_parameter; parameter; parameter = module[parameter].parameter.next)
+				check(module[parameter].type);
+		}
+		return largest;
+	}
+
+	ZTStringView Module(IRRef wrapper, Arena* output_arena, std::vector<ScriptError*>& errors)
 	{
 		names.assign(module.count, ZTStringView());
 		reachable.assign(module.count, 0);
@@ -733,6 +795,15 @@ struct Emitter
 
 		IRReachable used;
 		FindReachable(module, wrapper, used);
+		uint64 largest = LargestUsedArray(used);
+		if (largest > MAX_ARRAY_ELEMENTS)
+		{
+			ScriptError* error = output_arena->New<ScriptError>();
+			error->message = aprintf(output_arena, "an array of %llu elements is too large for HLSL, the limit is %u",
+				(unsigned long long)largest, MAX_ARRAY_ELEMENTS);
+			errors.push_back(error);
+			return {};
+		}
 		for (size_t i = 0; i < used.functions.size(); ++i)
 			names[used.functions[i]] = used.functions[i] == wrapper ? ZTStringView("main") : Print("f%u", (uint32)i);
 
@@ -803,10 +874,10 @@ struct Emitter
 
 }
 
-ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena)
+ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
 {
 	Emitter emitter = { .module = module, .context = *module.context, .arena = module.arena };
-	return emitter.Module(wrapper, arena);
+	return emitter.Module(wrapper, arena, errors);
 }
 
 }

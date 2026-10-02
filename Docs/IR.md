@@ -210,8 +210,9 @@ What defines them depends on the target:
 ## Errors and validation
 
 Every error in the user's code is reported by the front end: the parser, resolver, typer and shader interface pass.
-From IR generation on, nothing fails on a program the front end accepted; anything invalid after that is a compiler
-bug.
+From IR generation on, nothing fails on a program the front end accepted, except that a backend can report a size
+limit of its target, like an array too large for D3D11 (Docs/Plan/Shaders.md, 11.4.5). Anything else invalid after
+the front end is a compiler bug.
 
 The validator checks a module's structure, operands, dominance and types. Tests and the fuzzers run it after every
 step that changes the IR; compiling doesn't.

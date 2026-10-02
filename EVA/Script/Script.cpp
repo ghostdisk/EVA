@@ -231,6 +231,7 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	uint32 count = shader_interface.entry_points.count;
 	CompiledEntryPoint* entry_points = (CompiledEntryPoint*)arena->Allocate(count * sizeof(CompiledEntryPoint), alignof(CompiledEntryPoint));
 	uint32 index = 0;
+	std::vector<ScriptError*> errors; // limits of the target, see EmitSPIRV and EmitHLSL
 	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
 	{
 		EntryPoint* entry_point = ir[function].function.info->entry_point;
@@ -240,16 +241,18 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 		compiled = { .stage = entry_point->stage, .name = entry_point->function->name };
 		if (options.target == Target::SPIRV)
 		{
-			Slice<uint32> words = EmitSPIRV(ir, function, arena);
+			Slice<uint32> words = EmitSPIRV(ir, function, arena, errors);
 			compiled.code = Slice<uint8>((uint8*)words.data, words.count * 4);
 		}
 		else
 		{
-			ZTStringView text = EmitHLSL(ir, function, arena);
+			ZTStringView text = EmitHLSL(ir, function, arena, errors);
 			compiled.code = Slice<uint8>(text.data, (uint32)text.length);
 		}
 	}
 	assert(index == count);
+	if (!errors.empty())
+		return { .errors = ToSlice(arena, errors) };
 	return { .entry_points = Slice<CompiledEntryPoint>(entry_points, count) };
 }
 

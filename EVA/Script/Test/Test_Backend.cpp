@@ -477,7 +477,20 @@ struct Fixture
 
 }
 
-static void CheckFixture(Test::Context& test, const char* file, int line, Fixture& f)
+// A backend reported exactly the expected error, nullptr for none, and gave output only without one.
+static bool CheckBackendError(Test::Context& test, const char* file, int line, const char* target, bool output,
+	const std::vector<ScriptError*>& errors, const char* expected)
+{
+	ZTStringView got = errors.empty() ? ZTStringView() : errors[0]->message;
+	if (got == StringView(expected) && errors.size() <= 1 && output == !expected)
+		return true;
+	Test::ReportFailure(test, file, line, "%s: got %zu errors, the first \"%s\", and %s output; expected the error \"%s\"",
+		target, errors.size(), got.CString(), output ? "some" : "no", expected ? expected : "");
+	return false;
+}
+
+static void CheckFixture(Test::Context& test, const char* file, int line, Fixture& f, const char* spirv_error = nullptr,
+	const char* hlsl_error = nullptr)
 {
 	f.Finish();
 	ZTStringView error = ValidateIR(f.module, test.arena);
@@ -489,20 +502,29 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 	}
 	ClampIndices(f.module);
 	CompiledEntryPoint entry_point = { .stage = ShaderStage::FRAGMENT };
-	Slice<uint32> words = EmitSPIRV(f.module, f.wrapper, test.arena);
-	entry_point.code = Slice<uint8>((uint8*)words.data, words.count * 4);
-	ZTStringView problem = Check(test, Target::SPIRV, entry_point);
-	if (problem.length)
-		Test::ReportFailure(test, file, line, "invalid SPIR-V: %s\n%s", problem.CString(),
-			Validation::DisassembleSPIRV(words, test.arena).CString());
-	ZTStringView hlsl = EmitHLSL(f.module, f.wrapper, test.arena);
-	entry_point.code = Slice<uint8>(hlsl.data, (uint32)hlsl.length);
-	problem = Check(test, Target::HLSL, entry_point);
-	if (problem.length)
-		Test::ReportFailure(test, file, line, "invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+	std::vector<ScriptError*> errors;
+	Slice<uint32> words = EmitSPIRV(f.module, f.wrapper, test.arena, errors);
+	if (CheckBackendError(test, file, line, "SPIR-V", words.count != 0, errors, spirv_error) && !spirv_error)
+	{
+		entry_point.code = Slice<uint8>((uint8*)words.data, words.count * 4);
+		ZTStringView problem = Check(test, Target::SPIRV, entry_point);
+		if (problem.length)
+			Test::ReportFailure(test, file, line, "invalid SPIR-V: %s\n%s", problem.CString(),
+				Validation::DisassembleSPIRV(words, test.arena).CString());
+	}
+	errors.clear();
+	ZTStringView hlsl = EmitHLSL(f.module, f.wrapper, test.arena, errors);
+	if (CheckBackendError(test, file, line, "HLSL", hlsl.length != 0, errors, hlsl_error) && !hlsl_error)
+	{
+		entry_point.code = Slice<uint8>(hlsl.data, (uint32)hlsl.length);
+		ZTStringView problem = Check(test, Target::HLSL, entry_point);
+		if (problem.length)
+			Test::ReportFailure(test, file, line, "invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+	}
 }
 
 #define CHECK_FIXTURE(f) CheckFixture(test, __FILE__, __LINE__, f)
+#define CHECK_FIXTURE_ERRORS(f, spirv_error, hlsl_error) CheckFixture(test, __FILE__, __LINE__, f, spirv_error, hlsl_error)
 
 TEST(Backend, Values)
 {
@@ -601,4 +623,39 @@ TEST(Backend, ControlFlow)
 	AddIRInstruction(f.module, last, IROp::RETURN, nullptr, { result });
 	AddIRInstruction(f.module, after, IROp::UNREACHABLE, nullptr, {});
 	CHECK_FIXTURE(f);
+}
+
+TEST(Backend, ArrayTooLargeForHLSL)
+{
+	// fxc allows 65536 elements in an array, all its dimensions together. SPIR-V has no such limit for a variable.
+	const char* source = "@entry(fragment) function PS(@location(0) i: uint): @location(0) float4 { v: [2][40000]float4; return v[i][1]; }";
+	CompileShaderResult hlsl = CompileShader({ .arena = test.arena, .source = source, .target = Target::HLSL });
+	REQUIRE_EQ(hlsl.errors.count, 1u);
+	CHECK_EQ(hlsl.errors[0]->message, "an array of 80000 elements is too large for HLSL, the limit is 65536");
+	CHECK_EQ(hlsl.entry_points.count, 0u);
+	Compile(test, __FILE__, __LINE__, source, Target::SPIRV);
+}
+
+TEST(Backend, ConstantTooLargeForSPIRV)
+{
+	// One OpConstantComposite can't hold more than 65532 elements.
+	Fixture f;
+	f.Init(test.arena);
+	Context& c = f.context;
+	ArrayType* table_type = GetArrayType(c, c.float_type, 70000);
+	Constant* table = test.arena->New<Constant>();
+	table->type = table_type;
+	uint8* bytes = (uint8*)test.arena->Allocate(table_type->size, 4);
+	for (uint32 i = 0; i < 70000; ++i)
+	{
+		float value = (float)i;
+		memcpy(bytes + (size_t)i * 4, &value, 4);
+	}
+	table->bytes = Slice<uint8>(bytes, table_type->size);
+	IRRef global = AddIRGlobal(f.module, GetAtom("table"), AddressSpace::CONSTANT, table_type, table);
+	IRRef element = f.Add(IROp::ACCESS, GetPointerType(c, AddressSpace::CONSTANT, c.float_type), { global, f.u });
+	IRRef value = f.Add(IROp::LOAD, c.float_type, { element });
+	f.Add(IROp::RETURN, nullptr, { f.Add(IROp::CONSTRUCT, f.float4, { value, value, value, value }) });
+	CHECK_FIXTURE_ERRORS(f, "a constant or type is too large for SPIR-V: it needs an instruction of 70003 words, the limit is 65535",
+		"an array of 70000 elements is too large for HLSL, the limit is 65536");
 }

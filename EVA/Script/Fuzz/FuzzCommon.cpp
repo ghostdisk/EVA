@@ -770,28 +770,92 @@ static uint32 CountAttributes(ZTStringView source)
 
 static bool BuildInterface(Compilation& compilation);
 
-// Emits each entry point for both targets, checking the output with the targets' tools if validate.
+// The most elements of an array declared in HLSL text: the product of a run of sizes like [2][3]. Indices with constants
+// are counted too, which is harmless, they're within an array's size.
+static uint64 LargestArrayInHLSL(ZTStringView hlsl)
+{
+	uint64 largest = 0;
+	const char* text = hlsl.CString();
+	while (*text)
+	{
+		uint64 product = 1;
+		bool any = false;
+		while (*text == '[' && text[1] >= '0' && text[1] <= '9')
+		{
+			char* end = nullptr;
+			uint64 size = strtoull(text + 1, &end, 10);
+			if (*end != ']')
+				break;
+			product = size && product > UINT64_MAX / size ? UINT64_MAX : product * size;
+			any = true;
+			text = end + 1;
+		}
+		if (any && product > largest)
+			largest = product;
+		if (!any)
+			text++;
+	}
+	return largest;
+}
+
+// fxc keeps arrays in at most 4096 registers, one element per register.
+static const uint64 FXC_REGISTERS = 4096;
+
+// Whether fxc's messages are only about running out of registers (X4505 temporaries, X4600 indexable constants), which
+// the HLSL backend doesn't model: like ANGLE, such a shader fails to compile. Any other error is a bug in the backend.
+static bool OnlyRegisterLimits(ZTStringView messages)
+{
+	const char* text = messages.CString();
+	bool any = false;
+	for (const char* found = strstr(text, "error X"); found; found = strstr(found + 1, "error X"))
+	{
+		if (strncmp(found, "error X4505:", 12) != 0 && strncmp(found, "error X4600:", 12) != 0)
+			return false;
+		any = true;
+	}
+	return any;
+}
+
+// Emits each entry point for both targets, checking the output with the targets' tools if validate. A backend can
+// report a limit of its target instead, in which case there's no output to check.
 static void EmitBackends(Compilation& compilation, bool validate)
 {
 	IRModule& ir = compilation.ir;
-	Arena* arena = compilation.intermediate_arena;
+	Arena* arena = compilation.output_arena;
 	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
 	{
 		EntryPoint* entry_point = ir[function].function.info->entry_point;
 		if (!entry_point)
 			continue;
-		Slice<uint32> words = EmitSPIRV(ir, function, arena);
-		ZTStringView hlsl = EmitHLSL(ir, function, arena);
+		std::vector<ScriptError*> spirv_errors;
+		std::vector<ScriptError*> hlsl_errors;
+		Slice<uint32> words = EmitSPIRV(ir, function, arena, spirv_errors);
+		ZTStringView hlsl = EmitHLSL(ir, function, arena, hlsl_errors);
+		CheckErrors(compilation, spirv_errors, words.count != 0, "emitting SPIR-V");
+		CheckErrors(compilation, hlsl_errors, hlsl.length != 0, "emitting HLSL");
 		compilation.spirv.push_back(words);
 		compilation.hlsl.push_back(hlsl);
+		for (ScriptError* error : spirv_errors)
+			compilation.backend_errors.push_back(error);
+		for (ScriptError* error : hlsl_errors)
+			compilation.backend_errors.push_back(error);
 		if (!validate)
 			continue;
-		ZTStringView problem = Validation::ValidateSPIRV(words, arena);
-		if (problem.length)
-			Fail("invalid SPIR-V: %s\n%s", problem.CString(), Validation::DisassembleSPIRV(words, arena).CString());
-		problem = Validation::CompileHLSL(hlsl, entry_point->stage, arena);
-		if (problem.length)
-			Fail("invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+		if (words.count)
+		{
+			ZTStringView problem = Validation::ValidateSPIRV(words, arena);
+			if (problem.length)
+				Fail("invalid SPIR-V: %s\n%s", problem.CString(), Validation::DisassembleSPIRV(words, arena).CString());
+		}
+		if (hlsl.length)
+		{
+			// An array that can't fit in fxc's registers is allowed to fail any way it does, which includes fxc
+			// crashing ("internal error: compilation aborted unexpectedly").
+			ZTStringView problem = Validation::CompileHLSL(hlsl, entry_point->stage, arena);
+			bool out_of_registers = OnlyRegisterLimits(problem) || LargestArrayInHLSL(hlsl) > FXC_REGISTERS;
+			if (problem.length && !out_of_registers)
+				Fail("invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+		}
 	}
 }
 
@@ -921,6 +985,11 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 	}
 	if (compilation.failed_stage == Stage::DONE)
 		builder.Append(IRModuleToString(compilation.ir, arena));
+	for (ScriptError* error : compilation.backend_errors)
+	{
+		builder.Append(error->message);
+		builder.Append("\n");
+	}
 	for (size_t i = 0; i < compilation.hlsl.size(); ++i)
 	{
 		builder.Append(compilation.hlsl[i]);

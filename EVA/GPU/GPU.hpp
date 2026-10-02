@@ -13,6 +13,7 @@ namespace EVA::GPU
 struct Texture;
 struct RenderPass;
 struct Framebuffer;
+struct Pipeline;
 
 enum class TextureFormat
 {
@@ -95,6 +96,17 @@ enum class FrameStatus
 	SWAPCHAIN_OUTDATED,
 };
 
+struct PipelineShaderOptions
+{
+	ShaderStage shader_stage = ShaderStage::VERTEX;
+};
+
+struct PipelineCreateOptions
+{
+	Slice<PipelineShaderOptions> shaders = {};
+	RenderPass* render_pass = nullptr;
+};
+
 struct Device
 {
 	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
@@ -110,6 +122,8 @@ struct Device
 	bool (*RecreateSwapchain)() = nullptr;
 	FrameStatus (*BeginFrame)() = nullptr;
 	uint32 (*GetCurrentBackbufferIndex)() = nullptr;
+	Pipeline* (*CreatePipeline)(const PipelineCreateOptions& create_options) = nullptr;
+	void (*destroy)(Pipeline* Pipeline) = nullptr;
 	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
 	void (*EndRenderPass)() = nullptr;
 	void (*EndFrame)() = nullptr;

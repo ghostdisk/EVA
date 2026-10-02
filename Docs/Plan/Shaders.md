@@ -6,8 +6,8 @@ Design that has landed moves into docs ([IR.md](../IR.md)) and code comments.
 **Where we are:** the front end, IR gen and the SPIR-V and D3D11 HLSL backends are done (1-8). Next is the GPU side of
 the triangle (9), then the binding model (10). The binding model may force major changes to the language, so work that
 would be thrown away by those changes waits until it settles: most of the safety pass (11), the optimizer (12) and the
-remaining typer work (2). The index clamps (11.1) landed with the backends, since fxc needs them, and the size limits
-(11.4.5) are needed next: valid programs past them make fxc fail.
+remaining typer work (2). The index clamps (11.1) landed with the backends, since fxc needs them. Programs too large
+for a target fail there, like ANGLE's do, rather than being limited by the front end (11.4.5).
 
 ## Context
 
@@ -43,7 +43,7 @@ first, later MSL for shaders, bytecode for the script VM.
 | 8 | HLSL emitter for D3D11 | Done, loops left |
 | 9 | Compile result, the triangle on Vulkan and D3D11 | Compile result done, GPU side next |
 | 10 | Binding model | Next, the goal of 6-9 |
-| 11 | Safety pass and limits | Index clamps done, size limits next, rest deferred |
+| 11 | Safety pass and limits | Index clamps done, rest deferred |
 | 12 | Optimizer | Later |
 | 13 | DX12 and Metal backends | Later |
 
@@ -298,9 +298,10 @@ Done:
 
 Left:
 
-1. A single constant array of more than 65,532 elements doesn't fit in an instruction (16-bit word count), and the
-   emitter panics. The front end has to reject it (11.4.5).
-2. No spirv-opt for now; revisit when doing Android seriously (mostly for driver compile time on mobile).
+1. No spirv-opt for now; revisit when doing Android seriously (mostly for driver compile time on mobile).
+
+A constant array or struct of more than 65,532 elements doesn't fit in an instruction (16-bit word count). The emitter
+reports it as an error rather than limiting it in the front end (11.4.5).
 
 ## 8. HLSL emitter for D3D11 (done, loops left)
 
@@ -329,13 +330,41 @@ Left:
 
 1. Loops, once the language has them: `[loop]` so fxc doesn't unroll, and `continue` with the continue block's code.
    The emitter panics on `loop_merge` until then.
-2. fxc's resource limits, which valid programs can exceed: at most 4,096 vec4 slots of dynamically indexed constant
-   data (X4600), and 4,096 temporary registers including indexable arrays. The front end has to reject what doesn't
-   fit (11.4.5).
-3. A shader model setting, for DX12 (13). `Target` only says HLSL for now.
-4. D3D11 matches a pixel shader's inputs to the vertex shader's outputs by register, so a pixel shader that skips one of
+2. A shader model setting, for DX12 (13). `Target` only says HLSL for now.
+3. D3D11 matches a pixel shader's inputs to the vertex shader's outputs by register, so a pixel shader that skips one of
    the vertex shader's locations doesn't line up. Sorting by location covers the common cases; the rest needs the
    VS-out / PS-in matching from reflection (4).
+
+**fxc's size limits.** Valid programs can exceed them, and like ANGLE we let those fail rather than limit every target
+to them (11.4.5). D3D11 is kept for now, mostly for fun; what it buys is in "D3D11 and D3D12" below.
+
+- An array has at most 65,536 elements, all its dimensions together: `[2][32768]` compiles, `[2][32769]` and
+  `[65537]` are error X3059. The emitter checks this and reports an error.
+- Everything else comes from DXBC keeping private data in 4,096 registers of 16 bytes, one array element per register
+  whether it's a `float` or a `float4`. The emitter doesn't model this and fxc reports it:
+  - Locals: local arrays and temporaries share 4,096 registers. A dynamically written `[4000]float` compiles,
+    `[4200]float` is error X4505.
+  - Constants: dynamically indexed constant data has 4,096 registers, the immediate constant buffer. `[4096]float` or
+    `[4096]float4` compiles, `[4097]` is error X4600. Constant indices are folded and don't count.
+  - Far past the limits, fxc can crash instead ("internal error: compilation aborted unexpectedly", seen with
+    `[2][32768]float4`).
+- Other compilers: Tint (which uses fxc for D3D11 and can for D3D12) doesn't check these either, and its fxc failures
+  surface as shader creation errors. WGSL's spec limits happen to fit, see 11.4.5. ANGLE limits private variables to
+  64 KB each, which is more than fxc's registers hold, and reports fxc's failure as a link error. naga has no D3D11
+  backend.
+- The fuzzers accept fxc failures that are only X4505 or X4600, and any failure of a shader with an array of more than
+  4,096 elements. Every other fxc error is a bug.
+
+**D3D11 and D3D12.** D3D11 only takes DXBC, so shader model 5.0 from fxc; DXC's DXIL is D3D12 only. D3D12 takes both:
+DXBC at shader model 5.1 from fxc, and DXIL from DXC, which doesn't have fxc's register limits.
+
+What D3D11 reaches that D3D12 doesn't (from memory, not checked against sources): GPUs without D3D12 drivers, which
+are AMD's Radeon HD 5000 and 6000 (TeraScale, 2009-2011) and APUs up to Richland, and Intel's Ivy Bridge (2012). NVIDIA
+from Fermi (2010), AMD from GCN (2012) and Intel from Haswell (2013) on have D3D12 drivers. Sandy Bridge and DirectX 10
+class GPUs don't reach feature level 11_0, so they're out either way. D3D12 also needs Windows 10, except through
+Microsoft's D3D12On7 package for Windows 7 SP1, 64-bit (https://microsoft.github.io/DirectX-Specs/d3d/D3D12onWin7.html):
+DXIL works, but presenting is windowed blits through `ID3D12CommandQueueDownlevel::Present` rather than DXGI, and
+there's no debug layer or PIX. Windows 8.1 has neither.
 
 ## 9. Compile result, the triangle on Vulkan and D3D11 (compile result done, GPU side next)
 
@@ -410,8 +439,8 @@ Why they do it:
   analysis). ANGLE clamps through float (`int(clamp(float(i), 0.0, float(N-1)))`) because of integer clamp bugs on
   Qualcomm (crbug.com/1217167).
 - **Integer division, shifts, signed overflow, float → int:** on SPIR-V and HLSL the result is an undefined value,
-  which can't reach memory the index clamps protect, and ANGLE accepts it. In MSL they're C++ undefined behavior that LLVM's
-  optimizer exploits, so ANGLE guards them there. Tint and naga guard everywhere mostly because WGSL defines the
+  which can't reach memory the index clamps protect, and ANGLE accepts it. In MSL they're C++ undefined behavior that
+  LLVM's optimizer exploits, so ANGLE guards them there. Tint and naga guard everywhere mostly because WGSL defines the
   results. None of the three cites a security bug for them, and naga made division guards optional for trusted code.
 - **Loop forward progress** is not about GPU hangs: all three leave long but finite loops to the OS watchdog (TDR,
   context loss). Compilers built on LLVM (Metal's, DXC) may assume a loop without side effects terminates and delete
@@ -467,10 +496,22 @@ SPIR-V and HLSL get none of these.
 3. **Recursion.** ANGLE, Tint and naga reject it, direct or mutual; no shader target supports it. **Work:** reject call
    cycles in shaders.
 4. **Function parameters.** ANGLE: at most 255, the hard limit in SPIR-V and MSL. **Work:** typer error past 255.
-5. **Variable sizes.** ANGLE rejects any type of 2 GB or more (driver bugs with 32-bit size overflow), each local,
-   global or parameter in private memory of 64 KB or more ("won't fit in the GPU registers anyway", and SPIR-V's
-   64K-operand limit), and private memory of 16 MB or more in total. **Work:** typer errors for all three. Today only
-   constants are capped (4 MB each, 16 MB in total).
+5. **Variable sizes.** **Decided: no front-end limit for the backends' sake.** A target's own size limits are errors
+   from its backend (SPIR-V's 65,532 elements per constant, fxc's 65,536 per array) or from its compiler (fxc's
+   registers, 8), and a program past them fails on that target, like ANGLE's. Limiting every target to D3D11's
+   registers would cost the others for a backend kept mostly for fun. Today only constants are capped, 4 MB each and
+   16 MB in total, in every context.
+   - ANGLE rejects any type of 2 GB or more (driver bugs with 32-bit size overflow), each local, global or parameter in
+     private memory of 64 KB or more ("won't fit in the GPU registers anyway", and SPIR-V's 64K-operand limit), and
+     private memory of 16 MB or more in total.
+   - WGSL's spec (https://www.w3.org/TR/WGSL/, 2.4) guarantees at least 8,192 bytes of `private` variables, 8,192 bytes
+     of locals per function, 16,384 bytes of `workgroup` variables, 2,047 elements in an array constructor, composite
+     nesting 15 deep, 1,023 struct members and 255 parameters. Those fit fxc even if every scalar takes a whole
+     register: 2,048 + 2,048 registers of private data, and constant arrays under 4,096. Tint's front end doesn't
+     enforce them itself, only types under 4 GB.
+   - naga only limits a type to 2 GB.
+   - Left: a cap for drivers' sake rather than a backend's, if one turns out to be needed: huge private arrays spill
+     to slow memory on every GPU, and ANGLE cites driver bugs past 2 GB.
 6. **Source size and error count.** Not in ANGLE's list. **Work:** already in [TODO.md](../../TODO.md): cap shader
    source to a few MB, and report only the first N errors.
 
@@ -518,3 +559,22 @@ block0:
 - Precision: a `half` type or a precision qualifier (`RelaxedPrecision` / `half` / `min16float`). Matters a lot on
   mobile.
 - Attribute shadowing (1).
+- Device tiers, not added yet. Findings so far, from October 2026, for when they are:
+  - D3D's shader models aren't a basis for tiers: a shader model is a compiler and bytecode version, and the hardware
+    capabilities behind it are separate (wave ops are optional at shader model 6.0, `ResourceDescriptorHeap` needs
+    resource binding tier 3). D3D's own tiers are feature levels and resource binding tiers; the shader model then
+    follows from the tier as a backend setting (fxc 5.0 for D3D11, DXC 6.x for D3D12).
+  - D3D11 isn't the floor. Vulkan 1.0's required limits and the Android Baseline 2022 profile (86% of Android
+    devices) are below it per stage: 16 sampled images (D3D11: 128), 12 uniform buffers of 16 KB (14 of 64 KB), 4
+    color attachments (8), 16 vertex attributes (32), 128 compute invocations and 16 KB shared memory (1024, 32 KB).
+    The Android 2025 profile (about 80%) raises those to 48 images, 64 KB buffers, 8 attachments, 256 invocations.
+    iPhone 8 to XS (Metal Apple4/5) have 96 textures and 31 buffers per stage. A lowest tier is set by mobile, with
+    D3D11 a superset.
+  - Bindless lines up across APIs in two steps. Bindless textures with bound buffers: Vulkan descriptor indexing (core
+    in 1.2, about 78% of Android device reports, almost no PowerVR), Metal argument buffers tier 2 (Apple6 / iPhone 11
+    on, every iPhone iOS 26 runs on), D3D12 resource binding tier 2 (feature level 12_0). Full bindless, buffers too:
+    Vulkan Roadmap 2022 with buffer device addresses, D3D12 binding tier 3 with shader model 6.6, Metal tier 2 with
+    GPU addresses. Metal argument buffers tier 1 isn't bindless (96 textures at most), and D3D11 has neither.
+  - Sources: Vulkan's required limits (https://docs.vulkan.org/spec/latest/chapters/limits.html#limits-minmax), the
+    Khronos Vulkan-Profiles repository, https://developer.android.com/ndk/guides/graphics/android-baseline-profile,
+    Apple's Metal Feature Set Tables, Microsoft's D3D12 hardware support and feature level pages.

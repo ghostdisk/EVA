@@ -214,13 +214,20 @@ struct Emitter
 	std::vector<uint8> reachable;      // per IRRef of its blocks
 	std::vector<IRRef> continue_owner; // per IRRef of a continue target: its loop header
 
+	size_t too_large = 0; // the word count of the first instruction too long for SPIR-V, if any
+
 	uint32 NewId() { return next_id++; }
 
 	void Emit(Words& words, SpvOp op, std::initializer_list<uint32> operands, const Words& extra = {})
 	{
 		size_t count = 1 + operands.size() + extra.size();
 		if (count > MAX_INSTRUCTION_WORDS)
-			Panic("SPIR-V: an instruction would have %zu words, more than SPIR-V allows", count);
+		{
+			// A huge constant array or struct. The module is thrown away, so the instruction is just left out.
+			if (!too_large)
+				too_large = count;
+			return;
+		}
 		words.push_back((uint32)count << 16 | op);
 		words.insert(words.end(), operands.begin(), operands.end());
 		words.insert(words.end(), extra.begin(), extra.end());
@@ -864,7 +871,7 @@ struct Emitter
 		Emit(annotations, OpDecorate, { id, DECORATION_BUILT_IN, built_in });
 	}
 
-	Slice<uint32> Module(IRRef wrapper, Arena* arena)
+	Slice<uint32> Module(IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
 	{
 		ids.assign(module.count, 0);
 		reachable.assign(module.count, 0);
@@ -898,6 +905,15 @@ struct Emitter
 		for (Words* section : { &entry_points, &execution_modes, &annotations, &declarations, &functions })
 			words.insert(words.end(), section->begin(), section->end());
 
+		if (too_large)
+		{
+			ScriptError* error = arena->New<ScriptError>();
+			error->message = aprintf(arena, "a constant or type is too large for SPIR-V: it needs an instruction of %zu words, "
+				"the limit is %u", too_large, MAX_INSTRUCTION_WORDS);
+			errors.push_back(error);
+			return {};
+		}
+
 		uint32* data = (uint32*)arena->Allocate(words.size() * sizeof(uint32), alignof(uint32));
 		memcpy(data, words.data(), words.size() * sizeof(uint32));
 		return Slice<uint32>(data, (uint32)words.size());
@@ -906,10 +922,10 @@ struct Emitter
 
 }
 
-Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena)
+Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
 {
 	Emitter emitter = { .module = module, .context = *module.context };
-	return emitter.Module(wrapper, arena);
+	return emitter.Module(wrapper, arena, errors);
 }
 
 }
