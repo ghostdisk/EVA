@@ -301,6 +301,8 @@ enum class TypeKind : uint8
 	ENUM,
 	ARRAY,
 	STRUCT,
+	POINTER,  // IR only for now
+	FUNCTION, // IR only for now
 };
 
 // Base of the type structs, one per TypeKind.
@@ -391,6 +393,36 @@ struct StructType : Type
 	StructType() { type_kind = TypeKind::STRUCT; }
 };
 
+// Where a pointer points. See Docs/IR.md.
+enum class AddressSpace : uint8
+{
+	FUNCTION, // locals
+	PRIVATE,  // mutable globals
+	CONSTANT, // read-only globals
+	INPUT,    // shader interface globals
+	OUTPUT,
+	MEMORY,   // scripts' linear memory. Reserved, not supported yet
+};
+
+// Keep in sync with AddressSpace (Script_Dump.cpp).
+ZTStringView AddressSpaceToString(AddressSpace space);
+
+struct PointerType : Type
+{
+	AddressSpace space = AddressSpace::FUNCTION;
+	Type* pointee = nullptr;
+
+	PointerType() { type_kind = TypeKind::POINTER; }
+};
+
+struct FunctionType : Type
+{
+	Type* return_type = nullptr; // void for none
+	Slice<Type*> parameters;
+
+	FunctionType() { type_kind = TypeKind::FUNCTION; }
+};
+
 // The values of the Semantic enum, the argument of @semantic(...).
 enum class Semantic : uint8
 {
@@ -466,6 +498,7 @@ struct Context
 	Scope* global_scope = nullptr;
 
 	PrimitiveType* void_type = nullptr;
+	PrimitiveType* bool_type = nullptr; // not in the global scope yet, the IR uses it
 	PrimitiveType* int_type = nullptr;
 	PrimitiveType* uint_type = nullptr;
 	PrimitiveType* float_type = nullptr;
@@ -473,6 +506,9 @@ struct Context
 	EnumType* stage_type = nullptr;    // SHADER only
 
 	std::vector<ArrayType*> array_types; // see GetArrayType
+	std::vector<VectorType*> vector_types;
+	std::vector<PointerType*> pointer_types;
+	std::vector<FunctionType*> function_types;
 };
 
 // Allocates the context's built-ins and global scope in arena, which has to live as long as the context. Usually an
@@ -481,6 +517,12 @@ void InitContext(Context& context, Arena* arena, ContextKind kind);
 
 // The one array type of element and length, made in the context's arena on first use. nullptr if it would be too large.
 ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
+
+// The one vector type of 2 to 4 elements, e.g. int3. The float ones are in the global scope, the others aren't yet.
+VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count);
+
+PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
+FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
 
 struct Resolver
 {
@@ -632,7 +674,7 @@ ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...)
 // outputs, checking the semantics and locations. Returns whether there were no errors.
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
 
-// e.g. float4, [3]float2. Allocated in arena when it isn't a type's own name.
+// e.g. float4, [3]float2, *function float4, (uint, float) -> float4. Allocated in arena when it isn't a type's own name.
 ZTStringView TypeToString(Type* type, Arena* arena);
 
 // e.g. 12, 0.5, 1000.0, 1e+40: integers in decimal, floats as the shortest text that parses back to the same double,

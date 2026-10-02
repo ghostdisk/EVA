@@ -14,14 +14,21 @@ static PrimitiveType* NewPrimitiveType(Context& context, StringView name, Primit
 	return type;
 }
 
-static VectorType* NewVectorType(Context& context, StringView name, PrimitiveType* element, uint32 count)
+VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count)
 {
+	assert(count >= 2 && count <= 4);
+	for (VectorType* type : context.vector_types)
+	{
+		if (type->element == element && type->count == count)
+			return type;
+	}
 	VectorType* type = context.arena->New<VectorType>();
-	type->name = GetAtom(name);
+	type->name = GetAtom(aprintf(context.arena, "%s%u", GetAtomString(element->name, context.arena).CString(), count));
 	type->element = element;
 	type->count = count;
 	type->size = element->size * count;
 	type->alignment = element->alignment;
+	context.vector_types.push_back(type);
 	return type;
 }
 
@@ -73,6 +80,7 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 	Scope* scope = context.arena->New<Scope>();
 
 	context.void_type = NewPrimitiveType(context, "void", PrimitiveKind::VOID, 0);
+	context.bool_type = NewPrimitiveType(context, "bool", PrimitiveKind::BOOL, 4);
 	context.int_type = NewPrimitiveType(context, "int", PrimitiveKind::SIGNED, 4);
 	context.uint_type = NewPrimitiveType(context, "uint", PrimitiveKind::UNSIGNED, 4);
 	context.float_type = NewPrimitiveType(context, "float", PrimitiveKind::FLOAT, 4);
@@ -80,9 +88,9 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 	DefineType(context, scope, context.int_type);
 	DefineType(context, scope, context.uint_type);
 	DefineType(context, scope, context.float_type);
-	DefineType(context, scope, NewVectorType(context, "float2", context.float_type, 2));
-	DefineType(context, scope, NewVectorType(context, "float3", context.float_type, 3));
-	DefineType(context, scope, NewVectorType(context, "float4", context.float_type, 4));
+	DefineType(context, scope, GetVectorType(context, context.float_type, 2));
+	DefineType(context, scope, GetVectorType(context, context.float_type, 3));
+	DefineType(context, scope, GetVectorType(context, context.float_type, 4));
 
 	if (kind == ContextKind::SHADER)
 	{
@@ -128,6 +136,45 @@ ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
 	type->size = (uint32)(stride * length);
 	type->alignment = element->alignment;
 	context.array_types.push_back(type);
+	return type;
+}
+
+PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee)
+{
+	for (PointerType* type : context.pointer_types)
+	{
+		if (type->space == space && type->pointee == pointee)
+			return type;
+	}
+	PointerType* type = context.arena->New<PointerType>();
+	type->space = space;
+	type->pointee = pointee;
+	type->size = 4; // only memory pointers can be stored, as 32-bit offsets
+	type->alignment = 4;
+	context.pointer_types.push_back(type);
+	return type;
+}
+
+FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters)
+{
+	for (FunctionType* type : context.function_types)
+	{
+		if (type->return_type != return_type || type->parameters.count != parameters.count)
+			continue;
+		bool same = true;
+		for (uint32 i = 0; i < parameters.count && same; ++i)
+			same = type->parameters[i] == parameters[i];
+		if (same)
+			return type;
+	}
+	FunctionType* type = context.arena->New<FunctionType>();
+	type->return_type = return_type;
+	Type** copy = (Type**)context.arena->Allocate(parameters.count * sizeof(Type*), alignof(Type*));
+	for (uint32 i = 0; i < parameters.count; ++i)
+		copy[i] = parameters[i];
+	type->parameters = Slice<Type*>(copy, parameters.count);
+	type->size = 0;
+	context.function_types.push_back(type);
 	return type;
 }
 

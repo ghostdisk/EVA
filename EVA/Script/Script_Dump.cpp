@@ -158,14 +158,52 @@ ZTStringView ShaderStageToString(ShaderStage stage)
 	return "?";
 }
 
+ZTStringView AddressSpaceToString(AddressSpace space)
+{
+	switch (space)
+	{
+		case AddressSpace::FUNCTION: return "function";
+		case AddressSpace::PRIVATE: return "private";
+		case AddressSpace::CONSTANT: return "constant";
+		case AddressSpace::INPUT: return "input";
+		case AddressSpace::OUTPUT: return "output";
+		case AddressSpace::MEMORY: return "memory";
+	}
+	return "?";
+}
+
 ZTStringView TypeToString(Type* type, Arena* arena)
 {
-	if (type->type_kind == TypeKind::ARRAY)
+	switch (type->type_kind)
 	{
-		ArrayType* array = (ArrayType*)type;
-		return aprintf(arena, "[%u]%s", array->length, TypeToString(array->element, arena).CString());
+		case TypeKind::ARRAY:
+		{
+			ArrayType* array = (ArrayType*)type;
+			return aprintf(arena, "[%u]%s", array->length, TypeToString(array->element, arena).CString());
+		}
+		case TypeKind::POINTER:
+		{
+			PointerType* pointer = (PointerType*)type;
+			return aprintf(arena, "*%s %s", AddressSpaceToString(pointer->space).CString(),
+				TypeToString(pointer->pointee, arena).CString());
+		}
+		case TypeKind::FUNCTION:
+		{
+			FunctionType* function = (FunctionType*)type;
+			StringBuilder builder(arena);
+			builder.Append("(");
+			for (uint32 i = 0; i < function->parameters.count; ++i)
+			{
+				if (i)
+					builder.Append(", ");
+				builder.Append(TypeToString(function->parameters[i], arena));
+			}
+			builder.Append(") -> ");
+			builder.Append(TypeToString(function->return_type, arena));
+			return builder.ToString();
+		}
+		default: return GetAtomString(type->name, arena);
 	}
-	return GetAtomString(type->name, arena);
 }
 
 ZTStringView NumberToString(NumberLiteral* number, Arena* arena)
@@ -311,7 +349,9 @@ struct ValuePrinter
 			break;
 		}
 		case TypeKind::MATRIX:
-		case TypeKind::ENUM: builder.Append("?"); break;
+		case TypeKind::ENUM:
+		case TypeKind::POINTER:
+		case TypeKind::FUNCTION: builder.Append("?"); break;
 		}
 	}
 };

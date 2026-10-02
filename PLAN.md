@@ -200,64 +200,29 @@ inputs and fragment outputs, and VS-out / PS-in matching. A filter over the same
 
 ## IR
 
-One IR module per source file, built once. All entry points share it; each entry point owns its interface globals.
+The design is in [Docs/IR.md](Docs/IR.md). One IR module per source file, built once. All entry points share it; each
+entry point owns its interface globals.
 
-### Module
+How globals map to the shader targets:
 
-- **Functions.** Name, `FunctionType`, blocks. `EntryPoint* entry_point` is set only on generated wrappers.
-- **Globals.**
+| Address space | SPIR-V | HLSL | MSL |
+|---|---|---|---|
+| `private` | `Private` variable | `static` | lowered to a struct passed down from the entry (no mutable program-scope globals) |
+| `constant` | `Private` variable with an initializer, never stored | `static const` | `constant` |
+| `input` / `output` | `Input` / `Output` variable + `BuiltIn` / `Location` | fields of the entry's in / out struct | same, with attributes |
 
-  ```cpp
-  struct IRGlobal
-  {
-  	Type* type;
-  	GlobalKind kind;       // PRIVATE, CONSTANT, SHADER_INPUT, SHADER_OUTPUT (the last two shader-only)
-  	Constant* initializer; // CONSTANT; optional for PRIVATE
-  	ShaderIO* io;          // SHADER_INPUT / SHADER_OUTPUT: points into EntryPoint.io
-  };
-  ```
-
-  | Kind | Script | SPIR-V | HLSL | MSL |
-  |---|---|---|---|---|
-  | `PRIVATE` | VM data | `Private` variable | `static` | lowered to a struct passed down from the entry (no mutable program-scope globals) |
-  | `CONSTANT` | read-only data | `Private` variable with an initializer, never stored | `static const` | `constant` |
-  | `SHADER_INPUT` / `SHADER_OUTPUT` | invalid | `Input` / `Output` variable + `BuiltIn` / `Location` | fields of the entry's in / out struct | same, with attributes |
-
-  Interface globals are never shared between entry points, even with the same semantic.
-- **Entry point records.** Stage, user name, wrapper function, interface list (like `OpEntryPoint`).
-
-### Instructions
-
-`{ op, Type* result type, operands }`. A per-op table lists the operand kinds (`VALUE`, `LITERAL`, ...), read by the
-dumper, the validator and the emitters.
-
-- Values: instruction results, function parameters, `Constant*`s.
-- `extract` / `construct` indices are field / element indices whose meaning comes from the composite's type.
-  `construct` may mix vectors and scalars (`construct %xy, float 0.0, float 1.0` builds a `float4`), as SPIR-V's
-  `OpCompositeConstruct` and HLSL / MSL constructors allow.
-- Pointer types exist only in the IR: `*kind T`, where kind is `local` or a global kind. `access` produces one (like
-  `OpAccessChain`); `load` / `store` use them.
-
-### Control flow
-
-Basic blocks, structured: every branch names its merge block (like `OpSelectionMerge` / `OpLoopMerge`). The CFG
-works for optimizations, and text backends print `if` / loops directly. No gotos in the language, so this is free.
-
-### Locals
-
-Every named variable, parameters included, is a `local` slot accessed with `load` / `store`. No phis. `if` as an
-expression writes its result to a temporary slot in each branch and loads it after the merge. A simple mem2reg comes
-later. Function-local variables are valid in SPIR-V, HLSL and MSL.
+Interface globals are never shared between entry points, even with the same semantic. Entry point records (stage, user
+name, wrapper function, interface globals) are like `OpEntryPoint`.
 
 ### IR gen
 
 - Ordinary functions are lowered as written. They stay callable by other code.
-- `const`: scalars, vectors and matrices become their `Constant*` at each use. Arrays and structs become a `CONSTANT`
+- `const`: scalars, vectors and matrices become their `Constant*` at each use. Arrays and structs become a `constant`
   global, accessed with `access` + `load` (required for indexing at runtime).
-- Per `EntryPoint`: one `SHADER_INPUT` / `SHADER_OUTPUT` global per `ShaderIO`, plus a wrapper that loads the inputs,
-  `construct`s each parameter from them by path, calls the function, `extract`s each output from the return value by
-  path, and stores the outputs. Only wrappers touch interface globals, so their shape is fixed: loads at the start,
-  stores at the end.
+- Per `EntryPoint`: one `input` / `output` global per `ShaderIO`, plus a wrapper that loads the inputs, stores them into
+  locals for struct parameters by path, calls the function, loads each output from the returned struct by path, and
+  stores the outputs. Only wrappers touch interface globals, so their shape is fixed: loads at the start, stores at the
+  end.
 - Generated names only in the output: user identifiers never reach the emitters' text (keyword collisions, `main`).
 
 ### Triangle shader
@@ -283,37 +248,37 @@ function PSMain(): @location(0) float4
 After IR gen and the safety pass:
 
 ```
-global @positions   : [3]float2  CONSTANT       = [3]float2 { (0.0, 0.5), (0.5, -0.5), (-0.5, -0.5) }
-global @VSMain.in0  : uint       SHADER_INPUT   semantic vertex_index
-global @VSMain.out0 : float4     SHADER_OUTPUT  semantic position
-global @PSMain.out0 : float4     SHADER_OUTPUT  location 0
+global @positions   : *constant [3]float2 = {(0.0, 0.5), (0.5, -0.5), (-0.5, -0.5)}
+global @VSMain.in0  : *input uint     semantic(vertex_index)
+global @VSMain.out0 : *output float4  semantic(position)
+global @PSMain.out0 : *output float4  location(0)
 
-function @VSMain(%vertex_id: uint): float4
-@entry:
-	%0: *local uint      = local uint
-	store %0, %vertex_id
-	%1: uint             = load %0
-	%2: uint             = min %1, uint 2              // safety pass: clamp the index into [3]float2
+function @VSMain(%0: uint): float4
+	local $0: *function uint
+block0:
+	store $0, %0
+	%1: uint             = load $0
+	%2: uint             = intrinsic min %1, uint 2    // safety pass: clamp the index into [3]float2
 	%3: *constant float2 = access @positions, %2
 	%4: float2           = load %3
 	%5: float4           = construct %4, float 0.0, float 1.0
 	return %5
 
 function @PSMain(): float4
-@entry:
+block0:
 	%0: float4 = construct float 1.0, float 1.0, float 1.0, float 1.0
 	return %0
 
-function @VSMain.entry(): void  [entry vertex]
-@entry:
+function @VSMain.entry(): void [entry vertex]
+block0:
 	%0: uint   = load @VSMain.in0
-	%1: float4 = call @VSMain(%0)
+	%1: float4 = call @VSMain, %0
 	store @VSMain.out0, %1
 	return
 
-function @PSMain.entry(): void  [entry fragment]
-@entry:
-	%0: float4 = call @PSMain()
+function @PSMain.entry(): void [entry fragment]
+block0:
+	%0: float4 = call @PSMain
 	store @PSMain.out0, %0
 	return
 
@@ -324,19 +289,19 @@ entry_point fragment PSMain -> @PSMain.entry  interface { @PSMain.out0 }
 After optimization (inline, mem2reg, constant folding, removing unreferenced functions):
 
 ```
-function @VSMain.entry(): void  [entry vertex]
-@entry:
+function @VSMain.entry(): void [entry vertex]
+block0:
 	%0: uint             = load @VSMain.in0
-	%1: uint             = min %0, uint 2              // stays: vertex_index has no known bound
+	%1: uint             = intrinsic min %0, uint 2    // stays: vertex_index has no known bound
 	%2: *constant float2 = access @positions, %1
 	%3: float2           = load %2
 	%4: float4           = construct %3, float 0.0, float 1.0
 	store @VSMain.out0, %4
 	return
 
-function @PSMain.entry(): void  [entry fragment]
-@entry:
-	store @PSMain.out0, float4(1.0, 1.0, 1.0, 1.0)
+function @PSMain.entry(): void [entry fragment]
+block0:
+	store @PSMain.out0, float4 (1.0, 1.0, 1.0, 1.0)
 	return
 ```
 
@@ -432,7 +397,7 @@ struct CompileShaderResult
 
 1. ~~Elements, intrinsics, the resolver rule. The resolver's TriangleShader test passes with no errors.~~ Done.
 2. ~~Typer: node types, struct / array types, NUMBER parsing, constant evaluator producing `Constant`s.~~ First version done.
-3. ~~Shader interface pass producing `EntryPoint`s.~~ First version done; tests and fuzzing next.
+3. ~~Shader interface pass producing `EntryPoint`s.~~ Done, tested and fuzzed.
 4. IR: data structures, op table, dumper, validator, IR gen including wrappers.
 5. Safety pass: index clamps (enough for the triangle), then the rest.
 6. SPIR-V emitter, checked by the SPIR-V validator in tests.
