@@ -722,14 +722,14 @@ TEST(Parser, LongPrefixChainDoesNotRecurse)
 // Parses source, which must either succeed or report an error.
 static void CheckParseTerminates(Test::Context& test, const char* source)
 {
-	uint8* mark = test.arena->head;
+	ArenaMark mark = test.arena->Mark();
 	{
 		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
 		Node* module = nullptr;
 		if (!Parse(parser, &module) && parser.errors.empty())
 			Test::ReportFailure(test, __FILE__, __LINE__, "parse failed without an error for:\n%s", source);
 	}
-	test.arena->head = mark;
+	test.arena->Rewind(mark);
 }
 
 TEST(Parser, EveryPrefixOfAShaderTerminates)

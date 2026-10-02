@@ -88,13 +88,14 @@ TEST(StringBuilder, MovesWhenArenaWasUsedInBetween)
 	CHECK_EQ(StringView(other), "zzz");
 }
 
-TEST(StringBuilder, FullArenaPanics)
+TEST(StringBuilder, GrowsAcrossArenaBlocks)
 {
-	Arena* arena = CreateArena(128);
-	DEFER(DestroyArena(arena));
-
-	StringBuilder builder(arena);
-	CHECK_PANICS(
-		for (int i = 0; i < 100; ++i)
-			builder.Append("0123456789"));
+	StringBuilder builder(test.arena);
+	size_t count = GetArenaBlockSize() / 10 * 3;
+	for (size_t i = 0; i < count; ++i)
+		builder.Append("0123456789");
+	CHECK_EQ(builder.length, count * 10);
+	CHECK_EQ(StringView(builder.data + builder.length - 10, 10), "0123456789");
+	CHECK_EQ(builder.data[builder.length], '\0');
+	CHECK(test.arena->Contains(builder.data));
 }

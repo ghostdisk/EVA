@@ -20,17 +20,11 @@
 #endif
 #endif
 #ifdef EVA_ASAN
-#include <sanitizer/asan_interface.h>
 #include <sanitizer/common_interface_defs.h>
 #endif
 
 namespace EVA::Script::Fuzz
 {
-
-// As in CompileShader.
-static const size_t INTERMEDIATE_ARENA_CAPACITY = 1024 * 1024;
-static const size_t OUTPUT_ARENA_CAPACITY = 1024 * 1024;
-static const size_t SCRATCH_ARENA_CAPACITY = 16 * 1024 * 1024;
 
 static ZTStringView current_source;
 
@@ -82,68 +76,6 @@ void InitFuzzing()
 #endif
 }
 
-static void Fill(Arena* arena, size_t size, uint8 fill)
-{
-#ifdef EVA_ASAN
-	ASAN_UNPOISON_MEMORY_REGION(arena->begin, size);
-#endif
-	memset(arena->begin, fill, size);
-#ifdef EVA_ASAN
-	ASAN_POISON_MEMORY_REGION(arena->begin, size);
-#endif
-}
-
-// Arenas are reused between inputs, since creating and filling fresh megabytes was most of the time spent on an input.
-// Each fill value has its own arenas, and resetting refills only what the last input used, so every byte of them holds
-// the fill until written.
-struct FilledArenas
-{
-	uint8 fill;
-	Arena* output;
-	Arena* intermediate;
-};
-
-static Arena* ResetArena(Arena*& arena, size_t capacity, uint8 fill)
-{
-	if (!arena)
-	{
-		arena = CreateArena(capacity);
-		Fill(arena, capacity, fill);
-	}
-	else
-	{
-		Fill(arena, arena->head - arena->begin, fill);
-		arena->head = arena->begin;
-	}
-	return arena;
-}
-
-static void ResetArenas(Compilation& compilation, uint8 fill)
-{
-	static FilledArenas arenas[4];
-	static uint32 count = 0;
-	FilledArenas* found = nullptr;
-	for (uint32 i = 0; i < count && !found; ++i)
-	{
-		if (arenas[i].fill == fill)
-			found = &arenas[i];
-	}
-	if (!found)
-	{
-		if (count == 4)
-			Fail("more than 4 arena fills");
-		found = &arenas[count++];
-		*found = { .fill = fill };
-	}
-	compilation.output_arena = ResetArena(found->output, OUTPUT_ARENA_CAPACITY, fill);
-	compilation.intermediate_arena = ResetArena(found->intermediate, INTERMEDIATE_ARENA_CAPACITY, fill);
-}
-
-static bool InArena(Arena* arena, const void* pointer)
-{
-	return (const uint8*)pointer >= arena->begin && (const uint8*)pointer <= arena->head;
-}
-
 // Errors have to be in the output arena, readable after the intermediate one is gone, and printable: they end up in
 // logs and terminals, so source text in them mustn't carry control characters.
 static void CheckErrors(Compilation& compilation, const std::vector<ScriptError*>& errors, bool succeeded, const char* stage)
@@ -155,14 +87,14 @@ static void CheckErrors(Compilation& compilation, const std::vector<ScriptError*
 
 	for (ScriptError* error : errors)
 	{
-		if (!error || !InArena(compilation.output_arena, error))
+		if (!error || !compilation.output_arena->Contains(error))
 			Fail("%s error isn't in the output arena", stage);
 		if (error->error_family != ErrorFamily::SCRIPT_ERROR)
 			Fail("%s error has family %u", stage, (uint32)error->error_family);
 		ZTStringView message = error->message;
 		if (!message.length)
 			Fail("%s error has an empty message", stage);
-		if (!InArena(compilation.output_arena, message.data))
+		if (!compilation.output_arena->Contains(message.data))
 			Fail("%s error's message isn't in the output arena: %s", stage, message.CString());
 		if (message.CString()[message.length] != '\0')
 			Fail("%s error's message isn't zero terminated", stage);
@@ -509,7 +441,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		Node* node = entry.node;
 		if (!seen.insert(node).second)
 			Fail("%s is in the tree twice", NodeTypeToString(node->node_type).CString());
-		if (!InArena(compilation.intermediate_arena, node))
+		if (!compilation.intermediate_arena->Contains(node))
 			Fail("%s isn't in the intermediate arena", NodeTypeToString(node->node_type).CString());
 		CheckNodeShape(node);
 		const char* name = NodeTypeToString(node->node_type).CString();
@@ -578,7 +510,10 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 
 void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
 {
-	ResetArenas(compilation, fill);
+	SetArenaFill(fill);
+	DEFER(SetArenaFill(-1));
+	compilation.output_arena = CreateArena();
+	compilation.intermediate_arena = CreateArena();
 	InitContext(compilation.context, compilation.intermediate_arena, kind);
 
 	Parser parser = {
@@ -647,22 +582,16 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 
 void Destroy(Compilation& compilation)
 {
-	// As good as destroying it: under ASan reading it is an error, otherwise it's garbage. The next reset refills it.
-	Arena* intermediate = compilation.intermediate_arena;
-	size_t used = intermediate->head - intermediate->begin;
-#ifdef EVA_ASAN
-	ASAN_POISON_MEMORY_REGION(intermediate->begin, used);
-#else
-	memset(intermediate->begin, 0xDD, used);
-#endif
+	// Poisoned under ASan, so errors pointing into it are caught below.
+	DestroyArena(compilation.intermediate_arena);
 	compilation.intermediate_arena = nullptr;
-
 	for (uint32 i = 0; i < compilation.errors.count; ++i)
 	{
 		ZTStringView message = compilation.errors[i]->message;
 		if (strlen(message.CString()) != message.length)
 			Fail("error message changed after the intermediate arena was destroyed");
 	}
+	DestroyArena(compilation.output_arena);
 	compilation.output_arena = nullptr;
 }
 
@@ -671,8 +600,8 @@ void CheckSource(ZTStringView source, void (*check)(Compilation& compilation, vo
 	current_source = source;
 	DEFER(current_source = {});
 
-	static Arena* scratch = CreateArena(SCRATCH_ARENA_CAPACITY);
-	scratch->head = scratch->begin;
+	Arena* scratch = CreateArena();
+	DEFER(DestroyArena(scratch));
 
 	// Different garbage in the arenas has to give the same result.
 	Compilation first;

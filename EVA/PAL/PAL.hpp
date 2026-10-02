@@ -1,5 +1,5 @@
 #pragma once
-#include <EVA/OS/OS.hpp>
+#include <EVA/Core/Common.hpp>
 
 namespace EVA::PAL
 {

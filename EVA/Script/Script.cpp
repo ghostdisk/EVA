@@ -141,7 +141,7 @@ static Slice<ScriptError*> ToSlice(Arena* arena, const std::vector<ScriptError*>
 
 CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 {
-	Arena* intermediate_arena = CreateArena(1024 * 1024);
+	Arena* intermediate_arena = CreateArena();
 	DEFER(DestroyArena(intermediate_arena));
 
 	// The shader is only converted, never run, so the context can go with the rest of the intermediate data.

@@ -13,8 +13,6 @@
 namespace EVA::Test
 {
 
-static const size_t TEST_ARENA_CAPACITY = 16 * 1024 * 1024;
-
 static TestCase* first_test = nullptr;
 static TestCase* last_test = nullptr;
 
@@ -76,7 +74,7 @@ static bool RunTest(TestCase* test_case)
 	fflush(stdout); // so a crash leaves the test's name as the last line
 
 	Context test;
-	test.arena = CreateArena(TEST_ARENA_CAPACITY);
+	test.arena = CreateArena();
 	auto start = std::chrono::steady_clock::now();
 	try
 	{

@@ -192,7 +192,7 @@ static ZTStringView TargetToString(Element* target, Arena* arena)
 // and ended by the caller (newline), so root calls print no usage. The arena is only used for atom strings and is rewound afterwards.
 void DumpNode(Node* node, Arena* arena, int indent)
 {
-	uint8* mark = arena->head;
+	ArenaMark mark = arena->Mark();
 
 	printf("\x1b[33m%s\x1b[0m", NodeTypeToString(node->node_type).CString());
 	if (node->type)
@@ -223,7 +223,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 			break;
 	}
 
-	arena->head = mark;
+	arena->Rewind(mark);
 
 	for (Node* child = node->child; child; child = child->next)
 	{

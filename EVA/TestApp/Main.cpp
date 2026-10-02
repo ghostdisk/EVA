@@ -72,7 +72,7 @@ static void PollEvents()
 
 int EVA::AppMain()
 {
-	Arena* shader_arena = CreateArena(1024 * 1024);
+	Arena* shader_arena = CreateArena();
 	DEFER(DestroyArena(shader_arena));
 
 	Script::CompileShaderResult triangle_shader = Script::CompileShader(shader_arena, triangle_shader_source);

@@ -35,11 +35,14 @@ add_library(Core STATIC
 	EVA/Core/Panic.cpp
 	EVA/Core/StringBuilder.hpp
 	EVA/Core/StringBuilder.cpp
+	EVA/Core/VirtualMemory.hpp
+	EVA/Core/VirtualMemory.cpp
 )
 eva_init_target(Core)
 
 if(WIN32)
 	target_compile_definitions(Core PUBLIC EVA_WIN32)
+	target_link_libraries(Core PRIVATE advapi32) # large page privilege
 endif()
 
 if(ANDROID)
@@ -51,19 +54,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_compile_definitions(Core PUBLIC EVA_MACOS)
 endif()
 
-add_library(OS STATIC
-	EVA/OS/OS.hpp
-	EVA/OS/OS.cpp
-)
-eva_init_target(OS)
-target_link_libraries(OS PUBLIC Core)
-
 add_library(PAL STATIC
 	EVA/PAL/PAL.hpp
 	EVA/PAL/PAL.cpp
 )
 eva_init_target(PAL)
-target_link_libraries(PAL PUBLIC OS)
+target_link_libraries(PAL PUBLIC Core)
 
 if(WIN32)
 	target_sources(PAL PRIVATE EVA/PAL/PAL_Win32.cpp)
