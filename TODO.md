@@ -8,6 +8,7 @@
 - An attribute's expression swallows a following parenthesis or prefix operator: `@a (x)` parses as the call `a(x)` and `@a -x` as `a - x`. `@a (@b x)`, the example in ParseExpression's comment, parses as `a(@b x)` and then fails on the missing operand.
 - A lone `;` (empty statement) is an error, so is a `;` after a statement ending with a block, e.g. `if a {};` (unlike `const`, where it's optional).
 - Decide where attributes are allowed, likely declarations only. Today any expression can have them, and on a constant expression, its own or its parts', they move to the folded `CONSTANT` node and are ignored.
+- When assignment lands: IR gen has to build values for assignment into existing memory in a temporary and `copy` it, so `s = { s.b, s.a }` reads `s.a` before overwriting it. Add a test for that case, it's easy to break.
 - Cap shader source size to a few MB, since shaders come from untrusted content.
 - Cap the errors per compile and report only the first N, so a large source can't produce an unbounded list.
 - `std::vector` growth in the compiler (`Parser`, `Resolver` and `Typer` errors, the expression parser's stacks, `Context::array_types`) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.

@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Script/Script.hpp>
+#include <EVA/Script/Script_IR.hpp>
 
 // Shared by the fuzz targets: runs the compiler on an input the way CompileShader does, and checks everything that has
 // to hold for any input beyond "doesn't crash". A failed check prints the source and aborts, which libFuzzer reports
@@ -35,14 +36,15 @@ struct Compilation
 	Slice<ScriptError*> errors; // in output_arena
 	uint32 attribute_count = 0; // '@' tokens in the source, once it parsed
 	ShaderInterface shader_interface; // shaders, once typing succeeded
+	IRModule ir;                      // once every stage succeeded
 };
 
 // Compiles source as far as it gets, checking the invariants of each stage. The arenas' blocks are filled with fill, so
 // reading memory nothing wrote shows up as a difference between runs with different fills.
-// Code generation isn't implemented yet, so this stops after the shader interface, where CompileShader panics.
+// Code generation isn't implemented yet, so this stops after IR gen, where CompileShader panics.
 void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill);
 
-// The errors and, if typing was reached, the serialized module and shader interface. Equal for equal inputs. Allocated in arena.
+// The errors and, if typing was reached, the serialized module, shader interface and IR. Equal for equal inputs. Allocated in arena.
 ZTStringView Fingerprint(Compilation& compilation, Arena* arena);
 
 // Destroys the intermediate arena first and then checks the errors, so errors pointing into it are caught.

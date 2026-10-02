@@ -1,4 +1,5 @@
 #include <EVA/Script/Script.hpp>
+#include <EVA/Script/Script_IR.hpp>
 #include <EVA/Core/Panic.hpp>
 
 namespace EVA::Script
@@ -219,8 +220,10 @@ CompileShaderResult CompileShader(Arena* arena, ZTStringView source)
 	if (!BuildShaderInterface(interface_builder, module, &shader_interface))
 		return { .errors = ToSlice(arena, interface_builder.errors) };
 
-	DumpNode(module, intermediate_arena);
-	printf("\n%s", ShaderInterfaceToString(shader_interface, intermediate_arena).CString());
+	IRModule ir;
+	InitIRModule(ir, &context, intermediate_arena);
+	GenerateIR(ir, module, &shader_interface);
+	printf("%s", IRModuleToString(ir, intermediate_arena).CString());
 	Panic("CompileShader: code generation is not implemented yet");
 }
 

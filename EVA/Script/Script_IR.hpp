@@ -275,6 +275,10 @@ void RemoveIRInstruction(IRModule& module, IRRef instruction);
 // The instruction's operands. Valid until operands are added to the module.
 Slice<IRRef> GetIROperands(IRModule& module, IRRef instruction);
 
+// Lowers a module that passed the front end into module, which has to be empty. shader_interface is the module's for
+// shaders, nullptr for scripts. Never fails: anything the front end accepts can be lowered.
+void GenerateIR(IRModule& module, Node* ast, ShaderInterface* shader_interface);
+
 // Checks the module's structure and types. Returns an empty string if it's valid, otherwise what's wrong, allocated in
 // arena. A problem is a compiler bug, never the user's: user errors all come from the front end. For tests, fuzzing and
 // offline use, not called when compiling.

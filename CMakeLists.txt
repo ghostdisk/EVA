@@ -146,6 +146,7 @@ add_library(Script STATIC
 	EVA/Script/Script_ShaderInterface.cpp
 	EVA/Script/Script_IR.hpp
 	EVA/Script/Script_IR.cpp
+	EVA/Script/Script_IRGen.cpp
 	EVA/Script/Script_IRValidate.cpp
 )
 eva_init_target(Script)

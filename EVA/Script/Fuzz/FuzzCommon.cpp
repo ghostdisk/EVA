@@ -766,6 +766,8 @@ static uint32 CountAttributes(ZTStringView source)
 	return count;
 }
 
+static bool BuildInterface(Compilation& compilation);
+
 static void CompileStages(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
 {
 	SetArenaFill(fill);
@@ -823,9 +825,22 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 		compilation.errors = CopyErrors(compilation.output_arena, typer.errors);
 		return;
 	}
-	if (kind != ContextKind::SHADER)
-		return;
+	if (kind == ContextKind::SHADER)
+	{
+		if (!BuildInterface(compilation))
+			return;
+	}
 
+	// Nothing fails past the front end, but the IR has to be valid.
+	InitIRModule(compilation.ir, &compilation.context, compilation.intermediate_arena);
+	GenerateIR(compilation.ir, compilation.module, kind == ContextKind::SHADER ? &compilation.shader_interface : nullptr);
+	ZTStringView error = ValidateIR(compilation.ir, compilation.intermediate_arena);
+	if (error.length)
+		Fail("IR gen made invalid IR: %s\n%s", error.CString(), IRModuleToString(compilation.ir, compilation.intermediate_arena).CString());
+}
+
+static bool BuildInterface(Compilation& compilation)
+{
 	ShaderInterfaceBuilder builder = { .arena = compilation.intermediate_arena, .error_arena = compilation.output_arena };
 	bool built = BuildShaderInterface(builder, compilation.module, &compilation.shader_interface);
 	CheckErrors(compilation, builder.errors, built, "building the shader interface");
@@ -834,8 +849,8 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 	{
 		compilation.failed_stage = Stage::INTERFACE;
 		compilation.errors = CopyErrors(compilation.output_arena, builder.errors);
-		return;
 	}
+	return built;
 }
 
 // Allowed arena memory for one compile: enough for TOTAL_CONSTANT_SIZE_LIMIT and the tree of the source, so anything
@@ -868,6 +883,8 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 		builder.Append("\n");
 		builder.Append(ShaderInterfaceToString(compilation.shader_interface, arena));
 	}
+	if (compilation.failed_stage == Stage::DONE)
+		builder.Append(IRModuleToString(compilation.ir, arena));
 	return builder.ToString();
 }
 
