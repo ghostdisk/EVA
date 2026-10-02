@@ -427,8 +427,9 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 	{
 		Node* node;
 		bool in_attribute;
+		bool in_constant; // a constant expression, evaluated without typing its nodes
 	};
-	std::vector<Entry> stack = { { compilation.module, false } };
+	std::vector<Entry> stack = { { compilation.module, false, false } };
 	std::unordered_set<Node*> seen;
 	uint32 attribute_count = 0;
 
@@ -484,7 +485,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 					Fail("attribute %s on a %s isn't an intrinsic", NodeTypeToString(callee->node_type).CString(),
 						NodeTypeToString(node->node_type).CString());
 			}
-			else if (!entry.in_attribute)
+			else if (!entry.in_attribute && !entry.in_constant)
 			{
 				bool untyped = node->node_type == NodeType::MODULE || node->node_type == NodeType::STRUCT ||
 							   node->node_type == NodeType::FUNCTION || node->node_type == NodeType::BLOCK ||
@@ -506,7 +507,11 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		}
 
 		for (Node* child = node->child; child; child = child->next)
-			stack.push_back({ child, entry.in_attribute || child->usage == Usage::ATTRIBUTE });
+		{
+			bool constant = (node->node_type == NodeType::CONST && child->usage == Usage::VALUE) ||
+							(node->node_type == NodeType::ARRAY_TYPE && child->usage == Usage::SIZE);
+			stack.push_back({ child, entry.in_attribute || child->usage == Usage::ATTRIBUTE, entry.in_constant || constant });
+		}
 	}
 
 	// Every '@' parses into one attribute, which no stage may drop.

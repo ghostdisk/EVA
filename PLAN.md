@@ -73,8 +73,10 @@ Done:
   struct name is a reference to a type; fields typed and laid out the first time they're needed, with cycle errors).
 - NUMBER parsed for the expected type (int, uint, float; hex ints), defaulting to int, or float with a `.` or exponent.
 - `TryImplicitCast` / `ImplicitCast` / `ImplicitCoCast`: exact matches only for now; lossless conversions later.
-- Constant evaluator: numbers, unary and binary arithmetic, vector constructors, initializer lists, constant indexing,
-  references to consts. Used for `const` values, array sizes and `location`.
+- Constant expressions (`Script_EvaluateConstant.cpp`): a subset evaluated at compile time without typing its nodes,
+  for `const` values, array sizes and `location`: numbers, unary and binary arithmetic, vector constructors,
+  initializer lists, references to consts (evaluated on first use, cycles are errors), indexing and member access on
+  them. A separate path until there's IR to run constant expressions through instead; then it can go.
 - Arithmetic `+ - * / %` on matching numeric scalars and vectors, vector constructors (components or a splat),
   indexing arrays (constant indices bounds-checked), struct member access.
 - Attributes: `builtin(Builtin)` and `location(constant uint)` on parameters, fields and return types; `vertex`,

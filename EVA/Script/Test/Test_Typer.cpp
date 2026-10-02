@@ -111,12 +111,16 @@ static uint32 Bits(float value)
 
 TEST(Typer, Numbers)
 {
-	CHECK_TYPE("const a = 1;", "([DECLARATION]CONST:int a ([VALUE]NUMBER:int 1))");
-	CHECK_TYPE("const a = 1.5;", "([DECLARATION]CONST:float a ([VALUE]NUMBER:float 1.5))");
-	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]NUMBER:float 1000.0))");
-	CHECK_TYPE("const a: uint = 1;", "([DECLARATION]CONST:uint a ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]NUMBER:uint 1))");
+	// A const's value is evaluated rather than typed, so only the const has a type.
+	CHECK_TYPE("const a = 1;", "([DECLARATION]CONST:int a ([VALUE]NUMBER 1))");
+	CHECK_TYPE("const a = 1.5;", "([DECLARATION]CONST:float a ([VALUE]NUMBER 1.5))");
+	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]NUMBER 1000.0))");
+	CHECK_TYPE("const a: uint = 1;", "([DECLARATION]CONST:uint a ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]NUMBER 1))");
 	// Literals take the expected type.
-	CHECK_TYPE("const a: float = 1;", "([DECLARATION]CONST:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]NUMBER:float 1))");
+	CHECK_TYPE("const a: float = 1;", "([DECLARATION]CONST:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]NUMBER 1))");
+	CHECK_TYPE("function f(): uint { return 1; }",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:uint uint -> TYPE uint) ([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]NUMBER:uint 1))))");
+	CHECK_TYPE_ERRORS("function f(): int { return 1.5; }", "'1.5' is not an integer");
 
 	CHECK_TYPE_ERRORS("const a: int = 1.5;", "'1.5' is not an integer");
 	CHECK_TYPE_ERRORS("const a: int = 2147483647;", "");
@@ -145,7 +149,11 @@ TEST(Typer, Numbers)
 
 TEST(Typer, Unary)
 {
-	CHECK_TYPE("const a = -1;", "([DECLARATION]CONST:int a ([VALUE]UNARY:int - ([OPERAND]NUMBER:int 1)))");
+	CHECK_TYPE("const a = -1;", "([DECLARATION]CONST:int a ([VALUE]UNARY - ([OPERAND]NUMBER 1)))");
+	CHECK_TYPE("function f(): int { return -1; }",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:int int -> TYPE int) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]UNARY:int - ([OPERAND]NUMBER:int 1)))))");
+	CHECK_TYPE_ERRORS("function f(a: uint): uint { return -a; }", "can't apply '-' to uint");
 	CHECK_TYPE_ERRORS("const a: uint = -1;", "can't apply '-' to uint");
 	CHECK_TYPE_ERRORS("const a = ~1.0;", "can't apply '~' to float");
 	CHECK_TYPE_ERRORS("const a = !1;", "'!' isn't supported yet");
@@ -161,12 +169,14 @@ TEST(Typer, Unary)
 
 TEST(Typer, Binary)
 {
-	CHECK_TYPE("const a = 1 + 2;", "([DECLARATION]CONST:int a ([VALUE]BINARY:int + ([LEFT]NUMBER:int 1) ([RIGHT]NUMBER:int 2)))");
+	CHECK_TYPE("const a = 1 + 2;", "([DECLARATION]CONST:int a ([VALUE]BINARY + ([LEFT]NUMBER 1) ([RIGHT]NUMBER 2)))");
 	// A literal takes the other side's type, whichever side it's on.
-	CHECK_TYPE("const a = 1 + 2.0;", "([DECLARATION]CONST:float a ([VALUE]BINARY:float + ([LEFT]NUMBER:float 1) ([RIGHT]NUMBER:float 2.0)))");
-	CHECK_TYPE("const x = 1.0; const a = 2 * x;",
-		"([DECLARATION]CONST:float x ([VALUE]NUMBER:float 1.0)) "
-		"([DECLARATION]CONST:float a ([VALUE]BINARY:float * ([LEFT]NUMBER:float 2) ([RIGHT]REFERENCE:float x -> CONST)))");
+	CHECK_TYPE("const a = 1 + 2.0;", "([DECLARATION]CONST:float a ([VALUE]BINARY + ([LEFT]NUMBER 1) ([RIGHT]NUMBER 2.0)))");
+	CHECK_TYPE("function f(x: float): float { return 2 * x; }",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER:float x ([DECLARED_TYPE]REFERENCE:float float -> TYPE float)) "
+		"([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]BINARY:float * ([LEFT]NUMBER:float 2) ([RIGHT]REFERENCE:float x -> PARAMETER)))))");
+	CHECK_TYPE_ERRORS("function f(a: int, b: uint): int { return a + b; }", "mismatched types int and uint");
 
 	CHECK_TYPE_ERRORS("const a: int = 1; const b: uint = 2; const c = a + b;", "mismatched types int and uint");
 	CHECK_TYPE_ERRORS("const a = 1 == 2;", "'==' isn't supported yet");
@@ -190,14 +200,19 @@ TEST(Typer, Binary)
 TEST(Typer, VectorConstructors)
 {
 	CHECK_TYPE("const v = float2(1.0, 2.0);",
-		"([DECLARATION]CONST:float2 v ([VALUE]CALL:float2 ([CALLEE]REFERENCE:float2 float2 -> TYPE float2) "
-		"([ARGUMENT]NUMBER:float 1.0) ([ARGUMENT]NUMBER:float 2.0)))");
+		"([DECLARATION]CONST:float2 v ([VALUE]CALL ([CALLEE]REFERENCE float2 -> TYPE float2) "
+		"([ARGUMENT]NUMBER 1.0) ([ARGUMENT]NUMBER 2.0)))");
+	CHECK_TYPE("function f(): float2 { return float2(1.0, 2.0); }",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:float2 float2 -> TYPE float2) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]CALL:float2 ([CALLEE]REFERENCE:float2 float2 -> TYPE float2) ([ARGUMENT]NUMBER:float 1.0) ([ARGUMENT]NUMBER:float 2.0)))))");
 	CHECK_TYPE_ERRORS("const v = float4(1, 2, 3, 4);", "");
 	CHECK_TYPE_ERRORS("const v = float4(float2(1.0, 2.0), 3.0, 4.0);", "");
 	CHECK_TYPE_ERRORS("const v = float4(1.0);", "");
 	CHECK_TYPE_ERRORS("const v = float4(1.0, 2.0);", "float4 needs 4 components, got 2");
 	CHECK_TYPE_ERRORS("const v = float2(float2(1.0, 2.0), 3.0);", "float2 needs 2 components, got 3");
-	CHECK_TYPE_ERRORS("const i = 1; const v = float2(i, i);", "can't construct float2 from int | can't construct float2 from int");
+	// Evaluating a constant stops at the first error, typing code goes on.
+	CHECK_TYPE_ERRORS("const i = 1; const v = float2(i, i);", "can't construct float2 from int");
+	CHECK_TYPE_ERRORS("function f(i: int): float2 { return float2(i, i); }", "can't construct float2 from int | can't construct float2 from int");
 	CHECK_TYPE_ERRORS("const v = int(1);", "constructing int isn't supported yet");
 
 	uint32 bits[4];
@@ -217,8 +232,8 @@ TEST(Typer, VectorConstructors)
 TEST(Typer, Arrays)
 {
 	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 };",
-		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER:uint 2) "
-		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST:[2]float ([ELEMENT]NUMBER:float 1.0) ([ELEMENT]NUMBER:float 2.0)))");
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST ([ELEMENT]NUMBER 1.0) ([ELEMENT]NUMBER 2.0)))");
 	CHECK_TYPE_ERRORS("const n = 2; const a: [n]float = { 1.0, 2.0 };", "");
 	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0 };", "[2]float needs 2 elements, got 1");
 	CHECK_TYPE_ERRORS("const a: [0]float = {};", "array size must be at least 1, got 0");
@@ -250,8 +265,8 @@ TEST(Typer, Arrays)
 TEST(Typer, Indexing)
 {
 	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 }; function f(i: uint): float { return a[i]; }",
-		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER:uint 2) "
-		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST:[2]float ([ELEMENT]NUMBER:float 1.0) ([ELEMENT]NUMBER:float 2.0))) "
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]ARRAY_TYPE:[2]float ([SIZE]NUMBER 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float)) ([VALUE]INIT_LIST ([ELEMENT]NUMBER 1.0) ([ELEMENT]NUMBER 2.0))) "
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER:uint i ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint)) "
 		"([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]INDEX:float "
 		"([OBJECT]REFERENCE:[2]float a -> CONST) ([INDEX]REFERENCE:uint i -> PARAMETER)))))");
@@ -315,11 +330,13 @@ TEST(Typer, Functions)
 	CHECK_TYPE_ERRORS("function f(): uint { x: int; return x; }", "expected uint, got int");
 	CHECK_TYPE_ERRORS("function f(a: int = 1) {}", "default values aren't supported yet");
 	CHECK_TYPE_ERRORS("function g() {} function f() { g(); }", "calling functions isn't supported yet");
-	CHECK_TYPE_ERRORS("function g() {} const a = g;", "'g' is a function, which can only be called");
-	CHECK_TYPE_ERRORS("const a = 1; const b = a();", "int can't be called");
-	CHECK_TYPE_ERRORS("const a = (1)(2);", "int can't be called");
-	CHECK_TYPE_ERRORS("const a = float2(1.0)(2.0);", "float2 can't be called");
-	CHECK_TYPE_ERRORS("const a: int = 1; const b: uint = 2; const c = (a + b)(1);", "mismatched types int and uint");
+	CHECK_TYPE_ERRORS("function g() {} function f(): int { return g; }", "'g' is a function, which can only be called");
+	CHECK_TYPE_ERRORS("function f(a: int): int { return a(); }", "int can't be called");
+	CHECK_TYPE_ERRORS("function f(): int { return (1)(2); }", "int can't be called");
+	CHECK_TYPE_ERRORS("function f(): float2 { return float2(1.0)(2.0); }", "float2 can't be called");
+	CHECK_TYPE_ERRORS("function f(a: int, b: uint): int { return (a + b)(1); }", "mismatched types int and uint");
+	CHECK_TYPE_ERRORS("function g() {} const a = g;", "a const's value must be a constant");
+	CHECK_TYPE_ERRORS("const a = 1; const b = a();", "a const's value must be a constant");
 	// Nested functions have their own return type.
 	CHECK_TYPE_ERRORS("function f(): float { function g(): int { return 1; } return 1.0; }", "");
 }
@@ -329,7 +346,8 @@ TEST(Typer, TypesAndValues)
 	CHECK_TYPE_ERRORS("const a = float4;", "'float4' is a type, not a value");
 	CHECK_TYPE_ERRORS("const a = 1; const b: a = 1;", "expected a type");
 	CHECK_TYPE_ERRORS("const a = [2]float;", "expected a value, got a type");
-	CHECK_TYPE_ERRORS("const a = true;", "bool isn't supported yet");
+	CHECK_TYPE_ERRORS("function f(): int { return true; }", "bool isn't supported yet");
+	CHECK_TYPE_ERRORS("const a = true;", "a const's value must be a constant");
 	CHECK_TYPE_ERRORS("function f(a: float) { a++; }", "'++' isn't supported yet");
 }
 
@@ -337,6 +355,28 @@ TEST(Typer, ConstsMustBeConstant)
 {
 	CHECK_TYPE_ERRORS("function f(a: float) { const b = a; }", "a const's value must be a constant");
 	CHECK_TYPE_ERRORS("const a = 1; const b = a * 2; const c: [b]float = { 1.0, 2.0 };", "");
+}
+
+TEST(Typer, ConstantExpressions)
+{
+	uint32 bits[1];
+	REQUIRE(ConstantBits(test, "struct S { a: float; b: [2]int; } const s: S = { 1.0, { 2, 3 } }; const x = s.b[1];", bits, 1));
+	CHECK_EQ(bits[0], 3u);
+	REQUIRE(ConstantBits(test, "struct S { a: float; b: [2]int; } const s: S = { 1.5, { 2, 3 } }; const x = s.a;", bits, 1));
+	CHECK_EQ(bits[0], Bits(1.5f));
+	CHECK_TYPE_ERRORS("struct S { a: float; } const s: S = { 1.0 }; const x = s.b;", "S has no member 'b'");
+	CHECK_TYPE_ERRORS("const v = float4(1.0)[0];", "can't index float4");
+
+	// A const referring to one that failed doesn't get another error.
+	CHECK_TYPE_ERRORS("const a = 1.5; const b: int = a; const c = b + 1;", "expected int, got float");
+
+	// Variables and parameters are never constants.
+	CHECK_TYPE_ERRORS("function f(v: uint) { const c = v + 1; }", "a const's value must be a constant");
+	CHECK_TYPE_ERRORS("function f() { v: uint; x: [v + 1]float; }", "array size must be a constant");
+
+	// Indices in code are checked when they're constant expressions.
+	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0, 2.0 }; function f(): float { return a[1 + 1]; }", "index 2 is out of bounds for [2]float");
+	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0, 2.0 }; function f(i: uint): float { return a[i + 2]; }", "");
 }
 
 TEST(Typer, DeclarationsTypedOnFirstUse)

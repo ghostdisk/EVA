@@ -508,7 +508,53 @@ ScriptError* EmitError(Typer& typer, const char* format, ...);
 
 // Gives every expression and declaration in a resolved module its type, and every CONST its value. Errors don't stop
 // typing the rest of the tree. Returns whether there were none.
+// Constant expressions (a const's value, array sizes, locations) aren't typed, they're evaluated by EvaluateConstant.
 bool TypeCheck(Typer& typer, Node* module);
+
+// Constant expressions are a subset of the language evaluated at compile time, without typing their nodes: number
+// literals, arithmetic on them, references to consts, indexing and member access on those, initializer lists and
+// vector constructors. Anything else isn't one.
+// The value of node, or nullptr with an error if it isn't a constant expression ("<what> must be a constant") or is
+// invalid. expected is a hint like in the typer: literals take it, initializer lists need it. The caller checks the
+// result's type.
+Constant* EvaluateConstant(Typer& typer, Node* node, Type* expected, const char* what);
+
+// EvaluateConstant, but nullptr without an error if node isn't a constant expression. Still errors for invalid ones,
+// like division by zero.
+Constant* TryEvaluateConstant(Typer& typer, Node* node, Type* expected);
+
+// A constant int or uint as int64.
+int64 ConstantToInteger(Constant* constant);
+
+// Typer internals shared with EvaluateConstant.
+
+// The scalar of a primitive or vector type, nullptr for anything else.
+PrimitiveType* ComponentType(Type* type);
+uint32 ComponentCount(Type* type);
+bool IsNumeric(PrimitiveType* type);
+bool IsInteger(PrimitiveType* type);
+
+// The type a number literal takes where expected is wanted, nullptr with an error if its value doesn't fit.
+PrimitiveType* NumberType(Typer& typer, NumberLiteral* number, Type* expected);
+
+// Errors if node_type's (UNARY or BINARY) op isn't supported yet.
+bool CheckOperator(Typer& typer, NodeType node_type, TokenType op);
+
+// Errors if node_type's op can't be applied to operands of type.
+bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type);
+
+// Counts an argument of type to vector's constructor into components, erroring if it can't be one.
+bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32* components);
+
+// Errors unless components is right for vector's constructor: all of them, or one for a splat.
+bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 components);
+
+// The type a type expression names, also stored in the node.
+Type* EvaluateType(Typer& typer, Node* node);
+
+// Types a CONST and evaluates its value, the first time it's needed. That can be before its turn: a struct laid out
+// early can use a const as an array size.
+bool TypeConst(Typer& typer, Node* node);
 
 // Bounds recursion so untrusted input can't overflow the stack. Goes at the start of every function that can end up
 // calling itself, directly or through others; they share owner.recursion_depth, so mutual recursion counts too.
