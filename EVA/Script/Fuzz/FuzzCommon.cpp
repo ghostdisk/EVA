@@ -12,6 +12,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #undef CONST // clashes with NodeType::CONST
+#undef VOID  // and PrimitiveKind::VOID
 #endif
 
 #if defined(__has_feature)
@@ -524,6 +525,233 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		Fail("%u attributes in the tree for %u in the source", attribute_count, compilation.attribute_count);
 }
 
+// Shader interface
+
+// The entry stage of a function, if it has one entry attribute. The typer checked the argument.
+static bool EntryStage(Node* function, ShaderStage* stage)
+{
+	uint32 count = 0;
+	for (Node* attribute = function->child; attribute; attribute = attribute->next)
+	{
+		if (attribute->usage != Usage::ATTRIBUTE || attribute->node_type != NodeType::CALL)
+			continue;
+		Node* callee = FindChild(attribute, Usage::CALLEE);
+		if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC ||
+			((Intrinsic*)callee->target)->intrinsic_kind != IntrinsicKind::ENTRY)
+			continue;
+		*stage = (ShaderStage)((Node*)FindChild(attribute, Usage::ARGUMENT)->target)->enum_value;
+		count++;
+	}
+	return count == 1;
+}
+
+// The semantic and location attributes of a declaration, read directly rather than through the pass. The last one's
+// kind and value go to kind and value.
+static uint32 ReadIOAttributes(Node* declaration, IOKind* kind, uint32* value)
+{
+	uint32 count = 0;
+	for (Node* attribute = declaration->child; attribute; attribute = attribute->next)
+	{
+		if (attribute->usage != Usage::ATTRIBUTE || attribute->node_type != NodeType::CALL)
+			continue;
+		Node* callee = FindChild(attribute, Usage::CALLEE);
+		if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC)
+			continue;
+		IntrinsicKind intrinsic = ((Intrinsic*)callee->target)->intrinsic_kind;
+		Node* argument = FindChild(attribute, Usage::ARGUMENT);
+		if (intrinsic == IntrinsicKind::SEMANTIC)
+		{
+			*kind = IOKind::SEMANTIC;
+			*value = (uint32)((Node*)argument->target)->enum_value;
+		}
+		else if (intrinsic == IntrinsicKind::LOCATION)
+		{
+			if (argument->node_type != NodeType::CONSTANT)
+				Fail("location's argument isn't a CONSTANT");
+			*kind = IOKind::LOCATION;
+			*value = (uint32)ConstantToInteger(argument->constant);
+		}
+		else
+			continue;
+		count++;
+	}
+	return count;
+}
+
+// Scalar and vector leaves of a value of type. Only called on interfaces that were built, which have few leaves.
+static uint32 CountLeaves(Type* type, uint32 depth = 0)
+{
+	if (depth > 1000)
+		Fail("shader IO nested more than 1000 deep");
+	if (type->type_kind != TypeKind::STRUCT)
+		return 1;
+	StructType* structure = (StructType*)type;
+	uint32 count = 0;
+	for (uint32 i = 0; i < structure->fields.count; ++i)
+		count += CountLeaves(structure->fields[i].type, depth + 1);
+	return count;
+}
+
+static bool IsVoidType(Type* type)
+{
+	return type->type_kind == TypeKind::PRIMITIVE && ((PrimitiveType*)type)->primitive_kind == PrimitiveKind::VOID;
+}
+
+static void CheckShaderIO(Compilation& compilation, EntryPoint& entry_point, ShaderIO& io)
+{
+	Arena* arena = compilation.intermediate_arena;
+	const char* function_name = GetAtomString(entry_point.function->name, arena).CString();
+	if (io.path.count && !arena->Contains(io.path.data))
+		Fail("%s's IO path isn't in the intermediate arena", function_name);
+
+	// The path leads to the declaration and the leaf type.
+	Node* declaration = nullptr;
+	uint32 i = 0;
+	if (io.direction == IODirection::INPUT)
+	{
+		if (!io.path.count)
+			Fail("%s has an input with an empty path", function_name);
+		uint32 index = 0;
+		for (Node* child = entry_point.function->child; child; child = child->next)
+		{
+			if (child->usage == Usage::PARAMETER && index++ == io.path[0])
+				declaration = child;
+		}
+		if (!declaration)
+			Fail("%s's input path starts at parameter %u, it has %u", function_name, io.path[0], index);
+		i = 1;
+	}
+	else
+	{
+		declaration = FindChild(entry_point.function, Usage::RETURN_TYPE);
+		if (!declaration)
+			Fail("%s has an output without a return type", function_name);
+	}
+	Type* type = declaration->type;
+	for (; i < io.path.count; ++i)
+	{
+		if (type->type_kind != TypeKind::STRUCT || io.path[i] >= ((StructType*)type)->fields.count)
+			Fail("%s's IO path goes through %s at %u", function_name, TypeToString(type, arena).CString(), i);
+		StructField& field = ((StructType*)type)->fields[io.path[i]];
+		declaration = field.declaration;
+		type = field.type;
+	}
+	if (type != io.type || declaration != io.declaration)
+		Fail("%s's IO path leads to %s, the record has %s", function_name, TypeToString(type, arena).CString(),
+			TypeToString(io.type, arena).CString());
+
+	PrimitiveType* component = ComponentType(type);
+	if (!component || !IsNumeric(component))
+		Fail("%s has an IO of type %s", function_name, TypeToString(type, arena).CString());
+
+	IOKind kind = IOKind::SEMANTIC;
+	uint32 value = 0;
+	if (ReadIOAttributes(declaration, &kind, &value) != 1)
+		Fail("%s has an IO whose declaration doesn't have exactly one semantic or location", function_name);
+	uint32 recorded = io.io_kind == IOKind::SEMANTIC ? (uint32)io.semantic : io.location;
+	if (kind != io.io_kind || value != recorded)
+		Fail("%s has an IO recorded as %u %u, declared as %u %u", function_name, (uint32)io.io_kind, recorded, (uint32)kind, value);
+
+	if (io.io_kind == IOKind::LOCATION && io.location >= 32)
+		Fail("%s has location %u", function_name, io.location);
+	if (io.io_kind == IOKind::SEMANTIC)
+	{
+		bool vertex = entry_point.stage == ShaderStage::VERTEX;
+		bool input = io.direction == IODirection::INPUT;
+		ZTStringView type_name = TypeToString(type, arena);
+		bool valid = false;
+		if (io.semantic == Semantic::VERTEX_INDEX)
+			valid = vertex && input && type_name == "uint";
+		else if (io.semantic == Semantic::POSITION)
+			valid = vertex != input && type_name == "float4";
+		if (!valid)
+			Fail("%s has semantic %s as an %s of type %s", function_name, SemanticToString(io.semantic).CString(),
+				input ? "input" : "output", type_name.CString());
+	}
+}
+
+// Whether path a comes before b, in the order the parameters and fields are declared.
+static bool PathBefore(Slice<uint32> a, Slice<uint32> b)
+{
+	for (uint32 i = 0; i < a.count && i < b.count; ++i)
+	{
+		if (a[i] != b[i])
+			return a[i] < b[i];
+	}
+	return a.count < b.count;
+}
+
+static void CheckShaderInterface(Compilation& compilation, bool succeeded)
+{
+	ShaderInterface& shader_interface = compilation.shader_interface;
+	Arena* arena = compilation.intermediate_arena;
+	if (shader_interface.entry_points.count && !arena->Contains(shader_interface.entry_points.data))
+		Fail("the entry points aren't in the intermediate arena");
+	if (!succeeded)
+		return;
+
+	// The entry points are the top-level functions with an entry attribute, in order.
+	uint32 index = 0;
+	for (Node* function = compilation.module->child; function; function = function->next)
+	{
+		ShaderStage stage = ShaderStage::VERTEX;
+		if (function->node_type != NodeType::FUNCTION || !EntryStage(function, &stage))
+			continue;
+		if (index >= shader_interface.entry_points.count)
+			Fail("'%s' is missing from the entry points", GetAtomString(function->name, arena).CString());
+		EntryPoint& entry_point = shader_interface.entry_points[index++];
+		if (entry_point.function != function || entry_point.stage != stage)
+			Fail("entry point %u is '%s', expected '%s'", index - 1, GetAtomString(entry_point.function->name, arena).CString(),
+				GetAtomString(function->name, arena).CString());
+	}
+	if (index != shader_interface.entry_points.count)
+		Fail("%u entry points for %u entry functions", shader_interface.entry_points.count, index);
+
+	for (uint32 e = 0; e < shader_interface.entry_points.count; ++e)
+	{
+		EntryPoint& entry_point = shader_interface.entry_points[e];
+		const char* function_name = GetAtomString(entry_point.function->name, arena).CString();
+		if (entry_point.io.count && !arena->Contains(entry_point.io.data))
+			Fail("%s's IO isn't in the intermediate arena", function_name);
+
+		// Every leaf of the parameters and return value is an input or output.
+		uint32 leaves = 0;
+		for (Node* parameter = entry_point.function->child; parameter; parameter = parameter->next)
+		{
+			if (parameter->usage == Usage::PARAMETER)
+				leaves += CountLeaves(parameter->type);
+		}
+		Node* return_node = FindChild(entry_point.function, Usage::RETURN_TYPE);
+		if (return_node && !IsVoidType(return_node->type))
+			leaves += CountLeaves(return_node->type);
+		if (entry_point.io.count != leaves)
+			Fail("%s has %u IO records for %u leaves", function_name, entry_point.io.count, leaves);
+
+		uint32 locations[2] = {};
+		uint32 semantics[2] = {};
+		for (uint32 i = 0; i < entry_point.io.count; ++i)
+		{
+			ShaderIO& io = entry_point.io[i];
+			CheckShaderIO(compilation, entry_point, io);
+			if (i)
+			{
+				ShaderIO& previous = entry_point.io[i - 1];
+				if (previous.direction > io.direction ||
+					(previous.direction == io.direction && !PathBefore(previous.path, io.path)))
+					Fail("%s's IO records are out of order at %u", function_name, i);
+			}
+			uint32 direction = (uint32)io.direction;
+			uint32* used = io.io_kind == IOKind::SEMANTIC ? &semantics[direction] : &locations[direction];
+			uint32 bit = 1u << (io.io_kind == IOKind::SEMANTIC ? (uint32)io.semantic : io.location);
+			if (*used & bit)
+				Fail("%s uses an IO twice", function_name);
+			*used |= bit;
+		}
+		if (entry_point.stage == ShaderStage::VERTEX && !(semantics[(uint32)IODirection::OUTPUT] & (1u << (uint32)Semantic::POSITION)))
+			Fail("vertex shader %s doesn't output position", function_name);
+	}
+}
+
 static uint32 CountAttributes(ZTStringView source)
 {
 	Arena* arena = CreateArena();
@@ -595,6 +823,19 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 		compilation.errors = CopyErrors(compilation.output_arena, typer.errors);
 		return;
 	}
+	if (kind != ContextKind::SHADER)
+		return;
+
+	ShaderInterfaceBuilder builder = { .arena = compilation.intermediate_arena, .error_arena = compilation.output_arena };
+	bool built = BuildShaderInterface(builder, compilation.module, &compilation.shader_interface);
+	CheckErrors(compilation, builder.errors, built, "building the shader interface");
+	CheckShaderInterface(compilation, built);
+	if (!built)
+	{
+		compilation.failed_stage = Stage::INTERFACE;
+		compilation.errors = CopyErrors(compilation.output_arena, builder.errors);
+		return;
+	}
 }
 
 // Allowed arena memory for one compile: enough for TOTAL_CONSTANT_SIZE_LIMIT and the tree of the source, so anything
@@ -622,6 +863,11 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 	// Past resolving the tree is at most RECURSION_LIMIT deep, so serializing it recursively is safe.
 	if (compilation.failed_stage >= Stage::TYPE)
 		SerializeNode(builder, compilation.module);
+	if (compilation.failed_stage >= Stage::INTERFACE)
+	{
+		builder.Append("\n");
+		builder.Append(ShaderInterfaceToString(compilation.shader_interface, arena));
+	}
 	return builder.ToString();
 }
 

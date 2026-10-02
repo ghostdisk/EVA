@@ -12,10 +12,11 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
 - **FuzzScriptGrammar** (`Fuzz_ScriptGrammar.cpp`): generated programs. The input is read as a stream of decisions for
   a generator that knows the grammar and type rules, so coverage guidance works on programs that parse and type.
   - *Valid mode* generates only programs the compiler accepts today and computes, independently, every const's value,
-    every declaration's type and every struct's layout. An error or any difference fails. It has to follow language
-    changes.
+    every declaration's type, every struct's layout and every entry point's inputs and outputs. An error or any
+    difference fails. It has to follow language changes.
   - *Chaos mode* (odd first byte) mixes in type errors, unsupported constructs, nesting around the recursion limit,
-    bad attributes, cyclic structs, huge arrays and exponentially growing constants.
+    bad attributes, cyclic structs, huge arrays, exponentially growing constants and broken shader interfaces
+    (missing, duplicate or misplaced semantics and locations, nested entry points).
 
 ## What's checked for every input (`FuzzCommon.cpp`)
 
@@ -30,6 +31,10 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
   After resolving: no identifiers left, scopes set. After typing: everything has a type, every const a value of the
   right size, layouts are consistent, array types unique, attributes are intrinsics. Every `@` in the source is one
   attribute in the tree, so none get dropped.
+- After the shader interface pass: the entry points are exactly the top-level `@entry` functions, in order. Every
+  input and output's path leads to its declaration and leaf type, that declaration has exactly the recorded semantic
+  or location, every leaf of the parameters and return value is covered once, semantics match their stage, direction
+  and type, nothing is used twice, and vertex shaders output `position`.
 - Determinism: the shader is compiled twice with arenas filled with different garbage, and the results must match,
   which catches reads of uninitialized arena memory.
 - The source is also compiled as a script, which has a different global scope.

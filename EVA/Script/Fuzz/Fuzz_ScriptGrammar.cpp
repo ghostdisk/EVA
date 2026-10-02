@@ -13,12 +13,12 @@
 // enough to exercise the typer and the constant evaluator; this starts there.
 //
 // Valid mode generates only programs the compiler currently accepts, and computes what it expects for them
-// independently: the value of every const, the type of every declaration, the layout of every struct. Any error or
-// difference is a failure. When the language changes, this mode has to follow.
+// independently: the value of every const, the type of every declaration, the layout of every struct, the inputs and
+// outputs of every entry point. Any error or difference is a failure. When the language changes, this mode has to follow.
 //
 // Chaos mode, chosen by the first decision, mixes in type errors, unsupported constructs, deep nesting, bad attributes,
-// cyclic structs, huge arrays and constants that grow exponentially, and only checks what FuzzCommon checks for any
-// input.
+// cyclic structs, huge arrays, constants that grow exponentially and broken shader interfaces, and only checks what
+// FuzzCommon checks for any input.
 //
 // Set EVA_FUZZ_PRINT=1 to print each generated program, e.g. to see what a crashing input generates.
 // std::string and std::vector throughout, since this is tooling.
@@ -74,6 +74,8 @@ struct GenField
 	std::string name;
 	GenType* type = nullptr;
 	uint32 offset = 0;
+	int32 semantic = -1; // the field's @semantic, a Semantic
+	int32 location = -1; // or its @location
 };
 
 // The generator's own model of a type, laid out by the same rules as the compiler's.
@@ -88,7 +90,15 @@ struct GenType
 	uint32 length = 0;         // ARRAY
 	uint32 stride = 0;         // ARRAY
 	std::vector<GenField> fields; // STRUCT
+	bool io = false;              // STRUCT: every leaf has a semantic or location, so it can be an entry point's input or output
+	uint32 locations = 0;         // IO STRUCT: bit per location used by its leaves
+	uint32 semantics = 0;         // IO STRUCT: bit per Semantic used by its leaves
 };
+
+const char* const SEMANTIC_NAMES[] = { "vertex_index", "position" }; // by Semantic
+const uint32 VERTEX_INDEX_BIT = 1u << (uint32)Semantic::VERTEX_INDEX;
+const uint32 POSITION_BIT = 1u << (uint32)Semantic::POSITION;
+const uint32 LOCATION_COUNT = 32;
 
 bool IsComposite(GenType* type)
 {
@@ -188,8 +198,8 @@ struct Generator
 
 	std::vector<Symbol> symbols; // in scope, innermost last
 	std::vector<Expected> expected;
+	std::string expected_interface; // as ShaderInterfaceToString prints it
 	uint32 next_name = 0;
-	uint32 next_location = 0;
 	size_t source_size = 0;
 
 	uint32 Below(uint32 n) { return decisions.Below(n); }
@@ -808,6 +818,7 @@ struct Generator
 		for (GenField& field : type->fields)
 		{
 			text += "\t";
+			text += IOAttribute(field.semantic, field.location, false);
 			if (chaos && Chance(10))
 				text += Attribute();
 			text += field.name + ": " + TypeText(field.type, false) + ";\n";
@@ -828,13 +839,20 @@ struct Generator
 		for (uint32 i = 0; i < count; ++i)
 		{
 			GenType* type = NewType(Kind::STRUCT, NewName("S"), 0, 1);
+			type->io = Below(3) == 0;
 			uint32 field_count = Below(5);
 			uint64 offset = 0;
 			for (uint32 k = 0; k < field_count; ++k)
 			{
 				GenField field;
 				field.name = "m" + std::to_string(k);
-				field.type = PickType((uint32)struct_types.size());
+				if (type->io)
+				{
+					if (!MakeIOField(type, field))
+						break;
+				}
+				else
+					field.type = PickType((uint32)struct_types.size());
 				offset = RoundUp(offset, field.type->alignment);
 				field.offset = (uint32)offset;
 				if (!chaos && offset + field.type->size > UINT32_MAX / 2) // chaos mode wants structs too large
@@ -848,6 +866,8 @@ struct Generator
 			type->size = offset > UINT32_MAX ? UINT32_MAX : (uint32)offset;
 			if (!chaos && type->size > MAX_TYPE_SIZE)
 				type->fields.clear(), type->size = 0, type->alignment = 1;
+			if (type->fields.empty())
+				type->io = false;
 			struct_types.push_back(type);
 		}
 	}
@@ -942,13 +962,226 @@ struct Generator
 		return indent + "return " + Generate(return_type, { .init_list = true }, 0).text + ";\n";
 	}
 
-	std::string Location()
+	// Shader interface
+
+	// How to write a location: a literal, a sum, or a uint const that has the value.
+	std::string LocationText(uint32 location, bool allow_references)
 	{
-		uint32 location = next_location++;
+		switch (Below(4))
+		{
+		case 1:
+		{
+			char text[16];
+			snprintf(text, sizeof(text), "0x%X", location);
+			return text;
+		}
+		case 2:
+		{
+			uint32 left = Below(location + 1);
+			return std::to_string(left) + " + " + std::to_string(location - left);
+		}
+		case 3:
+			if (allow_references)
+			{
+				for (size_t i = symbols.size(); i-- > 0;)
+				{
+					Symbol& symbol = symbols[i];
+					if (symbol.constant && symbol.value.size() == 4 && symbol.type->kind == Kind::UINT &&
+						ReadComponent(symbol.value, 0) == location)
+						return symbol.name;
+				}
+			}
+			break;
+		}
+		return std::to_string(location);
+	}
+
+	// The attribute of a semantic or location, or nothing if it has neither.
+	std::string IOAttribute(int32 semantic, int32 location, bool allow_references)
+	{
+		if (semantic >= 0)
+			return "@semantic(" + std::string(SEMANTIC_NAMES[semantic]) + ") ";
+		if (location >= 0)
+			return "@location(" + LocationText((uint32)location, allow_references) + ") ";
+		return "";
+	}
+
+	// A random location that isn't in used, or -1 if there's none.
+	int32 FreeLocation(uint32 used)
+	{
+		uint32 free = 0;
+		for (uint32 i = 0; i < LOCATION_COUNT; ++i)
+			free += !(used & (1u << i));
+		if (!free)
+			return -1;
+		uint32 pick = Below(free);
+		for (uint32 i = 0; i < LOCATION_COUNT; ++i)
+		{
+			if (!(used & (1u << i)) && pick-- == 0)
+				return (int32)i;
+		}
+		return -1;
+	}
+
+	// A random set bit of mask, which isn't 0.
+	uint32 PickBit(uint32 mask)
+	{
+		std::vector<uint32> bits;
+		for (uint32 i = 0; i < 32; ++i)
+		{
+			if (mask & (1u << i))
+				bits.push_back(i);
+		}
+		return bits[Below((uint32)bits.size())];
+	}
+
+	// An IO struct declared earlier whose locations and semantics don't clash with used ones, and whose semantics are
+	// all allowed and include required. nullptr if there's none.
+	GenType* PickIOStruct(uint32 used_locations, uint32 used_semantics, uint32 allowed, uint32 required, uint32 max_struct)
+	{
+		std::vector<GenType*> candidates;
+		for (uint32 i = 0; i < max_struct; ++i)
+		{
+			GenType* type = struct_types[i];
+			if (!type->io)
+				continue;
+			bool clashes = (type->locations & used_locations) || (type->semantics & used_semantics) ||
+						   (type->semantics & ~allowed) || (type->semantics & required) != required;
+			if (!clashes || (chaos && Chance(20)))
+				candidates.push_back(type);
+		}
+		return candidates.empty() ? nullptr : candidates[Below((uint32)candidates.size())];
+	}
+
+	// A field of an IO struct: a leaf with a semantic or location, or an earlier IO struct, none of them used in the
+	// struct yet. False if there are no locations left.
+	bool MakeIOField(GenType* type, GenField& field)
+	{
+		if (chaos && Chance(5))
+		{
+			field.type = PickType((uint32)struct_types.size()); // without a semantic or location
+			return true;
+		}
+		switch (Below(4))
+		{
+		case 0:
+			if (GenType* nested = PickIOStruct(type->locations, type->semantics, VERTEX_INDEX_BIT | POSITION_BIT, 0,
+					(uint32)struct_types.size()))
+			{
+				field.type = nested;
+				type->locations |= nested->locations;
+				type->semantics |= nested->semantics;
+				return true;
+			}
+			break;
+		case 1:
+		{
+			uint32 free = (VERTEX_INDEX_BIT | POSITION_BIT) & ~type->semantics;
+			if (chaos && Chance(20))
+				free = VERTEX_INDEX_BIT | POSITION_BIT;
+			if (!free)
+				break;
+			field.semantic = (int32)PickBit(free);
+			field.type = field.semantic == (int32)Semantic::POSITION ? vector_types[4] : uint_type;
+			type->semantics |= 1u << field.semantic;
+			return true;
+		}
+		}
+		field.location = chaos && Chance(20) ? (int32)Below(4) : FreeLocation(type->locations);
+		if (field.location < 0)
+			return false;
+		field.type = PickScalarOrVector();
+		type->locations |= 1u << field.location;
+		return true;
+	}
+
+	// The semantics an entry point of stage (1: vertex, 2: fragment) can have as inputs or outputs.
+	static uint32 AllowedSemantics(uint32 stage, bool input)
+	{
+		if (stage == 1)
+			return input ? VERTEX_INDEX_BIT : POSITION_BIT;
+		return input ? POSITION_BIT : 0;
+	}
+
+	// The lines ShaderInterfaceToString prints for a value of type with the semantic or location.
+	void ExpectIO(std::string& lines, bool input, GenType* type, int32 semantic, int32 location, std::vector<uint32>& path)
+	{
+		if (type->kind == Kind::STRUCT)
+		{
+			for (uint32 i = 0; i < type->fields.size(); ++i)
+			{
+				GenField& field = type->fields[i];
+				path.push_back(i);
+				ExpectIO(lines, input, field.type, field.semantic, field.location, path);
+				path.pop_back();
+			}
+			return;
+		}
+		lines += input ? "  input " : "  output ";
+		if (semantic >= 0)
+			lines += "semantic(" + std::string(SEMANTIC_NAMES[semantic]) + ")";
+		else
+			lines += "location(" + std::to_string(location) + ")";
+		lines += " " + type->name + " [";
+		for (size_t i = 0; i < path.size(); ++i)
+			lines += (i ? ", " : "") + std::to_string(path[i]);
+		lines += "]\n";
+	}
+
+	// An entry point's input or output: an IO struct, or a leaf with a semantic or location that isn't used yet.
+	// nullptr if there's nothing left to use.
+	GenType* PickIO(uint32 stage, bool input, uint32& used_locations, uint32& used_semantics, int32& semantic, int32& location)
+	{
+		semantic = -1;
+		location = -1;
+		uint32 allowed = AllowedSemantics(stage, input);
+		if (chaos && Chance(15))
+		{
+			// Anything, with any semantic or location or none.
+			switch (Below(3))
+			{
+			case 0: semantic = (int32)Below(2); break;
+			case 1: location = (int32)Below(LOCATION_COUNT + 2); break;
+			}
+			return PickType((uint32)struct_types.size());
+		}
+		switch (Below(3))
+		{
+		case 0:
+			if (GenType* type = PickIOStruct(used_locations, used_semantics, allowed, 0, (uint32)struct_types.size()))
+			{
+				used_locations |= type->locations;
+				used_semantics |= type->semantics;
+				return type;
+			}
+			break;
+		case 1:
+			if (uint32 free = allowed & ~used_semantics)
+			{
+				semantic = (int32)PickBit(free);
+				used_semantics |= 1u << semantic;
+				return semantic == (int32)Semantic::POSITION ? vector_types[4] : uint_type;
+			}
+			break;
+		}
+		location = FreeLocation(used_locations);
+		if (location < 0)
+			return nullptr;
+		used_locations |= 1u << location;
+		return PickScalarOrVector();
+	}
+
+	// A vertex entry point's return value, which has to include position.
+	GenType* PickVertexOutput(int32& semantic)
+	{
+		semantic = -1;
 		if (Below(2))
-			return "@location(" + std::to_string(location) + ") ";
-		uint32 left = Below(location + 1);
-		return "@location(" + std::to_string(left) + " + " + std::to_string(location - left) + ") ";
+		{
+			if (GenType* type = PickIOStruct(0, 0, POSITION_BIT, POSITION_BIT, (uint32)struct_types.size()))
+				return type;
+		}
+		semantic = (int32)Semantic::POSITION;
+		return vector_types[4];
 	}
 
 	size_t module_symbols = 0;
@@ -957,35 +1190,42 @@ struct Generator
 	{
 		std::string name = NewName("fn");
 		std::string text = indent;
-		uint32 stage = depth ? 0 : Below(3); // 1: vertex, 2: fragment
+		uint32 stage = depth && !(chaos && Chance(5)) ? 0 : Below(3); // 1: vertex, 2: fragment. Nested only in chaos mode
 		if (stage)
 			text += stage == 1 ? "@entry(vertex)\n" + indent : "@entry(fragment)\n" + indent;
 		if (chaos && Chance(10))
 			text += Attribute();
 		text += "function " + name + "(";
 
+		std::string interface_lines;
+		std::vector<uint32> path;
 		size_t scope = symbols.size();
 		uint32 parameter_count = Below(4);
-		bool vertex_index = false;
+		uint32 used_locations = 0;
+		uint32 used_semantics = 0;
 		for (uint32 i = 0; i < parameter_count; ++i)
 		{
-			std::string parameter = NewName("p");
 			GenType* type = nullptr;
-			if (i)
-				text += ", ";
-			if (stage == 1 && !vertex_index && Below(2))
+			std::string attribute;
+			if (stage)
 			{
-				text += "@semantic(vertex_index) ";
-				type = uint_type;
-				vertex_index = true;
-			}
-			else if (stage)
-			{
-				text += Location();
-				type = PickScalarOrVector();
+				int32 semantic = -1;
+				int32 location = -1;
+				type = PickIO(stage, true, used_locations, used_semantics, semantic, location);
+				if (!type)
+					break;
+				attribute = IOAttribute(semantic, location, true);
+				path.push_back(i);
+				ExpectIO(interface_lines, true, type, semantic, location, path);
+				path.pop_back();
 			}
 			else
 				type = PickType((uint32)struct_types.size());
+
+			std::string parameter = NewName("p");
+			if (i)
+				text += ", ";
+			text += attribute;
 			if (chaos && Chance(10))
 				text += Attribute();
 			text += parameter + ": " + TypeText(type, true);
@@ -997,15 +1237,27 @@ struct Generator
 		text += ")";
 
 		GenType* return_type = nullptr;
-		if (stage == 1)
+		if (stage)
 		{
-			text += ": @semantic(position) float4";
-			return_type = vector_types[4];
-		}
-		else if (stage == 2)
-		{
-			text += ": " + Location() + "float4";
-			return_type = vector_types[4];
+			int32 semantic = -1;
+			int32 location = -1;
+			if (stage == 1 && !(chaos && Chance(15)))
+				return_type = PickVertexOutput(semantic);
+			else if (Below(3))
+			{
+				uint32 output_locations = 0;
+				uint32 output_semantics = 0;
+				return_type = PickIO(stage, false, output_locations, output_semantics, semantic, location);
+			}
+			if (return_type)
+			{
+				text += ": " + IOAttribute(semantic, location, true) + TypeText(return_type, true);
+				ExpectIO(interface_lines, false, return_type, semantic, location, path);
+			}
+			else if (Below(2))
+				text += ": void";
+			if (!depth)
+				expected_interface += (stage == 1 ? "vertex " : "fragment ") + name + "\n" + interface_lines;
 		}
 		else if (Below(3))
 		{
@@ -1118,6 +1370,10 @@ void CheckExpected(Fuzz::Compilation& compilation, void* user)
 			Fuzz::Fail("%s's layout differs: size %u alignment %u, expected size %u alignment %u", expected->name.c_str(),
 				type->size, type->alignment, expected->size, expected->alignment);
 	}
+
+	ZTStringView shader_interface = ShaderInterfaceToString(compilation.shader_interface, arena);
+	if (!(shader_interface == StringView(generator.expected_interface.c_str())))
+		Fuzz::Fail("the shader interface is\n%sexpected\n%s", shader_interface.CString(), generator.expected_interface.c_str());
 }
 
 }

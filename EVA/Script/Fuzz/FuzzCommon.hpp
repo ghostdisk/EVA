@@ -19,7 +19,8 @@ enum class Stage : uint8
 	PARSE,
 	RESOLVE,
 	TYPE,
-	DONE, // every stage passed
+	INTERFACE, // shaders only
+	DONE,      // every stage passed
 };
 
 // One run of the front end. Like CompileShader: the AST and context in an intermediate arena, errors in an output
@@ -33,14 +34,15 @@ struct Compilation
 	Stage failed_stage = Stage::DONE;
 	Slice<ScriptError*> errors; // in output_arena
 	uint32 attribute_count = 0; // '@' tokens in the source, once it parsed
+	ShaderInterface shader_interface; // shaders, once typing succeeded
 };
 
 // Compiles source as far as it gets, checking the invariants of each stage. The arenas' blocks are filled with fill, so
 // reading memory nothing wrote shows up as a difference between runs with different fills.
-// Code generation isn't implemented yet, so this stops after typing, where CompileShader panics.
+// Code generation isn't implemented yet, so this stops after the shader interface, where CompileShader panics.
 void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill);
 
-// The errors and, if parsing succeeded, the serialized module. Equal for equal inputs. Allocated in arena.
+// The errors and, if typing was reached, the serialized module and shader interface. Equal for equal inputs. Allocated in arena.
 ZTStringView Fingerprint(Compilation& compilation, Arena* arena);
 
 // Destroys the intermediate arena first and then checks the errors, so errors pointing into it are caught.

@@ -1,0 +1,26 @@
+const COLOR: uint = 1;
+
+struct Varyings
+{
+	@semantic(position) position: float4;
+	@location(0) uv: float2;
+	color: Color;
+}
+
+struct Color
+{
+	@location(COLOR) value: float4;
+	@location(COLOR + 1) id: uint;
+}
+
+@entry(vertex)
+function VSMain(@semantic(vertex_index) vertex_id: uint, @location(2) offset: float2): Varyings
+{
+	return { float4(offset, 0.0, 1.0), offset, { float4(1.0), vertex_id } };
+}
+
+@entry(fragment)
+function PSMain(input: Varyings): @location(0) float4
+{
+	return input.color.value;
+}
