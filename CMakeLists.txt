@@ -122,7 +122,8 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_sources(GPU PRIVATE EVA/GPU/GPU_Metal.hpp EVA/GPU/GPU_Metal.cpp)
-	target_link_libraries(GPU PRIVATE MetalCpp)
+	find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+	target_link_libraries(GPU PRIVATE MetalCpp ${COREGRAPHICS_FRAMEWORK})
 	target_compile_definitions(GPU PUBLIC EVA_METAL)
 endif()
 

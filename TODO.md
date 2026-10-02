@@ -13,6 +13,13 @@
 - Cap the errors per compile and report only the first N, so a large source can't produce an unbounded list.
 - `std::vector` growth in the compiler (`Parser`, `Resolver` and `Typer` errors, the expression parser's stacks, `Context::array_types`) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.
 
+## GPU
+
+- Frame pacing differs per backend. Vulkan waits for the previous frame's fence in `BeginFrame`, so one frame is in flight; Metal is only throttled by `nextDrawable`, so with the layer's 3 drawables the CPU can run 2-3 frames ahead. Harmless while the CPU writes nothing the GPU reads, but the first buffer updated per frame needs a frames-in-flight limit. Pick one count for all backends, and look at latency (D3D11's swap chain has its own queue).
+- Metal: `BeginFrame` gets the drawable up front and holds it all frame. Apple recommends getting it just before encoding the pass that renders to it, which matters once there are offscreen passes; that moves the size check that reports `SWAPCHAIN_OUTDATED`.
+- Minimized and hidden windows. Vulkan skips frames on a zero surface extent and on `SURFACE_UNAVAILABLE`; Metal keeps calling `nextDrawable`, which can block for up to a second per call while the compositor isn't taking drawables (minimized or fully covered windows), stalling the event loop. Check, and if so have PAL report occlusion (`NSWindowDidChangeOcclusionStateNotification`) so `BeginFrame` returns `SKIP`. Separately, a `SKIP` loop spins at 100% CPU on every backend.
+- Metal API validation is off unless `MTL_DEBUG_LAYER=1` is set at launch, since Metal reads it when it loads, so `InitOptions::debug` can't turn it on. Set it (and maybe `MTL_SHADER_VALIDATION=1`) in the debug run configurations. In debug, also create command buffers with `MTL::CommandBufferDescriptor` and `errorOptions = EncoderExecutionStatus`, for errors that say which encoder failed.
+
 ## Core
 
 - The atom table stores its strings in `std::string`s keyed by an `std::unordered_map`. Replace both: keep the strings in an arena owned by the table so they never move, and use our own hash map keyed by `StringView`. That removes the `std::string` built on every `GetAtom` lookup, and lets atom strings be returned as views without copying them into the caller's arena (e.g. in `SerializeNode`).

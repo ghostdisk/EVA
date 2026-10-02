@@ -454,6 +454,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	out_device = Device{
 		.backend = Backend::D3D11,
 		.backbuffer_format = backbuffer.desc.format,
+		.depth_format = TextureFormat::D24_UNORM_S8_UINT, // always supported in D3D11
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,

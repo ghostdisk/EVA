@@ -21,7 +21,13 @@ enum class TextureFormat
 	RGBA8_UNORM,
 	BGRA8_UNORM,
 	D24_UNORM_S8_UINT,
+	D32_FLOAT_S8_UINT,
 };
+
+inline bool IsDepthStencilFormat(TextureFormat format)
+{
+	return format == TextureFormat::D24_UNORM_S8_UINT || format == TextureFormat::D32_FLOAT_S8_UINT;
+}
 
 struct TextureDesc
 {
@@ -110,6 +116,9 @@ struct Device
 {
 	Backend backend = Backend::NONE;
 	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
+	// A depth-stencil format the device can render to: D24_UNORM_S8_UINT, or D32_FLOAT_S8_UINT where there's no 24-bit
+	// depth, like on Apple GPUs and some of AMD's on Vulkan.
+	TextureFormat depth_format = TextureFormat::D24_UNORM_S8_UINT;
 	void (*Shutdown)() = nullptr;
 	void (*HandlePALEvent)(const PAL::Event&) = nullptr;
 	RenderPass* (*CreateRenderPass)(const RenderPassDesc&) = nullptr;

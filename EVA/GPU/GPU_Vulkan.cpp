@@ -85,6 +85,7 @@ static VkFence submit_fence = VK_NULL_HANDLE;
 static VulkanRenderPass* active_render_pass = nullptr;
 static VulkanFramebuffer* active_framebuffer = nullptr;
 static bool volk_initialized = false;
+static TextureFormat depth_format = TextureFormat::D24_UNORM_S8_UINT;
 
 static bool CreateSwapchain();
 static void DestroySwapchainResources();
@@ -124,13 +125,15 @@ static VkFormat ToVkFormat(TextureFormat format)
 		return VK_FORMAT_B8G8R8A8_UNORM;
 	case TextureFormat::D24_UNORM_S8_UINT:
 		return VK_FORMAT_D24_UNORM_S8_UINT;
+	case TextureFormat::D32_FLOAT_S8_UINT:
+		return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	}
 	return VK_FORMAT_UNDEFINED;
 }
 
 static VkImageAspectFlags ImageAspect(TextureFormat format)
 {
-	return format == TextureFormat::D24_UNORM_S8_UINT
+	return IsDepthStencilFormat(format)
 			   ? VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT
 			   : VK_IMAGE_ASPECT_COLOR_BIT;
 }
@@ -370,8 +373,8 @@ static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 			.samples = VK_SAMPLE_COUNT_1_BIT,
 			.loadOp = ToVkLoadOp(attachment.load_op),
 			.storeOp = ToVkStoreOp(attachment.store_op),
-			.stencilLoadOp = attachment.format == TextureFormat::D24_UNORM_S8_UINT ? ToVkLoadOp(attachment.load_op) : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-			.stencilStoreOp = attachment.format == TextureFormat::D24_UNORM_S8_UINT ? ToVkStoreOp(attachment.store_op) : VK_ATTACHMENT_STORE_OP_DONT_CARE,
+			.stencilLoadOp = IsDepthStencilFormat(attachment.format) ? ToVkLoadOp(attachment.load_op) : VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+			.stencilStoreOp = IsDepthStencilFormat(attachment.format) ? ToVkStoreOp(attachment.store_op) : VK_ATTACHMENT_STORE_OP_DONT_CARE,
 			.initialLayout = ImageLayout(attachment.state_during),
 			.finalLayout = ImageLayout(attachment.state_during),
 		};
@@ -725,6 +728,7 @@ static void Shutdown()
 	active_render_pass = nullptr;
 	active_framebuffer = nullptr;
 	volk_initialized = false;
+	depth_format = TextureFormat::D24_UNORM_S8_UINT;
 	pal_window = nullptr;
 }
 
@@ -1049,6 +1053,12 @@ static bool InitImpl(const InitOptions& init_options)
 	{ // pick physical device:
 		if (!ChoosePhysicalDevice())
 			return false;
+		// Vulkan requires one of the two to be a depth attachment format.
+		VkFormatProperties properties = {};
+		vkGetPhysicalDeviceFormatProperties(physical_device.device, VK_FORMAT_D24_UNORM_S8_UINT, &properties);
+		depth_format = properties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+						   ? TextureFormat::D24_UNORM_S8_UINT
+						   : TextureFormat::D32_FLOAT_S8_UINT;
 	}
 
 	{ // create device:
@@ -1114,6 +1124,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	out_device = Device{
 		.backend = Backend::VULKAN,
 		.backbuffer_format = backbuffers[0].desc.format,
+		.depth_format = depth_format,
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,

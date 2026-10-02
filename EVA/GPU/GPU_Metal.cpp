@@ -89,7 +89,10 @@ static MTL::PixelFormat ToMTLPixelFormat(TextureFormat format)
 	case TextureFormat::BGRA8_UNORM:
 		return MTL::PixelFormatBGRA8Unorm;
 	case TextureFormat::D24_UNORM_S8_UINT:
-		// Apple GPUs have no 24-bit depth, so it's the nearest format they all have.
+		// Only on some Intel and AMD Macs: Apple GPUs have no 24-bit depth. The device's depth_format is D32_FLOAT_S8_UINT.
+		MTL_ASSERT(device->isDepth24Stencil8PixelFormatSupported());
+		return MTL::PixelFormatDepth24Unorm_Stencil8;
+	case TextureFormat::D32_FLOAT_S8_UINT:
 		return MTL::PixelFormatDepth32Float_Stencil8;
 	}
 	return MTL::PixelFormatInvalid;
@@ -191,6 +194,19 @@ static FrameStatus BeginFrame()
 static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 {
 	MTL_ASSERT(desc.attachments.data && desc.attachments.count);
+	// Everything else assumes an attachment that isn't color is the depth-stencil one.
+	uint32 depth_count = 0;
+	for (uint32 i = 0; i < desc.attachments.count; ++i)
+	{
+		ImageState state = desc.attachments[i].state_during;
+		MTL_ASSERT(state == ImageState::COLOR_ATTACHMENT || state == ImageState::DEPTH_STENCIL_ATTACHMENT);
+		if (state == ImageState::DEPTH_STENCIL_ATTACHMENT)
+		{
+			MTL_ASSERT(IsDepthStencilFormat(desc.attachments[i].format));
+			++depth_count;
+		}
+	}
+	MTL_ASSERT(depth_count <= 1);
 	MetalRenderPass* render_pass = new MetalRenderPass;
 	render_pass->attachments.assign(desc.attachments.data, desc.attachments.data + desc.attachments.count);
 	return reinterpret_cast<RenderPass*>(render_pass);
@@ -283,7 +299,7 @@ static Pipeline* CreatePipeline(const CreatePipelineOptions& options)
 		else
 		{
 			descriptor->setDepthAttachmentPixelFormat(format);
-			if (attachment.format == TextureFormat::D24_UNORM_S8_UINT)
+			if (IsDepthStencilFormat(attachment.format))
 				descriptor->setStencilAttachmentPixelFormat(format);
 		}
 	}
@@ -340,7 +356,7 @@ static void CmdBeginRenderPass(const RenderPassBeginDesc& desc)
 		depth->setLoadAction(load);
 		depth->setStoreAction(store);
 		depth->setClearDepth(clear.depth);
-		if (attachment.format == TextureFormat::D24_UNORM_S8_UINT)
+		if (IsDepthStencilFormat(attachment.format))
 		{
 			MTL::RenderPassStencilAttachmentDescriptor* stencil = descriptor->stencilAttachment();
 			stencil->setTexture(texture);
@@ -444,6 +460,11 @@ static bool InitImpl(const InitOptions& init_options)
 	layer = static_cast<CA::MetalLayer*>(init_options.window->metal_layer);
 	layer->setDevice(device);
 	layer->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
+	// Like Vulkan's SRGB_NONLINEAR. Without a colorspace, macOS doesn't color match the layer, so colors are stretched to
+	// the display's gamut, oversaturated on P3 displays.
+	CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+	layer->setColorspace(colorspace);
+	CGColorSpaceRelease(colorspace);
 	CGSize size = layer->drawableSize();
 	window_width = (uint32)size.width;
 	window_height = (uint32)size.height;
@@ -465,6 +486,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	out_device = Device{
 		.backend = Backend::METAL,
 		.backbuffer_format = backbuffer.desc.format,
+		.depth_format = TextureFormat::D32_FLOAT_S8_UINT,
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,
