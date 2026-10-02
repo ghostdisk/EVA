@@ -189,19 +189,22 @@ side has no side effects.
   nothing else in the call points to; the front end copies a by-value argument into a temporary local. That has the
   same meaning as HLSL's `inout`, MSL's references, SPIR-V's pointer parameters and bytecode references.
 - **Arrays and structs are returned** through a pointer to the caller's local, passed instead of a return value.
-- **Locals** are listed on their function, with an optional initializer. The safety pass zeroes the rest.
+- **Locals** are listed on their function, with an optional initializer. Without one they start as zero: the language
+  zero-initializes everything whose type doesn't specify another initial value.
 - **Globals** have an address space, an optional initializer, and for shader inputs and outputs the `ShaderIO` they
-  stand for.
+  stand for. `private` globals without an initializer start as zero, like locals.
 - **Entry points** get a generated wrapper that loads the inputs, calls the function, and stores the outputs. Only
   wrappers touch `input` and `output` globals.
 
 ## Semantics and safety
 
-Ops have the targets' raw semantics: out-of-bounds `access` and integer division by zero aren't defined by the IR. A
-safety pass, chosen per target, defines them before anything is emitted:
+Ops have the targets' raw semantics: out-of-bounds `access` and integer division by zero aren't defined by the IR.
+What defines them depends on the target:
 
-- **Shaders:** clamp indices that aren't known to be in bounds, guard integer division, zero locals, ensure loops
-  terminate.
+- **Shaders:** a safety pass clamps indices that aren't known to be in bounds. The MSL emitter also guards integer
+  division, shifts, signed overflow, float to int conversion and loop termination, which are C++ undefined behavior
+  there. Elsewhere they only give undefined values, which are accepted, as in WebGL. The decisions and what other
+  compilers do are in [Plan/Shaders.md](Plan/Shaders.md) (11).
 - **Scripts:** the VM checks bounds, memory accesses and division itself and raises a script error.
 
 ## Errors and validation
