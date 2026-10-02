@@ -83,12 +83,31 @@ enum class TokenType : uint8
 // Keep in sync with TokenType (Script_Dump.cpp).
 ZTStringView TokenToString(TokenType token_type);
 
+enum class NumberKind : uint8
+{
+	INTEGER,
+	FLOAT, // written with a '.' or an exponent
+};
+
+// A NUMBER's value, parsed by the lexer. The typer picks its type and checks that the value fits.
+struct NumberLiteral
+{
+	NumberKind kind = NumberKind::INTEGER;
+	union
+	{
+		uint64 integer = 0; // INTEGER: never negative, '-' is an operator
+		double f64;         // FLOAT
+	};
+	float f32 = 0.0f; // FLOAT: parsed separately rather than rounded from f64, so it's exact too. inf if too large
+};
+
 struct Token
 {
 	TokenType token_type = TokenType::NONE;
 	char* start = nullptr;
 	char* end = nullptr;
-	Atom atom = Atom::NONE; // IDENTIFIER only
+	Atom atom = Atom::NONE;          // IDENTIFIER only
+	NumberLiteral* number = nullptr; // NUMBER only
 };
 
 enum class NodeType : uint8
@@ -187,7 +206,7 @@ struct Node : Element
 	Type* type = nullptr; // set by the typer: the value's type, or for a type expression the type it names
 	union
 	{
-		char* text = nullptr; // NUMBER: as written. Parsed once the expected type is known
+		NumberLiteral* number = nullptr; // NUMBER
 		bool value;           // BOOL
 		TokenType op;         // UNARY, POSTFIX, BINARY
 		Scope* scope;         // MODULE, FUNCTION, BLOCK: set by the resolver. A function shares its body's scope
@@ -489,6 +508,10 @@ bool TypeCheck(Typer& typer, Node* module);
 
 // e.g. float4, [3]float2. Allocated in arena when it isn't a type's own name.
 ZTStringView TypeToString(Type* type, Arena* arena);
+
+// e.g. 12, 0.5, 1000.0, 1e+40: integers in decimal, floats as the shortest text that parses back to the same double,
+// always with a '.' or an exponent. Allocated in arena.
+ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
 
 void DumpNode(Node* node, Arena* arena, int indent = 0);
 

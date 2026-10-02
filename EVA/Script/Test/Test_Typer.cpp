@@ -113,27 +113,34 @@ TEST(Typer, Numbers)
 {
 	CHECK_TYPE("const a = 1;", "([DECLARATION]CONST:int a ([VALUE]NUMBER:int 1))");
 	CHECK_TYPE("const a = 1.5;", "([DECLARATION]CONST:float a ([VALUE]NUMBER:float 1.5))");
-	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]NUMBER:float 1e3))");
+	CHECK_TYPE("const a = 1e3;", "([DECLARATION]CONST:float a ([VALUE]NUMBER:float 1000.0))");
 	CHECK_TYPE("const a: uint = 1;", "([DECLARATION]CONST:uint a ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]NUMBER:uint 1))");
 	// Literals take the expected type.
 	CHECK_TYPE("const a: float = 1;", "([DECLARATION]CONST:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]NUMBER:float 1))");
 
-	CHECK_TYPE_ERRORS("const a: int = 1.5;", "'1.5' is not a valid int");
+	CHECK_TYPE_ERRORS("const a: int = 1.5;", "'1.5' is not an integer");
 	CHECK_TYPE_ERRORS("const a: int = 2147483647;", "");
 	CHECK_TYPE_ERRORS("const a: int = 2147483648;", "'2147483648' is out of range for int");
 	CHECK_TYPE_ERRORS("const a: uint = 4294967295;", "");
 	CHECK_TYPE_ERRORS("const a: uint = 4294967296;", "'4294967296' is out of range for uint");
-	CHECK_TYPE_ERRORS("const a = 1x;", "'1x' is not a valid int");
-	CHECK_TYPE_ERRORS("const a = 1.5f;", "'1.5f' is not a valid float");
-	CHECK_TYPE_ERRORS("const a = 1e40;", "'1e40' is out of range for float");
-	CHECK_TYPE_ERRORS("const a = 0x;", "'0x' is not a valid int");
-	CHECK_TYPE_ERRORS("const a: float = 0x10;", "'0x10' is not a valid float");
+	CHECK_TYPE_ERRORS("const a = 1e40;", "'1e+40' is out of range for float");
+
+	// Integers become floats only when they fit exactly.
+	CHECK_TYPE_ERRORS("const a: float = 16777216;", "");
+	CHECK_TYPE_ERRORS("const a: float = 16777217;", "'16777217' can't be represented exactly as a float");
+	CHECK_TYPE_ERRORS("const a: float = 0x40000000;", "");
+	CHECK_TYPE_ERRORS("const a: float = 18446744073709551615;", "'18446744073709551615' can't be represented exactly as a float");
 
 	uint32 bits[1];
 	REQUIRE(ConstantBits(test, "const a = 0x1F;", bits, 1));
 	CHECK_EQ(bits[0], 31u);
 	REQUIRE(ConstantBits(test, "const a = 0.5;", bits, 1));
 	CHECK_EQ(bits[0], Bits(0.5f));
+	REQUIRE(ConstantBits(test, "const a: float = 0x40000000;", bits, 1));
+	CHECK_EQ(bits[0], Bits(1073741824.0f));
+	// Parsed as a float directly, not rounded from a double.
+	REQUIRE(ConstantBits(test, "const a = 0.1;", bits, 1));
+	CHECK_EQ(bits[0], Bits(0.1f));
 }
 
 TEST(Typer, Unary)
@@ -215,7 +222,7 @@ TEST(Typer, Arrays)
 	CHECK_TYPE_ERRORS("const n = 2; const a: [n]float = { 1.0, 2.0 };", "");
 	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0 };", "[2]float needs 2 elements, got 1");
 	CHECK_TYPE_ERRORS("const a: [0]float = {};", "array size must be at least 1, got 0");
-	CHECK_TYPE_ERRORS("const a: [1.0]float = { 1.0 };", "'1.0' is not a valid uint");
+	CHECK_TYPE_ERRORS("const a: [1.0]float = { 1.0 };", "'1.0' is not an integer");
 	CHECK_TYPE_ERRORS("const n = 1.0; const a: [n]float = { 1.0 };", "array size must be an int or uint, got float");
 	CHECK_TYPE_ERRORS("const a: [4294967295][4294967295]float4 = {};", "[4294967295]float4 is too large");
 	CHECK_TYPE_ERRORS("function f(n: uint, a: [n]float) {}", "array size must be a constant");
@@ -343,7 +350,7 @@ TEST(Typer, ShaderAttributes)
 	CHECK_SHADER_TYPE_ERRORS("@vertex(1) function f() {}", "'vertex' takes no arguments");
 	CHECK_SHADER_TYPE_ERRORS("function f(@builtin a: uint) {}", "'builtin' takes one argument");
 	CHECK_SHADER_TYPE_ERRORS("function f(@location(0, 1) a: float4) {}", "'location' takes one argument");
-	CHECK_SHADER_TYPE_ERRORS("function f(@location(1.5) a: float4) {}", "'1.5' is not a valid uint");
+	CHECK_SHADER_TYPE_ERRORS("function f(@location(1.5) a: float4) {}", "'1.5' is not an integer");
 	CHECK_SHADER_TYPE_ERRORS("function f(n: uint, @location(n) a: float4) {}", "a location must be a constant");
 	CHECK_SHADER_TYPE_ERRORS("function f(@builtin(0) a: uint) {}", "expected Builtin, got int");
 	CHECK_SHADER_TYPE_ERRORS("struct S {} @S function f() {}", "'S' isn't an attribute");

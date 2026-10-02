@@ -114,7 +114,7 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 
 	node->node_type = NodeType::VARIABLE;
 	node->name = left->name;
-	node->text = nullptr; // clears the op
+	node->number = nullptr; // clears the op
 	right->usage = Usage::DECLARED_TYPE;
 
 	bool resolved = ResolveChildren(resolver, node);

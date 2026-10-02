@@ -89,101 +89,65 @@ static bool ImplicitCoCast(Typer& typer, Node*& a, Node*& b)
 	return false;
 }
 
-static bool LooksLikeFloat(const char* text)
+static const char* NumberName(Typer& typer, NumberLiteral* number)
 {
-	if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
-		return false;
-	return strchr(text, '.') || strchr(text, 'e') || strchr(text, 'E');
+	return NumberToString(number, typer.arena).CString();
 }
 
-// digits [. digits] [e [+-] digits], with at least one digit before the exponent.
-static bool IsDecimalFloat(const char* text)
+// Whether the integer has at most bits significant bits, so a float with a mantissa that wide holds it exactly.
+static bool FitsMantissa(uint64 value, uint32 bits)
 {
-	uint32 digits = 0;
-	while (*text >= '0' && *text <= '9')
-	{
-		text++;
-		digits++;
-	}
-	if (*text == '.')
-	{
-		text++;
-		while (*text >= '0' && *text <= '9')
-		{
-			text++;
-			digits++;
-		}
-	}
-	if (!digits)
-		return false;
-	if (*text == 'e' || *text == 'E')
-	{
-		text++;
-		if (*text == '+' || *text == '-')
-			text++;
-		if (!(*text >= '0' && *text <= '9'))
-			return false;
-		while (*text >= '0' && *text <= '9')
-			text++;
-	}
-	return !*text;
+	while (value && !(value & 1))
+		value >>= 1;
+	return value < ((uint64)1 << bits);
 }
 
-// The NUMBER's text as type, which is int, uint or float. Integers are decimal or 0x hex, floats decimal.
-static bool ParseNumber(Typer& typer, Node* node, PrimitiveType* type, uint32* out_bits)
+// Errors if the literal's value doesn't fit type, which is int, uint or float. Integers only go to floats exactly.
+static bool CheckNumberFits(Typer& typer, NumberLiteral* number, PrimitiveType* type)
 {
-	const char* text = node->text;
 	if (type->primitive_kind == PrimitiveKind::FLOAT)
 	{
-		if (!IsDecimalFloat(text))
+		if (number->kind == NumberKind::FLOAT && isinf(number->f32))
 		{
-			EmitError(typer, "'%s' is not a valid float", text);
+			EmitError(typer, "'%s' is out of range for float", NumberName(typer, number));
 			return false;
 		}
-		float value = strtof(text, nullptr);
-		if (isinf(value))
+		if (number->kind == NumberKind::INTEGER && !FitsMantissa(number->integer, 24))
 		{
-			EmitError(typer, "'%s' is out of range for float", text);
+			EmitError(typer, "'%s' can't be represented exactly as a float", NumberName(typer, number));
 			return false;
 		}
-		memcpy(out_bits, &value, sizeof(value));
 		return true;
 	}
 
-	bool hex = text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
-	const char* digit = hex ? text + 2 : text;
-	uint32 base = hex ? 16 : 10;
-	uint64 limit = type->primitive_kind == PrimitiveKind::SIGNED ? INT32_MAX : UINT32_MAX;
-	uint64 value = 0;
-	if (!*digit)
+	if (number->kind == NumberKind::FLOAT)
 	{
-		EmitError(typer, "'%s' is not a valid %s", text, TypeName(typer, type));
+		EmitError(typer, "'%s' is not an integer", NumberName(typer, number));
 		return false;
 	}
-	for (; *digit; ++digit)
+	uint64 limit = UINT32_MAX;
+	if (type->primitive_kind == PrimitiveKind::SIGNED)
+		limit = INT32_MAX;
+	if (number->integer > limit)
 	{
-		char ch = *digit;
-		uint32 digit_value = 16;
-		if (ch >= '0' && ch <= '9')
-			digit_value = ch - '0';
-		else if (ch >= 'a' && ch <= 'f')
-			digit_value = ch - 'a' + 10;
-		else if (ch >= 'A' && ch <= 'F')
-			digit_value = ch - 'A' + 10;
-		if (digit_value >= base)
-		{
-			EmitError(typer, "'%s' is not a valid %s", text, TypeName(typer, type));
-			return false;
-		}
-		value = value * base + digit_value;
-		if (value > limit)
-		{
-			EmitError(typer, "'%s' is out of range for %s", text, TypeName(typer, type));
-			return false;
-		}
+		EmitError(typer, "'%s' is out of range for %s", NumberName(typer, number), TypeName(typer, type));
+		return false;
 	}
-	*out_bits = (uint32)value;
 	return true;
+}
+
+// The literal as type, which it fits.
+static uint32 NumberBits(NumberLiteral* number, PrimitiveType* type)
+{
+	if (type->primitive_kind != PrimitiveKind::FLOAT)
+		return (uint32)number->integer;
+
+	float value = number->f32;
+	if (number->kind == NumberKind::INTEGER)
+		value = (float)number->integer;
+	uint32 bits;
+	memcpy(&bits, &value, sizeof(bits));
+	return bits;
 }
 
 static Constant* NewConstant(Typer& typer, Type* type)
@@ -317,11 +281,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 	{
 	case NodeType::NUMBER:
 	{
-		uint32 bits = 0;
-		if (!ParseNumber(typer, node, (PrimitiveType*)node->type, &bits))
-			return nullptr;
 		Constant* constant = NewConstant(typer, node->type);
-		WriteComponent(constant, 0, bits);
+		WriteComponent(constant, 0, NumberBits(node->number, (PrimitiveType*)node->type));
 		return constant;
 	}
 	case NodeType::REFERENCE:
@@ -720,10 +681,9 @@ static bool TypeNumber(Typer& typer, Node* node, Type* expected)
 	PrimitiveType* type = typer.context->int_type;
 	if (expected && expected->type_kind == TypeKind::PRIMITIVE && IsNumeric((PrimitiveType*)expected))
 		type = (PrimitiveType*)expected;
-	else if (LooksLikeFloat(node->text))
+	else if (node->number->kind == NumberKind::FLOAT)
 		type = typer.context->float_type;
-	uint32 bits = 0;
-	if (!ParseNumber(typer, node, type, &bits))
+	if (!CheckNumberFits(typer, node->number, type))
 		return false;
 	node->type = type;
 	return true;
@@ -867,8 +827,11 @@ static bool TypeBinary(Typer& typer, Node* node, Type* expected)
 	Node* right = FindChild(node, Usage::RIGHT);
 	bool left_literal = left->node_type == NodeType::NUMBER;
 	bool right_literal = right->node_type == NodeType::NUMBER;
-	if (left_literal && right_literal && !expected && (LooksLikeFloat(left->text) || LooksLikeFloat(right->text)))
-		expected = typer.context->float_type;
+	if (left_literal && right_literal && !expected)
+	{
+		if (left->number->kind == NumberKind::FLOAT || right->number->kind == NumberKind::FLOAT)
+			expected = typer.context->float_type;
+	}
 	Node* first = left;
 	Node* second = right;
 	if (left_literal && !right_literal)

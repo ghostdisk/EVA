@@ -1,4 +1,6 @@
 #include <EVA/Script/Script.hpp>
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 namespace EVA::Script
@@ -85,6 +87,111 @@ static bool IsDigit(char ch)
 	return ch >= '0' && ch <= '9';
 }
 
+static uint32 HexDigitValue(char ch)
+{
+	if (ch >= '0' && ch <= '9')
+		return ch - '0';
+	if (ch >= 'a' && ch <= 'f')
+		return ch - 'a' + 10;
+	if (ch >= 'A' && ch <= 'F')
+		return ch - 'A' + 10;
+	return 16;
+}
+
+// digits [. digits] [e [+-] digits], with at least one digit before the exponent.
+static bool IsDecimalFloat(const char* text)
+{
+	uint32 digits = 0;
+	while (IsDigit(*text))
+	{
+		text++;
+		digits++;
+	}
+	if (*text == '.')
+	{
+		text++;
+		while (IsDigit(*text))
+		{
+			text++;
+			digits++;
+		}
+	}
+	if (!digits)
+		return false;
+	if (*text == 'e' || *text == 'E')
+	{
+		text++;
+		if (*text == '+' || *text == '-')
+			text++;
+		if (!IsDigit(*text))
+			return false;
+		while (IsDigit(*text))
+			text++;
+	}
+	return !*text;
+}
+
+// Parses the NUMBER token in [start, end): a decimal or 0x hex integer, or a decimal float.
+static NumberLiteral* LexNumber(Parser& parser, char* start, char* end)
+{
+	// NUL-terminated for strtod / strtof.
+	size_t length = end - start;
+	char* text = (char*)parser.arena->Allocate(length + 1, 1);
+	memcpy(text, start, length);
+	text[length] = '\0';
+
+	NumberLiteral* number = parser.arena->New<NumberLiteral>();
+	bool hex = text[0] == '0' && (text[1] == 'x' || text[1] == 'X');
+	if (!hex && strpbrk(text, ".eE"))
+	{
+		if (!IsDecimalFloat(text))
+		{
+			EmitError(parser, "invalid number '%s'", text);
+			return nullptr;
+		}
+		number->kind = NumberKind::FLOAT;
+		number->f64 = strtod(text, nullptr);
+		number->f32 = strtof(text, nullptr);
+		if (isinf(number->f64))
+		{
+			EmitError(parser, "'%s' is out of range", text);
+			return nullptr;
+		}
+		return number;
+	}
+
+	const char* digit = text;
+	uint32 base = 10;
+	if (hex)
+	{
+		digit = text + 2;
+		base = 16;
+	}
+	if (!*digit)
+	{
+		EmitError(parser, "invalid number '%s'", text);
+		return nullptr;
+	}
+	uint64 value = 0;
+	for (; *digit; ++digit)
+	{
+		uint32 digit_value = HexDigitValue(*digit);
+		if (digit_value >= base)
+		{
+			EmitError(parser, "invalid number '%s'", text);
+			return nullptr;
+		}
+		if (value > (UINT64_MAX - digit_value) / base)
+		{
+			EmitError(parser, "'%s' is out of range", text);
+			return nullptr;
+		}
+		value = value * base + digit_value;
+	}
+	number->integer = value;
+	return number;
+}
+
 static bool SkipWhitespace(Parser& parser)
 {
 	char* start = parser.head;
@@ -162,10 +269,14 @@ bool LexToken(Parser& parser)
 			   ((*end == '+' || *end == '-') && (end[-1] == 'e' || end[-1] == 'E')))
 			end++;
 
+		NumberLiteral* number = LexNumber(parser, parser.head, end);
+		if (!number)
+			return false;
 		parser.token = Token{
 			.token_type = TokenType::NUMBER,
 			.start = parser.head,
 			.end = end,
+			.number = number,
 		};
 		return true;
 	}

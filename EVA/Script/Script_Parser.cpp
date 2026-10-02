@@ -71,16 +71,6 @@ static bool ExpectIdentifier(Parser& parser, Atom* out_name)
 	return true;
 }
 
-// Copies the token's text into the arena, NUL-terminated.
-static char* CopyText(Parser& parser, Token token)
-{
-	size_t length = token.end - token.start;
-	char* text = (char*)parser.arena->Allocate(length + 1, 1);
-	memcpy(text, token.start, length);
-	text[length] = '\0';
-	return text;
-}
-
 uint32 RECURSION_LIMIT = 256;
 
 static const uint32 PREFIX_PRECEDENCE = 13;
@@ -376,7 +366,7 @@ Node* ParseExpression(Parser& parser)
 			case TokenType::NUMBER:
 			{
 				Node* node = NewNode(parser, NodeType::NUMBER);
-				node->text = CopyText(parser, parser.token);
+				node->number = parser.token.number;
 				EatToken(parser);
 				parser.operands.push_back(node);
 				expect_operand = false;
@@ -638,7 +628,7 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 	}
 
 	node->name = head->name;
-	node->text = nullptr;
+	node->number = nullptr; // clears the op
 	Node** tail = &node->child;
 	if (type)
 	{

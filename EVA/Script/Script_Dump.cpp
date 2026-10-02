@@ -1,5 +1,7 @@
 #include <EVA/Script/Script.hpp>
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 namespace EVA::Script
 {
@@ -144,6 +146,34 @@ ZTStringView TypeToString(Type* type, Arena* arena)
 	return GetAtomString(type->name, arena);
 }
 
+ZTStringView NumberToString(NumberLiteral* number, Arena* arena)
+{
+	if (number->kind == NumberKind::INTEGER)
+		return aprintf(arena, "%llu", (unsigned long long)number->integer);
+
+	// Fixed notation in the usual range, with as few decimals as round trip, an exponent outside of it.
+	char text[64];
+	double value = number->f64;
+	double magnitude = fabs(value);
+	if (magnitude == 0.0 || (magnitude >= 1e-4 && magnitude < 1e15))
+	{
+		for (int decimals = 1; decimals <= 24; ++decimals)
+		{
+			snprintf(text, sizeof(text), "%.*f", decimals, value);
+			if (strtod(text, nullptr) == value)
+				break;
+		}
+		return aprintf(arena, "%s", text);
+	}
+	for (int precision = 1; precision <= 17; ++precision)
+	{
+		snprintf(text, sizeof(text), "%.*g", precision, value);
+		if (strtod(text, nullptr) == value)
+			break;
+	}
+	return aprintf(arena, "%s", text);
+}
+
 // A node's type, or a built-in's kind and name, e.g. TYPE float4. A constant is named by its type.
 static ZTStringView TargetToString(Element* target, Arena* arena)
 {
@@ -173,7 +203,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 	switch (node->node_type)
 	{
 		case NodeType::NUMBER:
-			printf(" | %s", node->text);
+			printf(" | %s", NumberToString(node->number, arena).CString());
 			break;
 		case NodeType::BOOL:
 			printf(" | %s", node->value ? "true" : "false");
@@ -219,7 +249,8 @@ void SerializeNode(StringBuilder& builder, Node* node)
 	switch (node->node_type)
 	{
 		case NodeType::NUMBER:
-			builder.AppendFormat(" %s", node->text);
+			builder.Append(" ");
+			builder.Append(NumberToString(node->number, builder.arena));
 			break;
 		case NodeType::BOOL:
 			builder.Append(node->value ? " true" : " false");

@@ -1,5 +1,6 @@
 #include <EVA/Test/Test.hpp>
 #include <EVA/Script/Script.hpp>
+#include <math.h>
 
 using namespace EVA;
 using namespace EVA::Script;
@@ -87,6 +88,63 @@ TEST(Lexer, Numbers)
 {
 	CHECK_TOKENS("0 123 1.5 .5 1e3 1e-3 1E+3",
 		"number(0) number(123) number(1.5) number(.5) number(1e3) number(1e-3) number(1E+3)");
+}
+
+// Lexes source as a single NUMBER token.
+static NumberLiteral* LexNumber(Test::Context& test, const char* source)
+{
+	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	if (!LexToken(parser) || parser.token.token_type != TokenType::NUMBER)
+		return nullptr;
+	return parser.token.number;
+}
+
+TEST(Lexer, NumberValues)
+{
+	NumberLiteral* number = LexNumber(test, "123");
+	REQUIRE(number);
+	CHECK_EQ(number->kind, NumberKind::INTEGER);
+	CHECK_EQ(number->integer, (uint64)123);
+
+	number = LexNumber(test, "0x1F");
+	REQUIRE(number);
+	CHECK_EQ(number->kind, NumberKind::INTEGER);
+	CHECK_EQ(number->integer, (uint64)31);
+
+	number = LexNumber(test, "18446744073709551615");
+	REQUIRE(number);
+	CHECK_EQ(number->integer, UINT64_MAX);
+
+	// Both precisions are parsed from the text, so neither is rounded twice.
+	number = LexNumber(test, "0.1");
+	REQUIRE(number);
+	CHECK_EQ(number->kind, NumberKind::FLOAT);
+	CHECK_EQ(number->f64, 0.1);
+	CHECK_EQ(number->f32, 0.1f);
+
+	number = LexNumber(test, "1e3");
+	REQUIRE(number);
+	CHECK_EQ(number->kind, NumberKind::FLOAT);
+	CHECK_EQ(number->f64, 1000.0);
+
+	// Too large for a float but not a double: the typer decides whether that's an error.
+	number = LexNumber(test, "1e40");
+	REQUIRE(number);
+	CHECK_EQ(number->f64, 1e40);
+	CHECK(isinf(number->f32));
+}
+
+TEST(Lexer, InvalidNumbers)
+{
+	CHECK_TOKENS("1x", "error: invalid number '1x'");
+	CHECK_TOKENS("1.5f", "error: invalid number '1.5f'");
+	CHECK_TOKENS("0x", "error: invalid number '0x'");
+	CHECK_TOKENS("0xG", "error: invalid number '0xG'");
+	CHECK_TOKENS("1e", "error: invalid number '1e'");
+	CHECK_TOKENS("1.2.3", "error: invalid number '1.2.3'");
+	CHECK_TOKENS("18446744073709551616", "error: '18446744073709551616' is out of range");
+	CHECK_TOKENS("0x10000000000000000", "error: '0x10000000000000000' is out of range");
+	CHECK_TOKENS("1e400", "error: '1e400' is out of range");
 }
 
 TEST(Lexer, DotBeforeDigitStartsANumber)
