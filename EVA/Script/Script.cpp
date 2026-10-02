@@ -190,8 +190,17 @@ static Slice<ScriptError*> ToSlice(Arena* arena, const std::vector<ScriptError*>
 
 CompileShaderResult CompileShader(const CompileShaderOptions& options)
 {
+	using GPU::Backend;
+	using GPU::CompiledEntryPoint;
 	Arena* arena = options.arena;
 	ZTStringView source = options.source;
+	if (options.backend != Backend::VULKAN && options.backend != Backend::D3D11)
+	{
+		ScriptError* error = arena->New<ScriptError>();
+		error->message = aprintf(arena, "shaders can't be compiled for backend %d yet", (int)options.backend);
+		return { .errors = ToSlice(arena, { error }) };
+	}
+
 	Arena* intermediate_arena = CreateArena();
 	DEFER(DestroyArena(intermediate_arena));
 
@@ -239,7 +248,7 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 			continue;
 		CompiledEntryPoint& compiled = entry_points[index++];
 		compiled = { .stage = entry_point->stage, .name = entry_point->function->name };
-		if (options.target == Target::SPIRV)
+		if (options.backend == Backend::VULKAN)
 		{
 			Slice<uint32> words = EmitSPIRV(ir, function, arena, errors);
 			compiled.code = Slice<uint8>((uint8*)words.data, words.count * 4);

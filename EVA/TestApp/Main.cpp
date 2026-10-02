@@ -74,21 +74,6 @@ static void PollEvents()
 
 int EVA::AppMain()
 {
-	Arena* shader_arena = CreateArena();
-	DEFER(DestroyArena(shader_arena));
-
-	Script::CompileShaderResult triangle_shader = Script::CompileShader({
-		.arena = shader_arena,
-		.source = triangle_shader_source,
-		.target = Script::Target::SPIRV,
-	});
-	if (triangle_shader.errors.count)
-	{
-		for (uint32 i = 0; i < triangle_shader.errors.count; ++i)
-			printf("error: %s\n", triangle_shader.errors[i]->message.CString());
-		return 1;
-	}
-
 	PAL::InitWindow(&window,
 		{
 			.name = "EVA Test App",
@@ -143,6 +128,26 @@ int EVA::AppMain()
 	DEFER(GPU::device.DestroyRenderPass(render_pass));
 	DEFER(DestroyFramebuffers());
 	CreateFramebuffers(render_pass);
+
+	// Compiled for whichever backend the device got. Without a pipeline, frames are just cleared.
+	Arena* shader_arena = CreateArena();
+	DEFER(DestroyArena(shader_arena));
+	Script::CompileShaderResult triangle_shader = Script::CompileShader({
+		.arena = shader_arena,
+		.source = triangle_shader_source,
+		.backend = GPU::device.backend,
+	});
+	for (uint32 i = 0; i < triangle_shader.errors.count; ++i)
+		printf("error: %s\n", triangle_shader.errors[i]->message.CString());
+	GPU::Pipeline* pipeline = nullptr;
+	if (!triangle_shader.errors.count)
+	{
+		pipeline = GPU::device.CreatePipeline({
+			.shaders = triangle_shader.entry_points,
+			.render_pass = render_pass,
+		});
+	}
+	DEFER(GPU::device.DestroyPipeline(pipeline));
 	while (!quit)
 	{
 		PollEvents();
@@ -159,12 +164,17 @@ int EVA::AppMain()
 				CreateFramebuffers(render_pass);
 			continue;
 		}
-		GPU::device.BeginRenderPass({
+		GPU::device.CmdBeginRenderPass({
 			.render_pass = render_pass,
 			.framebuffer = framebuffers[GPU::device.GetCurrentBackbufferIndex()],
 			.clear_values = { { .color = { 1.0f, 0.0f, 0.0f, 1.0f } } },
 		});
-		GPU::device.EndRenderPass();
+		if (pipeline)
+		{
+			GPU::device.CmdBindPipeline(pipeline);
+			GPU::device.CmdDraw(3, 0);
+		}
+		GPU::device.CmdEndRenderPass();
 		GPU::device.EndFrame();
 	}
 

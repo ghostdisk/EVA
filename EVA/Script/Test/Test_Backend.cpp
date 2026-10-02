@@ -4,6 +4,8 @@
 
 using namespace EVA;
 using namespace EVA::Script;
+using GPU::Backend;
+using GPU::CompiledEntryPoint;
 
 // Every output is checked with the target's own tools when they're available (OutputValidation.hpp): SPIRV-Tools'
 // validator and fxc.
@@ -19,19 +21,19 @@ static Slice<uint32> Words(CompiledEntryPoint& entry_point)
 }
 
 // The output's problem according to the target's tools, empty if there's none.
-static ZTStringView Check(Test::Context& test, Target target, CompiledEntryPoint& entry_point)
+static ZTStringView Check(Test::Context& test, Backend target, CompiledEntryPoint& entry_point)
 {
-	if (target == Target::SPIRV)
+	if (target == Backend::VULKAN)
 		return Validation::ValidateSPIRV(Words(entry_point), test.arena);
 	return Validation::CompileHLSL(Text(entry_point), entry_point.stage, test.arena);
 }
 
 // Compiles source for target. Every entry point has to compile and pass the target's tools. Returns them, or none with
 // a failure reported.
-static Slice<CompiledEntryPoint> Compile(Test::Context& test, const char* file, int line, const char* source, Target target)
+static Slice<CompiledEntryPoint> Compile(Test::Context& test, const char* file, int line, const char* source, Backend target)
 {
-	CompileShaderResult result = CompileShader({ .arena = test.arena, .source = source, .target = target });
-	const char* target_name = target == Target::SPIRV ? "SPIR-V" : "HLSL";
+	CompileShaderResult result = CompileShader({ .arena = test.arena, .source = source, .backend = target });
+	const char* target_name = target == Backend::VULKAN ? "SPIR-V" : "HLSL";
 	if (result.errors.count)
 	{
 		Test::ReportFailure(test, file, line, "\"%s\"\n    failed to compile: %s", source, result.errors[0]->message.CString());
@@ -43,7 +45,7 @@ static Slice<CompiledEntryPoint> Compile(Test::Context& test, const char* file, 
 		ZTStringView problem = Check(test, target, entry_point);
 		if (!problem.length)
 			continue;
-		ZTStringView output = target == Target::SPIRV ? Validation::DisassembleSPIRV(Words(entry_point), test.arena)
+		ZTStringView output = target == Backend::VULKAN ? Validation::DisassembleSPIRV(Words(entry_point), test.arena)
 													  : InternString(test.arena, Text(entry_point));
 		Test::ReportFailure(test, file, line, "\"%s\"\n    %s output for entry point %u is invalid: %s\n%s", source, target_name,
 			i, problem.CString(), output.CString());
@@ -54,24 +56,24 @@ static Slice<CompiledEntryPoint> Compile(Test::Context& test, const char* file, 
 
 static void CheckValid(Test::Context& test, const char* file, int line, const char* source)
 {
-	Compile(test, file, line, source, Target::SPIRV);
-	Compile(test, file, line, source, Target::HLSL);
+	Compile(test, file, line, source, Backend::VULKAN);
+	Compile(test, file, line, source, Backend::D3D11);
 }
 
 // The output for each entry point, SPIR-V disassembled, separated by blank lines.
-static void CheckOutput(Test::Context& test, const char* file, int line, const char* source, Target target, StringView expected)
+static void CheckOutput(Test::Context& test, const char* file, int line, const char* source, Backend target, StringView expected)
 {
 	Slice<CompiledEntryPoint> entry_points = Compile(test, file, line, source, target);
 	if (!entry_points.count)
 		return;
-	if (target == Target::SPIRV && !Validation::HaveSPIRVTools())
+	if (target == Backend::VULKAN && !Validation::HaveSPIRVTools())
 		return;
 	StringBuilder builder(test.arena);
 	for (uint32 i = 0; i < entry_points.count; ++i)
 	{
 		if (i)
 			builder.Append("\n");
-		builder.Append(target == Target::SPIRV ? Validation::DisassembleSPIRV(Words(entry_points[i]), test.arena)
+		builder.Append(target == Backend::VULKAN ? Validation::DisassembleSPIRV(Words(entry_points[i]), test.arena)
 											   : StringView(Text(entry_points[i])));
 	}
 	ZTStringView got = builder.ToString();
@@ -82,8 +84,8 @@ static void CheckOutput(Test::Context& test, const char* file, int line, const c
 }
 
 #define CHECK_BACKENDS(source) CheckValid(test, __FILE__, __LINE__, source)
-#define CHECK_HLSL(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Target::HLSL, expected)
-#define CHECK_SPIRV(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Target::SPIRV, expected)
+#define CHECK_HLSL(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Backend::D3D11, expected)
+#define CHECK_SPIRV(source, expected) CheckOutput(test, __FILE__, __LINE__, source, Backend::VULKAN, expected)
 
 static const char* TRIANGLE = R"(
 const positions: [3]float2 = { float2(0.0, 0.5), float2(0.5, -0.5), float2(-0.5, -0.5) };
@@ -141,7 +143,7 @@ TEST(Backend, TriangleSPIRV)
 {
 	CHECK_SPIRV(TRIANGLE,
 		"OpCapability Shader\n"
-		"%35 = OpExtInstImport \"GLSL.std.450\"\n"
+		"%38 = OpExtInstImport \"GLSL.std.450\"\n"
 		"OpMemoryModel Logical GLSL450\n"
 		"OpEntryPoint Vertex %2 \"main\" %18 %21\n"
 		"OpDecorate %18 BuiltIn VertexIndex\n"
@@ -167,30 +169,33 @@ TEST(Backend, TriangleSPIRV)
 		"%21 = OpVariable %20 Output\n"
 		"%22 = OpTypeVoid\n"
 		"%23 = OpTypeFunction %22\n"
-		"%27 = OpTypeFunction %19 %5\n"
-		"%30 = OpConstantNull %5\n"
-		"%32 = OpTypePointer Function %5\n"
-		"%34 = OpConstant %5 2\n"
-		"%37 = OpTypePointer Private %4\n"
-		"%40 = OpConstant %3 1\n"
+		"%30 = OpTypeFunction %19 %5\n"
+		"%33 = OpConstantNull %5\n"
+		"%35 = OpTypePointer Function %5\n"
+		"%37 = OpConstant %5 2\n"
+		"%40 = OpTypePointer Private %4\n"
+		"%43 = OpConstant %3 1\n"
 		"%2 = OpFunction %22 None %23\n"
 		"%24 = OpLabel\n"
 		"%25 = OpLoad %5 %18\n"
 		"%26 = OpFunctionCall %19 %1 %25\n"
-		"OpStore %21 %26\n"
+		"%27 = OpCompositeExtract %3 %26 1\n"
+		"%28 = OpFNegate %3 %27\n"
+		"%29 = OpCompositeInsert %19 %28 %26 1\n"
+		"OpStore %21 %29\n"
 		"OpReturn\n"
 		"OpFunctionEnd\n"
-		"%1 = OpFunction %19 None %27\n"
-		"%28 = OpFunctionParameter %5\n"
-		"%29 = OpLabel\n"
-		"%31 = OpVariable %32 Function %30\n"
-		"OpStore %31 %28\n"
-		"%33 = OpLoad %5 %31\n"
-		"%36 = OpExtInst %5 %35 UMin %33 %34\n"
-		"%38 = OpAccessChain %37 %9 %36\n"
-		"%39 = OpLoad %4 %38\n"
-		"%41 = OpCompositeConstruct %19 %39 %10 %40\n"
-		"OpReturnValue %41\n"
+		"%1 = OpFunction %19 None %30\n"
+		"%31 = OpFunctionParameter %5\n"
+		"%32 = OpLabel\n"
+		"%34 = OpVariable %35 Function %33\n"
+		"OpStore %34 %31\n"
+		"%36 = OpLoad %5 %34\n"
+		"%39 = OpExtInst %5 %38 UMin %36 %37\n"
+		"%41 = OpAccessChain %40 %9 %39\n"
+		"%42 = OpLoad %4 %41\n"
+		"%44 = OpCompositeConstruct %19 %42 %10 %43\n"
+		"OpReturnValue %44\n"
 		"OpFunctionEnd\n"
 		"\n"
 		"OpCapability Shader\n"
@@ -507,7 +512,7 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 	if (CheckBackendError(test, file, line, "SPIR-V", words.count != 0, errors, spirv_error) && !spirv_error)
 	{
 		entry_point.code = Slice<uint8>((uint8*)words.data, words.count * 4);
-		ZTStringView problem = Check(test, Target::SPIRV, entry_point);
+		ZTStringView problem = Check(test, Backend::VULKAN, entry_point);
 		if (problem.length)
 			Test::ReportFailure(test, file, line, "invalid SPIR-V: %s\n%s", problem.CString(),
 				Validation::DisassembleSPIRV(words, test.arena).CString());
@@ -517,7 +522,7 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 	if (CheckBackendError(test, file, line, "HLSL", hlsl.length != 0, errors, hlsl_error) && !hlsl_error)
 	{
 		entry_point.code = Slice<uint8>(hlsl.data, (uint32)hlsl.length);
-		ZTStringView problem = Check(test, Target::HLSL, entry_point);
+		ZTStringView problem = Check(test, Backend::D3D11, entry_point);
 		if (problem.length)
 			Test::ReportFailure(test, file, line, "invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
 	}
@@ -629,11 +634,11 @@ TEST(Backend, ArrayTooLargeForHLSL)
 {
 	// fxc allows 65536 elements in an array, all its dimensions together. SPIR-V has no such limit for a variable.
 	const char* source = "@entry(fragment) function PS(@location(0) i: uint): @location(0) float4 { v: [2][40000]float4; return v[i][1]; }";
-	CompileShaderResult hlsl = CompileShader({ .arena = test.arena, .source = source, .target = Target::HLSL });
+	CompileShaderResult hlsl = CompileShader({ .arena = test.arena, .source = source, .backend = Backend::D3D11 });
 	REQUIRE_EQ(hlsl.errors.count, 1u);
 	CHECK_EQ(hlsl.errors[0]->message, "an array of 80000 elements is too large for HLSL, the limit is 65536");
 	CHECK_EQ(hlsl.entry_points.count, 0u);
-	Compile(test, __FILE__, __LINE__, source, Target::SPIRV);
+	Compile(test, __FILE__, __LINE__, source, Backend::VULKAN);
 }
 
 TEST(Backend, ConstantTooLargeForSPIRV)

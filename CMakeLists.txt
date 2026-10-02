@@ -50,6 +50,7 @@ add_library(Core STATIC
 	EVA/Core/Atom.hpp
 	EVA/Core/Atom.cpp
 	EVA/Core/Error.hpp
+	EVA/Core/GPUShared.hpp
 	EVA/Core/Panic.hpp
 	EVA/Core/Panic.cpp
 	EVA/Core/StringBuilder.hpp
@@ -103,7 +104,7 @@ target_link_libraries(GPU PUBLIC PAL)
 
 if(WIN32)
 	target_sources(GPU PRIVATE EVA/GPU/GPU_D3D11.cpp)
-	target_link_libraries(GPU PRIVATE d3d11 dxgi)
+	target_link_libraries(GPU PRIVATE d3d11 dxgi d3dcompiler)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

@@ -7,6 +7,9 @@
 // tested on. The IR maps almost one to one: its control flow is already structured, its locals are Function variables,
 // its interface globals Input and Output variables. Only blocks reachable from the entry block are emitted; merge blocks
 // nothing reaches get a bare OpUnreachable.
+//
+// Vulkan's clip space has Y pointing down, D3D's and Metal's up, so the vertex wrapper negates the Y of the position it
+// outputs. Every pixel then lands in the same row on every API, render targets included; user code never sees it.
 
 namespace EVA::Script
 {
@@ -51,6 +54,7 @@ enum SpvOp : uint16
 	OpVectorShuffle = 79,
 	OpCompositeConstruct = 80,
 	OpCompositeExtract = 81,
+	OpCompositeInsert = 82,
 	OpConvertFToU = 109,
 	OpConvertFToS = 110,
 	OpConvertSToF = 111,
@@ -595,7 +599,21 @@ struct Emitter
 		switch (value.op)
 		{
 		case IROp::LOAD: Result(ref, OpLoad, type, { Id(o[0]) }); break;
-		case IROp::STORE: Emit(*out, OpStore, { Id(o[0]), Id(o[1]) }); break;
+		case IROp::STORE:
+		{
+			uint32 stored = Id(o[1]);
+			IRValue& pointer = module[o[0]];
+			bool output = pointer.kind == IRValueKind::GLOBAL && ((PointerType*)pointer.type)->space == AddressSpace::OUTPUT;
+			if (output && pointer.global.io->io_kind == IOKind::SEMANTIC && pointer.global.io->semantic == Semantic::POSITION)
+			{
+				// Clip space Y up, like D3D and Metal.
+				uint32 y = Value(OpCompositeExtract, context.float_type, { stored, 1 });
+				uint32 flipped = Value(OpFNegate, context.float_type, { y });
+				stored = Value(OpCompositeInsert, module[o[1]].type, { flipped, stored, 1 });
+			}
+			Emit(*out, OpStore, { Id(o[0]), stored });
+			break;
+		}
 		case IROp::ACCESS:
 		{
 			Words indices;

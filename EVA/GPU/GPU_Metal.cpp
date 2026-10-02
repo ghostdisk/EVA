@@ -60,11 +60,28 @@ static uint32 GetCurrentBackbufferIndex()
 	return 0;
 }
 
-static void BeginRenderPass(const RenderPassBeginDesc&)
+static Pipeline* CreatePipeline(const CreatePipelineOptions&)
+{
+	return nullptr;
+}
+
+static void DestroyPipeline(Pipeline*)
 {
 }
 
-static void EndRenderPass()
+static void CmdBeginRenderPass(const RenderPassBeginDesc&)
+{
+}
+
+static void CmdEndRenderPass()
+{
+}
+
+static void CmdBindPipeline(Pipeline*)
+{
+}
+
+static void CmdDraw(uint32, uint32)
 {
 }
 
@@ -75,6 +92,7 @@ static void EndFrame()
 static bool Init(Device& out_device, const InitOptions&)
 {
 	out_device = Device{
+		.backend = Backend::METAL,
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
 		.CreateRenderPass = CreateRenderPass,
@@ -87,8 +105,12 @@ static bool Init(Device& out_device, const InitOptions&)
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
-		.BeginRenderPass = BeginRenderPass,
-		.EndRenderPass = EndRenderPass,
+		.CreatePipeline = CreatePipeline,
+		.DestroyPipeline = DestroyPipeline,
+		.CmdBeginRenderPass = CmdBeginRenderPass,
+		.CmdEndRenderPass = CmdEndRenderPass,
+		.CmdBindPipeline = CmdBindPipeline,
+		.CmdDraw = CmdDraw,
 		.EndFrame = EndFrame,
 	};
 	return true;

@@ -3,6 +3,7 @@
 #include <EVA/Core/Arena.hpp>
 #include <EVA/Core/Atom.hpp>
 #include <EVA/Core/Error.hpp>
+#include <EVA/Core/GPUShared.hpp>
 #include <EVA/Core/StringBuilder.hpp>
 #include <vector>
 
@@ -433,12 +434,8 @@ enum class Semantic : uint8
 // As written in @semantic(...). Keep in sync with Semantic (Script_Dump.cpp).
 ZTStringView SemanticToString(Semantic semantic);
 
-// The values of the ShaderStage enum, the argument of @entry(...).
-enum class ShaderStage : uint8
-{
-	VERTEX,
-	FRAGMENT,
-};
+// The language's ShaderStage enum, the argument of @entry(...), is the GPU layer's.
+using GPU::ShaderStage;
 
 // As written in @entry(...). Keep in sync with ShaderStage (Script_Dump.cpp).
 ZTStringView ShaderStageToString(ShaderStage stage);
@@ -699,33 +696,17 @@ ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* a
 // Meant for tests and debugging
 void SerializeNode(StringBuilder& builder, Node* node);
 
-// What CompileShader generates code for.
-enum class Target : uint8
-{
-	SPIRV, // SPIR-V 1.0 for Vulkan
-	HLSL,  // HLSL for fxc, shader model 5.0 (D3D11)
-};
-
 struct CompileShaderOptions
 {
 	Arena* arena = nullptr; // where the result goes, so the caller decides how long it lives
 	ZTStringView source;
-	Target target = Target::SPIRV;
-};
-
-// One @entry(...) function, compiled on its own: its code holds only what the entry point uses. The entry function in
-// the code is always named main.
-struct CompiledEntryPoint
-{
-	ShaderStage stage = ShaderStage::VERTEX;
-	Atom name = Atom::NONE; // the user's name, e.g. VSMain
-	Slice<uint8> code;      // SPIR-V words, or HLSL text (zero terminated, not counted)
+	GPU::Backend backend = GPU::Backend::NONE; // VULKAN: SPIR-V 1.0. D3D11: HLSL for fxc at shader model 5.0
 };
 
 struct CompileShaderResult
 {
-	Slice<CompiledEntryPoint> entry_points; // in source order
-	Slice<ScriptError*> errors;             // empty on success
+	Slice<GPU::CompiledEntryPoint> entry_points; // one per @entry(...) function, in source order
+	Slice<ScriptError*> errors;                  // empty on success
 };
 
 // Errors in the source are reported by the front end. Past it, only the target's own size limits can fail, like an

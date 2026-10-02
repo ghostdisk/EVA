@@ -38,6 +38,12 @@ struct VulkanRenderPass
 	std::vector<AttachmentDesc> attachments;
 };
 
+struct VulkanPipeline
+{
+	VkPipeline handle = VK_NULL_HANDLE;
+	VkPipelineLayout layout = VK_NULL_HANDLE;
+};
+
 struct VulkanFramebuffer
 {
 	VkFramebuffer handle = VK_NULL_HANDLE;
@@ -102,6 +108,10 @@ static VulkanRenderPass* ToImpl(RenderPass* render_pass)
 static VulkanFramebuffer* ToImpl(Framebuffer* framebuffer)
 {
 	return reinterpret_cast<VulkanFramebuffer*>(framebuffer);
+}
+static VulkanPipeline* ToImpl(Pipeline* pipeline)
+{
+	return reinterpret_cast<VulkanPipeline*>(pipeline);
 }
 
 static VkFormat ToVkFormat(TextureFormat format)
@@ -436,7 +446,126 @@ static void DestroyFramebuffer(Framebuffer* framebuffer)
 	delete impl;
 }
 
-static void BeginRenderPass(const RenderPassBeginDesc& desc)
+static Pipeline* CreatePipeline(const CreatePipelineOptions& options)
+{
+	assert(options.render_pass);
+	VulkanRenderPass* render_pass = ToImpl(options.render_pass);
+
+	std::vector<VkPipelineShaderStageCreateInfo> stages;
+	for (uint32 i = 0; i < options.shaders.count; ++i)
+	{
+		const CompiledEntryPoint& shader = options.shaders[i];
+		VkShaderModuleCreateInfo module_info{
+			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+			.codeSize = shader.code.count,
+			.pCode = (const uint32*)shader.code.data,
+		};
+		VkShaderModule module = VK_NULL_HANDLE;
+		VK_ASSERT(vkCreateShaderModule(device, &module_info, nullptr, &module));
+		stages.push_back(VkPipelineShaderStageCreateInfo{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			.stage = shader.stage == ShaderStage::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT : VK_SHADER_STAGE_FRAGMENT_BIT,
+			.module = module,
+			.pName = ENTRY_POINT_NAME,
+		});
+	}
+	DEFER(for (const VkPipelineShaderStageCreateInfo& stage : stages) vkDestroyShaderModule(device, stage.module, nullptr));
+
+	VkPipelineVertexInputStateCreateInfo vertex_input{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+	};
+	VkPipelineInputAssemblyStateCreateInfo input_assembly{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+	};
+	// Set by CmdBeginRenderPass, so the pipeline works with framebuffers of any size.
+	VkPipelineViewportStateCreateInfo viewport{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.scissorCount = 1,
+	};
+	VkDynamicState dynamic_states[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+	VkPipelineDynamicStateCreateInfo dynamic{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+		.dynamicStateCount = 2,
+		.pDynamicStates = dynamic_states,
+	};
+	// Clockwise on screen is the front, like every backend's. The vertex shader flips Y to match D3D, which leaves
+	// screen positions as they are there, and Vulkan's facing math on framebuffer coordinates (Y down) calls that
+	// clockwise.
+	VkPipelineRasterizationStateCreateInfo rasterization{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.cullMode = VK_CULL_MODE_NONE,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.lineWidth = 1.0f,
+	};
+	VkPipelineMultisampleStateCreateInfo multisample{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+	};
+	std::vector<VkPipelineColorBlendAttachmentState> blend_attachments;
+	for (const AttachmentDesc& attachment : render_pass->attachments)
+	{
+		if (attachment.state_during != ImageState::COLOR_ATTACHMENT)
+			continue;
+		blend_attachments.push_back(VkPipelineColorBlendAttachmentState{
+			.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+							  VK_COLOR_COMPONENT_A_BIT,
+		});
+	}
+	VkPipelineColorBlendStateCreateInfo blend{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.attachmentCount = (uint32)blend_attachments.size(),
+		.pAttachments = blend_attachments.data(),
+	};
+
+	VulkanPipeline* pipeline = new VulkanPipeline;
+	VkPipelineLayoutCreateInfo layout_info{
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+	};
+	VK_ASSERT(vkCreatePipelineLayout(device, &layout_info, nullptr, &pipeline->layout));
+	VkGraphicsPipelineCreateInfo create_info{
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = (uint32)stages.size(),
+		.pStages = stages.data(),
+		.pVertexInputState = &vertex_input,
+		.pInputAssemblyState = &input_assembly,
+		.pViewportState = &viewport,
+		.pRasterizationState = &rasterization,
+		.pMultisampleState = &multisample,
+		.pColorBlendState = &blend,
+		.pDynamicState = &dynamic,
+		.layout = pipeline->layout,
+		.renderPass = render_pass->handle,
+		.subpass = 0,
+	};
+	VK_ASSERT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &create_info, nullptr, &pipeline->handle));
+	return reinterpret_cast<Pipeline*>(pipeline);
+}
+
+static void DestroyPipeline(Pipeline* pipeline)
+{
+	if (!pipeline)
+		return;
+	VulkanPipeline* impl = ToImpl(pipeline);
+	VK_ASSERT(vkDeviceWaitIdle(device));
+	vkDestroyPipeline(device, impl->handle, nullptr);
+	vkDestroyPipelineLayout(device, impl->layout, nullptr);
+	delete impl;
+}
+
+static void CmdBindPipeline(Pipeline* pipeline)
+{
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ToImpl(pipeline)->handle);
+}
+
+static void CmdDraw(uint32 vertex_count, uint32 first_vertex)
+{
+	vkCmdDraw(command_buffer, vertex_count, 1, first_vertex, 0);
+}
+
+static void CmdBeginRenderPass(const RenderPassBeginDesc& desc)
 {
 	VulkanRenderPass* render_pass = ToImpl(desc.render_pass);
 	VulkanFramebuffer* framebuffer = ToImpl(desc.framebuffer);
@@ -466,11 +595,19 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 		.pClearValues = clear_values.data(),
 	};
 	vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	VkViewport viewport{
+		.width = (float)framebuffer->width,
+		.height = (float)framebuffer->height,
+		.maxDepth = 1.0f,
+	};
+	VkRect2D scissor{ .extent = { framebuffer->width, framebuffer->height } };
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 	active_render_pass = render_pass;
 	active_framebuffer = framebuffer;
 }
 
-static void EndRenderPass()
+static void CmdEndRenderPass()
 {
 	vkCmdEndRenderPass(command_buffer);
 	for (uint32 i = 0; i < active_render_pass->attachments.size(); ++i)
@@ -975,6 +1112,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		return false;
 	}
 	out_device = Device{
+		.backend = Backend::VULKAN,
 		.backbuffer_format = backbuffers[0].desc.format,
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
@@ -988,8 +1126,12 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
-		.BeginRenderPass = BeginRenderPass,
-		.EndRenderPass = EndRenderPass,
+		.CreatePipeline = CreatePipeline,
+		.DestroyPipeline = DestroyPipeline,
+		.CmdBeginRenderPass = CmdBeginRenderPass,
+		.CmdEndRenderPass = CmdEndRenderPass,
+		.CmdBindPipeline = CmdBindPipeline,
+		.CmdDraw = CmdDraw,
 		.EndFrame = EndFrame,
 	};
 	return true;

@@ -1,5 +1,6 @@
 #pragma once
 #include <EVA/Core/Common.hpp>
+#include <EVA/Core/GPUShared.hpp>
 
 namespace EVA::PAL
 {
@@ -13,6 +14,7 @@ namespace EVA::GPU
 struct Texture;
 struct RenderPass;
 struct Framebuffer;
+struct Pipeline;
 
 enum class TextureFormat
 {
@@ -95,8 +97,18 @@ enum class FrameStatus
 	SWAPCHAIN_OUTDATED,
 };
 
+// A graphics pipeline, kept minimal until there's more to draw than a triangle: triangle lists without vertex buffers,
+// no culling, no depth, no blending, writing every channel of each of the render pass's color attachments.
+struct CreatePipelineOptions
+{
+	Slice<CompiledEntryPoint> shaders;  // a VERTEX one and optionally a FRAGMENT one, compiled for the device's backend
+	RenderPass* render_pass = nullptr;  // its subpass, whose color attachments get the fragment shader's outputs
+};
+
+// Device functions starting with Cmd record commands into the current frame, between BeginFrame and EndFrame.
 struct Device
 {
+	Backend backend = Backend::NONE;
 	TextureFormat backbuffer_format = TextureFormat::RGBA8_UNORM;
 	void (*Shutdown)() = nullptr;
 	void (*HandlePALEvent)(const PAL::Event&) = nullptr;
@@ -110,17 +122,14 @@ struct Device
 	bool (*RecreateSwapchain)() = nullptr;
 	FrameStatus (*BeginFrame)() = nullptr;
 	uint32 (*GetCurrentBackbufferIndex)() = nullptr;
-	void (*BeginRenderPass)(const RenderPassBeginDesc&) = nullptr;
-	void (*EndRenderPass)() = nullptr;
+	// nullptr with the reason printed if a shader doesn't compile for the device, like when fxc runs out of registers.
+	Pipeline* (*CreatePipeline)(const CreatePipelineOptions&) = nullptr;
+	void (*DestroyPipeline)(Pipeline*) = nullptr;
+	void (*CmdBeginRenderPass)(const RenderPassBeginDesc&) = nullptr; // the viewport and scissor cover the framebuffer
+	void (*CmdEndRenderPass)() = nullptr;
+	void (*CmdBindPipeline)(Pipeline*) = nullptr; // in a render pass compatible with the pipeline's
+	void (*CmdDraw)(uint32 vertex_count, uint32 first_vertex) = nullptr;
 	void (*EndFrame)() = nullptr;
-};
-
-enum class Backend
-{
-	NONE = 0,
-	D3D11,
-	VULKAN,
-	METAL,
 };
 
 struct InitOptions

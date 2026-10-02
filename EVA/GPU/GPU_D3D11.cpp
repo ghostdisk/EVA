@@ -2,6 +2,7 @@
 #include <EVA/PAL/PAL.hpp>
 #include <EVA/Core/Panic.hpp>
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dxgi1_2.h>
 #include <cstdio>
 #include <vector>
@@ -40,6 +41,13 @@ struct D3D11RenderPass
 	std::vector<AttachmentDesc> attachments;
 };
 
+struct D3D11Pipeline
+{
+	ID3D11VertexShader* vertex_shader = nullptr;
+	ID3D11PixelShader* pixel_shader = nullptr; // nullptr without a fragment shader
+	ID3D11RasterizerState* rasterizer_state = nullptr;
+};
+
 struct D3D11Framebuffer
 {
 	D3D11RenderPass* render_pass = nullptr;
@@ -73,6 +81,11 @@ static D3D11Framebuffer* ToImpl(Framebuffer* framebuffer)
 static D3D11Texture* ToImpl(Texture* texture)
 {
 	return reinterpret_cast<D3D11Texture*>(texture);
+}
+
+static D3D11Pipeline* ToImpl(Pipeline* pipeline)
+{
+	return reinterpret_cast<D3D11Pipeline*>(pipeline);
 }
 
 static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
@@ -212,7 +225,92 @@ static FrameStatus BeginFrame()
 	return FrameStatus::OK;
 }
 
-static void BeginRenderPass(const RenderPassBeginDesc& desc)
+static void DestroyPipeline(Pipeline* pipeline)
+{
+	if (!pipeline)
+		return;
+	auto* impl = ToImpl(pipeline);
+	if (impl->vertex_shader)
+		impl->vertex_shader->Release();
+	if (impl->pixel_shader)
+		impl->pixel_shader->Release();
+	if (impl->rasterizer_state)
+		impl->rasterizer_state->Release();
+	delete impl;
+}
+
+// The shader's HLSL compiled by fxc, or nullptr with its errors printed. fxc fails for shaders that run out of
+// registers, which the shader compiler doesn't check (Docs/Plan/Shaders.md, 8).
+static ID3DBlob* CompileHLSL(const CompiledEntryPoint& shader)
+{
+	const char* profile = shader.stage == ShaderStage::VERTEX ? "vs_5_0" : "ps_5_0";
+	ID3DBlob* code = nullptr;
+	ID3DBlob* errors = nullptr;
+	HRESULT result = D3DCompile(shader.code.data, shader.code.count, nullptr, nullptr, nullptr, ENTRY_POINT_NAME, profile,
+		D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &errors);
+	if (FAILED(result))
+		fprintf(stderr, "fxc failed to compile a shader: %s\n", errors ? (const char*)errors->GetBufferPointer() : "no message");
+	if (errors)
+		errors->Release();
+	return SUCCEEDED(result) ? code : nullptr;
+}
+
+static Pipeline* CreatePipeline(const CreatePipelineOptions& options)
+{
+	D3D11_ASSERT(options.render_pass);
+	auto* pipeline = new D3D11Pipeline;
+	for (uint32 i = 0; i < options.shaders.count; ++i)
+	{
+		const CompiledEntryPoint& shader = options.shaders[i];
+		ID3DBlob* code = CompileHLSL(shader);
+		if (!code)
+		{
+			DestroyPipeline(reinterpret_cast<Pipeline*>(pipeline));
+			return nullptr;
+		}
+		DEFER(code->Release());
+		if (shader.stage == ShaderStage::VERTEX)
+		{
+			D3D11_ASSERT(!pipeline->vertex_shader);
+			HRES_ASSERT(d3d_device->CreateVertexShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr,
+				&pipeline->vertex_shader));
+		}
+		else
+		{
+			D3D11_ASSERT(!pipeline->pixel_shader);
+			HRES_ASSERT(d3d_device->CreatePixelShader(code->GetBufferPointer(), code->GetBufferSize(), nullptr,
+				&pipeline->pixel_shader));
+		}
+	}
+	D3D11_ASSERT(pipeline->vertex_shader);
+
+	// Clockwise on screen is the front, like every backend's.
+	D3D11_RASTERIZER_DESC rasterizer = {};
+	rasterizer.FillMode = D3D11_FILL_SOLID;
+	rasterizer.CullMode = D3D11_CULL_NONE;
+	rasterizer.FrontCounterClockwise = FALSE;
+	rasterizer.DepthClipEnable = TRUE;
+	HRES_ASSERT(d3d_device->CreateRasterizerState(&rasterizer, &pipeline->rasterizer_state));
+	return reinterpret_cast<Pipeline*>(pipeline);
+}
+
+static void CmdBindPipeline(Pipeline* pipeline)
+{
+	D3D11_ASSERT(pipeline);
+	auto* impl = ToImpl(pipeline);
+	d3d_context->IASetInputLayout(nullptr);
+	d3d_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	d3d_context->VSSetShader(impl->vertex_shader, nullptr, 0);
+	d3d_context->PSSetShader(impl->pixel_shader, nullptr, 0);
+	d3d_context->RSSetState(impl->rasterizer_state);
+}
+
+static void CmdDraw(uint32 vertex_count, uint32 first_vertex)
+{
+	d3d_context->Draw(vertex_count, first_vertex);
+}
+
+static void CmdBeginRenderPass(const RenderPassBeginDesc& desc)
 {
 	D3D11_ASSERT(desc.render_pass && desc.framebuffer);
 	auto* render_pass = ToImpl(desc.render_pass);
@@ -244,7 +342,7 @@ static void BeginRenderPass(const RenderPassBeginDesc& desc)
 	}
 }
 
-static void EndRenderPass()
+static void CmdEndRenderPass()
 {
 	d3d_context->OMSetRenderTargets(0, nullptr, nullptr);
 }
@@ -354,6 +452,7 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 	}
 
 	out_device = Device{
+		.backend = Backend::D3D11,
 		.backbuffer_format = backbuffer.desc.format,
 		.Shutdown = Shutdown,
 		.HandlePALEvent = HandlePALEvent,
@@ -367,8 +466,12 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.RecreateSwapchain = RecreateSwapchain,
 		.BeginFrame = BeginFrame,
 		.GetCurrentBackbufferIndex = GetCurrentBackbufferIndex,
-		.BeginRenderPass = BeginRenderPass,
-		.EndRenderPass = EndRenderPass,
+		.CreatePipeline = CreatePipeline,
+		.DestroyPipeline = DestroyPipeline,
+		.CmdBeginRenderPass = CmdBeginRenderPass,
+		.CmdEndRenderPass = CmdEndRenderPass,
+		.CmdBindPipeline = CmdBindPipeline,
+		.CmdDraw = CmdDraw,
 		.EndFrame = EndFrame,
 	};
 	return true;
