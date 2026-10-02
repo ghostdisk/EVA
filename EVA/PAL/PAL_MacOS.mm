@@ -1,10 +1,25 @@
 #include <EVA/PAL/PAL.hpp>
 #import <AppKit/AppKit.h>
+#import <QuartzCore/CAMetalLayer.h>
 
 namespace EVA::PAL
 {
 void EmitEvent(Event event);
 }
+
+// The window's content view, drawn by GPU backends through its CAMetalLayer. AppKit keeps the layer's bounds matching the
+// view, and with contentsScale following the window's backing scale, the layer's drawableSize is in pixels.
+@interface EVAMetalView : NSView
+@end
+
+@implementation EVAMetalView
+
+- (CALayer*)makeBackingLayer
+{
+	return [CAMetalLayer layer];
+}
+
+@end
 
 @interface EVAApplicationDelegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
 @end
@@ -43,7 +58,9 @@ void EmitEvent(Event event);
 - (void)windowDidChangeBackingProperties:(NSNotification*)notification
 {
 	// Moving between displays changes the pixel size without a resize.
-	[self emitResize:notification.object];
+	NSWindow* window = notification.object;
+	window.contentView.layer.contentsScale = window.backingScaleFactor;
+	[self emitResize:window];
 }
 
 @end
@@ -103,6 +120,10 @@ void InitWindow(Window* window, const WindowInitOptions& options)
 		NSString* title = options.name ? [NSString stringWithUTF8String:options.name] : @"";
 		[native_window setTitle:title ? title : @""];
 		[native_window setBackgroundColor:[NSColor blackColor]];
+		EVAMetalView* view = [[EVAMetalView alloc] initWithFrame:content_rect];
+		view.wantsLayer = YES;
+		view.layer.contentsScale = native_window.backingScaleFactor;
+		[native_window setContentView:view];
 		[native_window center];
 		[native_window makeKeyAndOrderFront:nil];
 		if (@available(macOS 14.0, *))
@@ -110,8 +131,9 @@ void InitWindow(Window* window, const WindowInitOptions& options)
 		else
 			[NSApp activateIgnoringOtherApps:YES];
 
-		// PAL owns the NSWindow until DeinitWindow; GPU can borrow this handle.
+		// PAL owns the NSWindow until DeinitWindow; GPU can borrow this handle and the layer, which the window keeps alive.
 		window->native_handle = (__bridge_retained void*)native_window;
+		window->metal_layer = (__bridge void*)view.layer;
 	}
 }
 
@@ -121,6 +143,7 @@ void DeinitWindow(Window* window)
 	{
 		NSWindow* native_window = (__bridge_transfer NSWindow*)window->native_handle;
 		window->native_handle = nullptr;
+		window->metal_layer = nullptr;
 		[native_window setDelegate:nil];
 		[native_window close];
 	}

@@ -7,6 +7,7 @@ namespace EVA::PAL
 struct Window
 {
 	void* native_handle = nullptr;
+	void* metal_layer = nullptr; // macOS: the CAMetalLayer backing the window's content, owned by the window
 };
 
 struct WindowInitOptions

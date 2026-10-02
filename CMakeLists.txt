@@ -91,7 +91,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	set_target_properties(PAL PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
 	set_source_files_properties(EVA/PAL/PAL_MacOS.mm PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
-	target_link_libraries(PAL PRIVATE ${APPKIT_FRAMEWORK})
+	find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+	target_link_libraries(PAL PRIVATE ${APPKIT_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
+endif()
+
+# metal-cpp, Apple's C++ bindings for Metal. Its implementation is compiled once here, for everything linking it.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	add_library(MetalCpp STATIC Vendor/metal-cpp/Metal.hpp Vendor/metal-cpp/Metal.cpp)
+	set_target_properties(MetalCpp PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+	target_include_directories(MetalCpp SYSTEM PUBLIC "${PROJECT_SOURCE_DIR}/Vendor/metal-cpp")
+	find_library(METAL_FRAMEWORK Metal REQUIRED)
+	find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+	find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+	target_link_libraries(MetalCpp PUBLIC ${METAL_FRAMEWORK} ${FOUNDATION_FRAMEWORK} ${QUARTZCORE_FRAMEWORK})
 endif()
 
 add_library(GPU STATIC
@@ -109,6 +121,7 @@ endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
 	target_sources(GPU PRIVATE EVA/GPU/GPU_Metal.hpp EVA/GPU/GPU_Metal.cpp)
+	target_link_libraries(GPU PRIVATE MetalCpp)
 	target_compile_definitions(GPU PUBLIC EVA_METAL)
 endif()
 
