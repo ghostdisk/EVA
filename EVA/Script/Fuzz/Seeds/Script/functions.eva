@@ -17,8 +17,8 @@ function g(): void
 	return;
 }
 
-@vertex
-function main(@builtin(vertex_index) id: uint): @builtin(position) float4
+@entry(vertex)
+function main(@semantic(vertex_index) id: uint): @semantic(position) float4
 {
 	return float4(f(1.0, float2(2.0)), 0.0, 1.0);
 }

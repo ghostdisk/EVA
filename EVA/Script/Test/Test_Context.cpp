@@ -42,10 +42,9 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 		IntrinsicKind kind;
 	};
 	Expected expected[] = {
-		{ "builtin", IntrinsicKind::BUILTIN },
+		{ "semantic", IntrinsicKind::SEMANTIC },
 		{ "location", IntrinsicKind::LOCATION },
-		{ "vertex", IntrinsicKind::VERTEX },
-		{ "fragment", IntrinsicKind::FRAGMENT },
+		{ "entry", IntrinsicKind::ENTRY },
 	};
 	for (const Expected& e : expected)
 	{
@@ -60,42 +59,39 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 		Intrinsic* intrinsic = (Intrinsic*)found->element;
 		CHECK_EQ(intrinsic->intrinsic_kind, e.kind);
 		CHECK_EQ(intrinsic->name, GetAtom(e.name));
-		CHECK_EQ(intrinsic->argument_scope != nullptr, e.kind == IntrinsicKind::BUILTIN);
+		CHECK_EQ(intrinsic->argument_scope != nullptr, e.kind != IntrinsicKind::LOCATION);
 	}
 
 	CHECK(FindGlobalType(context, "float4"));
 }
 
-TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
+struct ExpectedEnumValue
 {
-	Context context;
-	InitContext(context, test.arena, ContextKind::SHADER);
-	Intrinsic* builtin = nullptr;
+	const char* name;
+	int64 value;
+};
+
+// The intrinsic's arguments resolve in a scope of its own holding exactly the expected enum values.
+static void CheckEnumArgumentScope(EVA::Test::Context& test, Context& context, const char* intrinsic_name, Slice<ExpectedEnumValue> expected)
+{
+	Intrinsic* intrinsic = nullptr;
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
-		if (definition->name == GetAtom("builtin"))
-			builtin = (Intrinsic*)definition->element;
+		if (definition->name == GetAtom(intrinsic_name))
+			intrinsic = (Intrinsic*)definition->element;
 	}
-	REQUIRE(builtin);
-	Scope* scope = builtin->argument_scope;
+	REQUIRE(intrinsic);
+	Scope* scope = intrinsic->argument_scope;
 	REQUIRE(scope);
 	CHECK(scope->parent == nullptr);
 
-	struct Expected
-	{
-		const char* name;
-		Builtin value;
-	};
-	Expected expected[] = {
-		{ "vertex_index", Builtin::VERTEX_INDEX },
-		{ "position", Builtin::POSITION },
-	};
 	uint32 count = 0;
 	for (Definition* definition = scope->first; definition; definition = definition->next)
 		count++;
-	CHECK_EQ(count, 2u);
-	for (const Expected& e : expected)
+	CHECK_EQ(count, expected.count);
+	for (uint32 i = 0; i < expected.count; ++i)
 	{
+		const ExpectedEnumValue& e = expected[i];
 		Definition* found = nullptr;
 		for (Definition* definition = scope->first; definition; definition = definition->next)
 		{
@@ -107,8 +103,30 @@ TEST(Context, BuiltinArgumentsAreTheBuiltinEnumValues)
 		Node* node = (Node*)found->element;
 		CHECK_EQ(node->node_type, NodeType::ENUM_VALUE);
 		CHECK_EQ(node->name, GetAtom(e.name));
-		CHECK_EQ(node->enum_value, (int64)e.value);
+		CHECK_EQ(node->enum_value, e.value);
 	}
+}
+
+TEST(Context, SemanticArgumentsAreTheSemanticEnumValues)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SHADER);
+	ExpectedEnumValue expected[] = {
+		{ "vertex_index", (int64)Semantic::VERTEX_INDEX },
+		{ "position", (int64)Semantic::POSITION },
+	};
+	CheckEnumArgumentScope(test, context, "semantic", Slice<ExpectedEnumValue>(expected, 2));
+}
+
+TEST(Context, EntryArgumentsAreTheShaderStageEnumValues)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SHADER);
+	ExpectedEnumValue expected[] = {
+		{ "vertex", (int64)ShaderStage::VERTEX },
+		{ "fragment", (int64)ShaderStage::FRAGMENT },
+	};
+	CheckEnumArgumentScope(test, context, "entry", Slice<ExpectedEnumValue>(expected, 2));
 }
 
 TEST(Context, Primitives)

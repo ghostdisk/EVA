@@ -763,7 +763,7 @@ struct Generator
 			break;
 		case 14:
 			// Intrinsics and enum values used as values.
-			expr.text = Below(2) ? "builtin(position)" : (Below(2) ? "location" : "vertex_index");
+			expr.text = Below(2) ? "semantic(position)" : (Below(2) ? "location" : "vertex_index");
 			break;
 		case 15: expr.text = TypeText(PickType((uint32)struct_types.size()), true) + "(" + any() + ")"; break; // int(1), S(1)
 		case 16:
@@ -795,10 +795,11 @@ struct Generator
 
 	std::string Attribute()
 	{
-		const char* const attributes[] = { "@builtin(position)", "@builtin(vertex_index)", "@location(0)", "@location(4294967295)",
-			"@vertex", "@fragment", "@builtin", "@location", "@builtin(location)", "@location(-1)", "@vertex(1)", "@1",
-			"@position", "@builtin(position, position)", "@location(1.5)", "@unknown(1)" };
-		return std::string(attributes[Below(16)]) + " ";
+		const char* const attributes[] = { "@semantic(position)", "@semantic(vertex_index)", "@location(0)", "@location(4294967295)",
+			"@entry(vertex)", "@entry(fragment)", "@semantic", "@location", "@semantic(location)", "@location(-1)", "@entry(1)", "@1",
+			"@position", "@semantic(position, position)", "@location(1.5)", "@unknown(1)", "@entry", "@entry(vertex, fragment)",
+			"@entry(position)", "@vertex" };
+		return std::string(attributes[Below(sizeof(attributes) / sizeof(attributes[0]))]) + " ";
 	}
 
 	std::string Struct(GenType* type, uint32 index)
@@ -958,7 +959,7 @@ struct Generator
 		std::string text = indent;
 		uint32 stage = depth ? 0 : Below(3); // 1: vertex, 2: fragment
 		if (stage)
-			text += stage == 1 ? "@vertex\n" + indent : "@fragment\n" + indent;
+			text += stage == 1 ? "@entry(vertex)\n" + indent : "@entry(fragment)\n" + indent;
 		if (chaos && Chance(10))
 			text += Attribute();
 		text += "function " + name + "(";
@@ -974,7 +975,7 @@ struct Generator
 				text += ", ";
 			if (stage == 1 && !vertex_index && Below(2))
 			{
-				text += "@builtin(vertex_index) ";
+				text += "@semantic(vertex_index) ";
 				type = uint_type;
 				vertex_index = true;
 			}
@@ -998,7 +999,7 @@ struct Generator
 		GenType* return_type = nullptr;
 		if (stage == 1)
 		{
-			text += ": @builtin(position) float4";
+			text += ": @semantic(position) float4";
 			return_type = vector_types[4];
 		}
 		else if (stage == 2)

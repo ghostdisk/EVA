@@ -436,21 +436,23 @@ TEST(Typer, ConstantSizeLimits)
 
 TEST(Typer, ShaderAttributes)
 {
-	CHECK_SHADER_TYPE_ERRORS("@vertex function f(@builtin(vertex_index) i: uint): @builtin(position) float4 { return float4(1.0); }", "");
-	CHECK_SHADER_TYPE_ERRORS("@fragment function f(): @location(0) float4 { return float4(1.0); }", "");
+	CHECK_SHADER_TYPE_ERRORS("@entry(vertex) function f(@semantic(vertex_index) i: uint): @semantic(position) float4 { return float4(1.0); }", "");
+	CHECK_SHADER_TYPE_ERRORS("@entry(fragment) function f(): @location(0) float4 { return float4(1.0); }", "");
 	CHECK_SHADER_TYPE_ERRORS("struct S { @location(1) a: float4; }", "");
 	CHECK_SHADER_TYPE_ERRORS("const SLOT = 2; function f(@location(SLOT) a: float4) {}", "expected uint, got int");
 	CHECK_SHADER_TYPE_ERRORS("const SLOT: uint = 2; function f(@location(SLOT) a: float4) {}", "");
 
-	CHECK_SHADER_TYPE_ERRORS("@builtin(position) const a = 1;", "'builtin' can only be used on parameters, fields and return types");
+	CHECK_SHADER_TYPE_ERRORS("@semantic(position) const a = 1;", "'semantic' can only be used on parameters, fields and return types");
 	CHECK_SHADER_TYPE_ERRORS("@location(0) function f() {}", "'location' can only be used on parameters, fields and return types");
-	CHECK_SHADER_TYPE_ERRORS("function f(@vertex a: float4) {}", "'vertex' can only be used on functions");
-	CHECK_SHADER_TYPE_ERRORS("@vertex(1) function f() {}", "'vertex' takes no arguments");
-	CHECK_SHADER_TYPE_ERRORS("function f(@builtin a: uint) {}", "'builtin' takes one argument");
+	CHECK_SHADER_TYPE_ERRORS("function f(@entry(vertex) a: float4) {}", "'entry' can only be used on functions");
+	CHECK_SHADER_TYPE_ERRORS("@entry function f() {}", "'entry' takes one argument");
+	CHECK_SHADER_TYPE_ERRORS("@entry(vertex, fragment) function f() {}", "'entry' takes one argument");
+	CHECK_SHADER_TYPE_ERRORS("@entry(1) function f() {}", "expected ShaderStage, got int");
+	CHECK_SHADER_TYPE_ERRORS("function f(@semantic a: uint) {}", "'semantic' takes one argument");
 	CHECK_SHADER_TYPE_ERRORS("function f(@location(0, 1) a: float4) {}", "'location' takes one argument");
 	CHECK_SHADER_TYPE_ERRORS("function f(@location(1.5) a: float4) {}", "'1.5' is not an integer");
 	CHECK_SHADER_TYPE_ERRORS("function f(n: uint, @location(n) a: float4) {}", "a location must be a constant");
-	CHECK_SHADER_TYPE_ERRORS("function f(@builtin(0) a: uint) {}", "expected Builtin, got int");
+	CHECK_SHADER_TYPE_ERRORS("function f(@semantic(0) a: uint) {}", "expected Semantic, got int");
 	CHECK_SHADER_TYPE_ERRORS("struct S {} @S function f() {}", "'S' isn't an attribute");
 	CHECK_SHADER_TYPE_ERRORS("@1 const a = 1;", "expected an attribute name");
 	CHECK_SHADER_TYPE_ERRORS("function f(@(location)(0) a: float4) {}", "");
@@ -471,13 +473,13 @@ struct VSOutput
 	position: float4;
 }
 
-@vertex
-function VSMain(@builtin(vertex_index) vertex_id: uint): @builtin(position) float4
+@entry(vertex)
+function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
 {
 	return float4(positions[vertex_id], 0.0, 1.0);
 }
 
-@fragment
+@entry(fragment)
 function PSMain(): @location(0) float4
 {
 	return float4(1.0, 1.0, 1.0, 1.0);

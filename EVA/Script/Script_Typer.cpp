@@ -149,6 +149,14 @@ static Node* SingleArgument(Typer& typer, Node* attribute, const char* name)
 	return argument;
 }
 
+// One of type's values, the only names visible in the argument.
+static bool TypeEnumArgument(Typer& typer, Node* argument, EnumType* type)
+{
+	if (!TypeNode(typer, argument, type))
+		return false;
+	return ImplicitCast(typer, argument, type) != nullptr;
+}
+
 static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 {
 	Node* callee = attribute->node_type == NodeType::CALL ? FindChild(attribute, Usage::CALLEE) : attribute;
@@ -169,7 +177,7 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 	const char* name = AtomName(typer, intrinsic->name);
 	switch (intrinsic->intrinsic_kind)
 	{
-	case IntrinsicKind::BUILTIN:
+	case IntrinsicKind::SEMANTIC:
 	case IntrinsicKind::LOCATION:
 	{
 		if (target->node_type != NodeType::PARAMETER && target->node_type != NodeType::FIELD &&
@@ -181,13 +189,8 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		Node* argument = SingleArgument(typer, attribute, name);
 		if (!argument)
 			return false;
-		if (intrinsic->intrinsic_kind == IntrinsicKind::BUILTIN)
-		{
-			// One of the Builtin enum's values, the only names visible in the argument.
-			if (!TypeNode(typer, argument, typer.context->builtin_type))
-				return false;
-			return ImplicitCast(typer, argument, typer.context->builtin_type) != nullptr;
-		}
+		if (intrinsic->intrinsic_kind == IntrinsicKind::SEMANTIC)
+			return TypeEnumArgument(typer, argument, typer.context->semantic_type);
 		Constant* location = EvaluateConstant(typer, argument, typer.context->uint_type, "a location");
 		if (!location)
 			return false;
@@ -198,20 +201,15 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		}
 		return true;
 	}
-	case IntrinsicKind::VERTEX:
-	case IntrinsicKind::FRAGMENT:
+	case IntrinsicKind::ENTRY:
 	{
 		if (target->node_type != NodeType::FUNCTION)
 		{
 			EmitError(typer, "'%s' can only be used on functions", name);
 			return false;
 		}
-		if (attribute->node_type == NodeType::CALL)
-		{
-			EmitError(typer, "'%s' takes no arguments", name);
-			return false;
-		}
-		return true;
+		Node* argument = SingleArgument(typer, attribute, name);
+		return argument && TypeEnumArgument(typer, argument, typer.context->stage_type);
 	}
 	case IntrinsicKind::NONE: break;
 	}

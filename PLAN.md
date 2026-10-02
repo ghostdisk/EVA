@@ -28,12 +28,12 @@ HLSL and MSL for shaders, bytecode for the script VM.
 `Node`, `Type`, `Intrinsic` and `Constant` derive from `Element`, which starts with a 1-byte `ElementKind`. A
 `Definition` points to an `Element`, and every resolved identifier is a `REFERENCE` with `Element* target`.
 
-An `Intrinsic` has an `IntrinsicKind` (`BUILTIN`, `LOCATION`, `VERTEX`, `FRAGMENT`; later `dot`, `sin`, `sample`...),
+An `Intrinsic` has an `IntrinsicKind` (`SEMANTIC`, `LOCATION`, `ENTRY`; later `dot`, `sin`, `sample`...),
 a name and an `argument_scope` (nullptr: arguments resolve normally).
 
 ### The Context decides what exists (done)
 
-`CompileShader` builds a shader Context that registers `builtin`, `location`, `vertex` and `fragment` in the global
+`CompileShader` builds a shader Context that registers `semantic`, `location` and `entry` in the global
 scope. A script Context doesn't, so a script using them gets "unknown identifier" without a dedicated check.
 
 ### Resolving calls (done)
@@ -41,18 +41,20 @@ scope. A script Context doesn't, so a script using them gets "unknown identifier
 Resolve the attributes and callee first. If the callee is an `Intrinsic` with an `argument_scope`, resolve the
 arguments in a fresh scope under it, so declarations in them don't leak into the context.
 
-- `builtin`'s argument scope is the scope of the `Builtin` enum: an `EnumType` whose values are `ENUM_VALUE` nodes
-  (`vertex_index`, `position`, ...). Only those are visible inside `@builtin(...)`, so a field or variable named
-  `position` doesn't clash. `Builtin` isn't in the global scope.
+- `semantic`'s argument scope is the scope of the `Semantic` enum: an `EnumType` whose values are `ENUM_VALUE` nodes
+  (`vertex_index`, `position`, ...). Only those are visible inside `@semantic(...)`, so a field or variable named
+  `position` doesn't clash. `Semantic` isn't in the global scope.
+- `entry`'s is the `ShaderStage` enum's (`vertex`, `fragment`), the same way. Keeps the stage names out of the
+  global scope.
 - `location` has no argument scope, so `@location(COLOR_SLOT)` with a user `const` works.
 
 ### Where attributes end up in the AST (already the case)
 
 | Written as | Attribute is a child of |
 |---|---|
-| `@vertex function f()` | the FUNCTION |
-| `f(@builtin(vertex_index) id: uint)` | the PARAMETER |
-| `f(): @builtin(position) float4` | the RETURN_TYPE node |
+| `@entry(vertex) function f()` | the FUNCTION |
+| `f(@semantic(vertex_index) id: uint)` | the PARAMETER |
+| `f(): @semantic(position) float4` | the RETURN_TYPE node |
 | `struct S { @location(0) c: float3; }` | the FIELD |
 
 ### Open
@@ -79,15 +81,15 @@ Done:
   them. A separate path until there's IR to run constant expressions through instead; then it can go.
 - Arithmetic `+ - * / %` on matching numeric scalars and vectors, vector constructors (components or a splat),
   indexing arrays (constant indices bounds-checked), struct member access.
-- Attributes: `builtin(Builtin)` and `location(constant uint)` on parameters, fields and return types; `vertex`,
-  `fragment` on functions, without arguments.
+- Attributes: `semantic(Semantic)` and `location(constant uint)` on parameters, fields and return types;
+  `entry(ShaderStage)` on functions.
 
 Not yet:
 
 - `bool` and comparisons, `if`, assignment and `++`/`--`, calls to user functions (`FunctionType`), swizzles,
   matrices, vector-scalar arithmetic, field and parameter default values, constructing scalars and structs.
 - Constants aren't interned yet.
-- Shader IO is not part of `FunctionType`: two functions with different builtins have the same type.
+- Shader IO is not part of `FunctionType`: two functions with different semantics have the same type.
 - Shaders: reject call cycles (no recursion on any target).
 - Limits on declared sizes: array lengths, number of locals and functions, nesting.
 
@@ -118,17 +120,17 @@ struct Constant
 ## Shader interface pass (first version done)
 
 `Script_ShaderInterface.cpp`. Input: the typed module. Output: a `ShaderInterface`, for now one `EntryPoint` per
-`@vertex` / `@fragment` function. Resources and bindings go here later.
+`@entry(...)` function. Resources and bindings go here later.
 
 ```cpp
 enum class IODirection : uint8 { INPUT, OUTPUT };
-enum class IOKind : uint8 { BUILTIN, LOCATION };
+enum class IOKind : uint8 { SEMANTIC, LOCATION };
 
 struct ShaderIO
 {
 	IODirection direction;
 	IOKind kind;
-	Builtin builtin;     // BUILTIN
+	Semantic semantic;   // SEMANTIC
 	uint32 location;     // LOCATION
 	Type* type;          // the leaf type
 	Slice<uint32> path;  // INPUT: [parameter index, field index, ...]. OUTPUT: [field index, ...] into the return value
@@ -150,30 +152,30 @@ Walk each parameter (path `[i]`) and the return value (path `[]`):
 ```
 Flatten(type, attributes, path):
 	if type is a struct:
-		error if attributes has a builtin or location   // only the leaves carry semantics
+		error if attributes has a semantic or location  // only the leaves carry semantics
 		for each field f at index k:
 			Flatten(f.type, f.attributes, path + [k])
 	else:   // scalar, vector, matrix
-		error unless attributes has exactly one builtin or location
-		check the builtin against (stage, direction) and type
+		error unless attributes has exactly one semantic or location
+		check the semantic against (stage, direction) and type
 		append ShaderIO { direction, semantic, type, path }
 ```
 
-A `void` return produces no outputs. Duplicate locations and builtins per direction are errors.
+A `void` return produces no outputs. Duplicate locations and semantics per direction are errors.
 
 Done, beyond the above:
 
-- Entry points are top-level functions with one stage attribute. Builtins and locations on other functions'
+- Entry points are top-level functions with one `entry` attribute. Semantics and locations on other functions'
   parameters and return values are errors; on struct fields they're allowed anywhere, so structs can be shared.
 - Nested structs are allowed. Empty structs, arrays and void can't be inputs or outputs.
 - Locations are below 32 (no target has more). The device's limits are checked at pipeline creation.
 - A vertex entry point has to output `position`.
-- Flattening stops at the first error per parameter. With unique locations and builtins and no empty structs, that
+- Flattening stops at the first error per parameter. With unique locations and semantics and no empty structs, that
   bounds the walk even for exponentially large nested structs.
 
-### Builtins
+### Semantics
 
-| Builtin | Stage, direction | Type |
+| Semantic | Stage, direction | Type |
 |---|---|---|
 | `vertex_index` | vertex in | `uint` |
 | `position` | vertex out (clip position), fragment in (fragment coordinate) | `float4` |
@@ -221,7 +223,7 @@ One IR module per source file, built once. All entry points share it; each entry
   | `CONSTANT` | read-only data | `Private` variable with an initializer, never stored | `static const` | `constant` |
   | `SHADER_INPUT` / `SHADER_OUTPUT` | invalid | `Input` / `Output` variable + `BuiltIn` / `Location` | fields of the entry's in / out struct | same, with attributes |
 
-  Interface globals are never shared between entry points, even with the same builtin.
+  Interface globals are never shared between entry points, even with the same semantic.
 - **Entry point records.** Stage, user name, wrapper function, interface list (like `OpEntryPoint`).
 
 ### Instructions
@@ -260,18 +262,18 @@ later. Function-local variables are valid in SPIR-V, HLSL and MSL.
 
 ### Triangle shader
 
-Source (TestApp's, with `@vertex` / `@fragment` added):
+Source (TestApp's):
 
 ```
 const positions: [3]float2 = { float2(0.0, 0.5), float2(0.5, -0.5), float2(-0.5, -0.5) };
 
-@vertex
-function VSMain(@builtin(vertex_index) vertex_id: uint): @builtin(position) float4
+@entry(vertex)
+function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
 {
 	return float4(positions[vertex_id], 0.0, 1.0);
 }
 
-@fragment
+@entry(fragment)
 function PSMain(): @location(0) float4
 {
 	return float4(1.0, 1.0, 1.0, 1.0);
@@ -282,8 +284,8 @@ After IR gen and the safety pass:
 
 ```
 global @positions   : [3]float2  CONSTANT       = [3]float2 { (0.0, 0.5), (0.5, -0.5), (-0.5, -0.5) }
-global @VSMain.in0  : uint       SHADER_INPUT   builtin vertex_index
-global @VSMain.out0 : float4     SHADER_OUTPUT  builtin position
+global @VSMain.in0  : uint       SHADER_INPUT   semantic vertex_index
+global @VSMain.out0 : float4     SHADER_OUTPUT  semantic position
 global @PSMain.out0 : float4     SHADER_OUTPUT  location 0
 
 function @VSMain(%vertex_id: uint): float4

@@ -121,7 +121,7 @@ struct VSOutput
 	position: float4;
 }
 
-function VSMain(@builtin(vertex_index) vertex_id: uint): @builtin(position) float4
+function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
 {
 	return float4(positions[vertex_id], 0.0, 1.0);
 }
@@ -494,10 +494,10 @@ TEST(Parser, FunctionParameters)
 
 TEST(Parser, FunctionAttributes)
 {
-	CHECK_PARSE("function f(@builtin(vertex_index) id: uint): @builtin(position) float4 { return id; }",
+	CHECK_PARSE("function f(@semantic(vertex_index) id: uint): @semantic(position) float4 { return id; }",
 		"([DECLARATION]FUNCTION f "
-		"([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER builtin) ([ARGUMENT]IDENTIFIER vertex_index)) ([DECLARED_TYPE]IDENTIFIER uint)) "
-		"([RETURN_TYPE]IDENTIFIER float4 ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER builtin) ([ARGUMENT]IDENTIFIER position))) "
+		"([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER semantic) ([ARGUMENT]IDENTIFIER vertex_index)) ([DECLARED_TYPE]IDENTIFIER uint)) "
+		"([RETURN_TYPE]IDENTIFIER float4 ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER semantic) ([ARGUMENT]IDENTIFIER position))) "
 		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]IDENTIFIER id))))");
 }
 
@@ -531,8 +531,8 @@ TEST(Parser, TriangleShader)
 		"([ELEMENT]CALL ([CALLEE]IDENTIFIER float2) ([ARGUMENT]UNARY - ([OPERAND]NUMBER 0.5)) ([ARGUMENT]UNARY - ([OPERAND]NUMBER 0.5))))) "
 		"([DECLARATION]STRUCT VSOutput ([MEMBER]FIELD position ([DECLARED_TYPE]IDENTIFIER float4))) "
 		"([DECLARATION]FUNCTION VSMain "
-		"([PARAMETER]PARAMETER vertex_id ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER builtin) ([ARGUMENT]IDENTIFIER vertex_index)) ([DECLARED_TYPE]IDENTIFIER uint)) "
-		"([RETURN_TYPE]IDENTIFIER float4 ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER builtin) ([ARGUMENT]IDENTIFIER position))) "
+		"([PARAMETER]PARAMETER vertex_id ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER semantic) ([ARGUMENT]IDENTIFIER vertex_index)) ([DECLARED_TYPE]IDENTIFIER uint)) "
+		"([RETURN_TYPE]IDENTIFIER float4 ([ATTRIBUTE]CALL ([CALLEE]IDENTIFIER semantic) ([ARGUMENT]IDENTIFIER position))) "
 		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL ([CALLEE]IDENTIFIER float4) "
 		"([ARGUMENT]INDEX ([OBJECT]IDENTIFIER positions) ([INDEX]IDENTIFIER vertex_id)) ([ARGUMENT]NUMBER 0.0) ([ARGUMENT]NUMBER 1.0))))) "
 		"([DECLARATION]FUNCTION PSMain "

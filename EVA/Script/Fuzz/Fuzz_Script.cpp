@@ -48,8 +48,8 @@ const char* const multi_char_operators[] = {
 const char* const fragments[] = {
 	"const", "struct", "function", "if", "else", "return", "true", "false",
 	"void", "int", "uint", "float", "float2", "float3", "float4",
-	"builtin", "location", "vertex", "fragment", "vertex_index", "position",
-	"@builtin(position)", "@builtin(vertex_index)", "@location(0)", "@vertex", "@fragment",
+	"semantic", "location", "entry", "vertex", "fragment", "vertex_index", "position",
+	"@semantic(position)", "@semantic(vertex_index)", "@location(0)", "@entry(vertex)", "@entry(fragment)",
 	";", ",", ":", "=", ".", "@", "(", ")", "[", "]", "{", "}", "+", "-", "*", "/", "%", "~", "!", "<", ">",
 	"&", "|", "^", "<<", ">>", "==", "!=", "&&", "||", "++", "--", "+=", "<<=",
 	"0", "1", "2", "3", "0.5", "1.0", "-1", "0x7FFFFFFF", "0x80000000", "0xFFFFFFFF", "2147483647", "2147483648",

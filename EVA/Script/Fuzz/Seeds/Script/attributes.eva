@@ -1,12 +1,12 @@
-@vertex @fragment
-function f(@location(0) a: float4, @location(1 + 1) b: float4, @builtin(position) p: float4): @location(0) float4
+@entry(vertex) @entry(fragment)
+function f(@location(0) a: float4, @location(1 + 1) b: float4, @semantic(position) p: float4): @location(0) float4
 {
 	return a;
 }
 
 struct S
 {
-	@builtin(position) p: float4;
+	@semantic(position) p: float4;
 	@location(3) c: float3;
 }
 

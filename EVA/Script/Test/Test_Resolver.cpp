@@ -238,7 +238,7 @@ struct VSOutput
 	position: float4;
 }
 
-function VSMain(@builtin(vertex_index) vertex_id: uint): @builtin(position) float4
+function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
 {
 	return float4(positions[vertex_id], 0.0, 1.0);
 }
@@ -253,28 +253,34 @@ function PSMain(): @location(0) float4
 
 TEST(Resolver, ShaderIntrinsics)
 {
-	CHECK_SHADER_RESOLVE("@vertex function f() {}", "([DECLARATION]FUNCTION f ([ATTRIBUTE]REFERENCE vertex -> INTRINSIC vertex) ([BODY]BLOCK))");
+	CHECK_SHADER_RESOLVE("@entry(vertex) function f() {}",
+		"([DECLARATION]FUNCTION f ([ATTRIBUTE]CALL ([CALLEE]REFERENCE entry -> INTRINSIC entry) "
+		"([ARGUMENT]REFERENCE vertex -> ENUM_VALUE)) ([BODY]BLOCK))");
+	// Stage names are only visible in entry's argument, semantic names only in semantic's.
+	CHECK_SHADER_RESOLVE_ERRORS("@entry(position) function f() {}", "unknown identifier 'position'");
+	CHECK_SHADER_RESOLVE_ERRORS("function f(@semantic(vertex) a: uint) {}", "unknown identifier 'vertex'");
+	CHECK_SHADER_RESOLVE_ERRORS("const v = vertex;", "unknown identifier 'vertex'");
 	CHECK_SHADER_RESOLVE("function f(): @location(0) float4 {}",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE float4 -> TYPE float4 "
 		"([ATTRIBUTE]CALL ([CALLEE]REFERENCE location -> INTRINSIC location) ([ARGUMENT]NUMBER 0))) ([BODY]BLOCK))");
-	CHECK_SHADER_RESOLVE_ERRORS("@fragment function f(@builtin(x) a: uint) {}", "unknown identifier 'x'");
+	CHECK_SHADER_RESOLVE_ERRORS("@entry(fragment) function f(@semantic(x) a: uint) {}", "unknown identifier 'x'");
 }
 
-TEST(Resolver, BuiltinArgumentsAreBuiltinNames)
+TEST(Resolver, SemanticArgumentsAreSemanticNames)
 {
-	CHECK_SHADER_RESOLVE("function f(@builtin(vertex_index) id: uint) {}",
-		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
+	CHECK_SHADER_RESOLVE("function f(@semantic(vertex_index) id: uint) {}",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER id ([ATTRIBUTE]CALL ([CALLEE]REFERENCE semantic -> INTRINSIC semantic) "
 		"([ARGUMENT]REFERENCE vertex_index -> ENUM_VALUE)) ([DECLARED_TYPE]REFERENCE uint -> TYPE uint)) ([BODY]BLOCK))");
-	// Nothing else is visible, and the builtin names win over the module's.
-	CHECK_SHADER_RESOLVE_ERRORS("const c = 1; function f(@builtin(c) a: uint) {}", "unknown identifier 'c'");
-	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(float4) a: uint) {}", "unknown identifier 'float4'");
-	CHECK_SHADER_RESOLVE("function f(position: float4): @builtin(position) float4 {}",
+	// Nothing else is visible, and the semantic names win over the module's.
+	CHECK_SHADER_RESOLVE_ERRORS("const c = 1; function f(@semantic(c) a: uint) {}", "unknown identifier 'c'");
+	CHECK_SHADER_RESOLVE_ERRORS("function f(@semantic(float4) a: uint) {}", "unknown identifier 'float4'");
+	CHECK_SHADER_RESOLVE("function f(position: float4): @semantic(position) float4 {}",
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER position ([DECLARED_TYPE]REFERENCE float4 -> TYPE float4)) "
-		"([RETURN_TYPE]REFERENCE float4 -> TYPE float4 ([ATTRIBUTE]CALL ([CALLEE]REFERENCE builtin -> INTRINSIC builtin) "
+		"([RETURN_TYPE]REFERENCE float4 -> TYPE float4 ([ATTRIBUTE]CALL ([CALLEE]REFERENCE semantic -> INTRINSIC semantic) "
 		"([ARGUMENT]REFERENCE position -> ENUM_VALUE))) ([BODY]BLOCK))");
-	// Builtin names are only visible in the arguments.
-	CHECK_SHADER_RESOLVE_ERRORS("function f(@builtin(position) a: float4) { position; }", "unknown identifier 'position'");
-	CHECK_SHADER_RESOLVE_ERRORS("const x = 1; function f(@@x builtin(position) a: float4) {}", "");
+	// Semantic names are only visible in the arguments.
+	CHECK_SHADER_RESOLVE_ERRORS("function f(@semantic(position) a: float4) { position; }", "unknown identifier 'position'");
+	CHECK_SHADER_RESOLVE_ERRORS("const x = 1; function f(@@x semantic(position) a: float4) {}", "");
 }
 
 TEST(Resolver, OtherIntrinsicArgumentsResolveNormally)
@@ -285,12 +291,12 @@ TEST(Resolver, OtherIntrinsicArgumentsResolveNormally)
 	CHECK_SHADER_RESOLVE_ERRORS("function f(): @location(position) float4 {}", "unknown identifier 'position'");
 }
 
-TEST(Resolver, DeclarationsInBuiltinArgumentsStayInTheModule)
+TEST(Resolver, DeclarationsInSemanticArgumentsStayInTheModule)
 {
-	// Both modules share the context, so a declaration leaking into the builtin names would show up in the second.
+	// Both modules share the context, so a declaration leaking into the semantic names would show up in the second.
 	Context context;
 	InitContext(context, test.arena, ContextKind::SHADER);
-	const char* sources[] = { "function f(@builtin(a: position) p: uint) {}", "function f(@builtin(a) p: uint) {}" };
+	const char* sources[] = { "function f(@semantic(a: position) p: uint) {}", "function f(@semantic(a) p: uint) {}" };
 	bool resolved[2] = {};
 	for (uint32 i = 0; i < 2; ++i)
 	{
@@ -306,7 +312,7 @@ TEST(Resolver, DeclarationsInBuiltinArgumentsStayInTheModule)
 
 TEST(Resolver, ShaderIntrinsicsAreNotInScripts)
 {
-	CHECK_RESOLVE_ERRORS("@vertex function f(): @location(0) float4 {}", "unknown identifier 'vertex' | unknown identifier 'location'");
+	CHECK_RESOLVE_ERRORS("@entry(vertex) function f(): @location(0) float4 {}", "unknown identifier 'entry' | unknown identifier 'vertex' | unknown identifier 'location'");
 }
 
 TEST(Resolver, ShaderIntrinsicsCanBeShadowed)

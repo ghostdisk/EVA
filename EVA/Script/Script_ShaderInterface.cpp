@@ -37,8 +37,8 @@ static Intrinsic* AttributeIntrinsic(Node* attribute)
 	return (Intrinsic*)callee->target;
 }
 
-// The number of builtin and location attributes on node, and the first one's semantic in io.
-static uint32 FindSemantics(Node* node, ShaderIO* io)
+// The number of semantic and location attributes on node, with the first one in io.
+static uint32 FindIOAttributes(Node* node, ShaderIO* io)
 {
 	uint32 count = 0;
 	for (Node* attribute = node->child; attribute; attribute = attribute->next)
@@ -48,17 +48,17 @@ static uint32 FindSemantics(Node* node, ShaderIO* io)
 		Intrinsic* intrinsic = AttributeIntrinsic(attribute);
 		if (!intrinsic)
 			continue;
-		if (intrinsic->intrinsic_kind != IntrinsicKind::BUILTIN && intrinsic->intrinsic_kind != IntrinsicKind::LOCATION)
+		if (intrinsic->intrinsic_kind != IntrinsicKind::SEMANTIC && intrinsic->intrinsic_kind != IntrinsicKind::LOCATION)
 			continue;
 		if (count++)
 			continue;
 
-		// The typer checked the argument: an ENUM_VALUE reference for builtin, a folded uint for location.
+		// The typer checked the argument: an ENUM_VALUE reference for semantic, a folded uint for location.
 		Node* argument = FindChild(attribute, Usage::ARGUMENT);
-		if (intrinsic->intrinsic_kind == IntrinsicKind::BUILTIN)
+		if (intrinsic->intrinsic_kind == IntrinsicKind::SEMANTIC)
 		{
-			io->io_kind = IOKind::BUILTIN;
-			io->builtin = (Builtin)((Node*)argument->target)->enum_value;
+			io->io_kind = IOKind::SEMANTIC;
+			io->semantic = (Semantic)((Node*)argument->target)->enum_value;
 		}
 		else
 		{
@@ -69,7 +69,7 @@ static uint32 FindSemantics(Node* node, ShaderIO* io)
 	return count;
 }
 
-static uint32 CountStageAttributes(Node* function, ShaderStage* stage)
+static uint32 CountEntryAttributes(Node* function, ShaderStage* stage)
 {
 	uint32 count = 0;
 	for (Node* attribute = function->child; attribute; attribute = attribute->next)
@@ -77,16 +77,11 @@ static uint32 CountStageAttributes(Node* function, ShaderStage* stage)
 		if (attribute->usage != Usage::ATTRIBUTE)
 			continue;
 		Intrinsic* intrinsic = AttributeIntrinsic(attribute);
-		if (intrinsic && intrinsic->intrinsic_kind == IntrinsicKind::VERTEX)
-		{
-			*stage = ShaderStage::VERTEX;
-			count++;
-		}
-		else if (intrinsic && intrinsic->intrinsic_kind == IntrinsicKind::FRAGMENT)
-		{
-			*stage = ShaderStage::FRAGMENT;
-			count++;
-		}
+		if (!intrinsic || intrinsic->intrinsic_kind != IntrinsicKind::ENTRY)
+			continue;
+		// An ENUM_VALUE reference, checked by the typer.
+		*stage = (ShaderStage)((Node*)FindChild(attribute, Usage::ARGUMENT)->target)->enum_value;
+		count++;
 	}
 	return count;
 }
@@ -96,9 +91,9 @@ static bool IsVoid(Type* type)
 	return type->type_kind == TypeKind::PRIMITIVE && ((PrimitiveType*)type)->primitive_kind == PrimitiveKind::VOID;
 }
 
-struct BuiltinRule
+struct SemanticRule
 {
-	Builtin builtin;
+	Semantic semantic;
 	ShaderStage stage;
 	IODirection direction;
 	PrimitiveKind component;
@@ -106,10 +101,10 @@ struct BuiltinRule
 	const char* type_name;
 };
 
-static const BuiltinRule BUILTIN_RULES[] = {
-	{ Builtin::VERTEX_INDEX, ShaderStage::VERTEX, IODirection::INPUT, PrimitiveKind::UNSIGNED, 1, "uint" },
-	{ Builtin::POSITION, ShaderStage::VERTEX, IODirection::OUTPUT, PrimitiveKind::FLOAT, 4, "float4" },
-	{ Builtin::POSITION, ShaderStage::FRAGMENT, IODirection::INPUT, PrimitiveKind::FLOAT, 4, "float4" },
+static const SemanticRule SEMANTIC_RULES[] = {
+	{ Semantic::VERTEX_INDEX, ShaderStage::VERTEX, IODirection::INPUT, PrimitiveKind::UNSIGNED, 1, "uint" },
+	{ Semantic::POSITION, ShaderStage::VERTEX, IODirection::OUTPUT, PrimitiveKind::FLOAT, 4, "float4" },
+	{ Semantic::POSITION, ShaderStage::FRAGMENT, IODirection::INPUT, PrimitiveKind::FLOAT, 4, "float4" },
 };
 
 // One entry point's inputs or outputs being flattened.
@@ -121,17 +116,12 @@ struct Flattening
 	std::vector<uint32> path;
 	std::vector<ShaderIO>& io;
 	uint32 locations = 0; // bit per location used in this direction
-	uint32 builtins = 0;  // bit per Builtin
+	uint32 semantics = 0; // bit per Semantic
 };
 
 static const char* DirectionName(IODirection direction)
 {
 	return direction == IODirection::INPUT ? "input" : "output";
-}
-
-static const char* StageName(ShaderStage stage)
-{
-	return stage == ShaderStage::VERTEX ? "vertex" : "fragment";
 }
 
 // e.g. 'color', the return value
@@ -142,13 +132,13 @@ static const char* DeclarationName(ShaderInterfaceBuilder& builder, Node* declar
 	return aprintf(builder.arena, "'%s'", AtomName(builder, declaration->name)).CString();
 }
 
-static bool CheckBuiltin(Flattening& flattening, ShaderIO& io)
+static bool CheckSemantic(Flattening& flattening, ShaderIO& io)
 {
 	ShaderInterfaceBuilder& builder = flattening.builder;
-	const char* name = BuiltinToString(io.builtin).CString();
-	for (const BuiltinRule& rule : BUILTIN_RULES)
+	const char* name = SemanticToString(io.semantic).CString();
+	for (const SemanticRule& rule : SEMANTIC_RULES)
 	{
-		if (rule.builtin != io.builtin || rule.stage != flattening.stage || rule.direction != flattening.direction)
+		if (rule.semantic != io.semantic || rule.stage != flattening.stage || rule.direction != flattening.direction)
 			continue;
 		PrimitiveType* component = ComponentType(io.type);
 		if (component->primitive_kind != rule.component || ComponentCount(io.type) != rule.count ||
@@ -160,11 +150,11 @@ static bool CheckBuiltin(Flattening& flattening, ShaderIO& io)
 		return true;
 	}
 	EmitError(builder, "'%s' can't be an %s of a %s shader", name, DirectionName(flattening.direction),
-		StageName(flattening.stage));
+		ShaderStageToString(flattening.stage).CString());
 	return false;
 }
 
-// Adds the leaves of a value of type, declared by declaration, stopping at the first error. Each leaf has a builtin or
+// Adds the leaves of a value of type, declared by declaration, stopping at the first error. Each leaf has a semantic or
 // location that isn't used yet, and a struct has at least one field, so the walk ends after a few dozen leaves even for
 // structs nested to be exponentially large.
 static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
@@ -173,15 +163,15 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 	CHECK_RECURSION(builder);
 
 	ShaderIO io = { .direction = flattening.direction, .type = type, .declaration = declaration };
-	uint32 semantics = FindSemantics(declaration, &io);
+	uint32 attributes = FindIOAttributes(declaration, &io);
 	const char* name = DeclarationName(builder, declaration);
 
 	if (type->type_kind == TypeKind::STRUCT)
 	{
 		StructType* struct_type = (StructType*)type;
-		if (semantics)
+		if (attributes)
 		{
-			EmitError(builder, "%s is a struct, only its fields can have a builtin or location", name);
+			EmitError(builder, "%s is a struct, only its fields can have a semantic or location", name);
 			return false;
 		}
 		if (!struct_type->fields.count)
@@ -206,29 +196,29 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 		EmitError(builder, "%s is %s, which can't be an %s", name, TypeName(builder, type), DirectionName(flattening.direction));
 		return false;
 	}
-	if (!semantics)
+	if (!attributes)
 	{
-		EmitError(builder, "%s needs a builtin or location", name);
+		EmitError(builder, "%s needs a semantic or location", name);
 		return false;
 	}
-	if (semantics > 1)
+	if (attributes > 1)
 	{
-		EmitError(builder, "%s can only have one builtin or location", name);
+		EmitError(builder, "%s can only have one semantic or location", name);
 		return false;
 	}
 
 	const char* direction = flattening.direction == IODirection::INPUT ? "inputs" : "outputs";
-	if (io.io_kind == IOKind::BUILTIN)
+	if (io.io_kind == IOKind::SEMANTIC)
 	{
-		if (!CheckBuiltin(flattening, io))
+		if (!CheckSemantic(flattening, io))
 			return false;
-		uint32 bit = 1u << (uint32)io.builtin;
-		if (flattening.builtins & bit)
+		uint32 bit = 1u << (uint32)io.semantic;
+		if (flattening.semantics & bit)
 		{
-			EmitError(builder, "'%s' is used twice in the %s", BuiltinToString(io.builtin).CString(), direction);
+			EmitError(builder, "'%s' is used twice in the %s", SemanticToString(io.semantic).CString(), direction);
 			return false;
 		}
-		flattening.builtins |= bit;
+		flattening.semantics |= bit;
 	}
 	else
 	{
@@ -285,12 +275,12 @@ static bool BuildEntryPoint(ShaderInterfaceBuilder& builder, Node* function, Sha
 	if (return_node)
 	{
 		ShaderIO unused;
-		if (!IsVoid(return_node->type) || FindSemantics(return_node, &unused))
+		if (!IsVoid(return_node->type) || FindIOAttributes(return_node, &unused))
 			outputs_built = Flatten(outputs, return_node->type, return_node);
 	}
-	if (outputs_built && stage == ShaderStage::VERTEX && !(outputs.builtins & (1u << (uint32)Builtin::POSITION)))
+	if (outputs_built && stage == ShaderStage::VERTEX && !(outputs.semantics & (1u << (uint32)Semantic::POSITION)))
 	{
-		EmitError(builder, "vertex shader '%s' has to output @builtin(position)", AtomName(builder, function->name));
+		EmitError(builder, "vertex shader '%s' has to output @semantic(position)", AtomName(builder, function->name));
 		outputs_built = false;
 	}
 
@@ -298,15 +288,15 @@ static bool BuildEntryPoint(ShaderInterfaceBuilder& builder, Node* function, Sha
 	return built && outputs_built;
 }
 
-// A non-entry point function, whose parameters and return value can't have builtins or locations.
+// A non-entry point function, whose parameters and return value can't have semantics or locations.
 static bool CheckFunction(ShaderInterfaceBuilder& builder, Node* function)
 {
 	ShaderIO unused;
 	for (Node* child = function->child; child; child = child->next)
 	{
-		if ((child->usage == Usage::PARAMETER || child->usage == Usage::RETURN_TYPE) && FindSemantics(child, &unused))
+		if ((child->usage == Usage::PARAMETER || child->usage == Usage::RETURN_TYPE) && FindIOAttributes(child, &unused))
 		{
-			EmitError(builder, "'%s' isn't an entry point, so its parameters and return value can't have a builtin or location",
+			EmitError(builder, "'%s' isn't an entry point, so its parameters and return value can't have a semantic or location",
 				AtomName(builder, function->name));
 			return false;
 		}
@@ -321,11 +311,11 @@ static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool to
 	if (node->node_type == NodeType::FUNCTION)
 	{
 		ShaderStage stage = ShaderStage::VERTEX;
-		uint32 stages = CountStageAttributes(node, &stage);
+		uint32 stages = CountEntryAttributes(node, &stage);
 		const char* name = AtomName(builder, node->name);
 		if (stages > 1)
 		{
-			EmitError(builder, "'%s' can only have one of 'vertex' and 'fragment'", name);
+			EmitError(builder, "'%s' can only have one 'entry'", name);
 			found = false;
 		}
 		else if (stages && !top_level)

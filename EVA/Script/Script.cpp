@@ -86,15 +86,19 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 
 	if (kind == ContextKind::SHADER)
 	{
-		EnumType* builtin_type = NewEnumType(context, "Builtin");
-		context.builtin_type = builtin_type;
-		DefineEnumValue(context, builtin_type, "vertex_index", (int64)Builtin::VERTEX_INDEX);
-		DefineEnumValue(context, builtin_type, "position", (int64)Builtin::POSITION);
-		DefineIntrinsic(context, scope, "builtin", IntrinsicKind::BUILTIN)->argument_scope = builtin_type->scope;
+		EnumType* semantic_type = NewEnumType(context, "Semantic");
+		context.semantic_type = semantic_type;
+		for (Semantic semantic : { Semantic::VERTEX_INDEX, Semantic::POSITION })
+			DefineEnumValue(context, semantic_type, SemanticToString(semantic), (int64)semantic);
+		DefineIntrinsic(context, scope, "semantic", IntrinsicKind::SEMANTIC)->argument_scope = semantic_type->scope;
 
 		DefineIntrinsic(context, scope, "location", IntrinsicKind::LOCATION);
-		DefineIntrinsic(context, scope, "vertex", IntrinsicKind::VERTEX);
-		DefineIntrinsic(context, scope, "fragment", IntrinsicKind::FRAGMENT);
+
+		EnumType* stage_type = NewEnumType(context, "ShaderStage");
+		context.stage_type = stage_type;
+		for (ShaderStage stage : { ShaderStage::VERTEX, ShaderStage::FRAGMENT })
+			DefineEnumValue(context, stage_type, ShaderStageToString(stage), (int64)stage);
+		DefineIntrinsic(context, scope, "entry", IntrinsicKind::ENTRY)->argument_scope = stage_type->scope;
 	}
 	return scope;
 }

@@ -391,25 +391,34 @@ struct StructType : Type
 	StructType() { type_kind = TypeKind::STRUCT; }
 };
 
-// The values of the Builtin enum, the argument of @builtin(...).
-enum class Builtin : uint8
+// The values of the Semantic enum, the argument of @semantic(...).
+enum class Semantic : uint8
 {
 	VERTEX_INDEX,
 	POSITION,
 };
 
-// As written in @builtin(...). Keep in sync with Builtin (Script_Dump.cpp).
-ZTStringView BuiltinToString(Builtin builtin);
+// As written in @semantic(...). Keep in sync with Semantic (Script_Dump.cpp).
+ZTStringView SemanticToString(Semantic semantic);
+
+// The values of the ShaderStage enum, the argument of @entry(...).
+enum class ShaderStage : uint8
+{
+	VERTEX,
+	FRAGMENT,
+};
+
+// As written in @entry(...). Keep in sync with ShaderStage (Script_Dump.cpp).
+ZTStringView ShaderStageToString(ShaderStage stage);
 
 enum class IntrinsicKind : uint8
 {
 	NONE,
 
 	// shader attributes:
-	BUILTIN,
+	SEMANTIC,
 	LOCATION,
-	VERTEX,
-	FRAGMENT,
+	ENTRY,
 };
 
 struct Intrinsic : Element
@@ -460,7 +469,8 @@ struct Context
 	PrimitiveType* int_type = nullptr;
 	PrimitiveType* uint_type = nullptr;
 	PrimitiveType* float_type = nullptr;
-	EnumType* builtin_type = nullptr; // SHADER only
+	EnumType* semantic_type = nullptr; // SHADER only
+	EnumType* stage_type = nullptr;    // SHADER only
 
 	std::vector<ArrayType*> array_types; // see GetArrayType
 };
@@ -569,12 +579,6 @@ bool TypeConst(Typer& typer, Node* node);
 		return {};                                   \
 	}
 
-enum class ShaderStage : uint8
-{
-	VERTEX,
-	FRAGMENT,
-};
-
 enum class IODirection : uint8
 {
 	INPUT,
@@ -583,7 +587,7 @@ enum class IODirection : uint8
 
 enum class IOKind : uint8
 {
-	BUILTIN,
+	SEMANTIC,
 	LOCATION,
 };
 
@@ -592,15 +596,15 @@ enum class IOKind : uint8
 struct ShaderIO
 {
 	IODirection direction = IODirection::INPUT;
-	IOKind io_kind = IOKind::BUILTIN;
-	Builtin builtin = Builtin::VERTEX_INDEX; // BUILTIN
-	uint32 location = 0;                     // LOCATION
+	IOKind io_kind = IOKind::SEMANTIC;
+	Semantic semantic = Semantic::VERTEX_INDEX; // SEMANTIC
+	uint32 location = 0;                        // LOCATION
 	Type* type = nullptr;
 	Slice<uint32> path;          // INPUT: [parameter index, field index, ...]. OUTPUT: [field index, ...] into the return value
 	Node* declaration = nullptr; // the PARAMETER, FIELD or RETURN_TYPE with the attribute
 };
 
-// A @vertex or @fragment function.
+// An @entry(...) function.
 struct EntryPoint
 {
 	ShaderStage stage = ShaderStage::VERTEX;
@@ -625,7 +629,7 @@ struct ShaderInterfaceBuilder
 ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
 
 // Finds the entry points of a typed shader module and flattens their parameters and return values into inputs and
-// outputs, checking the builtins and locations. Returns whether there were no errors.
+// outputs, checking the semantics and locations. Returns whether there were no errors.
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
 
 // e.g. float4, [3]float2. Allocated in arena when it isn't a type's own name.
@@ -642,7 +646,7 @@ void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // One line per entry point and per input or output, e.g.
 // vertex VSMain
-//   input builtin(vertex_index) uint [0]
+//   input semantic(vertex_index) uint [0]
 // Meant for tests and debugging. Allocated in arena.
 ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
 
