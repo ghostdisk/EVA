@@ -430,6 +430,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 	};
 	std::vector<Entry> stack = { { compilation.module, false } };
 	std::unordered_set<Node*> seen;
+	uint32 attribute_count = 0;
 
 	if (compilation.module->node_type != NodeType::MODULE || compilation.module->usage != Usage::ROOT)
 		Fail("the root is %s", NodeTypeToString(compilation.module->node_type).CString());
@@ -444,6 +445,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		if (!compilation.intermediate_arena->Contains(node))
 			Fail("%s isn't in the intermediate arena", NodeTypeToString(node->node_type).CString());
 		CheckNodeShape(node);
+		attribute_count += node->usage == Usage::ATTRIBUTE;
 		const char* name = NodeTypeToString(node->node_type).CString();
 
 		if (stage >= Stage::RESOLVE && succeeded)
@@ -506,9 +508,27 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		for (Node* child = node->child; child; child = child->next)
 			stack.push_back({ child, entry.in_attribute || child->usage == Usage::ATTRIBUTE });
 	}
+
+	// Every '@' parses into one attribute, which no stage may drop.
+	if ((stage > Stage::PARSE || succeeded) && attribute_count != compilation.attribute_count)
+		Fail("%u attributes in the tree for %u in the source", attribute_count, compilation.attribute_count);
 }
 
-void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
+static uint32 CountAttributes(ZTStringView source)
+{
+	Arena* arena = CreateArena();
+	DEFER(DestroyArena(arena));
+	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = arena, .error_arena = arena };
+	uint32 count = 0;
+	while (LexToken(parser) && parser.token.token_type != TokenType::END_OF_FILE)
+	{
+		count += parser.token.token_type == TokenType::AT;
+		EatToken(parser);
+	}
+	return count;
+}
+
+static void CompileStages(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
 {
 	SetArenaFill(fill);
 	DEFER(SetArenaFill(-1));
@@ -523,6 +543,8 @@ void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, ui
 		.error_arena = compilation.output_arena,
 	};
 	bool parsed = Parse(parser, &compilation.module);
+	if (parsed)
+		compilation.attribute_count = CountAttributes(source);
 	CheckErrors(compilation, parser.errors, parsed, "parsing");
 	if (!compilation.module)
 		Fail("Parse returned no module");
@@ -563,6 +585,19 @@ void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, ui
 		compilation.errors = CopyErrors(compilation.output_arena, typer.errors);
 		return;
 	}
+}
+
+// Allowed arena memory for one compile: enough for TOTAL_CONSTANT_SIZE_LIMIT and the tree of the source, so anything
+// past it means a small input made the compiler use disproportionate memory.
+static const size_t MEMORY_LIMIT = 64 * 1024 * 1024;
+static const size_t MEMORY_LIMIT_PER_SOURCE_BYTE = 1024;
+
+void Compile(Compilation& compilation, ZTStringView source, ContextKind kind, uint8 fill)
+{
+	CompileStages(compilation, source, kind, fill);
+	size_t memory = compilation.intermediate_arena->Size() + compilation.output_arena->Size();
+	if (memory > MEMORY_LIMIT + MEMORY_LIMIT_PER_SOURCE_BYTE * source.length)
+		Fail("compiling %zu bytes of source used %zu bytes of arenas", source.length, memory);
 }
 
 ZTStringView Fingerprint(Compilation& compilation, Arena* arena)

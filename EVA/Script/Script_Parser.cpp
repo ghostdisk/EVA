@@ -627,9 +627,30 @@ static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire requ
 		return false;
 	}
 
+	// Attributes on the dropped nodes, e.g. const @a x = 1, move to the declaration.
+	Node* attributes = nullptr;
+	Node** attributes_tail = &attributes;
+	Node* dropped[] = { node, FindChild(node, Usage::LEFT), head };
+	for (uint32 i = 0; i < 3; ++i)
+	{
+		if (!dropped[i] || (i > 0 && dropped[i] == dropped[0]) || (i > 1 && dropped[i] == dropped[1]))
+			continue;
+		for (Node* child = dropped[i]->child; child; child = child->next)
+		{
+			if (child->usage == Usage::ATTRIBUTE)
+			{
+				*attributes_tail = child;
+				attributes_tail = &child->next;
+			}
+		}
+	}
+
 	node->name = head->name;
 	node->number = nullptr; // clears the op
 	Node** tail = &node->child;
+	*tail = attributes;
+	if (attributes)
+		tail = attributes_tail;
 	if (type)
 	{
 		type->usage = Usage::DECLARED_TYPE;

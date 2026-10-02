@@ -131,6 +131,10 @@ TEST(Resolver, Variables)
 		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER v ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([BODY]BLOCK ([STATEMENT]BINARY = ([LEFT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([RIGHT]REFERENCE v -> PARAMETER))))");
 	CHECK_RESOLVE_ERRORS("struct S {} function f() { x; x: S; }", "unknown identifier 'x'");
+	// The name's attributes stay on the variable.
+	CHECK_RESOLVE("struct S {} function f() { (@S x): S; }",
+		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([ATTRIBUTE]REFERENCE S -> TYPE S) "
+		"([DECLARED_TYPE]REFERENCE S -> TYPE S))))");
 }
 
 TEST(Resolver, VariableNeedsAName)

@@ -21,12 +21,15 @@ AddressSanitizer and UndefinedBehaviorSanitizer.
 
 - Crashes, memory errors (ASan) and undefined behavior (UBSan). Arenas are poisoned under ASan, and fuzz builds leave a
   redzone before each arena allocation, so overflows inside an arena are caught too.
-- Panics, including running out of arena memory, are failures: untrusted input mustn't be able to take the engine down.
+- Panics are failures: untrusted input mustn't be able to take the engine down.
+- Memory: a compile's arenas may use 64 MB plus 1 KB per source byte. More means a small input made the compiler use
+  disproportionate memory, e.g. constants built from repeated references to other constants.
 - A stage fails if and only if it reports an error. Errors live in the output arena, survive the intermediate arena
   being thrown away, and are printable ASCII (they end up in logs and terminals).
 - The tree is well formed after every stage: each node type has the children it should, nothing is shared or cyclic.
   After resolving: no identifiers left, scopes set. After typing: everything has a type, every const a value of the
-  right size, layouts are consistent, array types unique, attributes are intrinsics.
+  right size, layouts are consistent, array types unique, attributes are intrinsics. Every `@` in the source is one
+  attribute in the tree, so none get dropped.
 - Determinism: the shader is compiled twice with arenas filled with different garbage, and the results must match,
   which catches reads of uninitialized arena memory.
 - The source is also compiled as a script, which has a different global scope.
@@ -52,6 +55,15 @@ Build/Fuzz/FuzzScriptGrammar Build/Fuzz/Corpus/ScriptGrammar -artifact_prefix=Bu
 
 Useful flags: `-max_total_time=<seconds>`, `-jobs=N -workers=N` for parallel runs, `-fork=N -ignore_crashes=1` to keep
 going past crashes and collect several, `-runs=0 <dir>` to run a corpus once.
+
+An 8 hour run of a target on 8 cores (`-fork=8`), collecting every crash rather than stopping at the first:
+
+```
+Build/Fuzz/FuzzScript Build/Fuzz/Corpus/Script EVA/Script/Fuzz/Seeds/Script -dict=EVA/Script/Fuzz/Script.dict -fork=8 -ignore_crashes=1 -ignore_ooms=1 -ignore_timeouts=1 -max_total_time=28800 -artifact_prefix=Build/Fuzz/Crashes/Script/ > Build/Fuzz/script.log 2>&1
+Build/Fuzz/FuzzScriptGrammar Build/Fuzz/Corpus/ScriptGrammar -fork=8 -ignore_crashes=1 -ignore_ooms=1 -ignore_timeouts=1 -max_total_time=28800 -artifact_prefix=Build/Fuzz/Crashes/ScriptGrammar/ > Build/Fuzz/grammar.log 2>&1
+```
+
+The `Crashes/<target>` directories have to exist. Progress lines in the logs end with `oom/timeout/crash` counts.
 
 ## A crash
 

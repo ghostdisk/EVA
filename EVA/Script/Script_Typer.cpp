@@ -150,8 +150,26 @@ static uint32 NumberBits(NumberLiteral* number, PrimitiveType* type)
 	return bits;
 }
 
+uint32 CONSTANT_SIZE_LIMIT = 4 * 1024 * 1024;
+uint64 TOTAL_CONSTANT_SIZE_LIMIT = 16 * 1024 * 1024;
+
+// nullptr with an error past the limits, which keep a small source from building huge constants out of references to
+// other constants.
 static Constant* NewConstant(Typer& typer, Type* type)
 {
+	if (type->size > CONSTANT_SIZE_LIMIT)
+	{
+		EmitError(typer, "%s is too large for a constant: %u bytes, at most %u", TypeName(typer, type), type->size,
+			CONSTANT_SIZE_LIMIT);
+		return nullptr;
+	}
+	if (typer.constant_size + type->size > TOTAL_CONSTANT_SIZE_LIMIT)
+	{
+		EmitError(typer, "constants take more than %llu bytes in total", (unsigned long long)TOTAL_CONSTANT_SIZE_LIMIT);
+		return nullptr;
+	}
+	typer.constant_size += type->size;
+
 	Constant* constant = typer.arena->New<Constant>();
 	constant->type = type;
 	uint8* bytes = (uint8*)typer.arena->Allocate(type->size, type->alignment);
@@ -282,6 +300,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 	case NodeType::NUMBER:
 	{
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		WriteComponent(constant, 0, NumberBits(node->number, (PrimitiveType*)node->type));
 		return constant;
 	}
@@ -299,6 +319,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 		if (!operand)
 			return nullptr;
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		PrimitiveKind kind = ComponentType(node->type)->primitive_kind;
 		for (uint32 i = 0; i < ComponentCount(node->type); ++i)
 			WriteComponent(constant, i, FoldUnary(kind, node->op, ReadComponent(operand, i)));
@@ -311,6 +333,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 		if (!left || !right)
 			return nullptr;
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		PrimitiveKind kind = ComponentType(node->type)->primitive_kind;
 		for (uint32 i = 0; i < ComponentCount(node->type); ++i)
 		{
@@ -325,6 +349,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 	{
 		// Vector constructors: the arguments' components in order, or one scalar for all of them.
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		uint32 offset = 0;
 		for (Node* argument = node->child; argument; argument = argument->next)
 		{
@@ -352,6 +378,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 		if (!array || !index)
 			return nullptr;
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		uint32 offset = (uint32)ConstantToInteger(index) * ((ArrayType*)object->type)->stride; // checked by TypeIndex
 		memcpy(constant->bytes.data, array->bytes.data + offset, constant->bytes.count);
 		return constant;
@@ -359,6 +387,8 @@ static Constant* EvaluateConstant(Typer& typer, Node* node)
 	case NodeType::INIT_LIST:
 	{
 		Constant* constant = NewConstant(typer, node->type);
+		if (!constant)
+			return nullptr;
 		uint32 index = 0;
 		for (Node* element = node->child; element; element = element->next)
 		{

@@ -107,10 +107,23 @@ static bool ResolveVariable(Resolver& resolver, Node* node)
 		return false;
 	}
 
+	// The name's attributes, e.g. (@a x): int, take its place.
+	Node* replacement = nullptr;
+	Node** tail = &replacement;
+	for (Node* child = left->child; child; child = child->next)
+	{
+		if (child->usage == Usage::ATTRIBUTE)
+		{
+			*tail = child;
+			tail = &child->next;
+		}
+	}
+	*tail = left->next;
+
 	Node** link = &node->child;
 	while (*link != left)
 		link = &(*link)->next;
-	*link = left->next;
+	*link = replacement;
 
 	node->node_type = NodeType::VARIABLE;
 	node->name = left->name;

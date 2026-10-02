@@ -1,0 +1,1 @@
+@vertex function f() {} const @fragment x = 1;

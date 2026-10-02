@@ -32,6 +32,7 @@ struct Compilation
 	Node* module = nullptr;
 	Stage failed_stage = Stage::DONE;
 	Slice<ScriptError*> errors; // in output_arena
+	uint32 attribute_count = 0; // '@' tokens in the source, once it parsed
 };
 
 // Compiles source as far as it gets, checking the invariants of each stage. The arenas' blocks are filled with fill, so

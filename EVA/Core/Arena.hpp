@@ -39,8 +39,9 @@ struct Arena
 	ArenaMark Mark() const;
 	void Rewind(ArenaMark mark);
 
-	// For checks and debugging, walks the blocks.
+	// For checks and debugging, walk the blocks.
 	bool Contains(const void* pointer) const;
+	size_t Size() const; // of all blocks
 };
 
 Arena* CreateArena();

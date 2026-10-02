@@ -339,6 +339,28 @@ TEST(Typer, ConstsMustBeConstant)
 	CHECK_TYPE_ERRORS("const a = 1; const b = a * 2; const c: [b]float = { 1.0, 2.0 };", "");
 }
 
+TEST(Typer, ConstantSizeLimits)
+{
+	// Each four times the size of the one before, for a few bytes of source: a is 32 bytes with its elements, b 64,
+	// c 256.
+	const char* source =
+		"const a: [4]int = { 1, 2, 3, 4 };"
+		"const b: [4][4]int = { a, a, a, a };"
+		"const c: [4][4][4]int = { b, b, b, b };";
+
+	uint32 previous_size_limit = CONSTANT_SIZE_LIMIT;
+	uint64 previous_total_limit = TOTAL_CONSTANT_SIZE_LIMIT;
+	DEFER(CONSTANT_SIZE_LIMIT = previous_size_limit);
+	DEFER(TOTAL_CONSTANT_SIZE_LIMIT = previous_total_limit);
+
+	CHECK_TYPE_ERRORS(source, "");
+	CONSTANT_SIZE_LIMIT = 64;
+	CHECK_TYPE_ERRORS(source, "[4][4][4]int is too large for a constant: 256 bytes, at most 64");
+	CONSTANT_SIZE_LIMIT = 256;
+	TOTAL_CONSTANT_SIZE_LIMIT = 300;
+	CHECK_TYPE_ERRORS(source, "constants take more than 300 bytes in total");
+}
+
 TEST(Typer, ShaderAttributes)
 {
 	CHECK_SHADER_TYPE_ERRORS("@vertex function f(@builtin(vertex_index) i: uint): @builtin(position) float4 { return float4(1.0); }", "");

@@ -253,6 +253,14 @@ bool Arena::Contains(const void* pointer) const
 	return false;
 }
 
+size_t Arena::Size() const
+{
+	size_t size = 0;
+	for (ArenaBlock* block = current; block; block = block->next.load(std::memory_order_relaxed))
+		size += block->size;
+	return size;
+}
+
 Arena* CreateArena()
 {
 	ArenaBlock* block = AcquireBlock();

@@ -485,8 +485,13 @@ struct Typer
 	Arena* error_arena = nullptr;     // errors and their messages
 	std::vector<ScriptError*> errors; // allocated in error_arena
 	Type* return_type = nullptr;      // of the function being typed
+	uint64 constant_size = 0;         // of all constants made so far, see TOTAL_CONSTANT_SIZE_LIMIT
 	uint32 recursion_depth = 0;
 };
+
+// In bytes, for one constant and for all of a module's.
+extern uint32 CONSTANT_SIZE_LIMIT;
+extern uint64 TOTAL_CONSTANT_SIZE_LIMIT;
 
 ScriptError* EmitError(Typer& typer, const char* format, ...);
 

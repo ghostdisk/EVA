@@ -1,0 +1,6 @@
+const a: [16]float4 = { float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0), float4(1.0) };
+const b: [16][16]float4 = { a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a };
+const c: [16][16][16]float4 = { b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b };
+const d: [16][16][16][16]float4 = { c, c, c, c, c, c, c, c, c, c, c, c, c, c, c, c };
+const e: [16][16][16][16][16]float4 = { d, d, d, d, d, d, d, d, d, d, d, d, d, d, d, d };
+const f: [16][16][16][16][16][16]float4 = { e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e };

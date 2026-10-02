@@ -126,6 +126,19 @@ TEST(Arena, Contains)
 	DestroyArena(other);
 }
 
+TEST(Arena, Size)
+{
+	Arena* arena = CreateArena();
+	DEFER(DestroyArena(arena));
+
+	CHECK_EQ(arena->Size(), GetArenaBlockSize());
+	arena->Allocate(GetArenaBlockSize() / 2);
+	arena->Allocate(GetArenaBlockSize() / 2);
+	CHECK_EQ(arena->Size(), GetArenaBlockSize() * 2);
+	arena->Allocate(GetArenaBlockSize() * 3);
+	CHECK(arena->Size() > GetArenaBlockSize() * 5);
+}
+
 TEST(Arena, Fill)
 {
 	SetArenaFill(0xCD);
