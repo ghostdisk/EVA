@@ -275,7 +275,6 @@ struct Parser
 	uint32 recursion_depth = 0;
 };
 
-
 enum class TypeKind : uint8
 {
 	PRIMITIVE,
@@ -409,8 +408,6 @@ enum class AddressSpace : uint8
 	MEMORY, // reserved
 };
 
-ZTStringView AddressSpaceToString(AddressSpace space);
-
 struct PointerType : Type
 {
 	AddressSpace space = AddressSpace::FUNCTION;
@@ -480,7 +477,6 @@ struct Constant : Element
 		kind = ElementKind::CONSTANT;
 	}
 };
-
 
 enum class GenericParamKind : uint8
 {
@@ -597,7 +593,6 @@ struct Resolver
 	uint32 recursion_depth = 0;
 };
 
-
 struct Typer
 {
 	Context* context = nullptr;
@@ -608,7 +603,6 @@ struct Typer
 	uint64 constant_size = 0;
 	uint32 recursion_depth = 0;
 };
-
 
 enum class IODirection : uint8
 {
@@ -666,66 +660,9 @@ struct CompileShaderResult
 	Slice<ScriptError*> errors;
 };
 
-ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
-bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
-ZTStringView TypeToString(Type* type, Arena* arena);
-ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
-ZTStringView ConstantToString(Constant* constant, Arena* arena);
-void DumpNode(Node* node, Arena* arena, int indent = 0);
-ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
-void SerializeNode(StringBuilder& builder, Node* node);
-CompileShaderResult CompileShader(const CompileShaderOptions& options);
-PrimitiveType* ComponentType(Type* type); // nullptr unless primitive or vector
-uint32 ComponentCount(Type* type);
-bool IsNumeric(PrimitiveType* type);
-bool IsInteger(PrimitiveType* type);
-PrimitiveType* NumberType(Typer& typer, NumberLiteral* number, Type* expected);
-bool CheckOperator(Typer& typer, NodeType node_type, TokenType op);
-bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type);
-bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32* components);
-bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 components);
-bool ResolveName(Typer& typer, Node* node, Element** out);
-Type* EvaluateType(Typer& typer, Node* node);
-bool TypeConst(Typer& typer, Node* node);
-bool TypeCheck(Typer& typer, Node* module);
-Constant* EvaluateConstant(Typer& typer, Node* node, Type* expected, const char* what);
-Constant* TryEvaluateConstant(Typer& typer, Node* node, Type* expected);
-int64 ConstantToInteger(Constant* constant);
-ZTStringView UsageToString(Usage usage);
-ScriptError* EmitError(Parser& parser, const char* format, ...);
-bool LexToken(Parser& parser);
-void EatToken(Parser& parser);
-bool Parse(Parser& parser, Node** out_module);
-Node* ParseExpression(Parser& parser);
-Node* ParseStatement(Parser& parser);
-
-// arena has to outlive the context.
-void InitContext(Context& context, Arena* arena, ContextKind kind);
-
-// args have to match the generic's parameters. nullptr if the generic rejects them, which isn't cached.
-Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer);
-
-// The arguments have to be valid.
-ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
-VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count);
-MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows);
-
-PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
-FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
-ScriptError* EmitError(Resolver& resolver, const char* format, ...);
-
-// Turns IDENTIFIERs into REFERENCEs and gives MODULE, FUNCTION and BLOCK nodes their scope. Functions, structs, type
-// aliases and globals can be referenced anywhere in their scope, everything else only after its declaration. Unknown
-// names stay IDENTIFIERs.
-bool Resolve(Resolver& resolver, Node* module);
-
-ZTStringView SemanticToString(Semantic semantic);
-ZTStringView ShaderStageToString(ShaderStage stage);
-ZTStringView TokenToString(TokenType token_type);
-ZTStringView NodeTypeToString(NodeType type);
-
-ScriptError* EmitError(Typer& typer, const char* format, ...);
-
+extern uint32 RECURSION_LIMIT;
+extern uint32 CONSTANT_SIZE_LIMIT;
+extern uint64 TOTAL_CONSTANT_SIZE_LIMIT;
 
 inline Node* FindChild(Node* node, Usage usage)
 {
@@ -742,8 +679,71 @@ inline bool IsBuiltinFunction(IntrinsicKind kind)
 	return kind >= IntrinsicKind::MUL;
 }
 
-extern uint32 CONSTANT_SIZE_LIMIT;
-extern uint64 TOTAL_CONSTANT_SIZE_LIMIT;
-extern uint32 RECURSION_LIMIT;
+// The built-in types, generics and intrinsics, in the global scope above every module. arena has to outlive the
+// context. Types are unique: generic instances, pointer and function types are cached here, and the Get functions only
+// take valid arguments.
+void InitContext(Context& context, Arena* arena, ContextKind kind);
+Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer);
+ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
+VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count);
+MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows);
+PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
+FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
+
+// Parses a source file into a MODULE whose children are its declarations. Stops at the first error.
+bool Parse(Parser& parser, Node** out_module);
+Node* ParseExpression(Parser& parser);
+Node* ParseStatement(Parser& parser);
+bool LexToken(Parser& parser);
+void EatToken(Parser& parser);
+ScriptError* EmitError(Parser& parser, const char* format, ...);
+
+// Turns IDENTIFIERs into REFERENCEs and gives MODULE, FUNCTION and BLOCK nodes their scope. Functions, structs, type
+// aliases and globals can be referenced anywhere in their scope, everything else only after its declaration. Unknown
+// names stay IDENTIFIERs.
+bool Resolve(Resolver& resolver, Node* module);
+ScriptError* EmitError(Resolver& resolver, const char* format, ...);
+
+// Gives every expression and declaration its type. Constant expressions (a const's value, array sizes, locations)
+// aren't typed but evaluated, and become CONSTANT nodes. Errors don't stop typing the rest of the module.
+bool TypeCheck(Typer& typer, Node* module);
+ScriptError* EmitError(Typer& typer, const char* format, ...);
+bool TypeConst(Typer& typer, Node* node);
+Type* EvaluateType(Typer& typer, Node* node);
+bool ResolveName(Typer& typer, Node* node, Element** out);
+Constant* EvaluateConstant(Typer& typer, Node* node, Type* expected, const char* what);
+Constant* TryEvaluateConstant(Typer& typer, Node* node, Type* expected);
+int64 ConstantToInteger(Constant* constant);
+PrimitiveType* NumberType(Typer& typer, NumberLiteral* number, Type* expected);
+bool CheckOperator(Typer& typer, NodeType node_type, TokenType op);
+bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type);
+bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32* components);
+bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 components);
+PrimitiveType* ComponentType(Type* type);
+uint32 ComponentCount(Type* type);
+bool IsNumeric(PrimitiveType* type);
+bool IsInteger(PrimitiveType* type);
+
+// Finds the entry points of a typed shader module and flattens their parameters and return values into inputs and
+// outputs, checking their semantics and locations.
+bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
+ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
+
+// Runs every stage on a shader's source. Errors in the source come from the front end; past it, only the target's size
+// limits can fail, and fxc can still run out of registers.
+CompileShaderResult CompileShader(const CompileShaderOptions& options);
+
+ZTStringView TokenToString(TokenType token_type);
+ZTStringView NodeTypeToString(NodeType type);
+ZTStringView UsageToString(Usage usage);
+ZTStringView AddressSpaceToString(AddressSpace space);
+ZTStringView SemanticToString(Semantic semantic);
+ZTStringView ShaderStageToString(ShaderStage stage);
+ZTStringView TypeToString(Type* type, Arena* arena);
+ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
+ZTStringView ConstantToString(Constant* constant, Arena* arena);
+ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
+void SerializeNode(StringBuilder& builder, Node* node);
+void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 }
