@@ -15,9 +15,10 @@ ScriptError* EmitError(Resolver& resolver, const char* format, ...)
 	return error;
 }
 
-static Scope* NewScope(Resolver& resolver, Scope* parent)
+static Scope* NewScope(Resolver& resolver, ScopeKind kind, Scope* parent)
 {
 	Scope* scope = resolver.arena->New<Scope>();
+	scope->kind = kind;
 	scope->parent = parent;
 	return scope;
 }
@@ -32,15 +33,25 @@ static Definition* FindInScope(Scope* scope, Atom name)
 	return nullptr;
 }
 
-// What the name refers to from the current scope, or nullptr.
-static Definition* Lookup(Resolver& resolver, Atom name)
+// What the name refers to from the current scope, or nullptr. found_in: the scope defining it.
+static Definition* Lookup(Resolver& resolver, Atom name, Scope** found_in)
 {
 	for (Scope* scope = resolver.scope; scope; scope = scope->parent)
 	{
 		if (Definition* definition = FindInScope(scope, name))
+		{
+			*found_in = scope;
 			return definition;
+		}
 	}
 	return nullptr;
+}
+
+static Scope* FindAncestorFunctionScope(Scope* scope)
+{
+	while (scope && scope->kind != ScopeKind::FUNCTION)
+		scope = scope->parent;
+	return scope;
 }
 
 // Adds the element to the current scope under name. Names from parent scopes can be shadowed, not ones from this scope.
@@ -148,7 +159,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::MODULE:
 	{
 		// The module's names live in its own scope, under the global scope holding the built-ins.
-		node->scope = NewScope(resolver, resolver.context->global_scope);
+		node->scope = NewScope(resolver, ScopeKind::MODULE, resolver.context->global_scope);
 		resolver.scope = node->scope;
 		bool resolved = DeclareAhead(resolver, node);
 		return ResolveChildren(resolver, node) && resolved;
@@ -156,7 +167,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::FUNCTION:
 	{
 		// Parameters and the return type are resolved in the function's scope, which its body shares.
-		node->scope = NewScope(resolver, resolver.scope);
+		node->scope = NewScope(resolver, ScopeKind::FUNCTION, resolver.scope);
 		resolver.scope = node->scope;
 		if (Node* body = FindChild(node, Usage::BODY))
 			body->scope = node->scope;
@@ -165,7 +176,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::BLOCK:
 	{
 		if (!node->scope)
-			node->scope = NewScope(resolver, resolver.scope);
+			node->scope = NewScope(resolver, ScopeKind::BLOCK, resolver.scope);
 		resolver.scope = node->scope;
 		bool resolved = DeclareAhead(resolver, node);
 		return ResolveChildren(resolver, node) && resolved;
@@ -197,7 +208,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 		if (callee->node_type == NodeType::REFERENCE && callee->target->kind == ElementKind::INTRINSIC)
 		{
 			if (Scope* argument_scope = ((Intrinsic*)callee->target)->argument_scope)
-				resolver.scope = NewScope(resolver, argument_scope);
+				resolver.scope = NewScope(resolver, ScopeKind::ARGUMENTS, argument_scope);
 		}
 
 		for (Node* child = node->child; child; child = child->next)
@@ -210,15 +221,30 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::IDENTIFIER:
 	{
 		bool resolved = true;
-		if (Definition* definition = Lookup(resolver, node->name))
-		{
-			node->node_type = NodeType::REFERENCE;
-			node->target = definition->element;
-		}
-		else
+		Scope* found_in = nullptr;
+		Definition* definition = Lookup(resolver, node->name, &found_in);
+		Element* element = definition ? definition->element : nullptr;
+
+		// Parameters and variables below the module live in their function's memory, so another function can only
+		// reach them by capturing, which needs calls first. The module's own variables are globals.
+		bool local = element && element->kind == ElementKind::NODE && found_in->kind != ScopeKind::MODULE &&
+					 (((Node*)element)->node_type == NodeType::PARAMETER || ((Node*)element)->node_type == NodeType::VARIABLE);
+
+		if (!definition)
 		{
 			EmitError(resolver, "unknown identifier '%s'", GetAtomString(node->name, resolver.arena).CString());
 			resolved = false;
+		}
+		else if (local && FindAncestorFunctionScope(found_in) != FindAncestorFunctionScope(resolver.scope))
+		{
+			EmitError(resolver, "'%s' belongs to an enclosing function, capturing isn't supported yet",
+				GetAtomString(node->name, resolver.arena).CString());
+			resolved = false;
+		}
+		else
+		{
+			node->node_type = NodeType::REFERENCE;
+			node->target = element;
 		}
 		return ResolveChildren(resolver, node) && resolved; // attributes
 	}

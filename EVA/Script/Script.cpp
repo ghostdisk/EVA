@@ -62,6 +62,7 @@ static EnumType* NewEnumType(Context& context, StringView name)
 	EnumType* type = context.arena->New<EnumType>();
 	type->name = GetAtom(name);
 	type->scope = context.arena->New<Scope>();
+	type->scope->kind = ScopeKind::ENUM;
 	return type;
 }
 
@@ -79,6 +80,7 @@ static void DefineEnumValue(Context& context, EnumType* type, StringView name, i
 static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 {
 	Scope* scope = context.arena->New<Scope>();
+	scope->kind = ScopeKind::GLOBAL;
 
 	context.void_type = NewPrimitiveType(context, "void", PrimitiveKind::VOID, 0);
 	context.bool_type = NewPrimitiveType(context, "bool", PrimitiveKind::BOOL, 4);

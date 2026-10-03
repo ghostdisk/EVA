@@ -156,7 +156,6 @@ TEST(Resolver, NestedFunctions)
 {
 	CHECK_RESOLVE_ERRORS("function f() { g(); function g() {} }", "");
 	CHECK_RESOLVE_ERRORS("function f() { function g() {} } function h() { g(); }", "unknown identifier 'g'");
-	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g() { a; } }", "");
 }
 
 TEST(Resolver, Shadowing)
@@ -222,6 +221,28 @@ TEST(Resolver, Scopes)
 	CHECK(body->scope == function->scope);
 	CHECK(block->scope->parent == body->scope);
 	CHECK(resolver.scope == nullptr);
+	CHECK_EQ(context.global_scope->kind, ScopeKind::GLOBAL);
+	CHECK_EQ(module->scope->kind, ScopeKind::MODULE);
+	CHECK_EQ(function->scope->kind, ScopeKind::FUNCTION);
+	CHECK_EQ(block->scope->kind, ScopeKind::BLOCK);
+}
+
+TEST(Resolver, NoCapturing)
+{
+	// A nested function can't use the parameters and variables of the functions around it.
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g() { a; } }",
+		"'a' belongs to an enclosing function, capturing isn't supported yet");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { { x: S; function g(): S { return x; } } }",
+		"'x' belongs to an enclosing function, capturing isn't supported yet");
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g() { function h() { a; } } }",
+		"'a' belongs to an enclosing function, capturing isn't supported yet");
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g(b: [a]float) {} }",
+		"'a' belongs to an enclosing function, capturing isn't supported yet");
+
+	// Its own, those of blocks in the same function, and everything else around it are fine.
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { { { a; } } }", "");
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g(a: S) { a; } }", "");
+	CHECK_RESOLVE_ERRORS("function f() { const c = 1; struct T {} function h() {} function g() { c; h; x: T; } }", "");
 }
 
 TEST(Resolver, TriangleShader)

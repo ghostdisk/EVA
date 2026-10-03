@@ -466,6 +466,14 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 				Fail("the module's scope isn't under the global scope");
 			if (node->node_type == NodeType::FUNCTION && FindChild(node, Usage::BODY)->scope != node->scope)
 				Fail("FUNCTION %s doesn't share its body's scope", GetAtomString(node->name, compilation.intermediate_arena).CString());
+			if (node->node_type == NodeType::MODULE || node->node_type == NodeType::FUNCTION || node->node_type == NodeType::BLOCK)
+			{
+				ScopeKind kind = node->node_type == NodeType::MODULE ? ScopeKind::MODULE
+								 : node->node_type == NodeType::FUNCTION || node->usage == Usage::BODY ? ScopeKind::FUNCTION
+																										: ScopeKind::BLOCK;
+				if (node->scope->kind != kind)
+					Fail("%s has a scope of the wrong kind", name);
+			}
 			if (node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::NODE)
 			{
 				NodeType target = ((Node*)node->target)->node_type;

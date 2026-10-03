@@ -475,9 +475,20 @@ struct Definition
 	Definition* next = nullptr;
 };
 
+enum class ScopeKind : uint8
+{
+	GLOBAL,    // the built-ins
+	ENUM,      // an enum's values
+	ARGUMENTS, // a call's arguments, under its intrinsic's argument scope
+	MODULE,
+	FUNCTION,  // a function's parameters and the top level of its body
+	BLOCK,     // a nested block or an if's branch, in a function or in the module's code
+};
+
 // Names declared in a module, function or block. Inner scopes can shadow names from their parents.
 struct Scope
 {
+	ScopeKind kind = ScopeKind::GLOBAL;
 	Scope* parent = nullptr;     // nullptr for the global scope
 	Definition* first = nullptr; // a list for now, scopes are small
 };
