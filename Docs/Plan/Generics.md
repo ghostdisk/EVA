@@ -6,7 +6,8 @@ binding model. User-defined generics (`struct Foo(T)`) are out of scope, but not
 
 **Where we are:** steps 1 to 3 of 9 are done: generics, the instance cache and `ResolveName`; `Array`, `Vector` and
 `Matrix` (with `float2x2` to `float4x4` named); `type` aliases and constructing through them. Left: defaults, the
-texture and buffer generics (step 4, with the binding model). New tests for these wait for the golden test system.
+texture and buffer generics (step 4, with the binding model). Tests: typer and context unit tests, and the
+`Shader/generics` golden case.
 
 Before this, arrays were a special case: `[N]T` parsed to an `ARRAY_TYPE` node that `EvaluateType` handled itself, and
 `Context::array_types` cached the types with a linear search. Vectors had their own cache, and matrices existed as
