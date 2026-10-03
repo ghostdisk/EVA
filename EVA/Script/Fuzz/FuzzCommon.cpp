@@ -1020,7 +1020,7 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 	}
 	// Past resolving the tree is at most RECURSION_LIMIT deep, so serializing it recursively is safe.
 	if (compilation.failed_stage >= Stage::TYPE)
-		SerializeNode(builder, compilation.module);
+		SnapshotNodeToString(builder, compilation.module);
 	if (compilation.failed_stage >= Stage::INTERFACE)
 	{
 		builder.Append("\n");

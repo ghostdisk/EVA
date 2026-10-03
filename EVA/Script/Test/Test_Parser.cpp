@@ -12,7 +12,7 @@ enum class ParseLevel
 	FILE,
 };
 
-// Parses source at the given level and serializes the result with SerializeNode. A lone expression or statement is
+// Parses source at the given level and serializes the result with SnapshotNodeToString. A lone expression or statement is
 // marked ROOT; a file gives its declarations, space separated. If parsing fails, gives "error: <message>" instead.
 static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* source)
 {
@@ -66,7 +66,7 @@ static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* so
 	{
 		if (node != first)
 			builder.Append(" ");
-		SerializeNode(builder, node);
+		SnapshotNodeToString(builder, node);
 	}
 	return builder.ToString();
 }
@@ -432,7 +432,7 @@ TEST(Parser, Module)
 	REQUIRE(Parse(parser, &module));
 
 	StringBuilder builder(test.arena);
-	SerializeNode(builder, module);
+	SnapshotNodeToString(builder, module);
 	CHECK_EQ(builder.ToString(), "([ROOT]MODULE ([DECLARATION]CONST a ([VALUE]NUMBER 1)) ([DECLARATION]FUNCTION f ([BODY]BLOCK)))");
 }
 

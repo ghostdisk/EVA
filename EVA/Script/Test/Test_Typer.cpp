@@ -56,7 +56,7 @@ static void CheckType(Test::Context& test, const char* file, int line, ContextKi
 	{
 		if (declaration != module->child)
 			builder.Append(" ");
-		SerializeNode(builder, declaration);
+		SnapshotNodeToString(builder, declaration);
 	}
 	if (builder.ToString() == expected)
 		return;

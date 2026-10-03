@@ -48,7 +48,7 @@ static void CheckResolve(Test::Context& test, const char* file, int line, Contex
 	{
 		if (declaration != module->child)
 			builder.Append(" ");
-		SerializeNode(builder, declaration);
+		SnapshotNodeToString(builder, declaration);
 	}
 	if (builder.ToString() == expected)
 		return;
@@ -103,7 +103,7 @@ TEST(Resolver, UnknownIdentifiersStayIdentifiers)
 	Node* module = ParseAndResolve(test.arena, ContextKind::SCRIPT, "const a = b;", &errors);
 	REQUIRE(module);
 	StringBuilder builder(test.arena);
-	SerializeNode(builder, module->child);
+	SnapshotNodeToString(builder, module->child);
 	CHECK_EQ(builder.ToString(), "([DECLARATION]CONST a ([VALUE]IDENTIFIER b))");
 }
 

@@ -752,7 +752,7 @@ ZTStringView TypeToString(Type* type, Arena* arena);
 ZTStringView NumberToString(NumberLiteral* number, Arena* arena);
 ZTStringView ConstantToString(Constant* constant, Arena* arena);
 ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
-void SerializeNode(StringBuilder& builder, Node* node);
+void SnapshotNodeToString(StringBuilder& builder, Node* node);
 void DumpNode(Node* node, Arena* arena, int indent = 0);
 
 // ------------------------------------------------------------

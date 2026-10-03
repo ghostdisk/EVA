@@ -428,7 +428,7 @@ void DumpNode(Node* node, Arena* arena, int indent)
 	}
 }
 
-void SerializeNode(StringBuilder& builder, Node* node)
+void SnapshotNodeToString(StringBuilder& builder, Node* node)
 {
 	builder.AppendFormat("([%s]%s", UsageToString(node->usage).CString(), NodeTypeToString(node->node_type).CString());
 	if (node->type)
@@ -475,7 +475,7 @@ void SerializeNode(StringBuilder& builder, Node* node)
 	for (Node* child = node->child; child; child = child->next)
 	{
 		builder.Append(" ");
-		SerializeNode(builder, child);
+		SnapshotNodeToString(builder, child);
 	}
 	builder.Append(")");
 }
