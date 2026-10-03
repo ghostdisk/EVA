@@ -25,3 +25,7 @@
 
 - The atom table stores its strings in `std::string`s keyed by an `std::unordered_map`. Replace both: keep the strings in an arena owned by the table so they never move, and use our own hash map keyed by `StringView`. That removes the `std::string` built on every `GetAtom` lookup, and lets atom strings be returned as views without copying them into the caller's arena (e.g. in `SerializeNode`).
 - `GetAtom` isn't thread-safe: the table is a global with no locking. Fine while everything is single threaded, but compiling shaders on worker threads needs the new table to support concurrent lookups and inserts. Its atoms also never go away, so untrusted identifiers grow it for the lifetime of the process.
+
+## Build
+
+- Vendor the Vulkan headers and SPIRV-Tools. Today the Vulkan backend is only built when CMake finds the Vulkan SDK, and the SPIR-V validator the tests and fuzzers use comes from the SDK's `SPIRV-Tools-shared` library, so without the SDK there's no Vulkan backend and SPIR-V output goes unvalidated. SPIRV-Tools generates its tables from SPIRV-Headers' grammar files at build time, so it needs SPIRV-Headers too.
