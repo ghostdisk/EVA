@@ -69,7 +69,6 @@ static VkDevice device = VK_NULL_HANDLE;
 static VkQueue graphics_queue = VK_NULL_HANDLE;
 static VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 static std::vector<VulkanTexture> backbuffers;
-static VkSurfaceTransformFlagBitsKHR swapchain_transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 static bool swapchain_dirty = false;
 static bool acquire_suboptimal = false;
 static PAL::Window* pal_window = nullptr;
@@ -88,6 +87,7 @@ static bool volk_initialized = false;
 static TextureFormat depth_format = TextureFormat::D24_UNORM_S8_UINT;
 
 static bool CreateSwapchain();
+static bool SwapchainMatchesSurface();
 static void DestroySwapchainResources();
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -649,8 +649,10 @@ static void EndFrame()
 	VkResult result = vkQueuePresentKHR(graphics_queue, &present_info);
 	if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_DATE_KHR && result != VK_SUBOPTIMAL_KHR)
 		VK_ASSERT(result);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || acquire_suboptimal)
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		swapchain_dirty = true;
+	else if (result == VK_SUBOPTIMAL_KHR || acquire_suboptimal)
+		swapchain_dirty = !SwapchainMatchesSurface();
 	acquire_suboptimal = false;
 }
 
@@ -831,14 +833,15 @@ static bool ChoosePhysicalDevice()
 	return physical_device.device != VK_NULL_HANDLE;
 }
 
-// With preTransform = currentTransform, Android expects images in the display's identity orientation,
-// while currentExtent is reported in the current orientation.
-static VkExtent2D IdentityExtent(const VkSurfaceCapabilitiesKHR& capabilities)
+// Images are presented as drawn (preTransform = IDENTITY) and the compositor rotates them to the display, so the
+// backbuffers are in the window's current orientation. Android reports presents as suboptimal whenever the display is
+// rotated, which isn't worth a new swapchain unless the size changed too.
+static bool SwapchainMatchesSurface()
 {
-	VkExtent2D extent = capabilities.currentExtent;
-	if (capabilities.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR))
-		std::swap(extent.width, extent.height);
-	return extent;
+	VkSurfaceCapabilitiesKHR capabilities = {};
+	VK_ASSERT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &capabilities));
+	return capabilities.currentExtent.width == backbuffers[0].desc.width &&
+		   capabilities.currentExtent.height == backbuffers[0].desc.height;
 }
 
 static bool CreateSwapchain()
@@ -850,7 +853,7 @@ static bool CreateSwapchain()
 	TextureFormat texture_format = physical_device.format.format == VK_FORMAT_R8G8B8A8_UNORM
 									   ? TextureFormat::RGBA8_UNORM
 									   : TextureFormat::BGRA8_UNORM;
-	VkExtent2D extent = IdentityExtent(capabilities);
+	VkExtent2D extent = capabilities.currentExtent;
 	if (!extent.width || !extent.height)
 		return false;
 	uint32 requested_count = capabilities.minImageCount + 1;
@@ -867,7 +870,9 @@ static bool CreateSwapchain()
 		.imageArrayLayers = 1,
 		.imageUsage = ImageUsage(ImageState::COLOR_ATTACHMENT),
 		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
-		.preTransform = capabilities.currentTransform,
+		.preTransform = (capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+							? VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
+							: capabilities.currentTransform,
 		.compositeAlpha = (capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
 							  ? VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
 							  : (VkCompositeAlphaFlagBitsKHR)(capabilities.supportedCompositeAlpha & -capabilities.supportedCompositeAlpha),
@@ -879,7 +884,6 @@ static bool CreateSwapchain()
 	VK_ASSERT(vkCreateSwapchainKHR(device, &create_info, nullptr, &swapchain));
 	if (old_swapchain)
 		vkDestroySwapchainKHR(device, old_swapchain, nullptr);
-	swapchain_transform = capabilities.currentTransform;
 	uint32 image_count = 0;
 	VK_ASSERT(vkGetSwapchainImagesKHR(device, swapchain, &image_count, nullptr));
 	std::vector<VkImage> images(image_count);
@@ -953,11 +957,7 @@ static void HandlePALEvent(const PAL::Event& event)
 	case PAL::EventType::WINDOW_RESIZE:
 		if (swapchain && !swapchain_dirty)
 		{
-			VkSurfaceCapabilitiesKHR capabilities = {};
-			VK_ASSERT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device.device, surface, &capabilities));
-			VkExtent2D extent = IdentityExtent(capabilities);
-			swapchain_dirty = extent.width != backbuffers[0].desc.width || extent.height != backbuffers[0].desc.height ||
-							  capabilities.currentTransform != swapchain_transform;
+			swapchain_dirty = !SwapchainMatchesSurface();
 		}
 		break;
 	default:
