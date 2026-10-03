@@ -651,7 +651,7 @@ Sampler* (*CreateSampler)(const SamplerDesc&); // filters, address modes, anisot
 ```cpp
 BindGroup* (*CreateBindGroup)(const ReflectedBindGroup&);  // empty: filled through a cursor (5.3)
 void (*DestroyBindGroup)(BindGroup*);
-void (*CmdSetBindGroup)(uint32 index, BindGroup*);
+void (*CmdSetBindGroup)(BindGroup*);                       // at the index it was created for
 ```
 
 - A bind group is made from a group's reflection and filled with `GetCursor(group)` writes. It owns its implicit
@@ -767,8 +767,10 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 2. `@bind_group` with plain data only: layouts, reflection, cursors, IR `uniform` globals, all three backends, GPU
    buffers, bind groups with their implicit uniform buffer, TestApp drawing with a uniform (a transform). Done in the
    compiler for D3D11: the attribute, D3D11's cbuffer layout checked against fxc's reflection (tests and the grammar
-   fuzzer), reflection without cursors yet, `uniform` globals and HLSL cbuffers. Vulkan and Metal report bind groups as
-   not supported yet. Next: the GPU library on D3D11, then TestApp.
+   fuzzer), reflection, `uniform` globals and HLSL cbuffers. Vulkan and Metal report bind groups as not supported yet.
+   In the GPU library for D3D11: buffers with uploads, bind groups with their constants, cursors over plain data
+   (`Field`, `Element`, `Write`), and `CmdSetBindGroup`. TestApp rotates its triangle with a transform from group 0.
+   Left: Vulkan and Metal, frames in flight (8.1).
 3. Vertex buffers (7): layouts in pipeline creation, validation, TestApp drawing a mesh from a vertex and index buffer.
 4. Textures and samplers: resource types, `sample` and friends, texture uploads, TestApp drawing a textured mesh.
 5. `ConstantBuffer(T)`, `StorageBuffer(T)`.

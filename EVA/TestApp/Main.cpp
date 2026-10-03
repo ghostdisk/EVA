@@ -1,6 +1,7 @@
 #include <EVA/GPU/GPU.hpp>
 #include <EVA/Script/Script.hpp>
 #include <EVA/PAL/PAL.hpp>
+#include <math.h>
 #include <vector>
 
 using namespace EVA;
@@ -15,11 +16,6 @@ const positions: [3]float2 = {
 	float2(-0.5, -0.5),
 };
 
-struct VSOutput
-{
-	position: float4;
-}
-
 @entry(vertex)
 function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
 {
@@ -32,6 +28,49 @@ function PSMain(): @location(0) float4
 	return float4(1.0, 1.0, 1.0, 1.0);
 }
 )";
+
+// The triangle rotated by a transform from a bind group, which only D3D11 supports so far.
+static const char* rotating_triangle_shader_source = R"(
+const positions: [3]float2 = {
+	float2( 0.0,  0.5),
+	float2( 0.5, -0.5),
+	float2(-0.5, -0.5),
+};
+
+struct Transform
+{
+	world: float4x4;
+}
+
+@bind_group(0) let transform: Transform;
+
+@entry(vertex)
+function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
+{
+	return mul(transform.world, float4(positions[vertex_id], 0.0, 1.0));
+}
+
+@entry(fragment)
+function PSMain(): @location(0) float4
+{
+	return float4(1.0, 1.0, 1.0, 1.0);
+}
+)";
+
+// A rotation about z by angle, with x scaled by aspect so the triangle keeps its shape. Column-major.
+static void RotationZ(float angle, float aspect, float out[16])
+{
+	float c = cosf(angle);
+	float s = sinf(angle);
+	float m[16] = {
+		c * aspect, s, 0.0f, 0.0f,
+		-s * aspect, c, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f,
+	};
+	for (int i = 0; i < 16; ++i)
+		out[i] = m[i];
+}
 
 static std::vector<GPU::Framebuffer*> framebuffers;
 
@@ -85,6 +124,8 @@ int EVA::AppMain()
 		.window = &window,
 #ifdef EVA_MACOS
 		.preferred_backend = GPU::Backend::METAL,
+#elif defined(EVA_WIN32)
+		.preferred_backend = GPU::Backend::D3D11, // the only backend with bind groups so far
 #else
 		.preferred_backend = GPU::Backend::VULKAN,
 #endif
@@ -117,7 +158,7 @@ int EVA::AppMain()
 	DEFER(DestroyArena(shader_arena));
 	Script::CompileShaderResult triangle_shader = Script::CompileShader({
 		.arena = shader_arena,
-		.source = triangle_shader_source,
+		.source = GPU::device.CreateBindGroup ? rotating_triangle_shader_source : triangle_shader_source,
 		.backend = GPU::device.backend,
 	});
 	for (uint32 i = 0; i < triangle_shader.errors.count; ++i)
@@ -128,9 +169,18 @@ int EVA::AppMain()
 		pipeline = GPU::device.CreatePipeline({
 			.shaders = triangle_shader.entry_points,
 			.render_pass = render_pass,
+			.bind_groups = triangle_shader.bind_groups,
 		});
 	}
 	DEFER(GPU::device.DestroyPipeline(pipeline));
+
+	GPU::BindGroup* transform = nullptr;
+	if (pipeline && triangle_shader.bind_groups.count)
+		transform = GPU::device.CreateBindGroup(triangle_shader.bind_groups[0]);
+	DEFER(if (transform) GPU::device.DestroyBindGroup(transform));
+	GPU::ShaderCursor world = GPU::GetCursor(transform).Field("world");
+
+	uint32 frame = 0;
 	while (!quit)
 	{
 		PollEvents();
@@ -155,8 +205,17 @@ int EVA::AppMain()
 		if (pipeline)
 		{
 			GPU::device.CmdBindPipeline(pipeline);
+			if (transform)
+			{
+				GPU::TextureDesc backbuffer = GPU::device.GetTextureDesc(GPU::device.GetBackbuffer(0));
+				float matrix[16];
+				RotationZ((float)frame * 0.02f, (float)backbuffer.height / (float)backbuffer.width, matrix);
+				world.Write(matrix, sizeof(matrix));
+				GPU::device.CmdSetBindGroup(transform);
+			}
 			GPU::device.CmdDraw(3, 0);
 		}
+		frame++;
 		GPU::device.CmdEndRenderPass();
 		GPU::device.EndFrame();
 	}

@@ -15,6 +15,7 @@ struct Texture;
 struct RenderPass;
 struct Framebuffer;
 struct Pipeline;
+struct Buffer;
 
 enum class TextureFormat
 {
@@ -109,7 +110,49 @@ struct CreatePipelineOptions
 {
 	Slice<CompiledEntryPoint> shaders;  // a VERTEX one and optionally a FRAGMENT one, compiled for the device's backend
 	RenderPass* render_pass = nullptr;  // its subpass, whose color attachments get the fragment shader's outputs
+	Slice<ReflectedBindGroup> bind_groups; // the shaders' module's, from the same compile
 };
+
+enum BufferUsage : uint32
+{
+	BUFFER_VERTEX = 1,
+	BUFFER_INDEX = 2,
+	BUFFER_UNIFORM = 4, // alone: D3D11 can't bind a constant buffer as anything else
+};
+
+struct BufferDesc
+{
+	uint64 size = 0;
+	uint32 usage = 0; // BufferUsage bits
+};
+
+// What every backend's bind group starts with, so cursors work the same on all of them. Created from a group's
+// reflection, which has to outlive it, and filled through cursors (Docs/Plan/Bindings.md, 8.3).
+struct BindGroup
+{
+	uint32 index = 0;
+	const TypeLayout* type = nullptr; // the group's struct
+	uint64 layout_hash = 0;
+	Slice<uint8> constants;           // the implicit uniform buffer's contents, uploaded when the group is used
+	bool constants_changed = false;
+};
+
+// A position in a bind group and the type there. An invalid cursor, from an unknown field or an index out of range,
+// has no type, and so do the cursors made from it; writing through one fails.
+struct ShaderCursor
+{
+	BindGroup* group = nullptr;
+	const TypeLayout* type = nullptr;
+	uint32 bytes = 0; // into the group's constants
+
+	bool IsValid() const { return type != nullptr; }
+	ShaderCursor Field(StringView name) const;
+	ShaderCursor Element(uint32 index) const;
+	// Plain data laid out as the type is, exactly its size.
+	bool Write(const void* data, uint32 size) const;
+};
+
+ShaderCursor GetCursor(BindGroup* group);
 
 // Device functions starting with Cmd record commands into the current frame, between BeginFrame and EndFrame.
 struct Device
@@ -137,6 +180,17 @@ struct Device
 	void (*CmdBeginRenderPass)(const RenderPassBeginDesc&) = nullptr; // the viewport and scissor cover the framebuffer
 	void (*CmdEndRenderPass)() = nullptr;
 	void (*CmdBindPipeline)(Pipeline*) = nullptr; // in a render pass compatible with the pipeline's
+	Buffer* (*CreateBuffer)(const BufferDesc&) = nullptr;
+	void (*DestroyBuffer)(Buffer*) = nullptr;
+	// A BUFFER_UNIFORM buffer is uploaded whole on D3D11. Outside render passes.
+	void (*CmdUploadBuffer)(Buffer*, uint64 offset, Slice<uint8> data) = nullptr;
+	// Uploads to the buffer finish before it's read with usage (BufferUsage bits).
+	void (*CmdBufferBarrier)(Buffer*, uint32 usage) = nullptr;
+	BindGroup* (*CreateBindGroup)(const ReflectedBindGroup&) = nullptr;
+	void (*DestroyBindGroup)(BindGroup*) = nullptr;
+	// group's index is the one it's for. Every group the pipeline's shaders use has to be set, with an equal layout,
+	// when drawing.
+	void (*CmdSetBindGroup)(BindGroup* group) = nullptr;
 	void (*CmdDraw)(uint32 vertex_count, uint32 first_vertex) = nullptr;
 	void (*EndFrame)() = nullptr;
 };

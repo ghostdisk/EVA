@@ -5,6 +5,7 @@
 #include <d3dcompiler.h>
 #include <dxgi1_2.h>
 #include <cstdio>
+#include <string.h>
 #include <vector>
 
 #define HRES_ASSERT(expr)                                                                                   \
@@ -41,11 +42,29 @@ struct D3D11RenderPass
 	std::vector<AttachmentDesc> attachments;
 };
 
+// Stages by ShaderStage.
+static const uint32 STAGE_COUNT = 2;
+
 struct D3D11Pipeline
 {
 	ID3D11VertexShader* vertex_shader = nullptr;
 	ID3D11PixelShader* pixel_shader = nullptr; // nullptr without a fragment shader
 	ID3D11RasterizerState* rasterizer_state = nullptr;
+	uint32 bind_groups[STAGE_COUNT] = {}; // bit per group each stage reads
+	D3DRegisters registers[STAGE_COUNT][MAX_BIND_GROUPS] = {};
+	uint64 layout_hashes[MAX_BIND_GROUPS] = {};
+};
+
+struct D3D11Buffer
+{
+	ID3D11Buffer* buffer = nullptr;
+	BufferDesc desc;
+	uint32 byte_width = 0; // constant buffers are a multiple of 16 bytes
+};
+
+struct D3D11BindGroup : BindGroup
+{
+	ID3D11Buffer* uniforms = nullptr; // dynamic, rewritten with WRITE_DISCARD when the constants change
 };
 
 struct D3D11Framebuffer
@@ -67,6 +86,8 @@ static D3D11Texture backbuffer;
 static bool swapchain_dirty = false;
 static uint32 window_width = 0;
 static uint32 window_height = 0;
+static D3D11Pipeline* bound_pipeline = nullptr;
+static D3D11BindGroup* bound_groups[MAX_BIND_GROUPS] = {};
 
 static D3D11RenderPass* ToImpl(RenderPass* render_pass)
 {
@@ -86,6 +107,16 @@ static D3D11Texture* ToImpl(Texture* texture)
 static D3D11Pipeline* ToImpl(Pipeline* pipeline)
 {
 	return reinterpret_cast<D3D11Pipeline*>(pipeline);
+}
+
+static D3D11Buffer* ToImpl(Buffer* buffer)
+{
+	return reinterpret_cast<D3D11Buffer*>(buffer);
+}
+
+static uint32 RoundUp16(uint64 value)
+{
+	return (uint32)((value + 15) & ~(uint64)15);
 }
 
 static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
@@ -230,6 +261,8 @@ static void DestroyPipeline(Pipeline* pipeline)
 	if (!pipeline)
 		return;
 	auto* impl = ToImpl(pipeline);
+	if (bound_pipeline == impl)
+		bound_pipeline = nullptr;
 	if (impl->vertex_shader)
 		impl->vertex_shader->Release();
 	if (impl->pixel_shader)
@@ -269,6 +302,30 @@ static Pipeline* CreatePipeline(const CreatePipelineOptions& options)
 			return nullptr;
 		}
 		DEFER(code->Release());
+
+		// The groups the stage reads, which the pipeline's bind groups have to describe.
+		uint32 stage = (uint32)shader.stage;
+		pipeline->bind_groups[stage] = shader.bind_groups;
+		for (uint32 group = 0; group < MAX_BIND_GROUPS; ++group)
+		{
+			pipeline->registers[stage][group] = shader.d3d11_bind_group_registers[group];
+			if (!(shader.bind_groups & (1u << group)))
+				continue;
+			const ReflectedBindGroup* reflection = nullptr;
+			for (uint32 k = 0; k < options.bind_groups.count; ++k)
+			{
+				if (options.bind_groups[k].index == group)
+					reflection = &options.bind_groups[k];
+			}
+			if (!reflection)
+			{
+				fprintf(stderr, "a shader reads bind group %u, which the pipeline's bind groups don't have\n", group);
+				DestroyPipeline(reinterpret_cast<Pipeline*>(pipeline));
+				return nullptr;
+			}
+			pipeline->layout_hashes[group] = reflection->layout.hash;
+		}
+
 		if (shader.stage == ShaderStage::VERTEX)
 		{
 			D3D11_ASSERT(!pipeline->vertex_shader);
@@ -303,10 +360,138 @@ static void CmdBindPipeline(Pipeline* pipeline)
 	d3d_context->VSSetShader(impl->vertex_shader, nullptr, 0);
 	d3d_context->PSSetShader(impl->pixel_shader, nullptr, 0);
 	d3d_context->RSSetState(impl->rasterizer_state);
+	bound_pipeline = impl;
+}
+
+static Buffer* CreateBuffer(const BufferDesc& desc)
+{
+	bool uniform = desc.usage & BUFFER_UNIFORM;
+	D3D11_ASSERT(desc.size && desc.usage && (!uniform || desc.usage == BUFFER_UNIFORM));
+	D3D11_ASSERT(desc.size <= (uniform ? D3D11_REQ_CONSTANT_BUFFER_ELEMENT_COUNT * 16 : UINT32_MAX));
+	auto* buffer = new D3D11Buffer;
+	buffer->desc = desc;
+	buffer->byte_width = uniform ? RoundUp16(desc.size) : (uint32)desc.size;
+	D3D11_BUFFER_DESC buffer_desc = {};
+	buffer_desc.ByteWidth = buffer->byte_width;
+	buffer_desc.Usage = D3D11_USAGE_DEFAULT;
+	if (desc.usage & BUFFER_VERTEX)
+		buffer_desc.BindFlags |= D3D11_BIND_VERTEX_BUFFER;
+	if (desc.usage & BUFFER_INDEX)
+		buffer_desc.BindFlags |= D3D11_BIND_INDEX_BUFFER;
+	if (uniform)
+		buffer_desc.BindFlags |= D3D11_BIND_CONSTANT_BUFFER;
+	HRES_ASSERT(d3d_device->CreateBuffer(&buffer_desc, nullptr, &buffer->buffer));
+	return reinterpret_cast<Buffer*>(buffer);
+}
+
+static void DestroyBuffer(Buffer* buffer)
+{
+	if (!buffer)
+		return;
+	auto* impl = ToImpl(buffer);
+	impl->buffer->Release();
+	delete impl;
+}
+
+static void CmdUploadBuffer(Buffer* buffer, uint64 offset, Slice<uint8> data)
+{
+	D3D11_ASSERT(buffer && data.data);
+	auto* impl = ToImpl(buffer);
+	D3D11_ASSERT(offset <= impl->desc.size && data.count <= impl->desc.size - offset);
+	if (impl->desc.usage & BUFFER_UNIFORM)
+	{
+		// D3D11.0 only updates constant buffers whole, padding included.
+		D3D11_ASSERT(offset == 0 && data.count == impl->desc.size);
+		std::vector<uint8> whole(impl->byte_width, 0);
+		memcpy(whole.data(), data.data, data.count);
+		d3d_context->UpdateSubresource(impl->buffer, 0, nullptr, whole.data(), 0, 0);
+		return;
+	}
+	D3D11_BOX box = { (UINT)offset, 0, 0, (UINT)(offset + data.count), 1, 1 };
+	d3d_context->UpdateSubresource(impl->buffer, 0, &box, data.data, 0, 0);
+}
+
+// D3D11 orders an upload before every later use of the buffer itself.
+static void CmdBufferBarrier(Buffer* buffer, uint32 usage)
+{
+	D3D11_ASSERT(buffer && usage);
+}
+
+static BindGroup* CreateBindGroup(const ReflectedBindGroup& reflection)
+{
+	D3D11_ASSERT(reflection.index < MAX_BIND_GROUPS && reflection.type);
+	auto* group = new D3D11BindGroup;
+	group->index = reflection.index;
+	group->type = reflection.type;
+	group->layout_hash = reflection.layout.hash;
+	uint32 size = reflection.layout.uniform_size;
+	if (size)
+	{
+		group->constants = Slice<uint8>(new uint8[size](), size);
+		group->constants_changed = true;
+		D3D11_BUFFER_DESC buffer_desc = {};
+		buffer_desc.ByteWidth = RoundUp16(size);
+		buffer_desc.Usage = D3D11_USAGE_DYNAMIC;
+		buffer_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		buffer_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		HRES_ASSERT(d3d_device->CreateBuffer(&buffer_desc, nullptr, &group->uniforms));
+	}
+	return group;
+}
+
+static void DestroyBindGroup(BindGroup* group)
+{
+	if (!group)
+		return;
+	auto* impl = static_cast<D3D11BindGroup*>(group);
+	if (bound_groups[impl->index] == impl)
+		bound_groups[impl->index] = nullptr;
+	if (impl->uniforms)
+		impl->uniforms->Release();
+	delete[] impl->constants.data;
+	delete impl;
+}
+
+static void CmdSetBindGroup(BindGroup* group)
+{
+	D3D11_ASSERT(group && group->index < MAX_BIND_GROUPS);
+	bound_groups[group->index] = static_cast<D3D11BindGroup*>(group);
+}
+
+// Uploads the constants of the groups the pipeline reads where they changed, and sets each group's uniform buffer at
+// the registers each stage expects it at.
+static void ApplyBindGroups()
+{
+	D3D11_ASSERT(bound_pipeline);
+	D3D11Pipeline* pipeline = bound_pipeline;
+	for (uint32 index = 0; index < MAX_BIND_GROUPS; ++index)
+	{
+		uint32 bit = 1u << index;
+		if (!((pipeline->bind_groups[0] | pipeline->bind_groups[1]) & bit))
+			continue;
+		D3D11BindGroup* group = bound_groups[index];
+		if (!group || group->layout_hash != pipeline->layout_hashes[index])
+			Panic("bind group %u isn't set, or its layout differs from the pipeline's", index);
+		if (!group->uniforms)
+			continue;
+		if (group->constants_changed)
+		{
+			D3D11_MAPPED_SUBRESOURCE mapped = {};
+			HRES_ASSERT(d3d_context->Map(group->uniforms, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped));
+			memcpy(mapped.pData, group->constants.data, group->constants.count);
+			d3d_context->Unmap(group->uniforms, 0);
+			group->constants_changed = false;
+		}
+		if (pipeline->bind_groups[(uint32)ShaderStage::VERTEX] & bit)
+			d3d_context->VSSetConstantBuffers(pipeline->registers[(uint32)ShaderStage::VERTEX][index].cbv, 1, &group->uniforms);
+		if (pipeline->bind_groups[(uint32)ShaderStage::FRAGMENT] & bit)
+			d3d_context->PSSetConstantBuffers(pipeline->registers[(uint32)ShaderStage::FRAGMENT][index].cbv, 1, &group->uniforms);
+	}
 }
 
 static void CmdDraw(uint32 vertex_count, uint32 first_vertex)
 {
+	ApplyBindGroups();
 	d3d_context->Draw(vertex_count, first_vertex);
 }
 
@@ -358,6 +543,9 @@ static void Shutdown()
 	{
 		d3d_context->ClearState();
 	}
+	bound_pipeline = nullptr;
+	for (D3D11BindGroup*& group : bound_groups)
+		group = nullptr;
 	ReleaseBackbuffer();
 	swapchain_dirty = false;
 	if (d3d_swapchain)
@@ -472,6 +660,13 @@ static bool Init(Device& out_device, const InitOptions& init_options)
 		.CmdBeginRenderPass = CmdBeginRenderPass,
 		.CmdEndRenderPass = CmdEndRenderPass,
 		.CmdBindPipeline = CmdBindPipeline,
+		.CreateBuffer = CreateBuffer,
+		.DestroyBuffer = DestroyBuffer,
+		.CmdUploadBuffer = CmdUploadBuffer,
+		.CmdBufferBarrier = CmdBufferBarrier,
+		.CreateBindGroup = CreateBindGroup,
+		.DestroyBindGroup = DestroyBindGroup,
+		.CmdSetBindGroup = CmdSetBindGroup,
 		.CmdDraw = CmdDraw,
 		.EndFrame = EndFrame,
 	};
