@@ -11,6 +11,7 @@
 - When assignment lands: IR gen has to build values for assignment into existing memory in a temporary and `copy` it, so `s = { s.b, s.a }` reads `s.a` before overwriting it. Add a test for that case, it's easy to break.
 - Cap shader source size to a few MB, since shaders come from untrusted content.
 - Cap the errors per compile and report only the first N, so a large source can't produce an unbounded list.
+- Module lifetimes. For now a module lives as long as its context, so context-level caches can refer to a module's types: today `Context::array_types`, and the generic instance cache that replaces it (`Array(MyStruct, 3)`, Docs/Plan/Generics.md). A long-lived script context with modules loaded and unloaded needs those entries per module, or a module-level cache chained to the context's.
 - `std::vector` growth in the compiler (`Parser`, `Resolver` and `Typer` errors, the expression parser's stacks, `Context::array_types`) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.
 
 ## GPU

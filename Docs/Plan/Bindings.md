@@ -99,9 +99,8 @@ Built-in types, in the shader context only (the script context doesn't define th
 
 | Type | What | Read with |
 |---|---|---|
-| `Texture2D`, `Texture2DArray`, `TextureCube`, `Texture3D` | float textures (unorm, snorm, float formats) | `sample`, `sample_level`, `load`, `dimensions` |
+| `Texture2D(T)`, `Texture2DArray(T)`, `TextureCube(T)`, `Texture3D(T)` | textures read as 4-vectors of `T`: `float` (the default, so bare `Texture2D` is a float texture: unorm, snorm and float formats), `int` or `uint` (integer formats, no filtering) | `sample`, `sample_level` (float only), `load`, `dimensions` |
 | `DepthTexture2D`, `DepthTexture2DArray`, `DepthTextureCube` | depth textures, for comparison sampling | `sample_compare` |
-| `Texture2DInt`, `Texture2DUint`... | integer textures, no filtering | `load` |
 | `Sampler`, `ComparisonSampler` | samplers, separate from textures | |
 | `ConstantBuffer(T)` | a uniform buffer of its own holding a `T` of plain data, bound separately from the group's implicit one | member access, like a `let` |
 | `StorageBuffer(T)` | a read-only buffer of `T`s, its length set by the buffer bound | `buffer[i]`, `length(buffer)` |
@@ -109,8 +108,8 @@ Built-in types, in the shader context only (the script context doesn't define th
 
 - Textures and samplers are separate everywhere: Vulkan has `SAMPLED_IMAGE` and `SAMPLER`, D3D and Metal always
   separate them. No combined image samplers, since D3D11 has none.
-- `ConstantBuffer(T)` and `StorageBuffer(T)` use call syntax because types are parsed as expressions, where
-  `StorageBuffer<T>` would parse as comparisons. The typer evaluates them as type constructors, like `[N]T`.
+- Textures, `ConstantBuffer(T)` and `StorageBuffer(T)` are generics ([Generics.md](Generics.md)), a prerequisite of
+  this plan. Call syntax because types are parsed as expressions, where `StorageBuffer<T>` would parse as comparisons.
 - Arrays of resources (`textures: [4]Texture2D`): one binding range; one Vulkan binding of 4 descriptors, 4 D3D
   registers, 4 Metal ids. Indices must be constants for now: SM 5.0 can't index resource arrays dynamically, and
   Vulkan needs optional `shader*ArrayDynamicIndexing` features.
@@ -766,7 +765,8 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 
 ## 12. Order of work
 
-1. Front-end prerequisites (2.3): the `let` statement replacing `:`, matrices, built-in calls.
+1. Front-end prerequisites (2.3): generics ([Generics.md](Generics.md)), the `let` statement replacing `:`, matrices
+   (through generics), built-in calls.
 2. `@bind_group` with plain data only: layouts, reflection, cursors, IR `uniform` globals, all three backends, GPU
    buffers, bind groups with their implicit uniform buffer, TestApp drawing with a uniform (a transform).
 3. Vertex buffers (7): layouts in pipeline creation, validation, TestApp drawing a mesh from a vertex and index buffer.
@@ -777,11 +777,14 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 
 ## Open questions
 
+Undecided; to revisit once generics ([Generics.md](Generics.md)) are in.
+
 1. **`let` semantics** (the syntax is decided, 2.1): are `let`s mutable once assignment lands, or immutable with another
    keyword for mutable ones? Is a type required when there's a value, or inferred? And what's a module-level `let`
    without `@bind_group`: a `private` global, or an error for now?
-2. **Resource type syntax:** `StorageBuffer(T)` call syntax, or teach the parser a generic syntax for built-in types.
-3. **Integer texture names:** `Texture2DInt` / `Texture2DUint`, or a parameter like `Texture2D(int)`.
-4. **The cursor API exposed to engine code and scripts:** the shape in 5.3 is Slang's; names, error reporting (invalid
+2. **The cursor API exposed to engine code and scripts:** the shape in 5.3 is Slang's; names, error reporting (invalid
    cursors or failed writes) and the script-side binding are still open.
-5. **Per-draw constants:** a group per object, or a cheaper path (8.3).
+3. **Per-draw constants:** a group per object, or a cheaper path (8.3).
+
+Decided since: resource types are generics with call syntax, and integer textures are `Texture2D(int)` /
+`Texture2D(uint)`, with a bare `Texture2D` meaning `Texture2D(float)` (2.2).
