@@ -22,6 +22,7 @@ static Keyword keywords[] = {
 	{ TokenType::KW_CONST, "const" },
 	{ TokenType::KW_STRUCT, "struct" },
 	{ TokenType::KW_FUNCTION, "function" },
+	{ TokenType::KW_TYPE, "type" },
 
 	{ TokenType::KW_IF, "if" },
 	{ TokenType::KW_ELSE, "else" },

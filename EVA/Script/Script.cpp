@@ -16,24 +16,6 @@ static PrimitiveType* NewPrimitiveType(Context& context, StringView name, Primit
 	return type;
 }
 
-VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count)
-{
-	assert(count >= 2 && count <= 4);
-	for (VectorType* type : context.vector_types)
-	{
-		if (type->element == element && type->count == count)
-			return type;
-	}
-	VectorType* type = context.arena->New<VectorType>();
-	type->name = GetAtom(aprintf(context.arena, "%s%u", GetAtomString(element->name, context.arena).CString(), count));
-	type->element = element;
-	type->count = count;
-	type->size = element->size * count;
-	type->alignment = element->alignment;
-	context.vector_types.push_back(type);
-	return type;
-}
-
 static void Define(Context& context, Scope* scope, Atom name, Element* element)
 {
 	Definition* definition = context.arena->New<Definition>();
@@ -78,6 +60,8 @@ static void DefineEnumValue(Context& context, EnumType* type, StringView name, i
 }
 
 static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer* typer);
+static Type* InstantiateVector(Context& context, GenericInstance* instance, Typer* typer);
+static Type* InstantiateMatrix(Context& context, GenericInstance* instance, Typer* typer);
 
 static Generic* DefineGeneric(Context& context, Scope* scope, StringView name, std::initializer_list<GenericParam> params,
 	InstantiateFn instantiate)
@@ -109,9 +93,6 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 	DefineType(context, scope, context.int_type);
 	DefineType(context, scope, context.uint_type);
 	DefineType(context, scope, context.float_type);
-	DefineType(context, scope, GetVectorType(context, context.float_type, 2));
-	DefineType(context, scope, GetVectorType(context, context.float_type, 3));
-	DefineType(context, scope, GetVectorType(context, context.float_type, 4));
 
 	context.array_generic = DefineGeneric(context, scope, "Array",
 		{
@@ -119,6 +100,28 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 			{ .kind = GenericParamKind::CONSTANT, .what = "array size", .type = context.uint_type },
 		},
 		InstantiateArray);
+	context.vector_generic = DefineGeneric(context, scope, "Vector",
+		{
+			{ .kind = GenericParamKind::TYPE, .what = "vector element" },
+			{ .kind = GenericParamKind::CONSTANT, .what = "vector size", .type = context.uint_type },
+		},
+		InstantiateVector);
+	context.matrix_generic = DefineGeneric(context, scope, "Matrix",
+		{
+			{ .kind = GenericParamKind::TYPE, .what = "matrix element" },
+			{ .kind = GenericParamKind::CONSTANT, .what = "matrix columns", .type = context.uint_type },
+			{ .kind = GenericParamKind::CONSTANT, .what = "matrix rows", .type = context.uint_type },
+		},
+		InstantiateMatrix);
+
+	// Named instances: float2 is Vector(float, 2), float3x4 is Matrix(float, 3, 4).
+	for (uint32 count = 2; count <= 4; ++count)
+		DefineType(context, scope, GetVectorType(context, context.float_type, count));
+	for (uint32 columns = 2; columns <= 4; ++columns)
+	{
+		for (uint32 rows = 2; rows <= 4; ++rows)
+			DefineType(context, scope, GetMatrixType(context, context.float_type, columns, rows));
+	}
 
 	if (kind == ContextKind::SHADER)
 	{
@@ -256,15 +259,113 @@ static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer
 	return type;
 }
 
+static uint32 UintArg(GenericInstance* instance, uint32 index)
+{
+	uint32 value;
+	memcpy(&value, instance->args[index].constant->bytes.data, 4);
+	return value;
+}
+
+static Type* InstantiateVector(Context& context, GenericInstance* instance, Typer* typer)
+{
+	Type* element = instance->args[0].type;
+	uint32 count = UintArg(instance, 1);
+	PrimitiveKind kind = element->type_kind == TypeKind::PRIMITIVE ? ((PrimitiveType*)element)->primitive_kind : PrimitiveKind::VOID;
+	if (kind == PrimitiveKind::VOID) // not a primitive, or void
+	{
+		if (typer)
+			EmitError(*typer, "can't make a vector of %s", TypeToString(element, typer->arena).CString());
+		return nullptr;
+	}
+	if (count < 1 || count > 4)
+	{
+		if (typer)
+			EmitError(*typer, "vector size must be 1 to 4, got %u", count);
+		return nullptr;
+	}
+	if (count == 1)
+		return element; // SPIR-V and MSL have no 1-component vectors
+
+	VectorType* type = context.arena->New<VectorType>();
+	type->name = GetAtom(aprintf(context.arena, "%s%u", GetAtomString(element->name, context.arena).CString(), count));
+	type->element = (PrimitiveType*)element;
+	type->count = count;
+	type->size = element->size * count;
+	type->alignment = element->alignment;
+	type->instance = instance;
+	return type;
+}
+
+static Type* InstantiateMatrix(Context& context, GenericInstance* instance, Typer* typer)
+{
+	Type* element = instance->args[0].type;
+	uint32 columns = UintArg(instance, 1);
+	uint32 rows = UintArg(instance, 2);
+	// SPIR-V's matrix columns are float vectors, and MSL only has float and half matrices.
+	if (element != context.float_type)
+	{
+		if (typer)
+			EmitError(*typer, "can't make a matrix of %s, only of float", TypeToString(element, typer->arena).CString());
+		return nullptr;
+	}
+	// Neither SPIR-V nor MSL has matrices with a single column or row.
+	if (columns < 2 || columns > 4 || rows < 2 || rows > 4)
+	{
+		if (typer)
+			EmitError(*typer, "matrix columns and rows must be 2 to 4, got %u and %u", columns, rows);
+		return nullptr;
+	}
+
+	// Column-major like the IR: columns vectors of rows floats.
+	MatrixType* type = context.arena->New<MatrixType>();
+	type->name = GetAtom(aprintf(context.arena, "%s%ux%u", GetAtomString(element->name, context.arena).CString(), columns, rows));
+	type->element = (PrimitiveType*)element;
+	type->columns = columns;
+	type->rows = rows;
+	type->size = element->size * rows * columns;
+	type->alignment = element->alignment;
+	type->instance = instance;
+	return type;
+}
+
+// An instance the internal callers know is valid.
+static Type* InstantiateValid(Context& context, Generic* generic, std::initializer_list<GenericArg> args)
+{
+	Type* type = Instantiate(context, generic, Slice<GenericArg>((GenericArg*)args.begin(), (uint32)args.size()), nullptr);
+	assert(type);
+	return type;
+}
+
+// A uint constant for a generic argument, in the caller's storage.
+static Constant* UintConstant(Context& context, Constant* storage, uint32* value)
+{
+	storage->type = context.uint_type;
+	storage->bytes = Slice<uint8>((uint8*)value, 4);
+	return storage;
+}
+
 ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
 {
 	Constant constant;
-	constant.type = context.uint_type;
-	constant.bytes = Slice<uint8>((uint8*)&length, 4);
-	GenericArg args[] = { { .type = element }, { .constant = &constant } };
-	Type* type = Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), nullptr);
-	assert(type);
-	return (ArrayType*)type;
+	return (ArrayType*)InstantiateValid(context, context.array_generic,
+		{ { .type = element }, { .constant = UintConstant(context, &constant, &length) } });
+}
+
+VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count)
+{
+	assert(count >= 2 && count <= 4);
+	Constant constant;
+	return (VectorType*)InstantiateValid(context, context.vector_generic,
+		{ { .type = element }, { .constant = UintConstant(context, &constant, &count) } });
+}
+
+MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows)
+{
+	Constant columns_constant;
+	Constant rows_constant;
+	return (MatrixType*)InstantiateValid(context, context.matrix_generic,
+		{ { .type = element }, { .constant = UintConstant(context, &columns_constant, &columns) },
+			{ .constant = UintConstant(context, &rows_constant, &rows) } });
 }
 
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee)

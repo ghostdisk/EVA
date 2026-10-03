@@ -261,7 +261,8 @@ struct Generator
 			break;
 		case NodeType::VARIABLE: places[node] = AddIRLocal(module, state->function, node->type, nullptr); break;
 		case NodeType::CONST:
-		case NodeType::STRUCT: break;
+		case NodeType::STRUCT:
+		case NodeType::TYPE_ALIAS: break;
 		case NodeType::FUNCTION: Function(node); break;
 		case NodeType::RETURN:
 		{

@@ -4,9 +4,13 @@ A minimal generics system for built-in types: one mechanism for arrays, vectors 
 binding model needs (`ConstantBuffer(T)`, `StorageBuffer(T)`; [Bindings.md](Bindings.md), 2.2). A prerequisite of the
 binding model. User-defined generics (`struct Foo(T)`) are out of scope, but nothing here should stand in their way.
 
-**Where we are:** arrays are a special case. `[N]T` parses to an `ARRAY_TYPE` node, `EvaluateType` handles it, and
-`Context::array_types` caches the types (`GetArrayType`, a linear search). Vectors have their own cache
-(`vector_types`), and so do pointer and function types. Matrices exist as `MatrixType` but nothing makes them yet.
+**Where we are:** steps 1 to 3 of 9 are done: generics, the instance cache and `ResolveName`; `Array`, `Vector` and
+`Matrix` (with `float2x2` to `float4x4` named); `type` aliases and constructing through them. Left: defaults, the
+texture and buffer generics (step 4, with the binding model). New tests for these wait for the golden test system.
+
+Before this, arrays were a special case: `[N]T` parsed to an `ARRAY_TYPE` node that `EvaluateType` handled itself, and
+`Context::array_types` cached the types with a linear search. Vectors had their own cache, and matrices existed as
+`MatrixType` with nothing making them.
 
 ## Summary
 

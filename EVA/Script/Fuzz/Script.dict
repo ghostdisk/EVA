@@ -2,6 +2,7 @@
 "const"
 "struct"
 "function"
+"type"
 "if"
 "else"
 "return"

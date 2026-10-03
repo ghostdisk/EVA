@@ -81,13 +81,15 @@ static StructType* NewStructType(Resolver& resolver, Node* node)
 	return type;
 }
 
-// First pass over a scope's statements or declarations, so functions and structs can be used before they're declared.
+// First pass over a scope's statements or declarations, so functions, structs and type aliases can be used before
+// they're declared. An alias's value can only name types, generics, aliases and consts, never a variable, so where it's
+// used doesn't change what it means.
 static bool DeclareAhead(Resolver& resolver, Node* node)
 {
 	bool resolved = true;
 	for (Node* child = node->child; child; child = child->next)
 	{
-		if (child->node_type == NodeType::FUNCTION)
+		if (child->node_type == NodeType::FUNCTION || child->node_type == NodeType::TYPE_ALIAS)
 			resolved = Declare(resolver, child->name, child) && resolved;
 		else if (child->node_type == NodeType::STRUCT)
 			resolved = Declare(resolver, child->name, NewStructType(resolver, child)) && resolved;

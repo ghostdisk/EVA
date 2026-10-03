@@ -146,7 +146,7 @@ static bool IsExpression(NodeType type)
 static bool IsStatement(NodeType type)
 {
 	return IsExpression(type) || type == NodeType::BLOCK || type == NodeType::RETURN || type == NodeType::CONST ||
-		   type == NodeType::STRUCT || type == NodeType::FUNCTION;
+		   type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS;
 }
 
 static bool IsValidOperator(NodeType node_type, TokenType op)
@@ -208,7 +208,7 @@ struct ChildRule
 
 static bool IsDeclaration(NodeType type)
 {
-	return type == NodeType::CONST || type == NodeType::STRUCT || type == NodeType::FUNCTION;
+	return type == NodeType::CONST || type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS;
 }
 static bool IsField(NodeType type) { return type == NodeType::FIELD; }
 static bool IsParameter(NodeType type) { return type == NodeType::PARAMETER; }
@@ -221,6 +221,7 @@ static Slice<const ChildRule> ChildRules(NodeType type)
 {
 	static const ChildRule module[] = { { Usage::DECLARATION, 0, MANY, IsDeclaration } };
 	static const ChildRule constant[] = { { Usage::DECLARED_TYPE, 0, 1 }, { Usage::VALUE, 1, 1 } };
+	static const ChildRule type_alias[] = { { Usage::VALUE, 1, 1 } };
 	static const ChildRule structure[] = { { Usage::MEMBER, 0, MANY, IsField } };
 	static const ChildRule function[] = {
 		{ Usage::PARAMETER, 0, MANY, IsParameter }, { Usage::RETURN_TYPE, 0, 1 }, { Usage::BODY, 1, 1, IsBlock } };
@@ -242,6 +243,7 @@ static Slice<const ChildRule> ChildRules(NodeType type)
 	{
 	case NodeType::MODULE: return module;
 	case NodeType::CONST: return constant;
+	case NodeType::TYPE_ALIAS: return type_alias;
 	case NodeType::STRUCT: return structure;
 	case NodeType::FUNCTION: return function;
 	case NodeType::PARAMETER:
@@ -272,6 +274,7 @@ static bool NeedsName(NodeType type)
 	switch (type)
 	{
 	case NodeType::CONST:
+	case NodeType::TYPE_ALIAS:
 	case NodeType::STRUCT:
 	case NodeType::FUNCTION:
 	case NodeType::PARAMETER:
@@ -486,7 +489,7 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			{
 				NodeType target = ((Node*)node->target)->node_type;
 				if (target != NodeType::CONST && target != NodeType::FUNCTION && target != NodeType::PARAMETER &&
-					target != NodeType::VARIABLE && target != NodeType::ENUM_VALUE)
+					target != NodeType::VARIABLE && target != NodeType::ENUM_VALUE && target != NodeType::TYPE_ALIAS)
 					Fail("REFERENCE to a %s", NodeTypeToString(target).CString());
 			}
 		}

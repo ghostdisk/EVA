@@ -65,6 +65,7 @@ ZTStringView TokenToString(TokenType token_type)
 		case TokenType::KW_CONST: return "const";
 		case TokenType::KW_STRUCT: return "struct";
 		case TokenType::KW_FUNCTION: return "function";
+		case TokenType::KW_TYPE: return "type";
 		case TokenType::KW_IF: return "if";
 		case TokenType::KW_ELSE: return "else";
 		case TokenType::KW_RETURN: return "return";
@@ -87,6 +88,7 @@ ZTStringView NodeTypeToString(NodeType type)
 		case NodeType::FIELD: return "FIELD";
 		case NodeType::VARIABLE: return "VARIABLE";
 		case NodeType::ENUM_VALUE: return "ENUM_VALUE";
+		case NodeType::TYPE_ALIAS: return "TYPE_ALIAS";
 		case NodeType::BLOCK: return "BLOCK";
 		case NodeType::RETURN: return "RETURN";
 		case NodeType::NUMBER: return "NUMBER";

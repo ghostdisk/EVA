@@ -787,7 +787,22 @@ static Node* ParseStruct(Parser& parser)
 	}
 }
 
-// Parses a const, struct or function declaration with its leading attributes. Returns true with
+// type Name = type-expression;
+static Node* ParseTypeAlias(Parser& parser)
+{
+	EatToken(parser);
+	Node* node = NewNode(parser, NodeType::TYPE_ALIAS);
+	TRY(ExpectIdentifier(parser, &node->name));
+	TRY(ExpectToken(parser, TokenType::EQUALS));
+	Node* value = ParseExpression(parser);
+	TRY(value);
+	value->usage = Usage::VALUE;
+	node->child = value;
+	TRY(ExpectToken(parser, TokenType::SEMICOLON));
+	return node;
+}
+
+// Parses a const, struct, function or type alias declaration with its leading attributes. Returns true with
 // *out_declaration = nullptr, eating nothing, if the current token doesn't start one.
 static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 {
@@ -802,6 +817,7 @@ static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 	case TokenType::KW_CONST: node = ParseConst(parser); break;
 	case TokenType::KW_STRUCT: node = ParseStruct(parser); break;
 	case TokenType::KW_FUNCTION: node = ParseFunction(parser); break;
+	case TokenType::KW_TYPE: node = ParseTypeAlias(parser); break;
 	default:
 		// The attributes are already eaten, so the caller can't parse them as something else.
 		if (attributes)

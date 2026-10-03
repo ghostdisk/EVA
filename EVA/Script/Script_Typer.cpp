@@ -375,14 +375,26 @@ static bool InstantiateNode(Typer& typer, Node* node, Generic* generic, Slice<No
 	return true;
 }
 
+static bool TypeAlias(Typer& typer, Node* node);
+
 bool ResolveName(Typer& typer, Node* node, Element** out)
 {
 	*out = nullptr;
 	switch (node->node_type)
 	{
 	case NodeType::REFERENCE:
-		*out = node->target;
+	{
+		Element* target = node->target;
+		if (target->kind == ElementKind::NODE && ((Node*)target)->node_type == NodeType::TYPE_ALIAS)
+		{
+			// An alias stands for its type, typed on demand.
+			if (!TypeAlias(typer, (Node*)target))
+				return false;
+			target = ((Node*)target)->type;
+		}
+		*out = target;
 		return true;
+	}
 	case NodeType::IDENTIFIER: return false; // unresolved, already reported
 	case NodeType::CALL:
 	{
@@ -465,7 +477,9 @@ static bool TypeConstValue(Typer& typer, Node* node)
 	return true;
 }
 
-bool TypeConst(Typer& typer, Node* node)
+// Types a declaration the first time it's needed, with type_value, which can be before its turn. Reaching it again while
+// it's being typed is a cycle.
+static bool TypeOnDemand(Typer& typer, Node* node, bool (*type_value)(Typer&, Node*))
 {
 	switch (node->typing_state)
 	{
@@ -477,9 +491,26 @@ bool TypeConst(Typer& typer, Node* node)
 	case TypingState::UNTYPED: break;
 	}
 	node->typing_state = TypingState::TYPING;
-	bool typed = TypeConstValue(typer, node);
+	bool typed = type_value(typer, node);
 	node->typing_state = typed ? TypingState::TYPED : TypingState::FAILED;
 	return typed;
+}
+
+bool TypeConst(Typer& typer, Node* node)
+{
+	return TypeOnDemand(typer, node, TypeConstValue);
+}
+
+static bool TypeAliasValue(Typer& typer, Node* node)
+{
+	node->type = EvaluateType(typer, FindChild(node, Usage::VALUE));
+	return node->type != nullptr;
+}
+
+// Types a type alias, whose type is the one its value names.
+static bool TypeAlias(Typer& typer, Node* node)
+{
+	return TypeOnDemand(typer, node, TypeAliasValue);
 }
 
 static bool TypeFunction(Typer& typer, Node* node)
@@ -584,6 +615,9 @@ static bool TypeReference(Typer& typer, Node* node)
 			return node->type != nullptr; // nullptr if the declaration failed, already reported
 		case NodeType::FUNCTION:
 			EmitError(typer, "'%s' is a function, which can only be called", name);
+			return false;
+		case NodeType::TYPE_ALIAS:
+			EmitError(typer, "'%s' is a type, not a value", name);
 			return false;
 		default:
 			EmitError(typer, "'%s' can't be used as a value", name);
@@ -879,6 +913,10 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 	}
 	case NodeType::CONST:
 		if (!TypeConst(typer, node))
+			typed = false;
+		break;
+	case NodeType::TYPE_ALIAS:
+		if (!TypeAlias(typer, node))
 			typed = false;
 		break;
 	case NodeType::VARIABLE:

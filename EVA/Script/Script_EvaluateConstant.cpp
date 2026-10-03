@@ -144,6 +144,11 @@ static Type* ReferenceType(Evaluation& evaluation, Node* node)
 	case ElementKind::NODE:
 	{
 		Node* target = (Node*)node->target;
+		if (target->node_type == NodeType::TYPE_ALIAS)
+		{
+			EmitError(typer, "'%s' is a type, not a value", AtomName(typer, node->name));
+			return nullptr;
+		}
 		if (target->node_type != NodeType::CONST)
 			break;
 		if (!TypeConst(typer, target))

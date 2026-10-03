@@ -199,6 +199,7 @@ struct Generator
 	GenType* vector_types[5] = {}; // by component count, 2 to 4
 	std::vector<GenType*> array_types;
 	std::vector<GenType*> struct_types;
+	std::vector<std::pair<GenType*, std::string>> aliases; // module-level type aliases, usable anywhere
 
 	std::vector<Symbol> symbols; // in scope, innermost last
 	std::vector<Expected> expected;
@@ -377,6 +378,18 @@ struct Generator
 
 	std::string TypeText(GenType* type, bool allow_references)
 	{
+		// Through an alias, which names the same type.
+		if (!aliases.empty() && Below(4) == 0)
+		{
+			for (auto& [aliased, name] : aliases)
+			{
+				if (aliased == type)
+					return name;
+			}
+		}
+		// The two spellings of a float vector: floatN, or the generic Vector(float, N).
+		if (type->kind == Kind::VECTOR && Below(4) == 0)
+			return "Vector(float, " + LengthText(type->count, allow_references) + ")";
 		if (type->kind != Kind::ARRAY)
 			return type->name;
 		// The two spellings of an array type: [N]T, or the generic Array(T, N).
@@ -1360,6 +1373,24 @@ struct Generator
 		InitTypes();
 		MakeStructs();
 
+		// Type aliases are declared ahead too, so they go anywhere. Each can use the ones before it, never itself. Their
+		// array sizes don't refer to consts, which might come after them.
+		std::vector<std::string> alias_declarations;
+		uint32 alias_count = Below(4);
+		for (uint32 i = 0; i < alias_count; ++i)
+		{
+			GenType* type = PickType((uint32)struct_types.size());
+			std::string name = NewName("T");
+			if (chaos && Chance(10))
+			{
+				// A cycle, or a value that isn't a type.
+				alias_declarations.push_back("type " + name + " = " + (Below(2) ? name : std::string("1")) + ";");
+				continue;
+			}
+			alias_declarations.push_back("type " + name + " = " + TypeText(type, false) + ";");
+			aliases.push_back({ type, name });
+		}
+
 		// Structs can be used before they're declared, so they go anywhere among the consts.
 		std::vector<std::string> declarations;
 		uint32 const_count = Below(8);
@@ -1372,6 +1403,11 @@ struct Generator
 		{
 			size_t position = Below((uint32)declarations.size() + 1);
 			declarations.insert(declarations.begin() + (ptrdiff_t)position, Struct(struct_types[i], i));
+		}
+		for (std::string& alias : alias_declarations)
+		{
+			size_t position = Below((uint32)declarations.size() + 1);
+			declarations.insert(declarations.begin() + (ptrdiff_t)position, std::move(alias));
 		}
 
 		module_symbols = symbols.size();

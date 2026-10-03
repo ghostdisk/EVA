@@ -72,6 +72,7 @@ enum class TokenType : uint8 // NOLINT(cert-int09-c): END_OF_FILE shares 0 with 
 	KW_CONST,
 	KW_STRUCT,
 	KW_FUNCTION,
+	KW_TYPE,
 
 	KW_IF,
 	KW_ELSE,
@@ -126,6 +127,7 @@ enum class NodeType : uint8
 	FIELD,
 	VARIABLE,   // name: type, made from a ':' expression by the resolver
 	ENUM_VALUE,
+	TYPE_ALIAS, // type Name = type expression
 
 	// statements
 	BLOCK,
@@ -216,7 +218,7 @@ struct Node : Element
 {
 	NodeType node_type = NodeType::NONE;
 	Usage usage = Usage::NONE;
-	TypingState typing_state = TypingState::UNTYPED; // CONST, and a type expression instantiating a generic
+	TypingState typing_state = TypingState::UNTYPED; // CONST, TYPE_ALIAS, and a type expression instantiating a generic
 	Atom name = Atom::NONE;
 	Type* type = nullptr; // set by the typer: the value's type, or for a type expression the type it names
 	union
@@ -580,11 +582,12 @@ struct Context
 	EnumType* semantic_type = nullptr; // SHADER only
 	EnumType* stage_type = nullptr;    // SHADER only
 	Generic* array_generic = nullptr;  // Array(T, N), also written [N]T
+	Generic* vector_generic = nullptr; // Vector(T, N), e.g. float4
+	Generic* matrix_generic = nullptr; // Matrix(T, columns, rows), e.g. float4x4
 
 	// Every generic instance made so far. Instances can refer to a module's own types, so the cache assumes modules live
 	// as long as their context (TODO.md).
 	std::unordered_map<GenericInstanceKey, Type*, GenericInstanceHash> instances;
-	std::vector<VectorType*> vector_types;
 	std::vector<PointerType*> pointer_types;
 	std::vector<FunctionType*> function_types;
 };
@@ -602,8 +605,12 @@ Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Ty
 // and the array under 4 GB.
 ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
 
-// The one vector type of 2 to 4 elements, e.g. int3. The float ones are in the global scope, the others aren't yet.
+// The one vector type of 2 to 4 elements, e.g. int3, through the instance cache. The float ones are named in the global
+// scope; the others are written Vector(int, 3).
 VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count);
+
+// The one float matrix type of 2 to 4 columns and rows, through the instance cache, e.g. float4x4.
+MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows);
 
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
 FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
