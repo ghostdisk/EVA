@@ -109,6 +109,10 @@ Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Ty
 - **Constants are canonical before lookup**, or `Array(float, 3)` and `Array(float, 3u)` would be two types. The typer
   converts every `CONSTANT` argument to the parameter's type first (6), so the key is always, say, a `uint` 3.
 - **Failures aren't cached.** A rejected instantiation reports an error each time it's written.
+- **An instance can be an existing type:** `Vector(T, 1)` is `T`. The cache maps the key to `T`, and `T` keeps its own
+  `instance` (none for a scalar): only types an instantiate function makes get one.
+- **Named instances** (`float4`, `float4x4`) are made through `Instantiate` by `InitContext` and then defined under
+  their names, so they carry their `instance` like any other.
 - **The table:** `std::unordered_map` with a hash over the generic pointer and the arguments, like the IR's maps, until
   the core library has its own hash map ([TODO.md](../../TODO.md)). Keys and instances are allocated in the context's
   arena.
@@ -298,8 +302,8 @@ stays what it is, a constant value, with one rule everywhere.
   (`Test_Typer.cpp`, about 5 places). New tests: `Array(T, N)` equals `[N]T`, `Vector(float, 4)` equals `float4`,
   argument kind errors (a constant where a type goes and the reverse), `int` sizes converting to `uint`, aliases, alias
   cycles, aliases used as values, generics used as values, nested instances (`Array(Array(float, 2), 3)`), the cache
-  returning the same pointer, failures not cached, constructing instances, and aliases used before their
-  declaration.
+  returning the same pointer, failures not cached, constructing instances, aliases used before their declaration,
+  `Vector(T, 1)` being `T`, and defaults (`Texture2D` equal to `Texture2D(float)`, a bare `Array` an error).
 - **Fuzzers:** `FuzzCommon`'s checks expect folded `ARRAY_TYPE` sizes and look types up with `GetArrayType`; they check
   instances against the cache instead. The grammar fuzzer generates `Array(...)`, `Vector(...)` and `type` aliases.
 
@@ -318,8 +322,11 @@ Not in this plan; the design leaves room for them.
 
 ## 9. Order of work
 
-1. `Generic`, `GenericInstance`, the cache and `Instantiate`; `Array` through it, for `Array(T, N)` and `[N]T`, with
-   in-place replacement. `array_types` goes.
+1. `Generic`, `GenericInstance`, the cache and `Instantiate`; `ResolveName` and its callers (4); `Array` through it, for
+   `Array(T, N)` and `[N]T`. `array_types` goes.
 2. `Vector` and `Matrix`; `vector_types` goes; matrix names in the global scope.
 3. `type` aliases, and constructing instances through a generic call or an alias (4.2).
-4. `ConstantBuffer`, `StorageBuffer` and `GPUBufferType`, with the binding model.
+4. Default arguments and the texture generics, `ConstantBuffer`, `StorageBuffer` and `GPUBufferType`, with the binding
+   model.
+
+Each step lands with its tests and fuzzer updates.
