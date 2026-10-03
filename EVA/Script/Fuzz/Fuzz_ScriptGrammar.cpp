@@ -1016,7 +1016,18 @@ struct Generator
 			{
 				std::string name = DeclName("v");
 				GenType* type = PickType((uint32)struct_types.size());
-				text += inner + name + ": " + TypeText(type, true) + ";\n";
+				// let name: type; or with a value, its type written or inferred. The value is generated before the name
+				// is a symbol, as it's resolved before the variable is declared.
+				text += inner + "let " + name;
+				if (Below(2))
+				{
+					Expr value = Generate(type, { .init_list = true }, 0);
+					if (!value.hint_free || Below(3))
+						text += ": " + TypeText(type, true);
+					text += " = " + value.text + ";\n";
+				}
+				else
+					text += ": " + TypeText(type, true) + ";\n";
 				Expect(name, type, false, {});
 				AddSymbol(name, type, nullptr);
 				break;
@@ -1029,10 +1040,22 @@ struct Generator
 			case 4: text += Body(return_type, inner, depth + 1, true); break;
 			case 5:
 			{
-				// Nested functions only see the module's names.
+				// Nested functions only see the module's names, and not those that a parameter or local of an enclosing
+				// function shadows: the nested function would find the enclosing one's, which it can't capture.
 				std::vector<Symbol> outer = symbols;
-				symbols.resize(module_symbols);
+				size_t outer_module_symbols = module_symbols;
+				symbols.clear();
+				for (size_t m = 0; m < outer_module_symbols; ++m)
+				{
+					bool shadowed = false;
+					for (size_t k = outer_module_symbols; k < outer.size() && !shadowed; ++k)
+						shadowed = outer[k].name == outer[m].name;
+					if (!shadowed)
+						symbols.push_back(outer[m]);
+				}
+				module_symbols = symbols.size();
 				text += Function(inner, depth + 1);
+				module_symbols = outer_module_symbols;
 				symbols = outer;
 				break;
 			}
@@ -1408,6 +1431,12 @@ struct Generator
 		{
 			size_t position = Below((uint32)declarations.size() + 1);
 			declarations.insert(declarations.begin() + (ptrdiff_t)position, std::move(alias));
+		}
+		if (chaos && Chance(20))
+		{
+			// A global: fine for a script, an error for a shader, and its value has to be a constant.
+			std::string value = Below(2) ? Generate(PickScalarOrVector(), { .constant_only = true }, 0).text : "unknown0";
+			declarations.push_back("let " + NewName("g") + " = " + value + ";");
 		}
 
 		module_symbols = symbols.size();

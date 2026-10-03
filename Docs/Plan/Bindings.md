@@ -82,14 +82,15 @@ struct SomeOtherStuff
 @bind_group(1) let some_other_stuff: SomeOtherStuff;
 ```
 
-- `let` is the language's declaration statement, `[attributes] let name [: type] [= value];`, allowed wherever a
-  declaration is: in function bodies and blocks (locals) and at module level (globals). It replaces today's `name: type`
-  expression, and the `:` operator goes away (6.1). A module-level `let` with `@bind_group` is a bind group: it takes a
-  struct type and no value, and its value comes from outside the shader.
+- `let` is the language's declaration statement (done), `[attributes] let name [: type] [= value];`, allowed wherever a
+  declaration is: in function bodies and blocks (locals) and at module level (globals). Mutable; the type is inferred
+  from the value when it's left out. A global's value is a constant for now, and globals are declared ahead and typed
+  on first use. The typer accepts globals, since scripts have them; the shader interface pass rejects them, except bind
+  groups. A module-level `let` with `@bind_group` is a bind group: it takes a struct type and no value, and its value
+  comes from outside the shader.
 - `bind_group(n)` is a new attribute intrinsic, like `location`: its argument is a constant `uint` below 4. Two `let`s
   in one module with the same group index are an error.
 - No explicit bindings inside a group: the compiler assigns them (3). There's no `register` or `binding` attribute.
-- Module-level `let`s are declared ahead, like functions and structs, so functions anywhere in the module can use them.
 - Fields are read with member access: `some_stuff.someConstantData`, `some_stuff.myTexture`. A bind group `let` can't be
   assigned, copied whole, passed to a function or compared. Only its fields are values.
 
@@ -474,13 +475,9 @@ This is also Shaders.md 4.1 (reflection of locations), which this item covers.
 
 ### 6.1 Front end
 
-1. Lexer and parser: the `let` statement, `[attributes] let name [: type] [= value];`, in blocks and at module level.
-   `:` stops being a binary operator (`DECLARATION_PRECEDENCE` goes), so `name: type` is no longer an expression.
-   Declarations (`let`, `const`, parameters, fields) parse `name [: type] [= value]` directly instead of parsing an
-   expression and reshaping it with `ShapeDeclaration`, which goes away, and so does the attribute shuffling it does.
-   `let` makes `VARIABLE` nodes in the parser.
-2. Resolver: `ResolveVariable` goes; `VARIABLE` is declared after its type and value, like `CONST` and `PARAMETER`.
-   Module-level `let`s are declared ahead. Resource types and `bind_group` go in the shader context's global scope.
+1. Done: the `let` statement. `:` is no longer an operator; declarations (`let`, `const`, parameters, fields) parse
+   `name [: type] [= value]` directly, the type stopping before `=`.
+2. Resolver: resource types and `bind_group` go in the shader context's global scope.
 3. Typer: `bind_group` (constant `uint` below 4, only on module-level `let`s); resource types; `ConstantBuffer(T)` and
    `StorageBuffer(T)` as type constructors; member access through a `let`; the rules of 2.1 and 2.2; the built-in
    calls of 2.3.
@@ -765,8 +762,8 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 
 ## 12. Order of work
 
-1. Front-end prerequisites (2.3): generics ([Generics.md](Generics.md)), the `let` statement replacing `:`, matrices
-   (through generics), built-in calls.
+1. Front-end prerequisites (2.3): generics ([Generics.md](Generics.md)), the `let` statement replacing `:` and matrix
+   types (all done), built-in calls and `mul` (next).
 2. `@bind_group` with plain data only: layouts, reflection, cursors, IR `uniform` globals, all three backends, GPU
    buffers, bind groups with their implicit uniform buffer, TestApp drawing with a uniform (a transform).
 3. Vertex buffers (7): layouts in pipeline creation, validation, TestApp drawing a mesh from a vertex and index buffer.
@@ -779,12 +776,10 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 
 Undecided; to revisit once generics ([Generics.md](Generics.md)) are in.
 
-1. **`let` semantics** (the syntax is decided, 2.1): are `let`s mutable once assignment lands, or immutable with another
-   keyword for mutable ones? Is a type required when there's a value, or inferred? And what's a module-level `let`
-   without `@bind_group`: a `private` global, or an error for now?
-2. **The cursor API exposed to engine code and scripts:** the shape in 5.3 is Slang's; names, error reporting (invalid
+1. **The cursor API exposed to engine code and scripts:** the shape in 5.3 is Slang's; names, error reporting (invalid
    cursors or failed writes) and the script-side binding are still open.
-3. **Per-draw constants:** a group per object, or a cheaper path (8.3).
+2. **Per-draw constants:** a group per object, or a cheaper path (8.3).
 
 Decided since: resource types are generics with call syntax, and integer textures are `Texture2D(int)` /
-`Texture2D(uint)`, with a bare `Texture2D` meaning `Texture2D(float)` (2.2).
+`Texture2D(uint)`, with a bare `Texture2D` meaning `Texture2D(float)` (2.2). `let` is mutable, infers its type, and
+is a global at module level (2.1).

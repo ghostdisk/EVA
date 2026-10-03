@@ -4,6 +4,6 @@ struct S { a: [2]float4; b: int; }
 
 function f(i: uint, s: S): float4
 {
-	v: S;
+	let v: S;
 	return v.a[i] + s.a[1];
 }

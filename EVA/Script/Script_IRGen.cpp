@@ -259,7 +259,20 @@ struct Generator
 					Statement(child);
 			}
 			break;
-		case NodeType::VARIABLE: places[node] = AddIRLocal(module, state->function, node->type, nullptr); break;
+		case NodeType::VARIABLE:
+		{
+			// The value is evaluated before the name refers to the local, so let x = x; reads an outer x.
+			IRRef local = AddIRLocal(module, state->function, node->type, nullptr);
+			if (Node* value = FindChild(node, Usage::VALUE))
+			{
+				if (IsAggregate(node->type))
+					Into(value, local); // a fresh local, which nothing in the value can alias
+				else
+					Emit(IROp::STORE, nullptr, { local, Value(value) });
+			}
+			places[node] = local;
+			break;
+		}
 		case NodeType::CONST:
 		case NodeType::STRUCT:
 		case NodeType::TYPE_ALIAS: break;
@@ -444,6 +457,16 @@ struct Generator
 void GenerateIR(IRModule& module, Node* ast, ShaderInterface* shader_interface)
 {
 	Generator generator = { .module = module, .context = *module.context };
+	// Globals first, since any function can use them. Their values are folded constants.
+	for (Node* declaration = ast->child; declaration; declaration = declaration->next)
+	{
+		if (declaration->node_type != NodeType::VARIABLE)
+			continue;
+		Node* value = FindChild(declaration, Usage::VALUE);
+		Constant* initializer = value ? value->constant : nullptr;
+		generator.places[declaration] =
+			AddIRGlobal(module, declaration->name, AddressSpace::PRIVATE, declaration->type, initializer);
+	}
 	for (Node* declaration = ast->child; declaration; declaration = declaration->next)
 	{
 		if (declaration->node_type == NodeType::FUNCTION)

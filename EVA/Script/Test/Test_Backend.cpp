@@ -286,7 +286,7 @@ TEST(Backend, ControlFlow)
 TEST(Backend, ArrayTooLargeForHLSL)
 {
 	// fxc allows 65536 elements in an array, all its dimensions together. SPIR-V and MSL have no such limit for a variable.
-	const char* source = "@entry(fragment) function PS(@location(0) i: uint): @location(0) float4 { v: [2][40000]float4; return v[i][1]; }";
+	const char* source = "@entry(fragment) function PS(@location(0) i: uint): @location(0) float4 { let v: [2][40000]float4; return v[i][1]; }";
 	CompileShaderResult hlsl = CompileShader({ .arena = test.arena, .source = source, .backend = Backend::D3D11 });
 	REQUIRE_EQ(hlsl.errors.count, 1u);
 	CHECK_EQ(hlsl.errors[0]->message, "an array of 80000 elements is too large for HLSL, the limit is 65536");

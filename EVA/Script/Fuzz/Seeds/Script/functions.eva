@@ -1,9 +1,9 @@
 function f(a: float, b: float2): float2
 {
-	x: float2;
+	let x: float2;
 	{
 		const k = 2.0;
-		y: float;
+		let y: float;
 		return b * float2(k) + x;
 	}
 }

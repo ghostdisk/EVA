@@ -1,6 +1,6 @@
 function f()
 {
-	x: int;
+	let x: int;
 	function g(): int
 	{
 		return x;

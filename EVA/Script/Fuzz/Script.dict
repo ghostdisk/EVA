@@ -1,5 +1,6 @@
 # libFuzzer dictionary for Fuzz_Script: tokens and short snippets of the language, used by its byte mutations.
 "const"
+"let"
 "struct"
 "function"
 "type"

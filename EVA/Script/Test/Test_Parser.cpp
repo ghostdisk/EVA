@@ -105,7 +105,6 @@ static const OperatorLevel binary_levels[] = {
 	{ { "|" } },
 	{ { "&&" } },
 	{ { "||" } },
-	{ { ":" }, true },
 	{ { "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=" }, true },
 };
 
@@ -295,9 +294,9 @@ TEST(Parser, ArrayType)
 	CHECK_EXPRESSION("[n + 1]float",
 		"([ROOT]ARRAY_TYPE ([SIZE]BINARY + ([LEFT]IDENTIFIER n) ([RIGHT]NUMBER 1)) ([ELEMENT]IDENTIFIER float))");
 	CHECK_EXPRESSION("[3]a.b", "([ROOT]ARRAY_TYPE ([SIZE]NUMBER 3) ([ELEMENT]MEMBER b ([OBJECT]IDENTIFIER a)))");
-	CHECK_EXPRESSION("x: [3]float = y",
-		"([ROOT]BINARY = ([LEFT]BINARY : ([LEFT]IDENTIFIER x) ([RIGHT]ARRAY_TYPE ([SIZE]NUMBER 3) ([ELEMENT]IDENTIFIER float))) "
-		"([RIGHT]IDENTIFIER y))");
+	// A declared type stops before '=', where the value starts.
+	CHECK_STATEMENT("let x: [3]float = y;",
+		"([ROOT]VARIABLE x ([DECLARED_TYPE]ARRAY_TYPE ([SIZE]NUMBER 3) ([ELEMENT]IDENTIFIER float)) ([VALUE]IDENTIFIER y))");
 }
 
 TEST(Parser, InitList)
@@ -511,9 +510,12 @@ TEST(Parser, DeclarationAttributes)
 	CHECK_PARSE("@a const @b x: (@c int) = (@d 1);",
 		"([DECLARATION]CONST x ([ATTRIBUTE]IDENTIFIER a) ([ATTRIBUTE]IDENTIFIER b) "
 		"([DECLARED_TYPE]IDENTIFIER int ([ATTRIBUTE]IDENTIFIER c)) ([VALUE]NUMBER 1 ([ATTRIBUTE]IDENTIFIER d)))");
-	CHECK_PARSE("const (@a x): int = 1;",
-		"([DECLARATION]CONST x ([ATTRIBUTE]IDENTIFIER a) ([DECLARED_TYPE]IDENTIFIER int) ([VALUE]NUMBER 1))");
-	CHECK_PARSE("struct S { (@a x): int; }", "([DECLARATION]STRUCT S ([MEMBER]FIELD x ([ATTRIBUTE]IDENTIFIER a) ([DECLARED_TYPE]IDENTIFIER int)))");
+	CHECK_PARSE("@a let @b x: (@c int) = (@d 1);",
+		"([DECLARATION]VARIABLE x ([ATTRIBUTE]IDENTIFIER a) ([ATTRIBUTE]IDENTIFIER b) "
+		"([DECLARED_TYPE]IDENTIFIER int ([ATTRIBUTE]IDENTIFIER c)) ([VALUE]NUMBER 1 ([ATTRIBUTE]IDENTIFIER d)))");
+	// Only before the name: a name isn't an expression.
+	CHECK_PARSE_ERROR("const (@a x): int = 1;", "unexpected token '('");
+	CHECK_PARSE_ERROR("struct S { (@a x): int; }", "unexpected token '('");
 }
 
 TEST(Parser, MultipleDeclarations)
@@ -570,9 +572,29 @@ TEST(Parser, ConstErrors)
 	CHECK_PARSE_ERROR("const", "unexpected end of file");
 	CHECK_PARSE_ERROR("const x", "'x' needs a value");
 	CHECK_PARSE_ERROR("const x: int", "'x' needs a value");
-	CHECK_PARSE_ERROR("const 3 = 1", "expected name [: type] [= value]");
-	CHECK_PARSE_ERROR("const x += 1", "expected name [: type] [= value]");
-	CHECK_PARSE_ERROR("const a.b = 1", "expected name [: type] [= value]");
+	CHECK_PARSE_ERROR("const 3 = 1", "unexpected token '3'");
+	CHECK_PARSE_ERROR("const x += 1", "'x' needs a value");
+	CHECK_PARSE_ERROR("const a.b = 1", "'a' needs a value");
+}
+
+TEST(Parser, Let)
+{
+	CHECK_PARSE("let x: int;", "([DECLARATION]VARIABLE x ([DECLARED_TYPE]IDENTIFIER int))");
+	CHECK_PARSE("let x = 1;", "([DECLARATION]VARIABLE x ([VALUE]NUMBER 1))");
+	CHECK_PARSE("let x: int = a = b;",
+		"([DECLARATION]VARIABLE x ([DECLARED_TYPE]IDENTIFIER int) ([VALUE]BINARY = ([LEFT]IDENTIFIER a) ([RIGHT]IDENTIFIER b)))");
+	CHECK_STATEMENT("let x = if a { b; } else { c; }", "([ROOT]VARIABLE x ([VALUE]IF ([CONDITION]IDENTIFIER a) "
+		"([THEN]BLOCK ([STATEMENT]IDENTIFIER b)) ([ELSE]BLOCK ([STATEMENT]IDENTIFIER c))))");
+	CHECK_PARSE("function f() { let x: float; { let y = x; } }",
+		"([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]IDENTIFIER float)) "
+		"([STATEMENT]BLOCK ([STATEMENT]VARIABLE y ([VALUE]IDENTIFIER x)))))");
+
+	CHECK_PARSE_ERROR("let x;", "'x' needs a type or a value");
+	CHECK_PARSE_ERROR("let x: int", "unexpected end of file, expected ';'");
+	CHECK_PARSE_ERROR("let = 1;", "unexpected token '='");
+	// ':' isn't an operator anymore, so a declaration needs 'let'.
+	CHECK_STATEMENT("x: int;", "error: unexpected token ':', expected ';'");
+	CHECK_EXPRESSION("a : b", "error: unparsed input ': b'");
 }
 
 TEST(Parser, TopLevelErrors)

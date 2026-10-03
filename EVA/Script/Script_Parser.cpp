@@ -5,11 +5,12 @@
 namespace EVA::Script
 {
 
-// What ShapeDeclaration requires to be present, combined with |.
+// What ParseDeclarationBody requires to be present, combined with |.
 enum DeclarationRequire : uint32
 {
 	REQUIRE_TYPE = 1 << 0,
 	REQUIRE_VALUE = 1 << 1,
+	REQUIRE_TYPE_OR_VALUE = 1 << 2,
 };
 
 // Returns false / nullptr from the calling function if expr is falsy.
@@ -74,7 +75,6 @@ static bool ExpectIdentifier(Parser& parser, Atom* out_name)
 uint32 RECURSION_LIMIT = 256;
 
 static const uint32 PREFIX_PRECEDENCE = 13;
-static const uint32 DECLARATION_PRECEDENCE = 2;
 static const uint32 ASSIGNMENT_PRECEDENCE = 1;
 
 // Higher binds tighter. 0 if the token isn't a binary operator.
@@ -100,7 +100,6 @@ static uint32 BinaryPrecedence(TokenType op)
 	case TokenType::PIPE: return 5;
 	case TokenType::LOGICAL_AND: return 4;
 	case TokenType::LOGICAL_OR: return 3;
-	case TokenType::COLON: return DECLARATION_PRECEDENCE;
 	case TokenType::EQUALS:
 	case TokenType::ADD_ASSIGN:
 	case TokenType::SUBTRACT_ASSIGN:
@@ -129,8 +128,7 @@ static uint32 Precedence(const PendingOp& op)
 
 static bool IsRightAssociative(uint32 precedence)
 {
-	// ':' is never valid chained, but groups as a : (b : c) for consistency.
-	return precedence == ASSIGNMENT_PRECEDENCE || precedence == DECLARATION_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
+	return precedence == ASSIGNMENT_PRECEDENCE || precedence == PREFIX_PRECEDENCE;
 }
 
 static Node* NewNode(Parser& parser, NodeType type)
@@ -334,9 +332,9 @@ static bool EndsWithBlock(Node* node)
 
 // Shunting yard over prefix and infix operators. Anything bracketed is parsed recursively into a single operand,
 // and postfix operators wrap the top operand directly since they bind tighter than everything else.
-// Stops at the first token that can't continue the expression, leaving it for the caller.
-// Leading attributes are attached to the resulting node.
-Node* ParseExpression(Parser& parser)
+// Stops at the first token that can't continue the expression, or at an infix operator below min_precedence, leaving it
+// for the caller. Leading attributes are attached to the resulting node.
+static Node* ParseExpressionAbove(Parser& parser, uint32 min_precedence)
 {
 	CHECK_RECURSION(parser);
 
@@ -495,7 +493,7 @@ Node* ParseExpression(Parser& parser)
 		}
 
 		uint32 precedence = BinaryPrecedence(token_type);
-		if (!precedence)
+		if (!precedence || precedence < min_precedence)
 			break;
 
 		EatToken(parser);
@@ -513,6 +511,17 @@ Node* ParseExpression(Parser& parser)
 	// @a (@b x): prepending puts the outer attributes first.
 	AttachAttributes(result, attributes);
 	return result;
+}
+
+Node* ParseExpression(Parser& parser)
+{
+	return ParseExpressionAbove(parser, 0);
+}
+
+// A declaration's type: an expression that stops before '=', which starts the declaration's value.
+static Node* ParseDeclaredType(Parser& parser)
+{
+	return ParseExpressionAbove(parser, ASSIGNMENT_PRECEDENCE + 1);
 }
 
 static bool ParseDeclaration(Parser& parser, Node** out_declaration);
@@ -595,90 +604,78 @@ static Node* ParseBlock(Parser& parser)
 	return node;
 }
 
-// Reshapes a parsed name [: type] [= value] expression in place into a declaration: the root node gets the name and
-// TYPE / VALUE children, the identifier and operator nodes are dropped. The caller sets the node type and attributes.
-static bool ShapeDeclaration(Parser& parser, Node* node, DeclarationRequire required)
+// Parses the rest of a declaration after its keyword, [attributes] name [: type] [= value], into node: its name, then
+// the attributes, DECLARED_TYPE and VALUE children after any it already has. required says which parts must be there.
+static bool ParseDeclarationBody(Parser& parser, Node* node, uint32 required)
 {
-	Node* head = node;
-	Node* type = nullptr;
-	Node* value = nullptr;
-
-	if (head->node_type == NodeType::BINARY && head->op == TokenType::EQUALS)
-	{
-		value = FindChild(head, Usage::RIGHT);
-		head = FindChild(head, Usage::LEFT);
-	}
-	if (head->node_type == NodeType::BINARY && head->op == TokenType::COLON)
-	{
-		type = FindChild(head, Usage::RIGHT);
-		head = FindChild(head, Usage::LEFT);
-	}
-	if (head->node_type != NodeType::IDENTIFIER)
-	{
-		EmitError(parser, "expected name [: type] [= value]");
-		return false;
-	}
-	if ((required & REQUIRE_TYPE) && !type)
-	{
-		EmitError(parser, "'%s' needs a type", GetAtomString(head->name, parser.arena).CString());
-		return false;
-	}
-	if ((required & REQUIRE_VALUE) && !value)
-	{
-		EmitError(parser, "'%s' needs a value", GetAtomString(head->name, parser.arena).CString());
-		return false;
-	}
-
-	// Attributes on the dropped nodes, e.g. const @a x = 1, move to the declaration.
-	Node* attributes = nullptr;
-	Node** attributes_tail = &attributes;
-	Node* dropped[] = { node, FindChild(node, Usage::LEFT), head };
-	for (uint32 i = 0; i < 3; ++i)
-	{
-		if (!dropped[i] || (i > 0 && dropped[i] == dropped[0]) || (i > 1 && dropped[i] == dropped[1]))
-			continue;
-		for (Node* child = dropped[i]->child; child; child = child->next)
-		{
-			if (child->usage == Usage::ATTRIBUTE)
-			{
-				*attributes_tail = child;
-				attributes_tail = &child->next;
-			}
-		}
-	}
-
-	node->name = head->name;
-	node->number = nullptr; // clears the op
 	Node** tail = &node->child;
-	*tail = attributes;
-	if (attributes)
-		tail = attributes_tail;
-	if (type)
+	while (*tail)
+		tail = &(*tail)->next;
+	TRY(ParseAttributes(parser, tail));
+	while (*tail)
+		tail = &(*tail)->next;
+	TRY(ExpectIdentifier(parser, &node->name));
+	const char* name = GetAtomString(node->name, parser.arena).CString();
+
+	TRY(LexToken(parser));
+	bool has_type = parser.token.token_type == TokenType::COLON;
+	if (has_type)
 	{
+		EatToken(parser);
+		Node* type = ParseDeclaredType(parser);
+		TRY(type);
 		type->usage = Usage::DECLARED_TYPE;
 		*tail = type;
 		tail = &type->next;
 	}
-	if (value)
+	else if (required & REQUIRE_TYPE)
 	{
+		EmitError(parser, "'%s' needs a type", name);
+		return false;
+	}
+
+	TRY(LexToken(parser));
+	bool has_value = parser.token.token_type == TokenType::EQUALS;
+	if (has_value)
+	{
+		EatToken(parser);
+		Node* value = ParseExpression(parser);
+		TRY(value);
 		value->usage = Usage::VALUE;
 		*tail = value;
-		tail = &value->next;
 	}
-	*tail = nullptr;
+	else if (required & REQUIRE_VALUE)
+	{
+		EmitError(parser, "'%s' needs a value", name);
+		return false;
+	}
+	if ((required & REQUIRE_TYPE_OR_VALUE) && !has_type && !has_value)
+	{
+		EmitError(parser, "'%s' needs a type or a value", name);
+		return false;
+	}
 	return true;
 }
 
-// [attributes] name: type [= value]
+// The ';' after a const or let, optional when the value ends with a block.
+static bool ParseDeclarationEnd(Parser& parser, Node* node)
+{
+	Node* value = FindChild(node, Usage::VALUE);
+	if (value && EndsWithBlock(value))
+	{
+		TRY(LexToken(parser));
+		if (parser.token.token_type == TokenType::SEMICOLON)
+			EatToken(parser);
+		return true;
+	}
+	return ExpectToken(parser, TokenType::SEMICOLON);
+}
+
+// [attributes] name: type [= value], for parameters and fields.
 static Node* ParseTypedDeclaration(Parser& parser, NodeType type)
 {
-	Node* attributes = nullptr;
-	TRY(ParseAttributes(parser, &attributes));
-	Node* node = ParseExpression(parser);
-	TRY(node);
-	TRY(ShapeDeclaration(parser, node, REQUIRE_TYPE));
-	node->node_type = type;
-	AttachAttributes(node, attributes);
+	Node* node = NewNode(parser, type);
+	TRY(ParseDeclarationBody(parser, node, REQUIRE_TYPE));
 	return node;
 }
 
@@ -740,21 +737,20 @@ static Node* ParseFunction(Parser& parser)
 static Node* ParseConst(Parser& parser)
 {
 	EatToken(parser);
-	Node* node = ParseExpression(parser);
-	TRY(node);
-	TRY(ShapeDeclaration(parser, node, REQUIRE_VALUE));
-	node->node_type = NodeType::CONST;
+	Node* node = NewNode(parser, NodeType::CONST);
+	TRY(ParseDeclarationBody(parser, node, REQUIRE_VALUE));
+	TRY(ParseDeclarationEnd(parser, node));
+	return node;
+}
 
-	if (EndsWithBlock(FindChild(node, Usage::VALUE)))
-	{
-		TRY(LexToken(parser));
-		if (parser.token.token_type == TokenType::SEMICOLON)
-			EatToken(parser);
-	}
-	else
-	{
-		TRY(ExpectToken(parser, TokenType::SEMICOLON));
-	}
+// let name [: type] [= value]; with a type, a value or both. A local in a function, a global in the module. The ';' is
+// optional when the value ends with a block.
+static Node* ParseLet(Parser& parser)
+{
+	EatToken(parser);
+	Node* node = NewNode(parser, NodeType::VARIABLE);
+	TRY(ParseDeclarationBody(parser, node, REQUIRE_TYPE_OR_VALUE));
+	TRY(ParseDeclarationEnd(parser, node));
 	return node;
 }
 
@@ -802,7 +798,7 @@ static Node* ParseTypeAlias(Parser& parser)
 	return node;
 }
 
-// Parses a const, struct, function or type alias declaration with its leading attributes. Returns true with
+// Parses a const, let, struct, function or type alias declaration with its leading attributes. Returns true with
 // *out_declaration = nullptr, eating nothing, if the current token doesn't start one.
 static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 {
@@ -815,6 +811,7 @@ static bool ParseDeclaration(Parser& parser, Node** out_declaration)
 	switch (parser.token.token_type)
 	{
 	case TokenType::KW_CONST: node = ParseConst(parser); break;
+	case TokenType::KW_LET: node = ParseLet(parser); break;
 	case TokenType::KW_STRUCT: node = ParseStruct(parser); break;
 	case TokenType::KW_FUNCTION: node = ParseFunction(parser); break;
 	case TokenType::KW_TYPE: node = ParseTypeAlias(parser); break;

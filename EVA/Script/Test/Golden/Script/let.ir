@@ -1,0 +1,35 @@
+global @scale: *private float = 2.0
+global @table: *private [2]int = {4, 5}
+
+function @f(%0: int, %1: *function S): float
+	local $0: *function int
+	local $1: *function int
+	local $2: *function S
+	local $3: *function S
+	local $4: *function int
+	local $5: *function float
+block0:
+	store $0, %0
+	%2: int = load $0
+	%3: int = mul %2, int 2
+	store $1, %3
+	%4: *function float = access $2, uint 0
+	store %4, float 1.0
+	%5: *function [2]int = access $2, uint 1
+	%6: *function int = access %5, uint 0
+	%7: int = load $1
+	store %6, %7
+	%8: *function int = access %5, uint 1
+	store %8, int 3
+	copy $3, %1
+	%9: int = load $0
+	%10: int = add %9, int 1
+	store $4, %10
+	%11: *function float = access $2, uint 0
+	%12: float = load %11
+	%13: *function float = access $3, uint 0
+	%14: float = load %13
+	%15: float = add %12, %14
+	%16: float = load @scale
+	%17: float = add %15, %16
+	return %17

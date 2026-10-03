@@ -63,6 +63,7 @@ ZTStringView TokenToString(TokenType token_type)
 		case TokenType::LOGICAL_OR: return "||";
 
 		case TokenType::KW_CONST: return "const";
+		case TokenType::KW_LET: return "let";
 		case TokenType::KW_STRUCT: return "struct";
 		case TokenType::KW_FUNCTION: return "function";
 		case TokenType::KW_TYPE: return "type";

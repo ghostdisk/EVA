@@ -70,6 +70,7 @@ enum class TokenType : uint8 // NOLINT(cert-int09-c): END_OF_FILE shares 0 with 
 
 	// keywords:
 	KW_CONST,
+	KW_LET,
 	KW_STRUCT,
 	KW_FUNCTION,
 	KW_TYPE,
@@ -125,7 +126,7 @@ enum class NodeType : uint8
 	FUNCTION,
 	PARAMETER,
 	FIELD,
-	VARIABLE,   // name: type, made from a ':' expression by the resolver
+	VARIABLE,   // let name [: type] [= value]: a local in a function, a global in the module
 	ENUM_VALUE,
 	TYPE_ALIAS, // type Name = type expression
 

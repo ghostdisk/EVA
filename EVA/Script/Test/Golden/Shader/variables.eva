@@ -8,8 +8,8 @@ function unused(): float { return 1.0; }
 function VS(@semantic(vertex_index) id: uint): @semantic(position) float4
 {
 	function nested(): int { return ~1; }
-	v: S;
-	w: [2][2]float4;
+	let v: S;
+	let w: [2][2]float4;
 	return v.a[id] + w[id][1];
 	return float4(2.0);
 }

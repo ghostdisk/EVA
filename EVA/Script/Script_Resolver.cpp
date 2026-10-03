@@ -83,13 +83,15 @@ static StructType* NewStructType(Resolver& resolver, Node* node)
 
 // First pass over a scope's statements or declarations, so functions, structs and type aliases can be used before
 // they're declared. An alias's value can only name types, generics, aliases and consts, never a variable, so where it's
-// used doesn't change what it means.
+// used doesn't change what it means. In the module, globals too, so any function can use them; their values are
+// constants.
 static bool DeclareAhead(Resolver& resolver, Node* node)
 {
 	bool resolved = true;
 	for (Node* child = node->child; child; child = child->next)
 	{
-		if (child->node_type == NodeType::FUNCTION || child->node_type == NodeType::TYPE_ALIAS)
+		bool global = node->node_type == NodeType::MODULE && child->node_type == NodeType::VARIABLE;
+		if (child->node_type == NodeType::FUNCTION || child->node_type == NodeType::TYPE_ALIAS || global)
 			resolved = Declare(resolver, child->name, child) && resolved;
 		else if (child->node_type == NodeType::STRUCT)
 			resolved = Declare(resolver, child->name, NewStructType(resolver, child)) && resolved;
@@ -105,49 +107,6 @@ static bool ResolveChildren(Resolver& resolver, Node* node)
 	for (Node* child = node->child; child; child = child->next)
 		resolved = ResolveNode(resolver, child) && resolved;
 	return resolved;
-}
-
-// name: type declares a variable. The node is reused: the name moves onto it from the identifier, which is dropped, and
-// the type stays as its child. Declared after the type is resolved, so the type can't refer to it.
-static bool ResolveVariable(Resolver& resolver, Node* node)
-{
-	Node* left = FindChild(node, Usage::LEFT);
-	Node* right = FindChild(node, Usage::RIGHT);
-	if (left->node_type != NodeType::IDENTIFIER)
-	{
-		EmitError(resolver, "expected a name before ':'");
-		ResolveChildren(resolver, node);
-		return false;
-	}
-
-	// The name's attributes, e.g. (@a x): int, take its place.
-	Node* replacement = nullptr;
-	Node** tail = &replacement;
-	for (Node* child = left->child; child; child = child->next)
-	{
-		if (child->usage == Usage::ATTRIBUTE)
-		{
-			*tail = child;
-			tail = &child->next;
-		}
-	}
-	*tail = left->next;
-
-	Node** link = &node->child;
-	while (*link != left)
-	{
-		assert(*link);
-		link = &(*link)->next;
-	}
-	*link = replacement;
-
-	node->node_type = NodeType::VARIABLE;
-	node->name = left->name;
-	node->number = nullptr; // clears the op
-	right->usage = Usage::DECLARED_TYPE;
-
-	bool resolved = ResolveChildren(resolver, node);
-	return Declare(resolver, node->name, node) && resolved;
 }
 
 static bool ResolveNode(Resolver& resolver, Node* node)
@@ -185,16 +144,14 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	}
 	case NodeType::CONST:
 	case NodeType::PARAMETER:
+	case NodeType::VARIABLE:
 	{
+		// Globals were declared ahead.
+		if (node->node_type == NodeType::VARIABLE && resolver.scope->kind == ScopeKind::MODULE)
+			return ResolveChildren(resolver, node);
 		// Declared after their type and value, so those can't refer to them.
 		bool resolved = ResolveChildren(resolver, node);
 		return Declare(resolver, node->name, node) && resolved;
-	}
-	case NodeType::BINARY:
-	{
-		if (node->op == TokenType::COLON)
-			return ResolveVariable(resolver, node);
-		return ResolveChildren(resolver, node);
 	}
 	case NodeType::CALL:
 	{

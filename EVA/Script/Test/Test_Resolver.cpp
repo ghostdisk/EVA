@@ -124,31 +124,40 @@ TEST(Resolver, Parameters)
 
 TEST(Resolver, Variables)
 {
-	CHECK_RESOLVE("struct S {} function f() { x: S; return x; }",
+	CHECK_RESOLVE("struct S {} function f() { let x: S; return x; }",
 		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([STATEMENT]RETURN ([VALUE]REFERENCE x -> VARIABLE))))");
-	CHECK_RESOLVE("struct S {} function f(v: S) { x: S = v; }",
+	CHECK_RESOLVE("struct S {} function f(v: S) { let x: S = v; }",
 		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER v ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
-		"([BODY]BLOCK ([STATEMENT]BINARY = ([LEFT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([RIGHT]REFERENCE v -> PARAMETER))))");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { x; x: S; }", "unknown identifier 'x'");
-	// The name's attributes stay on the variable.
-	CHECK_RESOLVE("struct S {} function f() { (@S x): S; }",
+		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S) ([VALUE]REFERENCE v -> PARAMETER))))");
+	// The value is resolved before the variable is declared, so it sees an outer x.
+	CHECK_RESOLVE("function f(x: int) { { let x = x; } }",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([DECLARED_TYPE]REFERENCE int -> TYPE int)) "
+		"([BODY]BLOCK ([STATEMENT]BLOCK ([STATEMENT]VARIABLE x ([VALUE]REFERENCE x -> PARAMETER)))))");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { x; let x: S; }", "unknown identifier 'x'");
+	// The attributes stay on the variable.
+	CHECK_RESOLVE("struct S {} function f() { let @S x: S; }",
 		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE x ([ATTRIBUTE]REFERENCE S -> TYPE S) "
 		"([DECLARED_TYPE]REFERENCE S -> TYPE S))))");
 }
 
-TEST(Resolver, VariableNeedsAName)
+TEST(Resolver, Globals)
 {
-	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { a.b: S; }", "expected a name before ':'");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { 1: S; }", "expected a name before ':'");
-	CHECK_RESOLVE_ERRORS("function f() { 1: T; }", "expected a name before ':' | unknown identifier 'T'");
+	// Declared ahead, so any function can use them.
+	CHECK_RESOLVE("function f(): int { return g; } let g = 1;",
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE int -> TYPE int) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]REFERENCE g -> VARIABLE)))) ([DECLARATION]VARIABLE g ([VALUE]NUMBER 1))");
+	CHECK_RESOLVE_ERRORS("let g = 1; let g = 2;", "'g' is already defined");
+	CHECK_RESOLVE_ERRORS("let g = 1; function g() {}", "'g' is already defined");
+	// Unlike locals, a function can use the module's.
+	CHECK_RESOLVE_ERRORS("let g = 1; function f() { function h(): int { return g; } }", "");
 }
 
 TEST(Resolver, BlocksHaveTheirOwnScope)
 {
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { { x: S; } x; }", "unknown identifier 'x'");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { x: S; } function g() { x; }", "unknown identifier 'x'");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { if a { x: S; } x; }", "unknown identifier 'a' | unknown identifier 'x'");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { { let x: S; } x; }", "unknown identifier 'x'");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { let x: S; } function g() { x; }", "unknown identifier 'x'");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { if a { let x: S; } x; }", "unknown identifier 'a' | unknown identifier 'x'");
 	CHECK_RESOLVE_ERRORS("const c = 1; function f() { { { c; } } }", "");
 }
 
@@ -163,7 +172,7 @@ TEST(Resolver, Shadowing)
 	CHECK_RESOLVE("function x() {} function f(x: S) { return x; } struct S {}",
 		"([DECLARATION]FUNCTION x ([BODY]BLOCK)) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]REFERENCE x -> PARAMETER)))) ([DECLARATION]STRUCT:S S)");
-	CHECK_RESOLVE("struct S {} function f(x: S) { { x: S; x; } }",
+	CHECK_RESOLVE("struct S {} function f(x: S) { { let x: S; x; } }",
 		"([DECLARATION]STRUCT:S S) ([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) "
 		"([BODY]BLOCK ([STATEMENT]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE S -> TYPE S)) ([STATEMENT]REFERENCE x -> VARIABLE))))");
 }
@@ -175,9 +184,9 @@ TEST(Resolver, AlreadyDefined)
 	CHECK_RESOLVE_ERRORS("const a = 1; const a = 2;", "'a' is already defined");
 	CHECK_RESOLVE_ERRORS("function a() {} const a = 1;", "'a' is already defined");
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S, a: S) {}", "'a' is already defined");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { x: S; x: S; }", "'x' is already defined");
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { let x: S; let x: S; }", "'x' is already defined");
 	// Parameters and the function's body share a scope.
-	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { a: S; }", "'a' is already defined");
+	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { let a: S; }", "'a' is already defined");
 }
 
 TEST(Resolver, MemberNamesAreNotResolved)
@@ -232,7 +241,7 @@ TEST(Resolver, NoCapturing)
 	// A nested function can't use the parameters and variables of the functions around it.
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g() { a; } }",
 		"'a' belongs to an enclosing function, capturing isn't supported yet");
-	CHECK_RESOLVE_ERRORS("struct S {} function f() { { x: S; function g(): S { return x; } } }",
+	CHECK_RESOLVE_ERRORS("struct S {} function f() { { let x: S; function g(): S { return x; } } }",
 		"'x' belongs to an enclosing function, capturing isn't supported yet");
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g() { function h() { a; } } }",
 		"'a' belongs to an enclosing function, capturing isn't supported yet");
@@ -242,7 +251,7 @@ TEST(Resolver, NoCapturing)
 	// Its own, those of blocks in the same function, and everything else around it are fine.
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { { { a; } } }", "");
 	CHECK_RESOLVE_ERRORS("struct S {} function f(a: S) { function g(a: S) { a; } }", "");
-	CHECK_RESOLVE_ERRORS("function f() { const c = 1; struct T {} function h() {} function g() { c; h; x: T; } }", "");
+	CHECK_RESOLVE_ERRORS("function f() { const c = 1; struct T {} function h() {} function g() { c; h; let x: T; } }", "");
 }
 
 TEST(Resolver, ShaderIntrinsics)
@@ -285,25 +294,6 @@ TEST(Resolver, OtherIntrinsicArgumentsResolveNormally)
 	CHECK_SHADER_RESOLVE_ERRORS("function f(): @location(position) float4 {}", "unknown identifier 'position'");
 }
 
-TEST(Resolver, DeclarationsInSemanticArgumentsStayInTheModule)
-{
-	// Both modules share the context, so a declaration leaking into the semantic names would show up in the second.
-	Context context;
-	InitContext(context, test.arena, ContextKind::SHADER);
-	const char* sources[] = { "function f(@semantic(a: position) p: uint) {}", "function f(@semantic(a) p: uint) {}" };
-	bool resolved[2] = {};
-	for (uint32 i = 0; i < 2; ++i)
-	{
-		Parser parser = { .source = (char*)sources[i], .head = (char*)sources[i], .arena = test.arena, .error_arena = test.arena };
-		Node* module = nullptr;
-		REQUIRE(Parse(parser, &module));
-		Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
-		resolved[i] = Resolve(resolver, module);
-	}
-	CHECK(resolved[0]);
-	CHECK(!resolved[1]);
-}
-
 TEST(Resolver, ShaderIntrinsicsAreNotInScripts)
 {
 	CHECK_RESOLVE_ERRORS("@entry(vertex) function f(): @location(0) float4 {}", "unknown identifier 'entry' | unknown identifier 'vertex' | unknown identifier 'location'");
@@ -342,7 +332,7 @@ TEST(Resolver, BuiltInConstants)
 
 TEST(Resolver, BuiltInTypes)
 {
-	CHECK_RESOLVE("function f(a: float2, b: float3): float4 { x: float; }",
+	CHECK_RESOLVE("function f(a: float2, b: float3): float4 { let x: float; }",
 		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER a ([DECLARED_TYPE]REFERENCE float2 -> TYPE float2)) "
 		"([PARAMETER]PARAMETER b ([DECLARED_TYPE]REFERENCE float3 -> TYPE float3)) ([RETURN_TYPE]REFERENCE float4 -> TYPE float4) "
 		"([BODY]BLOCK ([STATEMENT]VARIABLE x ([DECLARED_TYPE]REFERENCE float -> TYPE float))))");

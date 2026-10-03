@@ -13,9 +13,9 @@ struct Transform { world: float4x4; normal: Matrix(float, 3, 3); }
 @entry(vertex)
 function VS(@location(0) i: uint, @location(1) v: Vector(uint, 2)): @semantic(position) float4
 {
-	t: Transform;
-	l: Local;
-	k: Array(Ints, 2);
+	let t: Transform;
+	let l: Local;
+	let k: Array(Ints, 2);
 	type Local = Vector(float, 4);
 	return l + float4(table[i][i]);
 }

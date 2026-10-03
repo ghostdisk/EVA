@@ -1,0 +1,19 @@
+// let: locals with a type, a value or both, values written straight into fresh aggregate locals, a value that reads
+// an outer name of the same name, and globals, private with a constant initializer, used before their declaration.
+
+struct S { a: float; b: [2]int; }
+
+function f(x: int, s: S): float
+{
+	let y = x * 2;
+	let t: S = { 1.0, { y, 3 } };
+	let u = s;
+	{
+		let x = x + 1;
+		let v: float;
+	}
+	return t.a + u.a + scale;
+}
+
+let scale: float = 2.0;
+let table: [2]int = { 4, 5 };

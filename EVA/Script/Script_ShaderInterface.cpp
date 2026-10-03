@@ -347,6 +347,13 @@ static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool to
 
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface)
 {
+	// Scripts have globals; shaders only will through bind groups (Docs/Plan/Bindings.md).
+	for (Node* declaration = module->child; declaration; declaration = declaration->next)
+	{
+		if (declaration->node_type == NodeType::VARIABLE)
+			EmitError(builder, "'%s' is a global, which shaders don't support yet", AtomName(builder, declaration->name));
+	}
+
 	std::vector<EntryPoint> entry_points;
 	bool built = FindEntryPoints(builder, module, false, entry_points);
 	assert(built || !builder.errors.empty()); // every failure is reported

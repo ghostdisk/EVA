@@ -136,7 +136,6 @@ static bool IsExpression(NodeType type)
 	case NodeType::INDEX:
 	case NodeType::ARRAY_TYPE:
 	case NodeType::IF:
-	case NodeType::VARIABLE: // made from a ':' expression by the resolver
 		return true;
 	default:
 		return false;
@@ -146,7 +145,7 @@ static bool IsExpression(NodeType type)
 static bool IsStatement(NodeType type)
 {
 	return IsExpression(type) || type == NodeType::BLOCK || type == NodeType::RETURN || type == NodeType::CONST ||
-		   type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS;
+		   type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS || type == NodeType::VARIABLE;
 }
 
 static bool IsValidOperator(NodeType node_type, TokenType op)
@@ -178,7 +177,6 @@ static bool IsValidOperator(NodeType node_type, TokenType op)
 		case TokenType::PIPE:
 		case TokenType::LOGICAL_AND:
 		case TokenType::LOGICAL_OR:
-		case TokenType::COLON:
 		case TokenType::EQUALS:
 		case TokenType::ADD_ASSIGN:
 		case TokenType::SUBTRACT_ASSIGN:
@@ -208,7 +206,8 @@ struct ChildRule
 
 static bool IsDeclaration(NodeType type)
 {
-	return type == NodeType::CONST || type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS;
+	return type == NodeType::CONST || type == NodeType::STRUCT || type == NodeType::FUNCTION || type == NodeType::TYPE_ALIAS ||
+		   type == NodeType::VARIABLE;
 }
 static bool IsField(NodeType type) { return type == NodeType::FIELD; }
 static bool IsParameter(NodeType type) { return type == NodeType::PARAMETER; }
@@ -226,7 +225,7 @@ static Slice<const ChildRule> ChildRules(NodeType type)
 	static const ChildRule function[] = {
 		{ Usage::PARAMETER, 0, MANY, IsParameter }, { Usage::RETURN_TYPE, 0, 1 }, { Usage::BODY, 1, 1, IsBlock } };
 	static const ChildRule typed_declaration[] = { { Usage::DECLARED_TYPE, 1, 1 }, { Usage::VALUE, 0, 1 } };
-	static const ChildRule variable[] = { { Usage::DECLARED_TYPE, 1, 1 } };
+	static const ChildRule variable[] = { { Usage::DECLARED_TYPE, 0, 1 }, { Usage::VALUE, 0, 1 } };
 	static const ChildRule block[] = { { Usage::STATEMENT, 0, MANY, IsStatement } };
 	static const ChildRule return_statement[] = { { Usage::VALUE, 0, 1 } };
 	static const ChildRule init_list[] = { { Usage::ELEMENT, 0, MANY } };
@@ -467,8 +466,6 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 		{
 			if (node->node_type == NodeType::IDENTIFIER)
 				Fail("IDENTIFIER %s left after resolving", GetAtomString(node->name, compilation.intermediate_arena).CString());
-			if (node->node_type == NodeType::BINARY && node->op == TokenType::COLON)
-				Fail("':' left after resolving");
 			if ((node->node_type == NodeType::MODULE || node->node_type == NodeType::FUNCTION ||
 					node->node_type == NodeType::BLOCK) &&
 				!node->scope)
@@ -522,6 +519,12 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			// Constant expressions are folded into CONSTANTs.
 			if (node->node_type == NodeType::CONST && FindChild(node, Usage::VALUE)->node_type != NodeType::CONSTANT)
 				Fail("CONST's value isn't a CONSTANT");
+			if (node->node_type == NodeType::VARIABLE && node->usage == Usage::DECLARATION)
+			{
+				Node* value = FindChild(node, Usage::VALUE);
+				if (value && value->node_type != NodeType::CONSTANT)
+					Fail("a global's value isn't a CONSTANT");
+			}
 			if (node->node_type == NodeType::ARRAY_TYPE && FindChild(node, Usage::SIZE)->node_type != NodeType::CONSTANT)
 				Fail("array size isn't a CONSTANT");
 			if (node->node_type == NodeType::CONSTANT)

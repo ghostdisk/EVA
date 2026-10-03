@@ -20,6 +20,7 @@ struct MultiCharOperator
 
 static Keyword keywords[] = {
 	{ TokenType::KW_CONST, "const" },
+	{ TokenType::KW_LET, "let" },
 	{ TokenType::KW_STRUCT, "struct" },
 	{ TokenType::KW_FUNCTION, "function" },
 	{ TokenType::KW_TYPE, "type" },

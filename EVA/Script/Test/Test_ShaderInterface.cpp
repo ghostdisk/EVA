@@ -186,6 +186,15 @@ TEST(ShaderInterface, EntryPointErrors)
 		"vertex shader 'v' has to output @semantic(position)");
 }
 
+TEST(ShaderInterface, Globals)
+{
+	// Fine for the typer, since scripts have globals; shaders will only through bind groups.
+	CHECK_INTERFACE_ERRORS("let g = 1.0; @entry(fragment) function f(): @location(0) float4 { return float4(g); }",
+		"'g' is a global, which shaders don't support yet");
+	CHECK_INTERFACE_ERRORS("let a: int; let b = 2;",
+		"'a' is a global, which shaders don't support yet | 'b' is a global, which shaders don't support yet");
+}
+
 TEST(ShaderInterface, IOErrors)
 {
 	CHECK_INTERFACE_ERRORS("@entry(fragment) function f(a: float) {}", "'a' needs a semantic or location");

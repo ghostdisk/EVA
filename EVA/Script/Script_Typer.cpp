@@ -546,6 +546,49 @@ static bool TypeFunction(Typer& typer, Node* node)
 	return typed;
 }
 
+// let name [: type] [= value]: the type is the declared one, or the value's. A global's value is a constant, since
+// nothing runs code to initialize globals yet.
+static bool TypeVariable(Typer& typer, Node* node)
+{
+	Node* declared = FindChild(node, Usage::DECLARED_TYPE);
+	Node* value = FindChild(node, Usage::VALUE);
+	Type* type = nullptr;
+	if (declared)
+	{
+		type = EvaluateType(typer, declared);
+		if (!type)
+			return false;
+	}
+	if (value && node->usage == Usage::DECLARATION)
+	{
+		Constant* constant = EvaluateConstant(typer, value, type, "a global's value");
+		if (!constant)
+			return false;
+		if (type && constant->type != type)
+		{
+			EmitError(typer, "expected %s, got %s", TypeName(typer, type), TypeName(typer, constant->type));
+			return false;
+		}
+		type = constant->type;
+	}
+	else if (value)
+	{
+		if (!TypeNode(typer, value, type))
+			return false;
+		if (type && !ImplicitCast(typer, value, type))
+			return false;
+		type = value->type;
+	}
+	node->type = type;
+	return true;
+}
+
+// A global is typed the first time it's needed: functions anywhere in the module can use it.
+static bool TypeGlobal(Typer& typer, Node* node)
+{
+	return TypeOnDemand(typer, node, TypeVariable);
+}
+
 static bool TypeReturn(Typer& typer, Node* node)
 {
 	Node* value = FindChild(node, Usage::VALUE);
@@ -608,8 +651,12 @@ static bool TypeReference(Typer& typer, Node* node)
 				return false;
 			node->type = target->type;
 			return true;
-		case NodeType::PARAMETER:
 		case NodeType::VARIABLE:
+			if (target->usage == Usage::DECLARATION && !TypeGlobal(typer, target))
+				return false; // reported
+			node->type = target->type;
+			return node->type != nullptr;
+		case NodeType::PARAMETER:
 		case NodeType::ENUM_VALUE:
 			node->type = target->type;
 			return node->type != nullptr; // nullptr if the declaration failed, already reported
@@ -920,8 +967,7 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 			typed = false;
 		break;
 	case NodeType::VARIABLE:
-		node->type = EvaluateType(typer, FindChild(node, Usage::DECLARED_TYPE));
-		if (!node->type)
+		if (!(node->usage == Usage::DECLARATION ? TypeGlobal(typer, node) : TypeVariable(typer, node)))
 			typed = false;
 		break;
 	case NodeType::STRUCT:

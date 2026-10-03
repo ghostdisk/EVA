@@ -348,7 +348,7 @@ TEST(Typer, TypeAliases)
 
 	// Declared ahead: usable before the declaration, in the module and in blocks.
 	CHECK_TYPE_ERRORS("struct S { r: Row; } type Row = [2]float;", "");
-	CHECK_TYPE_ERRORS("function f(): float { r: R; return r[0]; type R = Array(float, 2); }", "");
+	CHECK_TYPE_ERRORS("function f(): float { let r: R; return r[0]; type R = Array(float, 2); }", "");
 	// Chains, constructors and constants through aliases.
 	CHECK_TYPE_ERRORS("type A = B; type B = float3; const v: A = B(1.0);", "");
 	CHECK_TYPE_ERRORS("type V = Vector(int, 2); const v = V(1, 2); function f(): V { return V(3, 4); }", "");
@@ -420,7 +420,7 @@ TEST(Typer, Structs)
 
 TEST(Typer, Functions)
 {
-	CHECK_TYPE("function f(): float { x: float; return x; }",
+	CHECK_TYPE("function f(): float { let x: float; return x; }",
 		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK "
 		"([STATEMENT]VARIABLE:float x ([DECLARED_TYPE]REFERENCE:float float -> TYPE float)) "
 		"([STATEMENT]RETURN ([VALUE]REFERENCE:float x -> VARIABLE))))");
@@ -429,7 +429,7 @@ TEST(Typer, Functions)
 	CHECK_TYPE_ERRORS("function f(): void { return; }", "");
 	CHECK_TYPE_ERRORS("function f(): float { return; }", "'return' needs a value of type float");
 	CHECK_TYPE_ERRORS("function f() { return 1; }", "a function returning void can't return a value");
-	CHECK_TYPE_ERRORS("function f(): uint { x: int; return x; }", "expected uint, got int");
+	CHECK_TYPE_ERRORS("function f(): uint { let x: int; return x; }", "expected uint, got int");
 	CHECK_TYPE_ERRORS("function f(a: int = 1) {}", "default values aren't supported yet");
 	CHECK_TYPE_ERRORS("function g() {} function f() { g(); }", "calling functions isn't supported yet");
 	CHECK_TYPE_ERRORS("function g() {} function f(): int { return g; }", "'g' is a function, which can only be called");
@@ -441,6 +441,35 @@ TEST(Typer, Functions)
 	CHECK_TYPE_ERRORS("const a = 1; const b = a();", "a const's value must be a constant");
 	// Nested functions have their own return type.
 	CHECK_TYPE_ERRORS("function f(): float { function g(): int { return 1; } return 1.0; }", "");
+}
+
+TEST(Typer, Let)
+{
+	// The declared type, or the value's.
+	CHECK_TYPE("function f() { let a: float; let b = 1; let c: uint = 2; let d = float2(1.0); }",
+		"([DECLARATION]FUNCTION f ([BODY]BLOCK ([STATEMENT]VARIABLE:float a ([DECLARED_TYPE]REFERENCE:float float -> TYPE float)) "
+		"([STATEMENT]VARIABLE:int b ([VALUE]NUMBER:int 1)) "
+		"([STATEMENT]VARIABLE:uint c ([DECLARED_TYPE]REFERENCE:uint uint -> TYPE uint) ([VALUE]NUMBER:uint 2)) "
+		"([STATEMENT]VARIABLE:float2 d ([VALUE]CALL:float2 ([CALLEE]REFERENCE:float2 float2 -> TYPE float2) ([ARGUMENT]NUMBER:float 1.0)))))");
+	CHECK_TYPE_ERRORS("struct S { a: float; b: [2]int; } function f(s: S) { let t = s; let u: S = { 1.0, { 2, 3 } }; let v = u.b; }", "");
+	CHECK_TYPE_ERRORS("function f(i: int) { let x = i; let y: int = x * 2; let z: uint = x; }", "expected uint, got int");
+	CHECK_TYPE_ERRORS("function f() { let x = { 1, 2 }; }", "can't tell the type of an initializer list here");
+	CHECK_TYPE_ERRORS("function f() { let x: [2]int = { 1 }; }", "[2]int needs 2 elements, got 1");
+	CHECK_TYPE_ERRORS("function f() { let x = float; }", "'float' is a type, not a value");
+	CHECK_TYPE_ERRORS("function f() { let x = Array(float, 2); }", "expected a value, got a type");
+
+	// Globals: their values are constants, folded.
+	CHECK_TYPE("let g: float = 2.0; function f(): float { return g; }",
+		"([DECLARATION]VARIABLE:float g ([DECLARED_TYPE]REFERENCE:float float -> TYPE float) ([VALUE]CONSTANT:float 2.0)) "
+		"([DECLARATION]FUNCTION f ([RETURN_TYPE]REFERENCE:float float -> TYPE float) ([BODY]BLOCK ([STATEMENT]RETURN "
+		"([VALUE]REFERENCE:float g -> VARIABLE))))");
+	CHECK_TYPE_ERRORS("let g = 1; let h = g;", "a global's value must be a constant");
+	CHECK_TYPE_ERRORS("const c = 3; let g = c * 2; let h: [2]int = { c, 4 };", "");
+	// Typed on first use, so functions before them can use them.
+	CHECK_TYPE_ERRORS("function f(): float { return g * 2.0; } let g = 1.5;", "");
+	CHECK_TYPE_ERRORS("let g: int = 1.5;", "'1.5' is not an integer");
+	CHECK_TYPE_ERRORS("const c = 1; let g: uint = c;", "expected uint, got int");
+	CHECK_TYPE_ERRORS("function f(): int { return 1; } let g = f;", "a global's value must be a constant");
 }
 
 TEST(Typer, TypesAndValues)
@@ -491,7 +520,7 @@ TEST(Typer, ConstantExpressions)
 
 	// Variables and parameters are never constants.
 	CHECK_TYPE_ERRORS("function f(v: uint) { const c = v + 1; }", "a const's value must be a constant");
-	CHECK_TYPE_ERRORS("function f() { v: uint; x: [v + 1]float; }", "array size must be a constant");
+	CHECK_TYPE_ERRORS("function f() { let v: uint; let x: [v + 1]float; }", "array size must be a constant");
 
 	// Indices in code are checked when they're constant expressions.
 	CHECK_TYPE_ERRORS("const a: [2]float = { 1.0, 2.0 }; function f(): float { return a[1 + 1]; }", "index 2 is out of bounds for [2]float");
@@ -504,10 +533,10 @@ TEST(Typer, DeclarationsTypedOnFirstUse)
 	CHECK_TYPE_ERRORS("struct A { b: B; } const n: uint = 2; struct B { x: [n]float; }", "");
 	CHECK_TYPE_ERRORS("struct A { b: B; } const n: uint = 2; struct B { x: [n]float; } const a: A = { { { 1.0, 2.0 } } };", "");
 	// A variable is never a constant, whatever its type.
-	CHECK_TYPE_ERRORS("function f() { a: S; v: uint; struct S { x: [v]float; } }", "array size must be a constant");
+	CHECK_TYPE_ERRORS("function f() { let a: S; let v: uint; struct S { x: [v]float; } }", "array size must be a constant");
 
 	CHECK_TYPE_ERRORS("const c: S = { { 1.0 } }; struct S { x: [c]float; }", "'c' depends on itself");
-	CHECK_TYPE_ERRORS("function f() { v: S; struct S { x: [v]float; } }", "array size must be a constant");
+	CHECK_TYPE_ERRORS("function f() { let v: S; struct S { x: [v]float; } }", "array size must be a constant");
 
 	// A const's value is resolved before the const is declared, so it can't refer to itself, only to one it shadows.
 	CHECK_TYPE_ERRORS("const c: uint = c;", "resolve error: unknown identifier 'c'");
