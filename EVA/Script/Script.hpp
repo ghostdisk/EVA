@@ -683,6 +683,7 @@ inline bool IsBuiltinFunction(IntrinsicKind kind)
 // context. Types are unique: generic instances, pointer and function types are cached here, and the Get functions only
 // take valid arguments.
 void InitContext(Context& context, Arena* arena, ContextKind kind);
+
 Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer);
 ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
 VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count);
@@ -690,19 +691,27 @@ MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 colum
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
 FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
 
+// --- LEXER & PARSER -----------------------------------------
+
 // Parses a source file into a MODULE whose children are its declarations. Stops at the first error.
 bool Parse(Parser& parser, Node** out_module);
+
 Node* ParseExpression(Parser& parser);
 Node* ParseStatement(Parser& parser);
 bool LexToken(Parser& parser);
 void EatToken(Parser& parser);
 ScriptError* EmitError(Parser& parser, const char* format, ...);
 
+// --- RESOLVER -----------------------------------------------
+
 // Turns IDENTIFIERs into REFERENCEs and gives MODULE, FUNCTION and BLOCK nodes their scope. Functions, structs, type
 // aliases and globals can be referenced anywhere in their scope, everything else only after its declaration. Unknown
 // names stay IDENTIFIERs.
 bool Resolve(Resolver& resolver, Node* module);
+
 ScriptError* EmitError(Resolver& resolver, const char* format, ...);
+
+// --- TYPER --------------------------------------------------
 
 // Gives every expression and declaration its type. Constant expressions (a const's value, array sizes, locations)
 // aren't typed but evaluated, and become CONSTANT nodes. Errors don't stop typing the rest of the module.
@@ -724,14 +733,14 @@ uint32 ComponentCount(Type* type);
 bool IsNumeric(PrimitiveType* type);
 bool IsInteger(PrimitiveType* type);
 
+// --- SHADER INTERFACE PASS ----------------------------------
+
 // Finds the entry points of a typed shader module and flattens their parameters and return values into inputs and
 // outputs, checking their semantics and locations.
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
 ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
 
-// Runs every stage on a shader's source. Errors in the source come from the front end; past it, only the target's size
-// limits can fail, and fxc can still run out of registers.
-CompileShaderResult CompileShader(const CompileShaderOptions& options);
+// --- PRINTING -----------------------------------------------
 
 ZTStringView TokenToString(TokenType token_type);
 ZTStringView NodeTypeToString(NodeType type);
@@ -745,5 +754,11 @@ ZTStringView ConstantToString(Constant* constant, Arena* arena);
 ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena);
 void SerializeNode(StringBuilder& builder, Node* node);
 void DumpNode(Node* node, Arena* arena, int indent = 0);
+
+// ------------------------------------------------------------
+
+// Runs every stage on a shader's source. Errors in the source come from the front end; past it, only the target's size
+// limits can fail, and fxc can still run out of registers.
+CompileShaderResult CompileShader(const CompileShaderOptions& options);
 
 }
