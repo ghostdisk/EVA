@@ -645,6 +645,14 @@ struct Emitter
 
 		IRReachable used;
 		FindReachable(module, wrapper, used);
+		for (IRRef global : used.globals)
+		{
+			if (((PointerType*)module[global].type)->space == AddressSpace::UNIFORM)
+			{
+				EmitError(context, "bind groups aren't supported on Metal yet");
+				return {};
+			}
+		}
 		for (size_t i = 0; i < used.functions.size(); ++i)
 			names[used.functions[i]] = Print("f%u", (uint32)i);
 

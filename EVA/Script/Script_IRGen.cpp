@@ -486,10 +486,22 @@ struct Generator
 void GenerateIR(IRModule& module, Node* ast, ShaderInterface* shader_interface)
 {
 	Generator generator = { .module = module, .context = *module.context };
-	// Globals first, since any function can use them. Their values are folded constants.
+	// Globals first, since any function can use them: bind groups, and in scripts globals, whose values are folded
+	// constants.
+	if (shader_interface)
+	{
+		for (uint32 i = 0; i < shader_interface->bind_groups.count; ++i)
+		{
+			ShaderBindGroup& bind_group = shader_interface->bind_groups[i];
+			Node* declaration = bind_group.declaration;
+			IRRef global = AddIRGlobal(module, declaration->name, AddressSpace::UNIFORM, declaration->type, nullptr);
+			module[global].global.bind_group = &bind_group;
+			generator.places[declaration] = global;
+		}
+	}
 	for (Node* declaration = ast->child; declaration; declaration = declaration->next)
 	{
-		if (declaration->node_type != NodeType::VARIABLE)
+		if (declaration->node_type != NodeType::VARIABLE || generator.places.count(declaration))
 			continue;
 		Node* value = FindChild(declaration, Usage::VALUE);
 		Constant* initializer = value ? value->constant : nullptr;

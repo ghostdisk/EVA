@@ -765,7 +765,10 @@ Per stage, from Shaders.md's open questions; the lowest tier is mobile.
 1. Front-end prerequisites (2.3): generics ([Generics.md](Generics.md)), the `let` statement replacing `:` and matrix
    types (all done), built-in calls and `mul` (next).
 2. `@bind_group` with plain data only: layouts, reflection, cursors, IR `uniform` globals, all three backends, GPU
-   buffers, bind groups with their implicit uniform buffer, TestApp drawing with a uniform (a transform).
+   buffers, bind groups with their implicit uniform buffer, TestApp drawing with a uniform (a transform). Done in the
+   compiler for D3D11: the attribute, D3D11's cbuffer layout checked against fxc's reflection (tests and the grammar
+   fuzzer), reflection without cursors yet, `uniform` globals and HLSL cbuffers. Vulkan and Metal report bind groups as
+   not supported yet. Next: the GPU library on D3D11, then TestApp.
 3. Vertex buffers (7): layouts in pipeline creation, validation, TestApp drawing a mesh from a vertex and index buffer.
 4. Textures and samplers: resource types, `sample` and friends, texture uploads, TestApp drawing a textured mesh.
 5. `ConstantBuffer(T)`, `StorageBuffer(T)`.

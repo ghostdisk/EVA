@@ -9,6 +9,7 @@
 #define NOMINMAX
 #include <windows.h>
 #include <d3dcompiler.h>
+#include <d3d11shader.h>
 #endif
 
 #ifdef EVA_MACOS
@@ -113,6 +114,115 @@ ZTStringView CompileHLSL(StringView text, ShaderStage stage, Arena* arena)
 #else
 	(void)text;
 	(void)stage;
+	(void)arena;
+	return {};
+#endif
+}
+
+#ifdef EVA_WIN32
+// Where fxc's reflection of a type differs from our layout, or empty.
+static ZTStringView CompareTypes(ID3D11ShaderReflectionType* d3d, const GPU::TypeLayout* ours, const char* path, Arena* arena)
+{
+	D3D11_SHADER_TYPE_DESC desc;
+	d3d->GetDesc(&desc);
+	// HLSL's arrays of arrays are one array of all their elements in fxc's reflection.
+	uint32 elements = 0;
+	while (ours->kind == GPU::ReflectedTypeKind::ARRAY)
+	{
+		elements = (elements ? elements : 1) * ours->length;
+		ours = ours->element;
+	}
+	if (desc.Elements != elements)
+		return aprintf(arena, "%s: fxc has %u elements, we have %u", path, desc.Elements, elements);
+	switch (ours->kind)
+	{
+	case GPU::ReflectedTypeKind::SCALAR:
+		if (desc.Class != D3D_SVC_SCALAR)
+			return aprintf(arena, "%s: fxc's class is %u, we have a scalar", path, (uint32)desc.Class);
+		return {};
+	case GPU::ReflectedTypeKind::VECTOR:
+		if (desc.Class != D3D_SVC_VECTOR || desc.Columns != ours->columns)
+			return aprintf(arena, "%s: fxc's class is %u with %u columns, we have a vector of %u", path, (uint32)desc.Class,
+				desc.Columns, ours->columns);
+		return {};
+	case GPU::ReflectedTypeKind::MATRIX:
+		// row_major, with HLSL's rows being our columns.
+		if (desc.Class != D3D_SVC_MATRIX_ROWS || desc.Rows != ours->columns || desc.Columns != ours->rows)
+			return aprintf(arena, "%s: fxc's class is %u, %ux%u, we have %u columns of %u", path, (uint32)desc.Class, desc.Rows,
+				desc.Columns, ours->columns, ours->rows);
+		return {};
+	case GPU::ReflectedTypeKind::STRUCT:
+	{
+		if (desc.Class != D3D_SVC_STRUCT || desc.Members != ours->fields.count)
+			return aprintf(arena, "%s: fxc's class is %u with %u members, we have a struct of %u", path, (uint32)desc.Class,
+				desc.Members, ours->fields.count);
+		for (uint32 i = 0; i < ours->fields.count; ++i)
+		{
+			const GPU::VarLayout& field = ours->fields[i];
+			ZTStringView field_path = aprintf(arena, "%s.%s", path, GetAtomString(field.name, arena).CString());
+			ID3D11ShaderReflectionType* member = d3d->GetMemberTypeByIndex(i);
+			D3D11_SHADER_TYPE_DESC member_desc;
+			member->GetDesc(&member_desc);
+			if (member_desc.Offset != field.offset.bytes)
+				return aprintf(arena, "%s: fxc's offset is %u, ours is %u", field_path.CString(), member_desc.Offset,
+					field.offset.bytes);
+			ZTStringView problem = CompareTypes(member, field.type, field_path.CString(), arena);
+			if (problem.length)
+				return problem;
+		}
+		return {};
+	}
+	case GPU::ReflectedTypeKind::ARRAY: break;
+	}
+	return {};
+}
+#endif
+
+ZTStringView CheckHLSLBindGroups(const GPU::CompiledEntryPoint& entry_point, Slice<GPU::ReflectedBindGroup> bind_groups,
+	Arena* arena)
+{
+#ifdef EVA_WIN32
+	const char* profile = entry_point.stage == ShaderStage::VERTEX ? "vs_5_0" : "ps_5_0";
+	ID3DBlob* code = nullptr;
+	// Unoptimized, so fxc keeps cbuffers whose values are dead.
+	HRESULT result = D3DCompile(entry_point.code.data, entry_point.code.count, "shader.hlsl", nullptr, nullptr, "main",
+		profile, D3DCOMPILE_SKIP_OPTIMIZATION, 0, &code, nullptr);
+	if (FAILED(result))
+		return {}; // CompileHLSL reports it
+	DEFER(code->Release());
+	ID3D11ShaderReflection* reflection = nullptr;
+	if (FAILED(D3DReflect(code->GetBufferPointer(), code->GetBufferSize(), __uuidof(ID3D11ShaderReflection), (void**)&reflection)))
+		return aprintf(arena, "D3DReflect failed");
+	DEFER(reflection->Release());
+
+	for (uint32 i = 0; i < bind_groups.count; ++i)
+	{
+		const GPU::ReflectedBindGroup& group = bind_groups[i];
+		if (!(entry_point.bind_groups & (1u << group.index)) || !group.layout.uniform_size)
+			continue;
+		ZTStringView name = aprintf(arena, "B%u", group.index);
+		D3D11_SHADER_INPUT_BIND_DESC bind;
+		if (FAILED(reflection->GetResourceBindingDescByName(name.CString(), &bind)))
+			continue; // still removed as unused
+		uint32 expected = entry_point.d3d11_bind_group_registers[group.index].cbv;
+		if (bind.Type != D3D_SIT_CBUFFER || bind.BindPoint != expected)
+			return aprintf(arena, "%s is at register %u, expected b%u", name.CString(), bind.BindPoint, expected);
+		ID3D11ShaderReflectionConstantBuffer* buffer = reflection->GetConstantBufferByName(name.CString());
+		ID3D11ShaderReflectionVariable* variable = buffer->GetVariableByIndex(0);
+		D3D11_SHADER_VARIABLE_DESC variable_desc;
+		if (FAILED(variable->GetDesc(&variable_desc)))
+			return aprintf(arena, "%s has no variable", name.CString());
+		if (variable_desc.StartOffset != 0 || variable_desc.Size != group.layout.uniform_size)
+			return aprintf(arena, "%s's variable is %u bytes at %u, we have %u bytes", name.CString(), variable_desc.Size,
+				variable_desc.StartOffset, group.layout.uniform_size);
+		ZTStringView problem = CompareTypes(variable->GetType(), group.type, GetAtomString(group.name, arena).CString(), arena);
+		if (problem.length)
+			return problem;
+	}
+	return {};
+#else
+	(void)entry_point;
+	(void)bind_groups;
 	(void)arena;
 	return {};
 #endif

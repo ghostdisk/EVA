@@ -146,6 +146,8 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 		for (ShaderStage stage : { ShaderStage::VERTEX, ShaderStage::FRAGMENT })
 			DefineEnumValue(context, stage_type, ShaderStageToString(stage), (int64)stage);
 		DefineIntrinsic(context, scope, "entry", IntrinsicKind::ENTRY)->argument_scope = stage_type->scope;
+
+		DefineIntrinsic(context, scope, "bind_group", IntrinsicKind::BIND_GROUP);
 	}
 	return scope;
 }
@@ -554,7 +556,12 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	if (!TypeCheck(typer, module))
 		return { .errors = ToSlice(arena, context.errors) };
 
-	ShaderInterfaceBuilder interface_builder = { .context = context, .arena = intermediate_arena };
+	ShaderInterfaceBuilder interface_builder = {
+		.context = context,
+		.arena = intermediate_arena,
+		.reflection_arena = arena,
+		.backend = options.backend,
+	};
 	ShaderInterface shader_interface;
 	if (!BuildShaderInterface(interface_builder, module, &shader_interface))
 		return { .errors = ToSlice(arena, context.errors) };
@@ -575,6 +582,15 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 			continue;
 		CompiledEntryPoint& compiled = entry_points[index++];
 		compiled = { .stage = entry_point->stage, .name = entry_point->function->name };
+		IRReachable used;
+		FindReachable(ir, function, used);
+		for (IRRef global : used.globals)
+		{
+			if (((PointerType*)ir[global].type)->space == AddressSpace::UNIFORM)
+				compiled.bind_groups |= 1u << ir[global].global.bind_group->reflection.index;
+		}
+		for (uint32 group = 0; group < GPU::MAX_BIND_GROUPS; ++group)
+			compiled.d3d11_bind_group_registers[group] = entry_point->d3d11_bind_group_registers[group];
 		if (options.backend == Backend::VULKAN)
 		{
 			Slice<uint32> words = EmitSPIRV(ir, function, arena);
@@ -589,7 +605,14 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	assert(index == count);
 	if (!context.errors.empty()) // limits of the target
 		return { .errors = ToSlice(arena, context.errors) };
-	return { .entry_points = Slice<CompiledEntryPoint>(entry_points, count) };
+	GPU::ReflectedBindGroup* bind_groups = (GPU::ReflectedBindGroup*)arena->Allocate(
+		shader_interface.bind_groups.count * sizeof(GPU::ReflectedBindGroup), alignof(GPU::ReflectedBindGroup));
+	for (uint32 i = 0; i < shader_interface.bind_groups.count; ++i)
+		bind_groups[i] = shader_interface.bind_groups[i].reflection;
+	return {
+		.entry_points = Slice<CompiledEntryPoint>(entry_points, count),
+		.bind_groups = Slice<GPU::ReflectedBindGroup>(bind_groups, shader_interface.bind_groups.count),
+	};
 }
 
 }

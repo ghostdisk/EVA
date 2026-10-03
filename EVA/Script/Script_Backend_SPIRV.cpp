@@ -184,6 +184,7 @@ uint32 GetStorageClass(AddressSpace space)
 	case AddressSpace::CONSTANT: return STORAGE_PRIVATE;
 	case AddressSpace::INPUT: return STORAGE_INPUT;
 	case AddressSpace::OUTPUT: return STORAGE_OUTPUT;
+	case AddressSpace::UNIFORM:
 	case AddressSpace::MEMORY: break;
 	}
 	Panic("SPIR-V: no storage class for %s", AddressSpaceToString(space).CString());
@@ -917,6 +918,14 @@ struct Emitter
 
 		IRReachable used;
 		FindReachable(module, wrapper, used);
+		for (IRRef global : used.globals)
+		{
+			if (((PointerType*)module[global].type)->space == AddressSpace::UNIFORM)
+			{
+				EmitError(context, "bind groups aren't supported on Vulkan yet");
+				return {};
+			}
+		}
 		for (IRRef function : used.functions)
 			ids[function] = NewId();
 		Words interface_ids;

@@ -402,7 +402,8 @@ enum class AddressSpace : uint8
 	CONSTANT,
 	INPUT,
 	OUTPUT,
-	MEMORY, // reserved
+	UNIFORM, // bind groups' plain data, read-only
+	MEMORY,  // reserved
 };
 
 struct PointerType : Type
@@ -441,6 +442,7 @@ enum class IntrinsicKind : uint8
 	SEMANTIC,
 	LOCATION,
 	ENTRY,
+	BIND_GROUP,
 
 	// built-in functions, last
 	MUL,
@@ -627,17 +629,27 @@ struct EntryPoint
 	ShaderStage stage = ShaderStage::VERTEX;
 	Node* function = nullptr;
 	Slice<ShaderIO> io;
+	GPU::D3DRegisters d3d11_bind_group_registers[GPU::MAX_BIND_GROUPS];
+};
+
+struct ShaderBindGroup
+{
+	Node* declaration = nullptr; // the let
+	GPU::ReflectedBindGroup reflection;
 };
 
 struct ShaderInterface
 {
 	Slice<EntryPoint> entry_points;
+	Slice<ShaderBindGroup> bind_groups; // by index
 };
 
 struct ShaderInterfaceBuilder
 {
 	Context& context;
 	Arena* arena = nullptr;
+	Arena* reflection_arena = nullptr; // type layouts, which outlive the compile
+	GPU::Backend backend = GPU::Backend::NONE; // whose layout rules bind groups follow
 };
 
 struct CompileShaderOptions
@@ -650,6 +662,7 @@ struct CompileShaderOptions
 struct CompileShaderResult
 {
 	Slice<GPU::CompiledEntryPoint> entry_points; // in source order
+	Slice<GPU::ReflectedBindGroup> bind_groups;  // every group the module declares, by index
 	Slice<ScriptError*> errors;
 };
 

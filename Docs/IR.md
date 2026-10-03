@@ -62,9 +62,10 @@ an address space and a pointee type.
 | `private` | mutable globals |
 | `constant` | read-only globals with an initializer |
 | `input`, `output` | shader interface globals, used only by entry wrappers |
+| `uniform` | a bind group's plain data, read-only; the global carries its group's reflection |
 | `memory` | scripts' linear memory: a 4 GB space indexed by 32-bit pointers, like wasm |
 
-More come with their features: `uniform`, `storage` and `workgroup` for shader resources, and a physical storage space
+More come with their features: `storage` and `workgroup` for shader resources, and a physical storage space
 for buffer device addresses.
 
 Pointer operations:

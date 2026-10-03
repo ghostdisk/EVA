@@ -12,7 +12,9 @@ next to it, named after it, which holds the expected output. They run with the o
   - `.d3d11.hlsl`, `.msl`, `.spvasm`: what `CompileShader` gives for D3D11, Metal and Vulkan, every entry point after
     a comment naming it. SPIR-V is disassembled by our own disassembler (`SPIRVText.cpp`), which prints what
     SPIRV-Tools does; when the Vulkan SDK is installed the two are compared. Each entry point also has to pass the
-    target's own tools when they're available: SPIRV-Tools' validator, fxc and Metal.
+    target's own tools when they're available: SPIRV-Tools' validator, fxc and Metal. For D3D11, fxc's reflection of
+    the bind groups has to match ours. A target that fails, for what it doesn't support yet, has its errors there
+    instead, each as `error: <message>` after a comment.
 - **`Script/`**: compiled as a script. Every case needs a `.ir`.
 
 `Golden.Files` fails for any file that isn't a case or an expected output of one, so a misnamed file can't go unchecked.

@@ -154,6 +154,32 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		}
 		return true;
 	}
+	case IntrinsicKind::BIND_GROUP:
+	{
+		if (target->node_type != NodeType::VARIABLE || target->usage != Usage::DECLARATION)
+		{
+			EmitError(typer.context, "'%s' can only be used on lets in the module", name);
+			return false;
+		}
+		Node* argument = GetSingleArgument(typer, attribute, name);
+		if (!argument)
+			return false;
+		Constant* index = EvaluateConstant(typer, argument, typer.context.uint_type, "a bind group index");
+		if (!index)
+			return false;
+		if (index->type != typer.context.uint_type)
+		{
+			EmitError(typer.context, "expected uint, got %s", GetTypeNameCString(typer.context, index->type));
+			return false;
+		}
+		if (ConstantToInteger(index) >= GPU::MAX_BIND_GROUPS)
+		{
+			EmitError(typer.context, "bind group index must be 0 to %u, got %lld", GPU::MAX_BIND_GROUPS - 1,
+				(long long)ConstantToInteger(index));
+			return false;
+		}
+		return true;
+	}
 	case IntrinsicKind::ENTRY:
 	{
 		if (target->node_type != NodeType::FUNCTION)

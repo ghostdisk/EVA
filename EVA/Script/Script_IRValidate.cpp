@@ -147,6 +147,12 @@ struct Validator
 			bool interface = pointer->space == AddressSpace::INPUT || pointer->space == AddressSpace::OUTPUT;
 			if (interface && !value.global.io)
 				return Fail("@%s has no shader IO", name);
+			if (pointer->space == AddressSpace::UNIFORM)
+			{
+				if (!value.global.bind_group || value.global.bind_group->declaration->type != pointer->pointee)
+					return Fail("@%s isn't a bind group's", name);
+				continue;
+			}
 			if (!interface && value.global.initializer && value.global.initializer->type != pointer->pointee)
 				return Fail("@%s's initializer is %s", name, TypeName(value.global.initializer->type));
 			if (pointer->space == AddressSpace::CONSTANT && !value.global.initializer)
@@ -428,7 +434,8 @@ struct Validator
 				return Fail("can't %s %s whole", info.name, TypeName(pointer->pointee));
 			if (value.op == IROp::LOAD)
 				return Expect(type, pointer->pointee, "the result");
-			if (pointer->space == AddressSpace::CONSTANT || pointer->space == AddressSpace::INPUT)
+			if (pointer->space == AddressSpace::CONSTANT || pointer->space == AddressSpace::INPUT ||
+				pointer->space == AddressSpace::UNIFORM)
 				return Fail("can't store to %s space", AddressSpaceToString(pointer->space).CString());
 			return Expect(types(1), pointer->pointee, "the value");
 		}
@@ -474,7 +481,7 @@ struct Validator
 			if (!pointers || ((PointerType*)types(0))->pointee != ((PointerType*)types(1))->pointee)
 				return Fail("copies %s to %s", TypeName(types(1)), TypeName(types(0)));
 			AddressSpace space = ((PointerType*)types(0))->space;
-			if (space == AddressSpace::CONSTANT || space == AddressSpace::INPUT)
+			if (space == AddressSpace::CONSTANT || space == AddressSpace::INPUT || space == AddressSpace::UNIFORM)
 				return Fail("can't copy to %s space", AddressSpaceToString(space).CString());
 			return true;
 		}

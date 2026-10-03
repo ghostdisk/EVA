@@ -162,7 +162,15 @@ struct Symbol
 	std::string name;
 	GenType* type = nullptr;
 	bool constant = false;
-	Bytes value; // constant only
+	bool bind_group = false; // only its fields are values
+	Bytes value;             // constant only
+};
+
+struct GenBindGroup
+{
+	uint32 index = 0;
+	std::string name;
+	GenType* type = nullptr;
 };
 
 // Where an expression goes.
@@ -530,7 +538,8 @@ struct Generator
 		for (size_t i = 0; i < symbols.size(); ++i)
 		{
 			Symbol& symbol = symbols[i];
-			if ((symbol.constant || !where.constant_only) && Visible(i) && Contains(symbol.type, type, members))
+			if ((symbol.constant || !where.constant_only) && Visible(i) && Contains(symbol.type, type, members) &&
+				!(symbol.bind_group && symbol.type == type))
 				candidates.push_back(&symbol);
 		}
 		if (candidates.empty())
@@ -1345,6 +1354,110 @@ struct Generator
 
 	size_t module_symbols = 0;
 
+	// Bind groups, laid out with D3D11's cbuffer packing, the generator's own model of it: scalars and vectors pack into
+	// 16-byte registers without straddling one, arrays and structs start a register, as does each array element.
+	std::vector<GenBindGroup> bind_groups;
+	std::string bind_group_registers; // the d3d11 lines each entry point's interface ends with
+
+	static uint64 HlslSize(GenType* type)
+	{
+		const uint64 cap = 1ull << 40;
+		switch (type->kind)
+		{
+		case Kind::VECTOR: return 4 * (uint64)type->count;
+		case Kind::ARRAY:
+		{
+			uint64 element = HlslSize(type->element);
+			uint64 stride = RoundUp(element, 16);
+			return stride && type->length - 1 > cap / stride ? cap : stride * (type->length - 1) + element;
+		}
+		case Kind::STRUCT:
+		{
+			uint64 offset = 0;
+			for (GenField& field : type->fields)
+			{
+				uint64 size = HlslSize(field.type);
+				offset = std::min(HlslPlace(offset, field.type, size) + size, cap);
+			}
+			return offset;
+		}
+		default: return 4;
+		}
+	}
+
+	static uint64 HlslPlace(uint64 offset, GenType* type, uint64 size)
+	{
+		if (type->kind == Kind::ARRAY || type->kind == Kind::STRUCT)
+			return RoundUp(offset, 16);
+		offset = RoundUp(offset, 4);
+		return size && offset / 16 != (offset + size - 1) / 16 ? RoundUp(offset, 16) : offset;
+	}
+
+	// As ShaderInterfaceToString prints a group's fields.
+	static void ExpectFieldLayouts(std::string& text, GenType* type, uint32 indent)
+	{
+		while (type->kind == Kind::ARRAY)
+			type = type->element;
+		uint64 offset = 0;
+		for (GenField& field : type->fields)
+		{
+			uint64 size = HlslSize(field.type);
+			offset = HlslPlace(offset, field.type, size);
+			text += std::string(indent, ' ') + field.name + ": " + field.type->name + " at " + std::to_string(offset) + ", " +
+					std::to_string(size) + " bytes";
+			if (field.type->kind == Kind::ARRAY)
+				text += ", stride " + std::to_string(RoundUp(HlslSize(field.type->element), 16));
+			text += "\n";
+			ExpectFieldLayouts(text, field.type, indent + 2);
+			offset += size;
+		}
+	}
+
+	void MakeBindGroups(std::vector<std::string>& declarations)
+	{
+		if (struct_types.empty())
+			return;
+		uint32 count = Below(3);
+		uint32 used = 0;
+		for (uint32 i = 0; i < count; ++i)
+		{
+			uint32 index = Below(GPU::MAX_BIND_GROUPS);
+			GenType* type = struct_types[Below((uint32)struct_types.size())];
+			std::string name = NewName("g");
+			if (chaos && Chance(20))
+			{
+				// A group used twice, out of range, of a type that isn't a struct, or with a value.
+				const char* const bad[] = { "0", "4", "-1", "1.5", "x" };
+				std::string value = Below(2) ? "" : " = " + Generate(PickScalarOrVector(), { .constant_only = true }, 0).text;
+				declarations.push_back("@bind_group(" + std::string(bad[Below(5)]) + ") let " + name + ": " +
+									   TypeText(PickType((uint32)struct_types.size()), false) + value + ";");
+				continue;
+			}
+			if ((used & (1u << index)) || HlslSize(type) > 65536)
+				continue;
+			used |= 1u << index;
+			size_t position = Below((uint32)declarations.size() + 1);
+			declarations.insert(declarations.begin() + (ptrdiff_t)position,
+				"@bind_group(" + std::to_string(index) + ") let " + name + ": " + TypeText(type, false) + ";");
+			Expect(name, type, false, {});
+			AddSymbol(name, type, nullptr);
+			symbols.back().bind_group = true;
+			bind_groups.push_back({ index, name, type });
+		}
+
+		std::sort(bind_groups.begin(), bind_groups.end(), [](const GenBindGroup& a, const GenBindGroup& b) { return a.index < b.index; });
+		uint32 next_register = 0;
+		for (GenBindGroup& group : bind_groups)
+		{
+			uint64 size = HlslSize(group.type);
+			expected_interface += "bind_group(" + std::to_string(group.index) + ") " + group.name + ": " + group.type->name + ", " +
+								  std::to_string(size) + " bytes of constants\n";
+			ExpectFieldLayouts(expected_interface, group.type, 2);
+			bind_group_registers += "  d3d11 bind_group(" + std::to_string(group.index) + ") b" + std::to_string(next_register) + "\n";
+			next_register += size ? 1 : 0;
+		}
+	}
+
 	std::string Function(const std::string& indent, uint32 depth)
 	{
 		std::string name = NewName("fn");
@@ -1419,7 +1532,7 @@ struct Generator
 			else if (Below(2))
 				text += ": void";
 			if (!depth)
-				expected_interface += (stage == 1 ? "vertex " : "fragment ") + name + "\n" + interface_lines;
+				expected_interface += (stage == 1 ? "vertex " : "fragment ") + name + "\n" + interface_lines + bind_group_registers;
 		}
 		else if (Below(3))
 		{
@@ -1483,6 +1596,9 @@ struct Generator
 			std::string value = Below(2) ? Generate(PickScalarOrVector(), { .constant_only = true }, 0).text : "unknown0";
 			declarations.push_back("let " + NewName("g") + " = " + value + ";");
 		}
+
+		// Declared ahead too, but kept before the functions, whose parameters can reuse their names.
+		MakeBindGroups(declarations);
 
 		module_symbols = symbols.size();
 		uint32 function_count = Below(4);

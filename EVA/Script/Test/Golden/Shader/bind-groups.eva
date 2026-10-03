@@ -1,0 +1,58 @@
+// Bind groups of plain data: D3D11's cbuffer packing (vectors filling a register's tail without straddling it,
+// matrices, arrays and structs starting a register, fields packing into an array's or struct's last register), each
+// group's b register after the previous groups', and a group only one entry point reads. Vulkan and Metal don't support
+// bind groups yet.
+
+struct Light
+{
+	direction: float3;
+	intensity: float;
+	color: float3;
+}
+
+struct Camera
+{
+	view_projection: float4x4;
+	position: float3;
+	time: float;
+	jitter: float2;
+	exposure: float;
+	normal_matrix: float3x3;
+	scale: float;
+	lights: [2]Light;
+	count: uint;
+	weights: [3]float;
+	bias: Vector(int, 2);
+}
+
+struct Pair
+{
+	a: float;
+	b: float;
+}
+
+struct Material
+{
+	roughness: float;
+	pair: Pair;
+	metal: float;
+	tint: float3;
+	light: Light;
+	ids: Vector(uint, 2);
+}
+
+@bind_group(0) let camera: Camera;
+@bind_group(2) let material: Material;
+
+@entry(vertex)
+function VS(@location(0) position: float3): @semantic(position) float4
+{
+	let world = float4(position * float3(camera.scale), 1.0);
+	return mul(camera.view_projection, world) + float4(camera.lights[1].color, camera.weights[2]);
+}
+
+@entry(fragment)
+function PS(): @location(0) float4
+{
+	return float4(material.tint, material.roughness);
+}

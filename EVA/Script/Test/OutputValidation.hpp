@@ -26,6 +26,11 @@ ZTStringView DisassembleSPIRVWithTools(Slice<uint32> words, Arena* arena);
 // Compiles main with fxc for the stage at shader model 5.0.
 ZTStringView CompileHLSL(StringView text, ShaderStage stage, Arena* arena);
 
+// Compiles a D3D11 entry point with fxc and checks fxc's reflection of the bind groups it reads against ours: each
+// group's cbuffer at its register, and the byte offset and shape of every field.
+ZTStringView CheckHLSLBindGroups(const GPU::CompiledEntryPoint& entry_point, Slice<GPU::ReflectedBindGroup> bind_groups,
+	Arena* arena);
+
 // Compiles the text with Metal as MSL 2.0, the way the Metal GPU backend does, and checks it has main0.
 ZTStringView CompileMSL(StringView text, Arena* arena);
 

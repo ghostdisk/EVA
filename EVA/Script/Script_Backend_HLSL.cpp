@@ -409,7 +409,11 @@ struct Emitter
 				Line("%s = %s;", Operand(o[0]), Operand(o[1]));
 			break;
 		}
-		case IROp::COPY: Line("%s = %s;", Operand(o[0]), Operand(o[1])); break;
+		case IROp::COPY:
+			// Nothing to copy of an empty struct, and fxc rejects indexing arrays of them, whose elements take no space.
+			if (((PointerType*)module[o[0]].type)->pointee->size)
+				Line("%s = %s;", Operand(o[0]), Operand(o[1]));
+			break;
 		case IROp::ACCESS:
 		{
 			StringBuilder lvalue(arena);
@@ -828,9 +832,19 @@ struct Emitter
 		}
 
 		StringBuilder declarations(arena);
+		bool uniforms = false;
 		for (IRRef global : globals)
 		{
 			PointerType* pointer = (PointerType*)module[global].type;
+			if (pointer->space == AddressSpace::UNIFORM)
+			{
+				// A group's plain data is its implicit uniform buffer, the group's first b register.
+				uint32 index = module[global].global.bind_group->reflection.index;
+				declarations.AppendFormat("cbuffer B%u : register(b%u)\n{\n\t%s;\n};\n", index,
+					entry_point->d3d11_bind_group_registers[index].cbv, Declare(pointer->pointee, names[global].CString()).CString());
+				uniforms = true;
+				continue;
+			}
 			Constant* initializer = module[global].global.initializer;
 			declarations.Append(pointer->space == AddressSpace::CONSTANT ? "static const " : "static ");
 			declarations.Append(Declare(pointer->pointee, names[global].CString()));
@@ -846,6 +860,8 @@ struct Emitter
 
 		// Struct definitions last, once every struct used has been named.
 		StringBuilder text(output_arena);
+		if (uniforms)
+			text.Append("#pragma pack_matrix(row_major)\n\n"); // HLSL's rows are the IR's columns, which are in registers
 		DefineStructs(text);
 		text.Append(declarations.ToString());
 		text.Append(functions.ToString());

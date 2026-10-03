@@ -1,0 +1,36 @@
+bind_group(0) camera: Camera, 252 bytes of constants
+  view_projection: float4x4 at 0, 64 bytes
+  position: float3 at 64, 12 bytes
+  time: float at 76, 4 bytes
+  jitter: float2 at 80, 8 bytes
+  exposure: float at 88, 4 bytes
+  normal_matrix: float3x3 at 96, 44 bytes
+  scale: float at 140, 4 bytes
+  lights: [2]Light at 144, 60 bytes, stride 32
+    direction: float3 at 0, 12 bytes
+    intensity: float at 12, 4 bytes
+    color: float3 at 16, 12 bytes
+  count: uint at 204, 4 bytes
+  weights: [3]float at 208, 36 bytes, stride 16
+  bias: int2 at 244, 8 bytes
+bind_group(2) material: Material, 88 bytes of constants
+  roughness: float at 0, 4 bytes
+  pair: Pair at 16, 8 bytes
+    a: float at 0, 4 bytes
+    b: float at 4, 4 bytes
+  metal: float at 24, 4 bytes
+  tint: float3 at 32, 12 bytes
+  light: Light at 48, 28 bytes
+    direction: float3 at 0, 12 bytes
+    intensity: float at 12, 4 bytes
+    color: float3 at 16, 12 bytes
+  ids: uint2 at 80, 8 bytes
+vertex VS
+  input location(0) float3 [0]
+  output semantic(position) float4 []
+  d3d11 bind_group(0) b0
+  d3d11 bind_group(2) b1
+fragment PS
+  output location(0) float4 []
+  d3d11 bind_group(0) b0
+  d3d11 bind_group(2) b1

@@ -116,6 +116,7 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 		{ "semantic", IntrinsicKind::SEMANTIC },
 		{ "location", IntrinsicKind::LOCATION },
 		{ "entry", IntrinsicKind::ENTRY },
+		{ "bind_group", IntrinsicKind::BIND_GROUP },
 	};
 	for (const Expected& e : expected)
 	{
@@ -130,7 +131,7 @@ TEST(Context, ShaderContextAddsTheShaderIntrinsics)
 		Intrinsic* intrinsic = (Intrinsic*)found->element;
 		CHECK_EQ(intrinsic->intrinsic_kind, e.kind);
 		CHECK_EQ(intrinsic->name, GetAtom(e.name));
-		CHECK_EQ(intrinsic->argument_scope != nullptr, e.kind != IntrinsicKind::LOCATION);
+		CHECK_EQ(intrinsic->argument_scope != nullptr, e.kind == IntrinsicKind::SEMANTIC || e.kind == IntrinsicKind::ENTRY);
 	}
 
 	CHECK(FindGlobalType(context, "float4"));

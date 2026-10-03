@@ -191,7 +191,7 @@ Node* FrontEnd(Test::Context& test, const GoldenCase& golden, Context& context, 
 	}
 	if (out_interface)
 	{
-		ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena };
+		ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena, .reflection_arena = test.arena, .backend = GPU::Backend::D3D11 };
 		if (!BuildShaderInterface(builder, module, out_interface))
 		{
 			Test::ReportFailure(test, file, 1, "failed in the interface pass:\n    %s",
@@ -235,12 +235,15 @@ void CheckBackend(Test::Context& test, const GoldenCase& golden, const char* sou
 {
 	const char* file = golden.source.c_str();
 	CompileShaderResult result = CompileShader({ .arena = test.arena, .source = source, .backend = backend.backend });
+	StringBuilder builder(test.arena);
 	if (result.errors.count)
 	{
-		Test::ReportFailure(test, file, 1, "failed to compile for %s: %s", backend.extension, result.errors[0]->message.CString());
+		// A case can expect a target to fail, for what it doesn't support yet.
+		for (uint32 i = 0; i < result.errors.count; ++i)
+			builder.AppendFormat("%s error: %s\n", backend.comment, result.errors[i]->message.CString());
+		Expect(test, golden, backend.extension, builder.ToString());
 		return;
 	}
-	StringBuilder builder(test.arena);
 	for (uint32 i = 0; i < result.entry_points.count; ++i)
 	{
 		CompiledEntryPoint& entry_point = result.entry_points[i];
@@ -262,6 +265,13 @@ void CheckBackend(Test::Context& test, const GoldenCase& golden, const char* sou
 		if (problem.length)
 			Test::ReportFailure(test, file, 1, "%s output for %s is invalid: %s\n%s", backend.extension, name.CString(),
 				problem.CString(), text.CString());
+		if (backend.backend == Backend::D3D11)
+		{
+			problem = Validation::CheckHLSLBindGroups(entry_point, result.bind_groups, test.arena);
+			if (problem.length)
+				Test::ReportFailure(test, file, 1, "fxc lays out %s's bind groups differently: %s\n%s", name.CString(),
+					problem.CString(), text.CString());
+		}
 
 		builder.AppendFormat("%s%s %s (%s)\n", i ? "\n" : "", backend.comment, name.CString(),
 			entry_point.stage == ShaderStage::VERTEX ? "vertex" : "fragment");

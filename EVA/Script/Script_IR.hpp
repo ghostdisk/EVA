@@ -163,8 +163,9 @@ struct IRGlobalData // NOLINT(bugprone-tagged-union-member-count): the address s
 {
 	union
 	{
-		Constant* initializer; // CONSTANT, PRIVATE
-		ShaderIO* io;          // INPUT, OUTPUT
+		Constant* initializer;       // CONSTANT, PRIVATE
+		ShaderIO* io;                // INPUT, OUTPUT
+		ShaderBindGroup* bind_group; // UNIFORM
 	};
 	Atom name;
 	IRRef next;

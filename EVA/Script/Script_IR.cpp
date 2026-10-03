@@ -460,6 +460,8 @@ struct Printer
 			else
 				builder.AppendFormat(" location(%u)", io->location);
 		}
+		else if (pointer && pointer->space == AddressSpace::UNIFORM && value.global.bind_group)
+			builder.AppendFormat(" bind_group(%u)", value.global.bind_group->reflection.index);
 		else if (!interface && value.global.initializer)
 		{
 			builder.Append(" = ");

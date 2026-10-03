@@ -21,7 +21,7 @@ static bool BuildInterface(Test::Context& test, const char* file, int line, cons
 		return false;
 	}
 
-	ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena };
+	ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena, .reflection_arena = test.arena, .backend = GPU::Backend::D3D11 };
 	BuildShaderInterface(builder, module, out_interface);
 	StringBuilder errors(test.arena);
 	for (size_t i = 0; i < context.errors.size(); ++i)
@@ -193,6 +193,43 @@ TEST(ShaderInterface, Globals)
 		"'g' is a global, which shaders don't support yet");
 	CHECK_INTERFACE_ERRORS("let a: int; let b = 2;",
 		"'a' is a global, which shaders don't support yet | 'b' is a global, which shaders don't support yet");
+}
+
+TEST(ShaderInterface, BindGroups)
+{
+	// Laid out with D3D11's cbuffer packing, registers in group order whatever the declaration order.
+	CHECK_INTERFACE("struct A { m: float3x2; v: float2; } struct B { x: float; } @bind_group(3) let a: A; @bind_group(1) let b: B;"
+					"@entry(fragment) function f(): @location(0) float4 { return float4(b.x); }",
+		"bind_group(1) b: B, 4 bytes of constants\n"
+		"  x: float at 0, 4 bytes\n"
+		"bind_group(3) a: A, 48 bytes of constants\n"
+		"  m: float3x2 at 0, 40 bytes\n"
+		"  v: float2 at 40, 8 bytes\n"
+		"fragment f\n"
+		"  output location(0) float4 []\n"
+		"  d3d11 bind_group(1) b0\n"
+		"  d3d11 bind_group(3) b1\n");
+	// A struct without fields has no constants, so no uniform buffer and no register.
+	CHECK_INTERFACE("struct E {} struct B { x: float; } @bind_group(0) let e: E; @bind_group(1) let b: B;",
+		"bind_group(0) e: E, 0 bytes of constants\n"
+		"bind_group(1) b: B, 4 bytes of constants\n"
+		"  x: float at 0, 4 bytes\n");
+
+	CHECK_INTERFACE_ERRORS("struct S { x: float; } @bind_group(0) let a: S; @bind_group(0) let b: S;",
+		"bind group 0 is declared twice, by 'a' and 'b'");
+	CHECK_INTERFACE_ERRORS("struct S { x: float; } @bind_group(0) let a: S = { 1.0 };", "bind group 'a' can't have a value");
+	CHECK_INTERFACE_ERRORS("@bind_group(0) let a: float4;", "bind group 'a' has to be a struct, got float4");
+	CHECK_INTERFACE_ERRORS("struct S { x: [4096]float4; y: float; } @bind_group(0) let a: S;",
+		"bind group 'a' has 65540 bytes of constants, D3D11 allows 65536");
+	CHECK_INTERFACE("struct S { x: [4095]float4; y: float; } @bind_group(0) let a: S;",
+		"bind_group(0) a: S, 65524 bytes of constants\n"
+		"  x: [4095]float4 at 0, 65520 bytes, stride 16\n"
+		"  y: float at 65520, 4 bytes\n");
+
+	// Only fields are values.
+	CHECK_INTERFACE_ERRORS("struct S { x: float; } @bind_group(0) let a: S; function f() { let b = a; }",
+		"'a' is a bind group, only its fields can be read");
+	CHECK_INTERFACE_ERRORS("struct T { y: float; } struct S { t: T; } @bind_group(0) let a: S; function f(): float { let t = a.t; return t.y; }", "");
 }
 
 TEST(ShaderInterface, IOErrors)

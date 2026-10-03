@@ -170,6 +170,7 @@ ZTStringView AddressSpaceToString(AddressSpace space)
 		case AddressSpace::CONSTANT: return "constant";
 		case AddressSpace::INPUT: return "input";
 		case AddressSpace::OUTPUT: return "output";
+		case AddressSpace::UNIFORM: return "uniform";
 		case AddressSpace::MEMORY: return "memory";
 	}
 	return "?";
@@ -478,9 +479,52 @@ void SnapshotNodeToString(StringBuilder& builder, Node* node)
 	builder.Append(")");
 }
 
+static void AppendTypeLayoutName(StringBuilder& builder, const GPU::TypeLayout* type, Arena* arena)
+{
+	static const char* const SCALARS[] = { "bool", "int", "uint", "float" };
+	const char* scalar = SCALARS[(uint32)type->scalar];
+	switch (type->kind)
+	{
+	case GPU::ReflectedTypeKind::SCALAR: builder.Append(scalar); break;
+	case GPU::ReflectedTypeKind::VECTOR: builder.AppendFormat("%s%u", scalar, type->columns); break;
+	case GPU::ReflectedTypeKind::MATRIX: builder.AppendFormat("%s%ux%u", scalar, type->columns, type->rows); break;
+	case GPU::ReflectedTypeKind::ARRAY:
+		builder.AppendFormat("[%u]", type->length);
+		AppendTypeLayoutName(builder, type->element, arena);
+		break;
+	case GPU::ReflectedTypeKind::STRUCT: builder.Append(GetAtomString(type->name, arena)); break;
+	}
+}
+
+// Fields with their byte offsets and sizes, nested structs below their field.
+static void AppendFieldLayouts(StringBuilder& builder, const GPU::TypeLayout* type, uint32 indent, Arena* arena)
+{
+	while (type->kind == GPU::ReflectedTypeKind::ARRAY)
+		type = type->element;
+	for (uint32 i = 0; i < type->fields.count; ++i)
+	{
+		const GPU::VarLayout& field = type->fields[i];
+		builder.AppendFormat("%*s%s: ", indent, "", GetAtomString(field.name, arena).CString());
+		AppendTypeLayoutName(builder, field.type, arena);
+		builder.AppendFormat(" at %u, %u bytes", field.offset.bytes, field.type->size.bytes);
+		if (field.type->kind == GPU::ReflectedTypeKind::ARRAY)
+			builder.AppendFormat(", stride %u", field.type->stride.bytes);
+		builder.Append("\n");
+		AppendFieldLayouts(builder, field.type, indent + 2, arena);
+	}
+}
+
 ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* arena)
 {
 	StringBuilder builder(arena);
+	for (uint32 i = 0; i < shader_interface.bind_groups.count; ++i)
+	{
+		const GPU::ReflectedBindGroup& group = shader_interface.bind_groups[i].reflection;
+		builder.AppendFormat("bind_group(%u) %s: ", group.index, GetAtomString(group.name, arena).CString());
+		AppendTypeLayoutName(builder, group.type, arena);
+		builder.AppendFormat(", %u bytes of constants\n", group.layout.uniform_size);
+		AppendFieldLayouts(builder, group.type, 2, arena);
+	}
 	for (uint32 i = 0; i < shader_interface.entry_points.count; ++i)
 	{
 		EntryPoint& entry_point = shader_interface.entry_points[i];
@@ -498,6 +542,11 @@ ZTStringView ShaderInterfaceToString(ShaderInterface& shader_interface, Arena* a
 			for (uint32 k = 0; k < io.path.count; ++k)
 				builder.AppendFormat(k ? ", %u" : "%u", io.path[k]);
 			builder.Append("]\n");
+		}
+		for (uint32 j = 0; j < shader_interface.bind_groups.count; ++j)
+		{
+			uint32 index = shader_interface.bind_groups[j].reflection.index;
+			builder.AppendFormat("  d3d11 bind_group(%u) b%u\n", index, entry_point.d3d11_bind_group_registers[index].cbv);
 		}
 	}
 	return builder.ToString();

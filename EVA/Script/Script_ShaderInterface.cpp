@@ -1,4 +1,6 @@
 #include <EVA/Script/Script.hpp>
+#include <algorithm>
+#include <unordered_map>
 
 namespace EVA::Script
 {
@@ -277,6 +279,263 @@ static bool CheckFunction(ShaderInterfaceBuilder& builder, Node* function)
 	return true;
 }
 
+// Bind groups
+
+// D3D11 allows 4096 registers of 16 bytes in a cbuffer. Sizes stop growing past SIZE_CAP while they're computed, so
+// nested arrays can't overflow before they're rejected.
+static const uint64 MAX_UNIFORM_BYTES = 65536;
+static const uint64 SIZE_CAP = 1ull << 40;
+
+static uint64 RoundUp(uint64 value, uint64 alignment)
+{
+	return (value + alignment - 1) / alignment * alignment;
+}
+
+// The index in a let's bind_group attribute, or -1 without one. The typer checked the argument.
+static int32 GetBindGroupIndex(Node* declaration)
+{
+	for (Node* attribute = declaration->child; attribute; attribute = attribute->next)
+	{
+		if (attribute->usage != Usage::ATTRIBUTE)
+			continue;
+		Intrinsic* intrinsic = GetAttributeIntrinsic(attribute);
+		if (intrinsic && intrinsic->intrinsic_kind == IntrinsicKind::BIND_GROUP)
+			return (int32)ConstantToInteger(FindChild(attribute, Usage::ARGUMENT)->constant);
+	}
+	return -1;
+}
+
+static bool IsBindGroup(Element* element)
+{
+	return element->kind == ElementKind::NODE && ((Node*)element)->node_type == NodeType::VARIABLE &&
+		   ((Node*)element)->usage == Usage::DECLARATION && GetBindGroupIndex((Node*)element) >= 0;
+}
+
+// D3D11's cbuffer packing, fxc's: scalars and vectors pack into 16-byte registers without straddling one. Matrices,
+// arrays and structs start a register, as does each array element, and what follows them can pack into the rest of
+// their last register. Matrices are row_major in HLSL, whose rows are the IR's columns, so each column takes a register.
+struct Layouter
+{
+	ShaderInterfaceBuilder& builder;
+	std::unordered_map<Type*, uint64> sizes;
+	std::unordered_map<Type*, GPU::TypeLayout*> layouts;
+
+	static bool StartsRegister(Type* type)
+	{
+		return type->type_kind == TypeKind::MATRIX || type->type_kind == TypeKind::ARRAY || type->type_kind == TypeKind::STRUCT;
+	}
+
+	static uint64 Place(uint64 offset, Type* type, uint64 size)
+	{
+		if (StartsRegister(type))
+			return RoundUp(offset, 16);
+		offset = RoundUp(offset, 4);
+		if (size && offset / 16 != (offset + size - 1) / 16)
+			return RoundUp(offset, 16);
+		return offset;
+	}
+
+	uint64 Size(Type* type)
+	{
+		auto found = sizes.find(type);
+		if (found != sizes.end())
+			return found->second;
+		uint64 size = 0;
+		switch (type->type_kind)
+		{
+		case TypeKind::PRIMITIVE: size = 4; break;
+		case TypeKind::VECTOR: size = 4 * (uint64)((VectorType*)type)->count; break;
+		case TypeKind::MATRIX:
+		{
+			MatrixType* matrix = (MatrixType*)type;
+			size = 16 * (uint64)(matrix->columns - 1) + 4 * (uint64)matrix->rows;
+			break;
+		}
+		case TypeKind::ARRAY:
+		{
+			ArrayType* array = (ArrayType*)type;
+			uint64 element = Size(array->element);
+			uint64 stride = RoundUp(element, 16);
+			size = stride && array->length - 1 > SIZE_CAP / stride ? SIZE_CAP : stride * (array->length - 1) + element;
+			break;
+		}
+		case TypeKind::STRUCT:
+		{
+			StructType* structure = (StructType*)type;
+			for (uint32 i = 0; i < structure->fields.count; ++i)
+			{
+				Type* field = structure->fields[i].type;
+				uint64 field_size = Size(field);
+				size = std::min(Place(size, field, field_size) + field_size, SIZE_CAP);
+			}
+			break;
+		}
+		default: assert(false); break;
+		}
+		size = std::min(size, SIZE_CAP);
+		sizes[type] = size;
+		return size;
+	}
+
+	static GPU::ScalarKind Scalar(PrimitiveType* type)
+	{
+		switch (type->primitive_kind)
+		{
+		case PrimitiveKind::BOOL: return GPU::ScalarKind::BOOL;
+		case PrimitiveKind::SIGNED: return GPU::ScalarKind::INT;
+		case PrimitiveKind::UNSIGNED: return GPU::ScalarKind::UINT;
+		default: return GPU::ScalarKind::FLOAT;
+		}
+	}
+
+	// Only for types whose size fits a cbuffer.
+	GPU::TypeLayout* Layout(Type* type)
+	{
+		auto found = layouts.find(type);
+		if (found != layouts.end())
+			return found->second;
+		GPU::TypeLayout* layout = builder.reflection_arena->New<GPU::TypeLayout>();
+		layout->size.bytes = (uint32)Size(type);
+		layout->alignment = StartsRegister(type) ? 16 : 4;
+		switch (type->type_kind)
+		{
+		case TypeKind::PRIMITIVE: layout->scalar = Scalar((PrimitiveType*)type); break;
+		case TypeKind::VECTOR:
+			layout->kind = GPU::ReflectedTypeKind::VECTOR;
+			layout->scalar = Scalar(((VectorType*)type)->element);
+			layout->columns = ((VectorType*)type)->count;
+			break;
+		case TypeKind::MATRIX:
+			layout->kind = GPU::ReflectedTypeKind::MATRIX;
+			layout->scalar = Scalar(((MatrixType*)type)->element);
+			layout->columns = ((MatrixType*)type)->columns;
+			layout->rows = ((MatrixType*)type)->rows;
+			break;
+		case TypeKind::ARRAY:
+		{
+			ArrayType* array = (ArrayType*)type;
+			layout->kind = GPU::ReflectedTypeKind::ARRAY;
+			layout->length = array->length;
+			layout->element = Layout(array->element);
+			layout->stride.bytes = (uint32)RoundUp(layout->element->size.bytes, 16);
+			break;
+		}
+		case TypeKind::STRUCT:
+		{
+			StructType* structure = (StructType*)type;
+			layout->kind = GPU::ReflectedTypeKind::STRUCT;
+			layout->name = structure->name;
+			GPU::VarLayout* fields = (GPU::VarLayout*)builder.reflection_arena->Allocate(
+				structure->fields.count * sizeof(GPU::VarLayout), alignof(GPU::VarLayout));
+			uint64 offset = 0;
+			for (uint32 i = 0; i < structure->fields.count; ++i)
+			{
+				StructField& field = structure->fields[i];
+				GPU::TypeLayout* field_layout = Layout(field.type);
+				offset = Place(offset, field.type, field_layout->size.bytes);
+				fields[i] = { .name = field.name, .type = field_layout };
+				fields[i].offset.bytes = (uint32)offset;
+				offset += field_layout->size.bytes;
+			}
+			layout->fields = Slice<GPU::VarLayout>(fields, structure->fields.count);
+			break;
+		}
+		default: assert(false); break;
+		}
+		layouts[type] = layout;
+		return layout;
+	}
+};
+
+static uint64 HashLayout(const GPU::BindGroupLayout& layout)
+{
+	uint64 hash = 14695981039346656037ull; // FNV-1a
+	auto add = [&](uint64 value) {
+		for (uint32 i = 0; i < 8; ++i)
+		{
+			hash ^= (value >> (i * 8)) & 0xFF;
+			hash *= 1099511628211ull;
+		}
+	};
+	add(layout.uniform_size);
+	for (uint32 i = 0; i < layout.ranges.count; ++i)
+	{
+		const GPU::BindingRange& range = layout.ranges[i];
+		add((uint64)range.kind);
+		add(range.count);
+		add(range.buffer_size);
+		add(range.offset.bytes);
+		add(range.offset.binding_ranges);
+		add(range.offset.d3d.cbv | (uint64)range.offset.d3d.srv << 32);
+		add(range.offset.d3d.uav | (uint64)range.offset.d3d.sampler << 32);
+	}
+	return hash;
+}
+
+static bool BuildBindGroup(ShaderInterfaceBuilder& builder, Layouter& layouter, Node* declaration, int32 index,
+	std::vector<ShaderBindGroup>& bind_groups)
+{
+	Context& context = builder.context;
+	const char* name = GetAtomNameCString(context, declaration->name);
+	for (ShaderBindGroup& other : bind_groups)
+	{
+		if (other.reflection.index == (uint32)index)
+		{
+			EmitError(context, "bind group %d is declared twice, by '%s' and '%s'", index,
+				GetAtomNameCString(context, other.declaration->name), name);
+			return false;
+		}
+	}
+	if (FindChild(declaration, Usage::VALUE))
+	{
+		EmitError(context, "bind group '%s' can't have a value", name);
+		return false;
+	}
+	if (declaration->type->type_kind != TypeKind::STRUCT)
+	{
+		EmitError(context, "bind group '%s' has to be a struct, got %s", name, GetTypeNameCString(context, declaration->type));
+		return false;
+	}
+	uint64 size = layouter.Size(declaration->type);
+	if (size > MAX_UNIFORM_BYTES)
+	{
+		EmitError(context, "bind group '%s' has %llu bytes of constants, D3D11 allows %llu", name, (unsigned long long)size,
+			(unsigned long long)MAX_UNIFORM_BYTES);
+		return false;
+	}
+
+	ShaderBindGroup bind_group = { .declaration = declaration };
+	GPU::ReflectedBindGroup& reflection = bind_group.reflection;
+	reflection.index = (uint32)index;
+	reflection.name = declaration->name;
+	reflection.type = layouter.Layout(declaration->type);
+	if (size)
+	{
+		// The implicit uniform buffer comes first.
+		GPU::BindingRange* range = builder.reflection_arena->New<GPU::BindingRange>();
+		range->kind = GPU::BindingKind::UNIFORM_BUFFER;
+		range->buffer_size = (uint32)size;
+		reflection.layout.ranges = Slice<GPU::BindingRange>(range, 1);
+		reflection.layout.uniform_size = (uint32)size;
+		reflection.element_offset.binding_ranges = 1;
+		reflection.element_offset.d3d.cbv = 1;
+	}
+	reflection.layout.hash = HashLayout(reflection.layout);
+	bind_groups.push_back(bind_group);
+	return true;
+}
+
+// A bind group is only read through its fields, it's never a value itself.
+static bool CheckBindGroupUse(ShaderInterfaceBuilder& builder, Node* parent, Node* node)
+{
+	if (node->node_type != NodeType::REFERENCE || !IsBindGroup(node->target))
+		return true;
+	if (parent->node_type == NodeType::MEMBER && node->usage == Usage::OBJECT)
+		return true;
+	EmitError(builder.context, "'%s' is a bind group, only its fields can be read", GetAtomNameCString(builder.context, node->name));
+	return false;
+}
+
 static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool top_level, std::vector<EntryPoint>& entry_points)
 {
 	CHECK_RECURSION(builder.context);
@@ -308,8 +567,10 @@ static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool to
 
 	for (Node* child = node->child; child; child = child->next)
 	{
-		if (child->usage != Usage::ATTRIBUTE)
-			found = FindEntryPoints(builder, child, node->node_type == NodeType::MODULE, entry_points) && found;
+		if (child->usage == Usage::ATTRIBUTE)
+			continue;
+		found = CheckBindGroupUse(builder, node, child) && found;
+		found = FindEntryPoints(builder, child, node->node_type == NodeType::MODULE, entry_points) && found;
 	}
 	return found;
 }
@@ -317,17 +578,63 @@ static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool to
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface)
 {
 	size_t errors = builder.context.errors.size();
-	// Scripts have globals; shaders only will through bind groups (Docs/Plan/Bindings.md).
+	bool built = true;
+
+	// Scripts have globals; shaders only have bind groups.
+	Layouter layouter = { .builder = builder };
+	std::vector<ShaderBindGroup> bind_groups;
+	bool unsupported_reported = false;
 	for (Node* declaration = module->child; declaration; declaration = declaration->next)
 	{
-		if (declaration->node_type == NodeType::VARIABLE)
-			EmitError(builder.context, "'%s' is a global, which shaders don't support yet", GetAtomNameCString(builder.context, declaration->name));
+		if (declaration->node_type != NodeType::VARIABLE)
+			continue;
+		int32 index = GetBindGroupIndex(declaration);
+		if (index >= 0 && builder.backend != GPU::Backend::D3D11)
+		{
+			if (!unsupported_reported)
+			{
+				unsupported_reported = true;
+				const char* target = builder.backend == GPU::Backend::VULKAN ? "Vulkan" : builder.backend == GPU::Backend::METAL ? "Metal" : "this target";
+				EmitError(builder.context, "bind groups aren't supported on %s yet", target);
+			}
+			built = false;
+		}
+		else if (index >= 0)
+			built = BuildBindGroup(builder, layouter, declaration, index, bind_groups) && built;
+		else
+		{
+			EmitError(builder.context, "'%s' is a global, which shaders don't support yet",
+				GetAtomNameCString(builder.context, declaration->name));
+			built = false;
+		}
+	}
+	std::sort(bind_groups.begin(), bind_groups.end(),
+		[](const ShaderBindGroup& a, const ShaderBindGroup& b) { return a.reflection.index < b.reflection.index; });
+
+	// D3D11 has no register spaces: each group's registers follow the previous groups'.
+	GPU::D3DRegisters registers[GPU::MAX_BIND_GROUPS] = {};
+	GPU::D3DRegisters next = {};
+	for (uint32 group = 0, i = 0; group < GPU::MAX_BIND_GROUPS; ++group)
+	{
+		registers[group] = next;
+		if (i < bind_groups.size() && bind_groups[i].reflection.index == group)
+		{
+			const GPU::BindGroupLayout& layout = bind_groups[i++].reflection.layout;
+			for (uint32 r = 0; r < layout.ranges.count; ++r)
+				next.cbv += layout.ranges[r].kind == GPU::BindingKind::UNIFORM_BUFFER ? layout.ranges[r].count : 0;
+		}
 	}
 
 	std::vector<EntryPoint> entry_points;
-	bool built = FindEntryPoints(builder, module, false, entry_points);
+	built = FindEntryPoints(builder, module, false, entry_points) && built;
+	for (EntryPoint& entry_point : entry_points)
+	{
+		for (uint32 group = 0; group < GPU::MAX_BIND_GROUPS; ++group)
+			entry_point.d3d11_bind_group_registers[group] = registers[group];
+	}
 	assert(built || builder.context.errors.size() > errors); // every failure is reported
 	out_interface->entry_points = ToSlice(builder.arena, entry_points);
+	out_interface->bind_groups = ToSlice(builder.arena, bind_groups);
 	return builder.context.errors.size() == errors;
 }
 

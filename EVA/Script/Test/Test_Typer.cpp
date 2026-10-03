@@ -637,4 +637,13 @@ TEST(Typer, ShaderAttributes)
 	CHECK_SHADER_TYPE_ERRORS("@1 const a = 1;", "expected an attribute name");
 	CHECK_SHADER_TYPE_ERRORS("function f(@(location)(0) a: float4) {}", "");
 	CHECK_SHADER_TYPE_ERRORS("function f(@location(0)(1) a: float4) {}", "expected an attribute name");
+
+	CHECK_SHADER_TYPE_ERRORS("struct S { a: float; } @bind_group(3) let s: S;", "");
+	CHECK_SHADER_TYPE_ERRORS("struct S { a: float; } @bind_group(4) let s: S;", "bind group index must be 0 to 3, got 4");
+	CHECK_SHADER_TYPE_ERRORS("struct S { a: float; } @bind_group(-1) let s: S;", "can't apply '-' to uint");
+	CHECK_SHADER_TYPE_ERRORS("struct S { a: float; } @bind_group let s: S;", "'bind_group' takes one argument");
+	CHECK_SHADER_TYPE_ERRORS("struct S { a: float; } function f() { @bind_group(0) let s: S; }",
+		"'bind_group' can only be used on lets in the module");
+	CHECK_SHADER_TYPE_ERRORS("@bind_group(0) function f() {}", "'bind_group' can only be used on lets in the module");
+	CHECK_TYPE_ERRORS("struct S { a: float; } @bind_group(0) let s: S;", "resolve error: unknown identifier 'bind_group'");
 }

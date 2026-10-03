@@ -882,6 +882,24 @@ static void EmitBackends(Compilation& compilation, bool validate)
 			bool out_of_registers = OnlyRegisterLimits(problem) || LargestArrayInHLSL(hlsl) > FXC_REGISTERS;
 			if (problem.length && !out_of_registers)
 				Fail("invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
+
+			// fxc has to lay out the bind groups as we do.
+			GPU::CompiledEntryPoint compiled = { .stage = entry_point->stage, .code = Slice<uint8>(hlsl.data, (uint32)hlsl.length) };
+			IRReachable used;
+			FindReachable(ir, function, used);
+			for (IRRef global : used.globals)
+			{
+				if (((PointerType*)ir[global].type)->space == AddressSpace::UNIFORM)
+					compiled.bind_groups |= 1u << ir[global].global.bind_group->reflection.index;
+			}
+			for (uint32 group = 0; group < GPU::MAX_BIND_GROUPS; ++group)
+				compiled.d3d11_bind_group_registers[group] = entry_point->d3d11_bind_group_registers[group];
+			std::vector<GPU::ReflectedBindGroup> reflections;
+			for (uint32 i = 0; i < compilation.shader_interface.bind_groups.count; ++i)
+				reflections.push_back(compilation.shader_interface.bind_groups[i].reflection);
+			problem = Validation::CheckHLSLBindGroups(compiled, ToSlice(arena, reflections), arena);
+			if (problem.length && !out_of_registers)
+				Fail("fxc lays out the bind groups differently: %s\n%s", problem.CString(), hlsl.CString());
 		}
 		if (msl.length)
 		{
@@ -968,7 +986,12 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 
 static bool BuildInterface(Compilation& compilation)
 {
-	ShaderInterfaceBuilder builder = { .context = compilation.context, .arena = compilation.intermediate_arena };
+	ShaderInterfaceBuilder builder = {
+		.context = compilation.context,
+		.arena = compilation.intermediate_arena,
+		.reflection_arena = compilation.output_arena,
+		.backend = GPU::Backend::D3D11, // the only target with bind groups so far
+	};
 	bool built = BuildShaderInterface(builder, compilation.module, &compilation.shader_interface);
 	CheckErrors(compilation, 0, built, "building the shader interface");
 	CheckShaderInterface(compilation, built);
