@@ -1,0 +1,27 @@
+// Generic types: Array(T, N) and [N]T, Vector and Matrix with their named instances, and type aliases, in the module
+// and in a block, used before their declaration, and constructing through them.
+
+const table: Table = { { 1.0, 2.0, 3.0, 4.0 }, { 5.0, 6.0, 7.0, 8.0 } };
+const offsets: Array(Ints, 2) = { Ints(1, 2, 3), Vector(int, 3)(4) };
+
+type Ints = Vector(int, 3);
+type Row = Array(float, 4);
+type Table = [2]Row;
+
+struct Transform { world: float4x4; normal: Matrix(float, 3, 3); }
+
+@entry(vertex)
+function VS(@location(0) i: uint, @location(1) v: Vector(uint, 2)): @semantic(position) float4
+{
+	t: Transform;
+	l: Local;
+	k: Array(Ints, 2);
+	type Local = Vector(float, 4);
+	return l + float4(table[i][i]);
+}
+
+@entry(fragment)
+function PS(@location(0) o: Ints): @location(0) Vector(int, 4)
+{
+	return Vector(int, 4)(o + offsets[1], 1);
+}

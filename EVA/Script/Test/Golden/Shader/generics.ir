@@ -1,0 +1,52 @@
+global @table: *constant [2][4]float = {{1.0, 2.0, 3.0, 4.0}, {5.0, 6.0, 7.0, 8.0}}
+global @offsets: *constant [2]int3 = {(1, 2, 3), (4, 4, 4)}
+global @VS.in0: *input uint location(0)
+global @VS.in1: *input uint2 location(1)
+global @VS.out0: *output float4 semantic(position)
+global @PS.in0: *input int3 location(0)
+global @PS.out0: *output int4 location(0)
+
+function @VS(%0: uint, %1: uint2): float4
+	local $0: *function uint
+	local $1: *function uint2
+	local $2: *function Transform
+	local $3: *function float4
+	local $4: *function [2]int3
+block0:
+	store $0, %0
+	store $1, %1
+	%2: float4 = load $3
+	%3: uint = load $0
+	%4: *constant [4]float = access @table, %3
+	%5: uint = load $0
+	%6: *constant float = access %4, %5
+	%7: float = load %6
+	%8: float4 = construct %7, %7, %7, %7
+	%9: float4 = add %2, %8
+	return %9
+
+function @PS(%0: int3): int4
+	local $0: *function int3
+block0:
+	store $0, %0
+	%1: int3 = load $0
+	%2: *constant int3 = access @offsets, uint 1
+	%3: int3 = load %2
+	%4: int3 = add %1, %3
+	%5: int4 = construct %4, int 1
+	return %5
+
+function @VS.entry(): void [entry vertex]
+block0:
+	%0: uint = load @VS.in0
+	%1: uint2 = load @VS.in1
+	%2: float4 = call @VS, %0, %1
+	store @VS.out0, %2
+	return
+
+function @PS.entry(): void [entry fragment]
+block0:
+	%0: int3 = load @PS.in0
+	%1: int4 = call @PS, %0
+	store @PS.out0, %1
+	return

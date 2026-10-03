@@ -1,0 +1,108 @@
+// VS (vertex)
+#include <metal_stdlib>
+using namespace metal;
+
+struct S0
+{
+	float4x4 m0;
+	float3x3 m1;
+};
+
+struct A0
+{
+	int3 e[2];
+};
+
+struct A2
+{
+	float e[4];
+};
+
+struct A1
+{
+	A2 e[2];
+};
+
+struct In
+{
+	uint in0 [[attribute(0)]];
+	uint2 in1 [[attribute(1)]];
+};
+
+struct Out
+{
+	float4 out0 [[position]];
+};
+
+constant A1 g0 = { { { { 1.0, 2.0, 3.0, 4.0 } }, { { 5.0, 6.0, 7.0, 8.0 } } } };
+
+float4 f0(uint p0, uint2 p1)
+{
+	uint l0 = {};
+	uint2 l1 = {};
+	S0 l2 = {};
+	float4 l3 = {};
+	A0 l4 = {};
+	l0 = p0;
+	l1 = p1;
+	float4 v0 = l3;
+	uint v1 = l0;
+	uint v2 = min(v1, 1u);
+	uint v3 = l0;
+	uint v4 = min(v3, 3u);
+	float v5 = g0.e[v2].e[v4];
+	float4 v6 = float4(v5, v5, v5, v5);
+	float4 v7 = v0 + v6;
+	return v7;
+}
+
+vertex Out main0(In in [[stage_in]])
+{
+	Out out = {};
+	uint v0 = in.in0;
+	uint2 v1 = in.in1;
+	float4 v2 = f0(v0, v1);
+	out.out0 = v2;
+	return out;
+}
+
+// PS (fragment)
+#include <metal_stdlib>
+using namespace metal;
+
+struct A0
+{
+	int3 e[2];
+};
+
+struct In
+{
+	int3 in0 [[user(locn0), flat]];
+};
+
+struct Out
+{
+	int4 out0 [[color(0)]];
+};
+
+constant A0 g0 = { { int3(1, 2, 3), int3(4, 4, 4) } };
+
+int4 f0(int3 p0)
+{
+	int3 l0 = {};
+	l0 = p0;
+	int3 v0 = l0;
+	int3 v1 = g0.e[1u];
+	int3 v2 = v0 + v1;
+	int4 v3 = int4(v2, 1);
+	return v3;
+}
+
+fragment Out main0(In in [[stage_in]])
+{
+	Out out = {};
+	int3 v0 = in.in0;
+	int4 v1 = f0(v0);
+	out.out0 = v1;
+	return out;
+}

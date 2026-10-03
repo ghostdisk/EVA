@@ -1,0 +1,147 @@
+; VS (vertex)
+OpCapability Shader
+%68 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %2 "main" %23 %26 %29
+OpDecorate %23 Location 0
+OpDecorate %26 Location 1
+OpDecorate %29 BuiltIn Position
+%3 = OpTypeFloat 32
+%4 = OpTypeInt 32 0
+%5 = OpConstant %4 4
+%6 = OpTypeArray %3 %5
+%7 = OpConstant %4 2
+%8 = OpTypeArray %6 %7
+%9 = OpTypePointer Private %8
+%11 = OpConstant %3 1
+%12 = OpConstant %3 2
+%13 = OpConstant %3 3
+%14 = OpConstant %3 4
+%15 = OpConstantComposite %6 %11 %12 %13 %14
+%16 = OpConstant %3 5
+%17 = OpConstant %3 6
+%18 = OpConstant %3 7
+%19 = OpConstant %3 8
+%20 = OpConstantComposite %6 %16 %17 %18 %19
+%21 = OpConstantComposite %8 %15 %20
+%10 = OpVariable %9 Private %21
+%22 = OpTypePointer Input %4
+%23 = OpVariable %22 Input
+%24 = OpTypeVector %4 2
+%25 = OpTypePointer Input %24
+%26 = OpVariable %25 Input
+%27 = OpTypeVector %3 4
+%28 = OpTypePointer Output %27
+%29 = OpVariable %28 Output
+%30 = OpTypeVoid
+%31 = OpTypeFunction %30
+%39 = OpTypeFunction %27 %4 %24
+%43 = OpConstantNull %4
+%45 = OpTypePointer Function %4
+%46 = OpConstantNull %24
+%48 = OpTypePointer Function %24
+%49 = OpTypeMatrix %27 4
+%50 = OpTypeVector %3 3
+%51 = OpTypeMatrix %50 3
+%52 = OpTypeStruct %49 %51
+%53 = OpConstantNull %52
+%55 = OpTypePointer Function %52
+%56 = OpConstantNull %27
+%58 = OpTypePointer Function %27
+%59 = OpTypeInt 32 1
+%60 = OpTypeVector %59 3
+%61 = OpTypeArray %60 %7
+%62 = OpConstantNull %61
+%64 = OpTypePointer Function %61
+%67 = OpConstant %4 1
+%70 = OpTypePointer Private %6
+%73 = OpConstant %4 3
+%75 = OpTypePointer Private %3
+%2 = OpFunction %30 None %31
+%32 = OpLabel
+%33 = OpLoad %4 %23
+%34 = OpLoad %24 %26
+%35 = OpFunctionCall %27 %1 %33 %34
+%36 = OpCompositeExtract %3 %35 1
+%37 = OpFNegate %3 %36
+%38 = OpCompositeInsert %27 %37 %35 1
+OpStore %29 %38
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %27 None %39
+%40 = OpFunctionParameter %4
+%41 = OpFunctionParameter %24
+%42 = OpLabel
+%44 = OpVariable %45 Function %43
+%47 = OpVariable %48 Function %46
+%54 = OpVariable %55 Function %53
+%57 = OpVariable %58 Function %56
+%63 = OpVariable %64 Function %62
+OpStore %44 %40
+OpStore %47 %41
+%65 = OpLoad %27 %57
+%66 = OpLoad %4 %44
+%69 = OpExtInst %4 %68 UMin %66 %67
+%71 = OpAccessChain %70 %10 %69
+%72 = OpLoad %4 %44
+%74 = OpExtInst %4 %68 UMin %72 %73
+%76 = OpAccessChain %75 %71 %74
+%77 = OpLoad %3 %76
+%78 = OpCompositeConstruct %27 %77 %77 %77 %77
+%79 = OpFAdd %27 %65 %78
+OpReturnValue %79
+OpFunctionEnd
+
+; PS (fragment)
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %2 "main" %18 %21
+OpExecutionMode %2 OriginUpperLeft
+OpDecorate %18 Location 0
+OpDecorate %18 Flat
+OpDecorate %21 Location 0
+%3 = OpTypeInt 32 1
+%4 = OpTypeVector %3 3
+%5 = OpTypeInt 32 0
+%6 = OpConstant %5 2
+%7 = OpTypeArray %4 %6
+%8 = OpTypePointer Private %7
+%10 = OpConstant %3 1
+%11 = OpConstant %3 2
+%12 = OpConstant %3 3
+%13 = OpConstantComposite %4 %10 %11 %12
+%14 = OpConstant %3 4
+%15 = OpConstantComposite %4 %14 %14 %14
+%16 = OpConstantComposite %7 %13 %15
+%9 = OpVariable %8 Private %16
+%17 = OpTypePointer Input %4
+%18 = OpVariable %17 Input
+%19 = OpTypeVector %3 4
+%20 = OpTypePointer Output %19
+%21 = OpVariable %20 Output
+%22 = OpTypeVoid
+%23 = OpTypeFunction %22
+%27 = OpTypeFunction %19 %4
+%30 = OpConstantNull %4
+%32 = OpTypePointer Function %4
+%34 = OpConstant %5 1
+%35 = OpTypePointer Private %4
+%2 = OpFunction %22 None %23
+%24 = OpLabel
+%25 = OpLoad %4 %18
+%26 = OpFunctionCall %19 %1 %25
+OpStore %21 %26
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %19 None %27
+%28 = OpFunctionParameter %4
+%29 = OpLabel
+%31 = OpVariable %32 Function %30
+OpStore %31 %28
+%33 = OpLoad %4 %31
+%36 = OpAccessChain %35 %9 %34
+%37 = OpLoad %4 %36
+%38 = OpIAdd %4 %33 %37
+%39 = OpCompositeConstruct %19 %38 %10
+OpReturnValue %39
+OpFunctionEnd

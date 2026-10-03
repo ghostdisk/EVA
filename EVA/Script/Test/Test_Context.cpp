@@ -21,14 +21,74 @@ TEST(Context, GlobalScopeHoldsTheBuiltInTypes)
 	REQUIRE(context.global_scope);
 	CHECK(context.global_scope->parent == nullptr);
 
-	uint32 count = 0;
+	uint32 types = 0;
+	uint32 generics = 0;
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
+		if (definition->element->kind == ElementKind::GENERIC)
+		{
+			CHECK_EQ(definition->name, ((Generic*)definition->element)->name);
+			generics++;
+			continue;
+		}
 		CHECK_EQ(definition->element->kind, ElementKind::TYPE);
 		CHECK_EQ(definition->name, ((Type*)definition->element)->name); // named by the type's own name
-		count++;
+		types++;
 	}
-	CHECK_EQ(count, 7u);
+	CHECK_EQ(types, 16u); // void, int, uint, float, float2 to float4, float2x2 to float4x4
+	CHECK_EQ(generics, 3u);
+	CHECK(context.array_generic);
+	CHECK(context.vector_generic);
+	CHECK(context.matrix_generic);
+}
+
+TEST(Context, GenericInstancesAreUnique)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SCRIPT);
+	Type* float_type = FindGlobalType(context, "float");
+
+	ArrayType* a = GetArrayType(context, float_type, 3);
+	REQUIRE(a);
+	CHECK_EQ(a->type_kind, TypeKind::ARRAY);
+	CHECK(a->element == float_type);
+	CHECK_EQ(a->length, 3u);
+	CHECK(GetArrayType(context, float_type, 3) == a);
+	CHECK(GetArrayType(context, float_type, 4) != a);
+	CHECK(GetArrayType(context, context.int_type, 3) != a);
+
+	// The instance remembers its generic and arguments, copied into the context.
+	REQUIRE(a->instance);
+	CHECK(a->instance->generic == context.array_generic);
+	REQUIRE(a->instance->args.count == 2);
+	CHECK(a->instance->args[0].type == float_type);
+	REQUIRE(a->instance->args[1].constant);
+	CHECK(a->instance->args[1].constant->type == context.uint_type);
+	CHECK_EQ(ConstantToInteger(a->instance->args[1].constant), 3);
+
+	// Arrays of arrays go through the same cache.
+	ArrayType* nested = GetArrayType(context, a, 2);
+	CHECK(GetArrayType(context, GetArrayType(context, float_type, 3), 2) == nested);
+	CHECK_EQ(nested->size, 24u);
+}
+
+TEST(Context, RejectedInstancesAreNotCached)
+{
+	Context context;
+	InitContext(context, test.arena, ContextKind::SCRIPT);
+	Typer typer = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+
+	uint32 length = 0;
+	Constant constant;
+	constant.type = context.uint_type;
+	constant.bytes = Slice<uint8>((uint8*)&length, 4);
+	GenericArg args[] = { { .type = context.float_type }, { .constant = &constant } };
+	size_t cached = context.instances.size(); // the named vectors and matrices
+	CHECK(!Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), &typer));
+	CHECK(!Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), &typer));
+	REQUIRE(typer.errors.size() == 2);
+	CHECK(typer.errors[0]->message == "array size must be at least 1, got 0");
+	CHECK_EQ(context.instances.size(), cached);
 }
 
 TEST(Context, ShaderContextAddsTheShaderIntrinsics)

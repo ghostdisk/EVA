@@ -266,6 +266,104 @@ TEST(Typer, Arrays)
 		CHECK_EQ(bits[i], Bits(expected[i]));
 }
 
+TEST(Typer, ArrayGeneric)
+{
+	// Array(T, N) is [N]T.
+	CHECK_TYPE("const a: Array(float, 2) = { 1.0, 2.0 };",
+		"([DECLARATION]CONST:[2]float a ([DECLARED_TYPE]CALL:[2]float ([CALLEE]REFERENCE Array -> GENERIC Array) "
+		"([ARGUMENT]REFERENCE:float float -> TYPE float) ([ARGUMENT]CONSTANT:uint 2)) ([VALUE]CONSTANT:[2]float {1.0, 2.0}))");
+	ZTStringView errors;
+	Node* module = ParseResolveAndType(test.arena, ContextKind::SCRIPT,
+		"const n = 3; const a: Array(float2, n) = { float2(1.0), float2(2.0), float2(3.0) };"
+		"const m: uint = 3; const b: [m]float2 = a;"
+		"const c: Array(Array(int, 2), 3) = { { 1, 2 }, { 3, 4 }, { 5, 6 } }; const d: [3][2]int = c;",
+		&errors);
+	CHECK(errors == "");
+	REQUIRE(module && !errors.length);
+	Node* a = module->child->next;
+	Node* b = a->next->next;
+	Node* c = b->next;
+	Node* d = c->next;
+	CHECK(a->type == b->type); // an int size converts to uint, so both are the same instance
+	CHECK(c->type == d->type);
+
+	// Arguments by kind.
+	CHECK_TYPE_ERRORS("const a: Array(2, float) = {};", "expected a type | 'float' is a type, not a value");
+	CHECK_TYPE_ERRORS("const a: Array(float) = {};", "'Array' takes 2 arguments, got 1");
+	CHECK_TYPE_ERRORS("const a: Array(float, 2, 3) = {};", "'Array' takes 2 arguments, got 3");
+	CHECK_TYPE_ERRORS("const a: Array(float, 1, 2, 3, 4, 5) = {};", "'Array' takes 2 arguments, got 5");
+	CHECK_TYPE_ERRORS("const a: Array = {};", "'Array' needs arguments");
+	CHECK_TYPE_ERRORS("const n = -1; const a: Array(float, n) = {};", "array size -1 is out of range for uint");
+	CHECK_TYPE_ERRORS("const n = 1.0; const a: Array(float, n) = {};", "array size must be an int or uint, got float");
+	CHECK_TYPE_ERRORS("const a: Array(float, 0) = {};", "array size must be at least 1, got 0");
+	CHECK_TYPE_ERRORS("const a: [2]void = {};", "can't make an array of void");
+	CHECK_TYPE_ERRORS("struct S { a: Array(S, 2); }", "'S' contains itself");
+
+	// A generic makes types, not values.
+	CHECK_TYPE_ERRORS("const a = Array;", "'Array' is a type, not a value");
+	CHECK_TYPE_ERRORS("const a = Array(float, 2);", "expected a value, got a type");
+	CHECK_TYPE_ERRORS("function f() { Array(float, 2); }", "expected a value, got a type");
+	CHECK_TYPE_ERRORS("function f(): float { return Array(float, 2)(1.0); }", "constructing [2]float isn't supported yet");
+	CHECK_TYPE_ERRORS("const a = [2]float(1.0);", "expected a value, got a type"); // [2](float(1.0)), a type
+	CHECK_SHADER_TYPE_ERRORS("@Array function f() {}", "'Array' isn't an attribute");
+
+	// Shadowed like any name.
+	CHECK_TYPE_ERRORS("struct Array { a: float; } const a: Array = { 1.0 };", "");
+}
+
+TEST(Typer, VectorAndMatrixGenerics)
+{
+	ZTStringView errors;
+	Node* module = ParseResolveAndType(test.arena, ContextKind::SCRIPT,
+		"const a: Vector(float, 4) = float4(1.0); const b: float4 = a; const c: Vector(float, 1) = 1.0;"
+		"struct S { m: Matrix(float, 4, 4); n: float4x4; }",
+		&errors);
+	CHECK(errors == "");
+	REQUIRE(module && !errors.length);
+	Node* a = module->child;
+	CHECK(a->type == a->next->type);
+	CHECK_EQ(a->next->next->type->type_kind, TypeKind::PRIMITIVE); // Vector(float, 1) is float
+	StructType* s = (StructType*)module->child->next->next->next->type;
+	REQUIRE(s->fields.count == 2);
+	CHECK(s->fields[0].type == s->fields[1].type);
+	CHECK_EQ(s->fields[0].type->size, 64u);
+
+	CHECK_TYPE_ERRORS("const v = Vector(int, 3)(1, 2, 3);", "");
+	CHECK_TYPE_ERRORS("const v = Vector(float, 3)(1.0, 2.0);", "float3 needs 3 components, got 2");
+	CHECK_TYPE_ERRORS("const v: Vector(float, 5) = {};", "vector size must be 1 to 4, got 5");
+	CHECK_TYPE_ERRORS("const v: Vector(float, 0) = {};", "vector size must be 1 to 4, got 0");
+	CHECK_TYPE_ERRORS("const v: Vector(float2, 2) = {};", "can't make a vector of float2");
+	CHECK_TYPE_ERRORS("struct S { a: float; } const v: Vector(S, 2) = {};", "can't make a vector of S");
+	CHECK_TYPE_ERRORS("const v: Vector(void, 2) = {};", "can't make a vector of void");
+	CHECK_TYPE_ERRORS("struct S { m: Matrix(int, 2, 2); }", "can't make a matrix of int, only of float");
+	CHECK_TYPE_ERRORS("struct S { m: Matrix(float, 1, 4); }", "matrix columns and rows must be 2 to 4, got 1 and 4");
+}
+
+TEST(Typer, TypeAliases)
+{
+	CHECK_TYPE("type Row = [2]float; const r: Row = { 1.0, 2.0 };",
+		"([DECLARATION]TYPE_ALIAS:[2]float Row ([VALUE]ARRAY_TYPE:[2]float ([SIZE]CONSTANT:uint 2) "
+		"([ELEMENT]REFERENCE:float float -> TYPE float))) ([DECLARATION]CONST:[2]float r ([DECLARED_TYPE]REFERENCE:[2]float "
+		"Row -> TYPE_ALIAS) ([VALUE]CONSTANT:[2]float {1.0, 2.0}))");
+
+	// Declared ahead: usable before the declaration, in the module and in blocks.
+	CHECK_TYPE_ERRORS("struct S { r: Row; } type Row = [2]float;", "");
+	CHECK_TYPE_ERRORS("function f(): float { r: R; return r[0]; type R = Array(float, 2); }", "");
+	// Chains, constructors and constants through aliases.
+	CHECK_TYPE_ERRORS("type A = B; type B = float3; const v: A = B(1.0);", "");
+	CHECK_TYPE_ERRORS("type V = Vector(int, 2); const v = V(1, 2); function f(): V { return V(3, 4); }", "");
+	// Cycles, values that aren't types, aliases used as values.
+	CHECK_TYPE_ERRORS("type A = B; type B = A; const a: A = 1;", "'A' depends on itself");
+	CHECK_TYPE_ERRORS("type A = [2]A;", "'A' depends on itself");
+	CHECK_TYPE_ERRORS("const n = 2; type A = n;", "expected a type");
+	CHECK_TYPE_ERRORS("type A = float; const a = A;", "'A' is a type, not a value");
+	CHECK_TYPE_ERRORS("type A = float; function f(): float { return A; }", "'A' is a type, not a value");
+	CHECK_TYPE_ERRORS("type A = Array;", "'Array' needs arguments");
+	CHECK_TYPE_ERRORS("function f(n: uint) { type A = [n]float; }", "array size must be a constant");
+	CHECK_TYPE_ERRORS("type A = float; type A = int;", "resolve error: 'A' is already defined");
+	CHECK_SHADER_TYPE_ERRORS("type A = float; @A function f() {}", "'A' isn't an attribute");
+}
+
 TEST(Typer, Indexing)
 {
 	CHECK_TYPE("const a: [2]float = { 1.0, 2.0 }; function f(i: uint): float { return a[i]; }",
