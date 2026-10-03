@@ -69,8 +69,6 @@ static void CheckOutput(Test::Context& test, const char* file, int line, const c
 	Slice<CompiledEntryPoint> entry_points = Compile(test, file, line, source, target);
 	if (!entry_points.count)
 		return;
-	if (target == Backend::VULKAN && !Validation::HaveSPIRVTools())
-		return;
 	StringBuilder builder(test.arena);
 	for (uint32 i = 0; i < entry_points.count; ++i)
 	{

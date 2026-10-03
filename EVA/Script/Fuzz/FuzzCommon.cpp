@@ -859,6 +859,12 @@ static void EmitBackends(Compilation& compilation, bool validate)
 			ZTStringView problem = Validation::ValidateSPIRV(words, arena);
 			if (problem.length)
 				Fail("invalid SPIR-V: %s\n%s", problem.CString(), Validation::DisassembleSPIRV(words, arena).CString());
+			// The tests' disassembler has to agree with SPIRV-Tools'.
+			ZTStringView tools_text = Validation::DisassembleSPIRVWithTools(words, arena);
+			ZTStringView our_text = Validation::DisassembleSPIRV(words, arena);
+			if (tools_text.length && our_text != tools_text)
+				Fail("our SPIR-V disassembly differs from SPIRV-Tools'\n%s\n    SPIRV-Tools:\n%s", our_text.CString(),
+					tools_text.CString());
 		}
 		if (hlsl.length)
 		{

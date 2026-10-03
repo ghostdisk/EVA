@@ -200,7 +200,8 @@ option(EVA_BUILD_TESTS "Build the test executables" ON)
 # it's installed. The SDK's shared library has a C API, so it works with any C runtime, including the fuzz build's static
 # one.
 if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
-	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp)
+	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp
+		EVA/Script/Test/SPIRVText.cpp)
 	eva_init_target(OutputValidation)
 	target_link_libraries(OutputValidation PUBLIC Script)
 	if(WIN32)
