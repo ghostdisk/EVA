@@ -1,0 +1,15 @@
+// Zeroed locals, aggregate locals indexed dynamically, unreachable code, nested and unused functions.
+
+struct S { a: [4]float4; b: uint; }
+
+function unused(): float { return 1.0; }
+
+@entry(vertex)
+function VS(@semantic(vertex_index) id: uint): @semantic(position) float4
+{
+	function nested(): int { return ~1; }
+	v: S;
+	w: [2][2]float4;
+	return v.a[id] + w[id][1];
+	return float4(2.0);
+}

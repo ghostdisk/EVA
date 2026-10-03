@@ -1,0 +1,58 @@
+// VSMain (vertex)
+#include <metal_stdlib>
+using namespace metal;
+
+struct A0
+{
+	float2 e[3];
+};
+
+struct Out
+{
+	float4 out0 [[position]];
+};
+
+constant A0 g0 = { { float2(0.0, 0.5), float2(0.5, (-0.5)), float2((-0.5), (-0.5)) } };
+
+float4 f0(uint p0)
+{
+	uint l0 = {};
+	l0 = p0;
+	uint v0 = l0;
+	uint v1 = min(v0, 2u);
+	float2 v2 = g0.e[v1];
+	float4 v3 = float4(v2, 0.0, 1.0);
+	return v3;
+}
+
+vertex Out main0(uint in0 [[vertex_id]])
+{
+	Out out = {};
+	uint v0 = in0;
+	float4 v1 = f0(v0);
+	out.out0 = v1;
+	return out;
+}
+
+// PSMain (fragment)
+#include <metal_stdlib>
+using namespace metal;
+
+struct Out
+{
+	float4 out0 [[color(0)]];
+};
+
+float4 f0()
+{
+	float4 v0 = float4(1.0, 1.0, 1.0, 1.0);
+	return v0;
+}
+
+fragment Out main0()
+{
+	Out out = {};
+	float4 v0 = f0();
+	out.out0 = v0;
+	return out;
+}

@@ -1,0 +1,9 @@
+// Member access and indexing are accesses on places, loaded only at the leaf. Struct parameters are pointers.
+
+struct S { a: [2]float4; b: int; }
+
+function f(i: uint, s: S): float4
+{
+	v: S;
+	return v.a[i] + s.a[1];
+}

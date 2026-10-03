@@ -1,0 +1,14 @@
+// Code after a return goes to an unreachable block, falling off the end returns zero, nested functions are hoisted.
+
+function f(): float
+{
+	return 1.0;
+	return 2.0;
+}
+
+function g(): float {}
+
+function h(): int
+{
+	function n(): int { return ~1; }
+}

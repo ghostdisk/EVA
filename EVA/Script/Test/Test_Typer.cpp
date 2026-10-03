@@ -462,32 +462,3 @@ TEST(Typer, ShaderAttributes)
 	CHECK_SHADER_TYPE_ERRORS("function f(@(location)(0) a: float4) {}", "");
 	CHECK_SHADER_TYPE_ERRORS("function f(@location(0)(1) a: float4) {}", "expected an attribute name");
 }
-
-TEST(Typer, TriangleShader)
-{
-	CHECK_SHADER_TYPE_ERRORS(R"(
-const positions: [3]float2 = {
-	float2( 0.0,  0.5),
-	float2( 0.5, -0.5),
-	float2(-0.5, -0.5),
-};
-
-struct VSOutput
-{
-	position: float4;
-}
-
-@entry(vertex)
-function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
-{
-	return float4(positions[vertex_id], 0.0, 1.0);
-}
-
-@entry(fragment)
-function PSMain(): @location(0) float4
-{
-	return float4(1.0, 1.0, 1.0, 1.0);
-}
-)",
-		"");
-}

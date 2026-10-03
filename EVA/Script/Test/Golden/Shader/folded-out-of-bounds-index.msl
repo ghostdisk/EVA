@@ -1,0 +1,63 @@
+// VS (vertex)
+#include <metal_stdlib>
+using namespace metal;
+
+struct A0
+{
+	float4 e[2];
+};
+
+struct A1
+{
+	float4 e[3];
+};
+
+struct In
+{
+	int in0 [[attribute(0)]];
+};
+
+struct Out
+{
+	float4 out0 [[position]];
+};
+
+constant A1 g0 = { { float4(1.0, 1.0, 1.0, 1.0), float4(2.0, 2.0, 2.0, 2.0), float4(3.0, 3.0, 3.0, 3.0) } };
+
+float4 f0(uint p0, int p1)
+{
+	uint l0 = {};
+	int l1 = {};
+	A0 l2 = {};
+	l0 = p0;
+	l1 = p1;
+	uint v0 = l0;
+	uint v1 = v0 * 0u;
+	uint v2 = v1 + 5u;
+	uint v3 = min(v2, 2u);
+	float4 v4 = g0.e[v3];
+	int v5 = l1;
+	int v6 = l1;
+	int v7 = v5 - v6;
+	int v8 = v7 - 1;
+	uint v9 = uint(v8);
+	uint v10 = min(v9, 2u);
+	float4 v11 = g0.e[v10];
+	float4 v12 = v4 + v11;
+	uint v13 = l0;
+	uint v14 = v13 + 7u;
+	uint v15 = min(v14, 1u);
+	float4 v16 = l2.e[v15];
+	float4 v17 = v12 + v16;
+	return v17;
+}
+
+vertex Out main0(uint in1 [[vertex_id]], In in [[stage_in]])
+{
+	Out out = {};
+	uint v0 = in1;
+	int v1 = in.in0;
+	float4 v2 = f0(v0, v1);
+	out.out0 = v2;
+	return out;
+}

@@ -1,0 +1,5 @@
+vertex VSMain
+  input semantic(vertex_index) uint [0]
+  output semantic(position) float4 []
+fragment PSMain
+  output location(0) float4 []

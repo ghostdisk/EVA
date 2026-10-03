@@ -1,0 +1,7 @@
+fragment PS
+  input location(0) uint [0]
+  output location(0) int [0]
+  output location(1) uint [1]
+vertex VS
+  input location(0) uint [0]
+  output semantic(position) float4 []

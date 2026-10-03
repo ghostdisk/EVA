@@ -1,0 +1,5 @@
+fragment PS
+  input location(0) int [0]
+  input location(1) uint [1]
+  input location(2) float [2]
+  output location(0) float4 []

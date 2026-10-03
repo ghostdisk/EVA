@@ -1,0 +1,6 @@
+// Operands left to right, splats written out.
+
+function f(a: int, b: float2): float4
+{
+	return float4(-b, float2(1.0)) * float4(2.0) + float4(b, b);
+}

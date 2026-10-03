@@ -1,0 +1,14 @@
+vertex VS
+  input semantic(vertex_index) uint [0]
+  input location(3) float2 [1]
+  input location(0) int [2]
+  output semantic(position) float4 [0]
+  output location(0) float2 [1]
+  output location(1) float4 [2, 0]
+  output location(2) uint [2, 1]
+fragment PS
+  input semantic(position) float4 [0, 0]
+  input location(0) float2 [0, 1]
+  input location(1) float4 [0, 2, 0]
+  input location(2) uint [0, 2, 1]
+  output location(0) float4 []

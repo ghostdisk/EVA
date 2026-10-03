@@ -1,0 +1,65 @@
+; VS (vertex)
+OpCapability Shader
+%41 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %2 "main" %5 %9
+OpDecorate %5 BuiltIn VertexIndex
+OpDecorate %9 BuiltIn Position
+%3 = OpTypeInt 32 0
+%4 = OpTypePointer Input %3
+%5 = OpVariable %4 Input
+%6 = OpTypeFloat 32
+%7 = OpTypeVector %6 4
+%8 = OpTypePointer Output %7
+%9 = OpVariable %8 Output
+%10 = OpTypeVoid
+%11 = OpTypeFunction %10
+%18 = OpTypeFunction %7 %3
+%21 = OpConstantNull %3
+%23 = OpTypePointer Function %3
+%24 = OpConstant %3 4
+%25 = OpTypeArray %7 %24
+%26 = OpTypeStruct %25 %3
+%27 = OpConstantNull %26
+%29 = OpTypePointer Function %26
+%30 = OpConstant %3 2
+%31 = OpTypeArray %7 %30
+%32 = OpTypeArray %31 %30
+%33 = OpConstantNull %32
+%35 = OpTypePointer Function %32
+%36 = OpConstant %3 0
+%37 = OpTypePointer Function %25
+%40 = OpConstant %3 3
+%43 = OpTypePointer Function %7
+%47 = OpConstant %3 1
+%49 = OpTypePointer Function %31
+%2 = OpFunction %10 None %11
+%12 = OpLabel
+%13 = OpLoad %3 %5
+%14 = OpFunctionCall %7 %1 %13
+%15 = OpCompositeExtract %6 %14 1
+%16 = OpFNegate %6 %15
+%17 = OpCompositeInsert %7 %16 %14 1
+OpStore %9 %17
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %7 None %18
+%19 = OpFunctionParameter %3
+%20 = OpLabel
+%22 = OpVariable %23 Function %21
+%28 = OpVariable %29 Function %27
+%34 = OpVariable %35 Function %33
+OpStore %22 %19
+%38 = OpAccessChain %37 %28 %36
+%39 = OpLoad %3 %22
+%42 = OpExtInst %3 %41 UMin %39 %40
+%44 = OpAccessChain %43 %38 %42
+%45 = OpLoad %7 %44
+%46 = OpLoad %3 %22
+%48 = OpExtInst %3 %41 UMin %46 %47
+%50 = OpAccessChain %49 %34 %48
+%51 = OpAccessChain %43 %50 %47
+%52 = OpLoad %7 %51
+%53 = OpFAdd %7 %45 %52
+OpReturnValue %53
+OpFunctionEnd

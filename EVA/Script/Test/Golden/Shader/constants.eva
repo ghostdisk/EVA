@@ -1,0 +1,25 @@
+// Aggregates of every kind, and floats that need care to print exactly.
+
+struct Inner { a: uint; b: [2]float2; }
+struct Outer { inner: [2]Inner; c: int; d: float4; }
+
+const outer: Outer = {
+	{ { 1, { float2(1.0, 2.0), float2(3.0, 4.0) } }, { 2, { float2(5.0), float2(6.0) } } },
+	-7,
+	float4(1e-45, 1e-38, 3.4e38, -0.0),
+};
+const nested: [2][3]int = { { 1, 2, 3 }, { -2147483647 - 1, 0, 2147483647 } };
+
+struct Out { @location(0) x: int; @location(1) y: uint; }
+
+@entry(fragment)
+function PS(@location(0) i: uint): Out
+{
+	return { nested[i][i] + outer.c * nested[1][i], outer.inner[i].a };
+}
+
+@entry(vertex)
+function VS(@location(0) i: uint): @semantic(position) float4
+{
+	return float4(outer.inner[i].b[i], 0.0, 1.0) + outer.d;
+}

@@ -1,0 +1,32 @@
+global @positions: *constant [3]float2 = {(0.0, 0.5), (0.5, -0.5), (-0.5, -0.5)}
+global @VSMain.in0: *input uint semantic(vertex_index)
+global @VSMain.out0: *output float4 semantic(position)
+global @PSMain.out0: *output float4 location(0)
+
+function @VSMain(%0: uint): float4
+	local $0: *function uint
+block0:
+	store $0, %0
+	%1: uint = load $0
+	%2: *constant float2 = access @positions, %1
+	%3: float2 = load %2
+	%4: float4 = construct %3, float 0.0, float 1.0
+	return %4
+
+function @PSMain(): float4
+block0:
+	%0: float4 = construct float 1.0, float 1.0, float 1.0, float 1.0
+	return %0
+
+function @VSMain.entry(): void [entry vertex]
+block0:
+	%0: uint = load @VSMain.in0
+	%1: float4 = call @VSMain, %0
+	store @VSMain.out0, %1
+	return
+
+function @PSMain.entry(): void [entry fragment]
+block0:
+	%0: float4 = call @PSMain
+	store @PSMain.out0, %0
+	return

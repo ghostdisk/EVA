@@ -1,0 +1,12 @@
+// Not constant expressions, so the front end allows them, but fxc folds them to a division by zero and rejects that
+// unless the divisor is guarded.
+
+@entry(fragment)
+function PS(@location(0) a: int, @location(1) b: uint, @location(2) c: float): @location(0) float4
+{
+	a / 0;
+	a % (a - a);
+	b / (b * 0);
+	b % 0;
+	return float4(c / 0.0);
+}

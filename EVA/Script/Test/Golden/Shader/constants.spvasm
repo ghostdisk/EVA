@@ -1,0 +1,216 @@
+; PS (fragment)
+OpCapability Shader
+%82 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %2 "main" %53 %55 %57
+OpExecutionMode %2 OriginUpperLeft
+OpDecorate %53 Location 0
+OpDecorate %53 Flat
+OpDecorate %55 Location 0
+OpDecorate %57 Location 1
+%3 = OpTypeInt 32 1
+%4 = OpTypeInt 32 0
+%5 = OpConstant %4 3
+%6 = OpTypeArray %3 %5
+%7 = OpConstant %4 2
+%8 = OpTypeArray %6 %7
+%9 = OpTypePointer Private %8
+%11 = OpConstant %3 1
+%12 = OpConstant %3 2
+%13 = OpConstant %3 3
+%14 = OpConstantComposite %6 %11 %12 %13
+%15 = OpConstant %3 -2147483648
+%16 = OpConstant %3 0
+%17 = OpConstant %3 2147483647
+%18 = OpConstantComposite %6 %15 %16 %17
+%19 = OpConstantComposite %8 %14 %18
+%10 = OpVariable %9 Private %19
+%20 = OpTypeFloat 32
+%21 = OpTypeVector %20 2
+%22 = OpTypeArray %21 %7
+%23 = OpTypeStruct %4 %22
+%24 = OpTypeArray %23 %7
+%25 = OpTypeVector %20 4
+%26 = OpTypeStruct %24 %3 %25
+%27 = OpTypePointer Private %26
+%29 = OpConstant %4 1
+%30 = OpConstant %20 1
+%31 = OpConstant %20 2
+%32 = OpConstantComposite %21 %30 %31
+%33 = OpConstant %20 3
+%34 = OpConstant %20 4
+%35 = OpConstantComposite %21 %33 %34
+%36 = OpConstantComposite %22 %32 %35
+%37 = OpConstantComposite %23 %29 %36
+%38 = OpConstant %20 5
+%39 = OpConstantComposite %21 %38 %38
+%40 = OpConstant %20 6
+%41 = OpConstantComposite %21 %40 %40
+%42 = OpConstantComposite %22 %39 %41
+%43 = OpConstantComposite %23 %7 %42
+%44 = OpConstantComposite %24 %37 %43
+%45 = OpConstant %3 -7
+%46 = OpConstant %20 0x1p-149
+%47 = OpConstant %20 0x1.b38fb8p-127
+%48 = OpConstant %20 3.39999995e+38
+%49 = OpConstant %20 -0
+%50 = OpConstantComposite %25 %46 %47 %48 %49
+%51 = OpConstantComposite %26 %44 %45 %50
+%28 = OpVariable %27 Private %51
+%52 = OpTypePointer Input %4
+%53 = OpVariable %52 Input
+%54 = OpTypePointer Output %3
+%55 = OpVariable %54 Output
+%56 = OpTypePointer Output %4
+%57 = OpVariable %56 Output
+%58 = OpTypeVoid
+%59 = OpTypeFunction %58
+%61 = OpTypeStruct %3 %4
+%62 = OpConstantNull %61
+%64 = OpTypePointer Function %61
+%67 = OpConstant %4 0
+%68 = OpTypePointer Function %3
+%71 = OpTypePointer Function %4
+%74 = OpTypeFunction %58 %4 %64
+%78 = OpConstantNull %4
+%84 = OpTypePointer Private %6
+%88 = OpTypePointer Private %3
+%101 = OpTypePointer Private %24
+%105 = OpTypePointer Private %23
+%107 = OpTypePointer Private %4
+%2 = OpFunction %58 None %59
+%60 = OpLabel
+%63 = OpVariable %64 Function %62
+%65 = OpLoad %4 %53
+%66 = OpFunctionCall %58 %1 %65 %63
+%69 = OpAccessChain %68 %63 %67
+%70 = OpLoad %3 %69
+OpStore %55 %70
+%72 = OpAccessChain %71 %63 %29
+%73 = OpLoad %4 %72
+OpStore %57 %73
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %58 None %74
+%75 = OpFunctionParameter %4
+%76 = OpFunctionParameter %64
+%77 = OpLabel
+%79 = OpVariable %71 Function %78
+OpStore %79 %75
+%80 = OpAccessChain %68 %76 %67
+%81 = OpLoad %4 %79
+%83 = OpExtInst %4 %82 UMin %81 %29
+%85 = OpAccessChain %84 %10 %83
+%86 = OpLoad %4 %79
+%87 = OpExtInst %4 %82 UMin %86 %7
+%89 = OpAccessChain %88 %85 %87
+%90 = OpLoad %3 %89
+%91 = OpAccessChain %88 %28 %29
+%92 = OpLoad %3 %91
+%93 = OpAccessChain %84 %10 %29
+%94 = OpLoad %4 %79
+%95 = OpExtInst %4 %82 UMin %94 %7
+%96 = OpAccessChain %88 %93 %95
+%97 = OpLoad %3 %96
+%98 = OpIMul %3 %92 %97
+%99 = OpIAdd %3 %90 %98
+OpStore %80 %99
+%100 = OpAccessChain %71 %76 %29
+%102 = OpAccessChain %101 %28 %67
+%103 = OpLoad %4 %79
+%104 = OpExtInst %4 %82 UMin %103 %29
+%106 = OpAccessChain %105 %102 %104
+%108 = OpAccessChain %107 %106 %67
+%109 = OpLoad %4 %108
+OpStore %100 %109
+OpReturn
+OpFunctionEnd
+
+; VS (vertex)
+OpCapability Shader
+%60 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %2 "main" %39 %41
+OpDecorate %39 Location 0
+OpDecorate %41 BuiltIn Position
+%3 = OpTypeInt 32 0
+%4 = OpTypeFloat 32
+%5 = OpTypeVector %4 2
+%6 = OpConstant %3 2
+%7 = OpTypeArray %5 %6
+%8 = OpTypeStruct %3 %7
+%9 = OpTypeArray %8 %6
+%10 = OpTypeInt 32 1
+%11 = OpTypeVector %4 4
+%12 = OpTypeStruct %9 %10 %11
+%13 = OpTypePointer Private %12
+%15 = OpConstant %3 1
+%16 = OpConstant %4 1
+%17 = OpConstant %4 2
+%18 = OpConstantComposite %5 %16 %17
+%19 = OpConstant %4 3
+%20 = OpConstant %4 4
+%21 = OpConstantComposite %5 %19 %20
+%22 = OpConstantComposite %7 %18 %21
+%23 = OpConstantComposite %8 %15 %22
+%24 = OpConstant %4 5
+%25 = OpConstantComposite %5 %24 %24
+%26 = OpConstant %4 6
+%27 = OpConstantComposite %5 %26 %26
+%28 = OpConstantComposite %7 %25 %27
+%29 = OpConstantComposite %8 %6 %28
+%30 = OpConstantComposite %9 %23 %29
+%31 = OpConstant %10 -7
+%32 = OpConstant %4 0x1p-149
+%33 = OpConstant %4 0x1.b38fb8p-127
+%34 = OpConstant %4 3.39999995e+38
+%35 = OpConstant %4 -0
+%36 = OpConstantComposite %11 %32 %33 %34 %35
+%37 = OpConstantComposite %12 %30 %31 %36
+%14 = OpVariable %13 Private %37
+%38 = OpTypePointer Input %3
+%39 = OpVariable %38 Input
+%40 = OpTypePointer Output %11
+%41 = OpVariable %40 Output
+%42 = OpTypeVoid
+%43 = OpTypeFunction %42
+%50 = OpTypeFunction %11 %3
+%53 = OpConstantNull %3
+%55 = OpTypePointer Function %3
+%56 = OpConstant %3 0
+%57 = OpTypePointer Private %9
+%62 = OpTypePointer Private %8
+%64 = OpTypePointer Private %7
+%68 = OpTypePointer Private %5
+%71 = OpConstant %4 0
+%73 = OpTypePointer Private %11
+%2 = OpFunction %42 None %43
+%44 = OpLabel
+%45 = OpLoad %3 %39
+%46 = OpFunctionCall %11 %1 %45
+%47 = OpCompositeExtract %4 %46 1
+%48 = OpFNegate %4 %47
+%49 = OpCompositeInsert %11 %48 %46 1
+OpStore %41 %49
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %11 None %50
+%51 = OpFunctionParameter %3
+%52 = OpLabel
+%54 = OpVariable %55 Function %53
+OpStore %54 %51
+%58 = OpAccessChain %57 %14 %56
+%59 = OpLoad %3 %54
+%61 = OpExtInst %3 %60 UMin %59 %15
+%63 = OpAccessChain %62 %58 %61
+%65 = OpAccessChain %64 %63 %15
+%66 = OpLoad %3 %54
+%67 = OpExtInst %3 %60 UMin %66 %15
+%69 = OpAccessChain %68 %65 %67
+%70 = OpLoad %5 %69
+%72 = OpCompositeConstruct %11 %70 %71 %16
+%74 = OpAccessChain %73 %14 %6
+%75 = OpLoad %11 %74
+%76 = OpFAdd %11 %72 %75
+OpReturnValue %76
+OpFunctionEnd

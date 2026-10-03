@@ -256,6 +256,11 @@ if(EVA_BUILD_TESTS AND NOT ANDROID)
 	eva_add_tests(Core)
 	eva_add_tests(Script)
 	eva_link_output_validation(ScriptTests)
+	# Found when the tests run, see EVA/Script/Test/Golden/README.md.
+	target_compile_definitions(ScriptTests PRIVATE EVA_GOLDEN_DIR="${PROJECT_SOURCE_DIR}/EVA/Script/Test/Golden")
+	if(WIN32)
+		target_compile_definitions(ScriptTests PRIVATE _CRT_SECURE_NO_WARNINGS) # fopen
+	endif()
 endif()
 
 # Fuzz targets, EVA/Script/Fuzz/Fuzz_<name>.cpp, each defining LLVMFuzzerTestOneInput (see EVA/Script/Fuzz/README.md).

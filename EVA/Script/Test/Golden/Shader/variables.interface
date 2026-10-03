@@ -1,0 +1,3 @@
+vertex VS
+  input semantic(vertex_index) uint [0]
+  output semantic(position) float4 []

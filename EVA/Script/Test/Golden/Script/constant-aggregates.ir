@@ -1,0 +1,12 @@
+global @t: *constant [2]float = {1.0, 2.0}
+
+function @f(%0: *function [2]float): void
+block0:
+	copy %0, @t
+	return
+
+function @g(): float
+block0:
+	%0: *constant float = access @t, uint 1
+	%1: float = load %0
+	return %1

@@ -69,34 +69,6 @@ static void CheckInterfaceErrors(Test::Context& test, const char* file, int line
 #define CHECK_INTERFACE(source, expected) CheckInterface(test, __FILE__, __LINE__, source, expected)
 #define CHECK_INTERFACE_ERRORS(source, expected) CheckInterfaceErrors(test, __FILE__, __LINE__, source, expected)
 
-TEST(ShaderInterface, TriangleShader)
-{
-	CHECK_INTERFACE(R"(
-const positions: [3]float2 = {
-	float2( 0.0,  0.5),
-	float2( 0.5, -0.5),
-	float2(-0.5, -0.5),
-};
-
-@entry(vertex)
-function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
-{
-	return float4(positions[vertex_id], 0.0, 1.0);
-}
-
-@entry(fragment)
-function PSMain(): @location(0) float4
-{
-	return float4(1.0, 1.0, 1.0, 1.0);
-}
-)",
-		"vertex VSMain\n"
-		"  input semantic(vertex_index) uint [0]\n"
-		"  output semantic(position) float4 []\n"
-		"fragment PSMain\n"
-		"  output location(0) float4 []\n");
-}
-
 TEST(ShaderInterface, EntryPoints)
 {
 	CHECK_INTERFACE("", "");
