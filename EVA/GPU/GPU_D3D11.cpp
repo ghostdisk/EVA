@@ -8,22 +8,22 @@
 #include <string.h>
 #include <vector>
 
-#define HRES_ASSERT(expr)                                                                                   \
-	do                                                                                                      \
-	{                                                                                                       \
-		HRESULT hres_assert_result = (expr);                                                                \
-		if (FAILED(hres_assert_result))                                                                     \
-		{                                                                                                   \
-			Panic("%s failed with HRESULT 0x%08lX at %s:%d", #expr, (unsigned long)hres_assert_result,     \
-				__FILE__, __LINE__);                                                                        \
-		}                                                                                                   \
+#define HRES_ASSERT(expr)                                                                              \
+	do                                                                                                 \
+	{                                                                                                  \
+		HRESULT hres_assert_result = (expr);                                                           \
+		if (FAILED(hres_assert_result))                                                                \
+		{                                                                                              \
+			Panic("%s failed with HRESULT 0x%08lX at %s:%d", #expr, (unsigned long)hres_assert_result, \
+				__FILE__, __LINE__);                                                                   \
+		}                                                                                              \
 	} while (0)
 
-#define D3D11_ASSERT(expr)                                                                                  \
-	do                                                                                                      \
-	{                                                                                                       \
-		if (!(expr))                                                                                        \
-			Panic("%s failed at %s:%d", #expr, __FILE__, __LINE__);                                         \
+#define D3D11_ASSERT(expr)                                          \
+	do                                                              \
+	{                                                               \
+		if (!(expr))                                                \
+			Panic("%s failed at %s:%d", #expr, __FILE__, __LINE__); \
 	} while (0)
 
 namespace EVA::GPU::D3D11
@@ -122,7 +122,7 @@ static uint32 RoundUp16(uint64 value)
 static RenderPass* CreateRenderPass(const RenderPassDesc& desc)
 {
 	D3D11_ASSERT(desc.attachments.data && desc.attachments.count &&
-		desc.attachments.count <= D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1);
+				 desc.attachments.count <= D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT + 1);
 	auto* render_pass = new D3D11RenderPass;
 	render_pass->attachments.assign(desc.attachments.data, desc.attachments.data + desc.attachments.count);
 	return reinterpret_cast<RenderPass*>(render_pass);
@@ -501,11 +501,11 @@ static void CmdBeginRenderPass(const RenderPassBeginDesc& desc)
 	auto* render_pass = ToImpl(desc.render_pass);
 	auto* framebuffer = ToImpl(desc.framebuffer);
 	D3D11_ASSERT(framebuffer->render_pass == render_pass &&
-		(!desc.clear_values.count || desc.clear_values.count == render_pass->attachments.size()));
+				 (!desc.clear_values.count || desc.clear_values.count == render_pass->attachments.size()));
 	for (uint32 i = 0; i < render_pass->attachments.size(); ++i)
 	{
 		D3D11_ASSERT(render_pass->attachments[i].load_op != AttachmentLoadOp::CLEAR ||
-			(desc.clear_values.data && i < desc.clear_values.count));
+					 (desc.clear_values.data && i < desc.clear_values.count));
 	}
 
 	d3d_context->OMSetRenderTargets(framebuffer->color_count, framebuffer->color_views, framebuffer->depth_view);

@@ -9,28 +9,8 @@ using namespace EVA;
 PAL::Window window;
 bool quit = false;
 
-static const char* triangle_shader_source = R"(
-const positions: [3]float2 = {
-	float2( 0.0,  0.5),
-	float2( 0.5, -0.5),
-	float2(-0.5, -0.5),
-};
-
-@entry(vertex)
-function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
-{
-	return float4(positions[vertex_id], 0.0, 1.0);
-}
-
-@entry(fragment)
-function PSMain(): @location(0) float4
-{
-	return float4(1.0, 1.0, 1.0, 1.0);
-}
-)";
-
 // The triangle rotated by a transform from a bind group, which only D3D11 supports so far.
-static const char* rotating_triangle_shader_source = R"(
+static const char* triangle_shader_source = R"(
 const positions: [3]float2 = {
 	float2( 0.0,  0.5),
 	float2( 0.5, -0.5),
@@ -153,32 +133,30 @@ int EVA::AppMain()
 	DEFER(DestroyFramebuffers());
 	CreateFramebuffers(render_pass);
 
-	// Compiled for whichever backend the device got. Without a pipeline, frames are just cleared.
 	Arena* shader_arena = CreateArena();
 	DEFER(DestroyArena(shader_arena));
 	Script::CompileShaderResult triangle_shader = Script::CompileShader({
 		.arena = shader_arena,
-		.source = GPU::device.CreateBindGroup ? rotating_triangle_shader_source : triangle_shader_source,
+		.source = triangle_shader_source,
 		.backend = GPU::device.backend,
 	});
 	for (uint32 i = 0; i < triangle_shader.errors.count; ++i)
 		printf("error: %s\n", triangle_shader.errors[i]->message.CString());
-	GPU::Pipeline* pipeline = nullptr;
-	if (!triangle_shader.errors.count)
-	{
-		pipeline = GPU::device.CreatePipeline({
-			.shaders = triangle_shader.entry_points,
-			.render_pass = render_pass,
-			.bind_groups = triangle_shader.bind_groups,
-		});
-	}
+	if (triangle_shader.errors.count)
+		return 1;
+
+	GPU::Pipeline* pipeline = GPU::device.CreatePipeline({
+		.shaders = triangle_shader.entry_points,
+		.render_pass = render_pass,
+		.bind_groups = triangle_shader.bind_groups,
+	});
+	if (!pipeline)
+		return 1;
 	DEFER(GPU::device.DestroyPipeline(pipeline));
 
-	GPU::BindGroup* transform = nullptr;
-	if (pipeline && triangle_shader.bind_groups.count)
-		transform = GPU::device.CreateBindGroup(triangle_shader.bind_groups[0]);
-	DEFER(if (transform) GPU::device.DestroyBindGroup(transform));
-	GPU::ShaderCursor world = GPU::GetCursor(transform).Field("world");
+	GPU::BindGroup* transform_bind_group = GPU::device.CreateBindGroup(triangle_shader.bind_groups[0]);
+	DEFER(GPU::device.DestroyBindGroup(transform_bind_group));
+	GPU::ShaderCursor world = GPU::GetCursor(transform_bind_group).Field("world");
 
 	uint32 frame = 0;
 	while (!quit)
@@ -189,33 +167,31 @@ int EVA::AppMain()
 
 		GPU::FrameStatus status = GPU::device.BeginFrame();
 		if (status == GPU::FrameStatus::SKIP)
+		{
 			continue;
-		if (status == GPU::FrameStatus::SWAPCHAIN_OUTDATED)
+		}
+		else if (status == GPU::FrameStatus::SWAPCHAIN_OUTDATED)
 		{
 			DestroyFramebuffers();
 			if (GPU::device.RecreateSwapchain())
 				CreateFramebuffers(render_pass);
 			continue;
 		}
+
 		GPU::device.CmdBeginRenderPass({
 			.render_pass = render_pass,
 			.framebuffer = framebuffers[GPU::device.GetCurrentBackbufferIndex()],
 			.clear_values = { { .color = { 1.0f, 0.0f, 0.0f, 1.0f } } },
 		});
-		if (pipeline)
-		{
-			GPU::device.CmdBindPipeline(pipeline);
-			if (transform)
-			{
-				GPU::TextureDesc backbuffer = GPU::device.GetTextureDesc(GPU::device.GetBackbuffer(0));
-				float matrix[16];
-				RotationZ((float)frame * 0.02f, (float)backbuffer.height / (float)backbuffer.width, matrix);
-				world.Write(matrix, sizeof(matrix));
-				GPU::device.CmdSetBindGroup(transform);
-			}
-			GPU::device.CmdDraw(3, 0);
-		}
-		frame++;
+		GPU::device.CmdBindPipeline(pipeline);
+
+		GPU::TextureDesc backbuffer = GPU::device.GetTextureDesc(GPU::device.GetBackbuffer(0));
+		float matrix[16];
+		RotationZ((float)frame++ * 0.02f, (float)backbuffer.height / (float)backbuffer.width, matrix);
+		world.Write(matrix, sizeof(matrix));
+
+		GPU::device.CmdSetBindGroup(transform_bind_group);
+		GPU::device.CmdDraw(3, 0);
 		GPU::device.CmdEndRenderPass();
 		GPU::device.EndFrame();
 	}
