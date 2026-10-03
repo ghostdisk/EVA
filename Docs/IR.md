@@ -144,9 +144,9 @@ it. The type rules for each op are in the validator.
 | Bits | `and`, `or`, `xor`, `not`, `shl`, `shr` | logical on `bool`. `shr` is arithmetic for `int`, logical for `uint` |
 | Comparison | `eq`, `ne`, `lt`, `le`, `gt`, `ge` | gives `bool` or a `bool` vector |
 | Selection | `select c, a, b` | component-wise |
-| Linear algebra | `matmul`, `scale`, `transpose` | `matmul` is matrix × matrix, matrix × vector or vector × matrix. `scale` is vector or matrix × scalar. Reserved until the language has matrices |
+| Linear algebra | `matmul`, `scale`, `transpose` | `matmul` is matrix × matrix, matrix × vector or vector × matrix. `mul(a, b)` in the language. `scale` and `transpose` are reserved |
 | Conversion | `convert`, `bitcast` | |
-| Built-ins | `intrinsic` | which one is the sub-op: `min`, `max`, `dot`, `sqrt`, ... A target without one gets a helper function from its emitter |
+| Built-ins | `intrinsic` | which one is the sub-op: `min`, `max`, `dot`, `length`, `normalize`. A target without one gets a helper function from its emitter |
 | Calls | `call f, args...` | |
 | Structure | `selection_merge`, `loop_merge` | see below |
 | Terminators | `branch`, `branch_if`, `return`, `discard`, `unreachable` | `switch` later |

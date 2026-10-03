@@ -443,6 +443,55 @@ TEST(Typer, Functions)
 	CHECK_TYPE_ERRORS("function f(): float { function g(): int { return 1; } return 1.0; }", "");
 }
 
+TEST(Typer, BuiltinFunctions)
+{
+	CHECK_TYPE("function f(m: float4x3, v: float4): float3 { return mul(m, v); }",
+		"([DECLARATION]FUNCTION f ([PARAMETER]PARAMETER:float4x3 m ([DECLARED_TYPE]REFERENCE:float4x3 float4x3 -> TYPE float4x3)) "
+		"([PARAMETER]PARAMETER:float4 v ([DECLARED_TYPE]REFERENCE:float4 float4 -> TYPE float4)) "
+		"([RETURN_TYPE]REFERENCE:float3 float3 -> TYPE float3) ([BODY]BLOCK ([STATEMENT]RETURN ([VALUE]CALL:float3 "
+		"([CALLEE]REFERENCE mul -> INTRINSIC mul) ([ARGUMENT]REFERENCE:float4x3 m -> PARAMETER) "
+		"([ARGUMENT]REFERENCE:float4 v -> PARAMETER)))))");
+
+	// mul: floatCxR takes C components on its right and R on its left.
+	CHECK_TYPE_ERRORS("function f(m: float4x3, v: float3): float4 { return mul(v, m); }", "");
+	CHECK_TYPE_ERRORS("function f(a: float4x3, b: float2x4): float2x3 { return mul(a, b); }", "");
+	CHECK_TYPE_ERRORS("function f(m: float4x3, v: float3): float3 { return mul(m, v); }", "'mul' can't multiply float4x3 by float3");
+	CHECK_TYPE_ERRORS("function f(m: float4x3, v: float4): float4 { return mul(v, m); }", "'mul' can't multiply float4 by float4x3");
+	CHECK_TYPE_ERRORS("function f(a: float4x3, b: float4x3): float4x3 { return mul(a, b); }",
+		"'mul' can't multiply float4x3 by float4x3");
+	CHECK_TYPE_ERRORS("function f(a: float4, b: float4): float4 { return mul(a, b); }", "'mul' can't multiply float4 by float4");
+	CHECK_TYPE_ERRORS("function f(m: float4x4): float4 { return mul(m, 2.0); }", "'mul' can't multiply float4x4 by float");
+	CHECK_TYPE_ERRORS("function f(m: float4x4, v: Vector(int, 4)): float4 { return mul(m, v); }",
+		"'mul' can't multiply float4x4 by int4");
+
+	// min and max: literals take the other argument's type, or the expected one.
+	CHECK_TYPE_ERRORS("function f(a: float3, b: float3): float3 { return max(min(a, b), a); }", "");
+	CHECK_TYPE_ERRORS("function f(u: uint): uint { return min(u, 3) + max(2, 5); }", "");
+	CHECK_TYPE_ERRORS("function f(): float { return min(1, 2.5); }", "");
+	CHECK_TYPE_ERRORS("function f(i: int, u: uint): int { return min(i, u); }", "mismatched types int and uint");
+	CHECK_TYPE_ERRORS("function f(i: int): int { return min(i, 0.5); }", "'0.5' is not an integer");
+	CHECK_TYPE_ERRORS("function f(v: float3): float3 { return max(v, 0.0); }", "mismatched types float3 and float");
+	CHECK_TYPE_ERRORS("function f(m: float2x2): float2x2 { return min(m, m); }", "'min' takes numbers or vectors of them, got float2x2");
+
+	// dot, length and normalize: float vectors.
+	CHECK_TYPE_ERRORS("function f(a: float3, b: float3): float { return dot(a, b) + length(normalize(a)); }", "");
+	CHECK_TYPE_ERRORS("function f(a: float3, b: float4): float { return dot(a, b); }", "mismatched types float3 and float4");
+	CHECK_TYPE_ERRORS("function f(a: float): float { return dot(a, a); }", "'dot' takes float vectors, got float");
+	CHECK_TYPE_ERRORS("function f(a: Vector(int, 2)): int { return length(a); }", "'length' takes a float vector, got int2");
+	CHECK_TYPE_ERRORS("function f(a: float): float { return normalize(a); }", "'normalize' takes a float vector, got float");
+
+	// Calls with the wrong arguments, and uses that aren't calls.
+	CHECK_TYPE_ERRORS("function f(a: float3): float { return length(a, a); }", "'length' takes 1 argument, got 2");
+	CHECK_TYPE_ERRORS("function f(a: float3): float3 { return min(a); }", "'min' takes 2 arguments, got 1");
+	CHECK_TYPE_ERRORS("function f(): float { return dot(); }", "'dot' takes 2 arguments, got 0");
+	CHECK_TYPE_ERRORS("function f() { let m = mul; }", "'mul' is a function, which can only be called");
+	CHECK_TYPE_ERRORS("const c = min(1, 2);", "a const's value must be a constant");
+	CHECK_SHADER_TYPE_ERRORS("@min function f() {}", "'min' isn't an attribute");
+	CHECK_SHADER_TYPE_ERRORS("function f(): float { return semantic(1.0); }", "'semantic' can only be used as an attribute");
+	// Shadowed like any other name.
+	CHECK_TYPE_ERRORS("function f(a: float3): float3 { let min = 1; return min(a, a); }", "int can't be called");
+}
+
 TEST(Typer, Let)
 {
 	// The declared type, or the value's.

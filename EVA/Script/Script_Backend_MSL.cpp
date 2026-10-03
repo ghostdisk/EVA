@@ -476,6 +476,7 @@ struct Emitter
 			else
 				Define(ref, Print("as_type<%s>(%s)", TypeName(type), Operand(o[0])));
 			break;
+		case IROp::MATMUL: Define(ref, Binary(o, "*")); break; // MSL's * on matrices is the product
 		case IROp::INTRINSIC: Define(ref, Call(IRIntrinsicToString((IRIntrinsic)value.sub_op).CString(), o, 0)); break;
 		case IROp::CALL:
 		{

@@ -317,6 +317,25 @@ TEST(IR, ValidValues)
 	CHECK_VALID(f.module, "");
 }
 
+TEST(IR, ValidLinearAlgebra)
+{
+	Fixture f;
+	f.Init(test.arena);
+	Type* float3 = GetVectorType(f.context, f.context.float_type, 3);
+	MatrixType* float4x3 = GetMatrixType(f.context, f.context.float_type, 4, 3);
+	MatrixType* float3x4 = GetMatrixType(f.context, f.context.float_type, 3, 4);
+	IRRef a = GetIRConstant(f.module, FloatConstant(test.arena, float4x3, {}));
+	IRRef b = GetIRConstant(f.module, FloatConstant(test.arena, float3x4, {}));
+	IRRef column = f.Add(IROp::MATMUL, float3, { a, f.v });
+	IRRef row = f.Add(IROp::MATMUL, f.float4, { column, a });
+	f.Add(IROp::MATMUL, GetMatrixType(f.context, f.context.float_type, 3, 3), { a, b });
+	f.Add(IROp::INTRINSIC, f.context.float_type, { row, f.v }, (uint8)IRIntrinsic::DOT);
+	f.Add(IROp::INTRINSIC, f.context.float_type, { column }, (uint8)IRIntrinsic::LENGTH);
+	IRRef normal = f.Add(IROp::INTRINSIC, f.float4, { row }, (uint8)IRIntrinsic::NORMALIZE);
+	f.Add(IROp::RETURN, nullptr, { normal });
+	CHECK_VALID(f.module, "");
+}
+
 TEST(IR, ValidControlFlow)
 {
 	// if (u == 0) { local = v } else {} return local, with a value from the header used after the merge.
@@ -531,6 +550,19 @@ TEST(IR, TypeErrors)
 			[](Fixture& f) { f.Add(IROp::BITCAST, f.context.uint_type, { f.v }); } },
 		{ "@f block0, instruction 0 (intrinsic): the right operand is uint, expected float4",
 			[](Fixture& f) { f.Add(IROp::INTRINSIC, f.float4, { f.v, f.u }, (uint8)IRIntrinsic::MAX); } },
+		{ "@f block0, instruction 0 (matmul): can't multiply float4 by float4",
+			[](Fixture& f) { f.Add(IROp::MATMUL, f.float4, { f.v, f.v }); } },
+		{ "@f block0, instruction 0 (matmul): the result is float4, expected float2",
+			[](Fixture& f) {
+				Type* float2x4 = GetMatrixType(f.context, f.context.float_type, 2, 4);
+				f.Add(IROp::MATMUL, f.float4, { f.v, GetIRConstant(f.module, FloatConstant(f.module.arena, float2x4, {})) });
+			} },
+		{ "@f block0, instruction 0 (intrinsic): dot of 2 operands of uint",
+			[](Fixture& f) { f.Add(IROp::INTRINSIC, f.context.uint_type, { f.u, f.u }, (uint8)IRIntrinsic::DOT); } },
+		{ "@f block0, instruction 0 (intrinsic): the result is float4, expected float",
+			[](Fixture& f) { f.Add(IROp::INTRINSIC, f.float4, { f.v }, (uint8)IRIntrinsic::LENGTH); } },
+		{ "@f block0, instruction 0 (intrinsic): normalize of 2 operands of float4",
+			[](Fixture& f) { f.Add(IROp::INTRINSIC, f.float4, { f.v, f.v }, (uint8)IRIntrinsic::NORMALIZE); } },
 		{ "@f block0, instruction 0 (call): an argument is float4, expected uint",
 			[](Fixture& f) { f.Add(IROp::CALL, f.float4, { f.other, f.v }); } },
 		{ "@f block0, instruction 0 (call): passes 0 arguments for 1 parameters",

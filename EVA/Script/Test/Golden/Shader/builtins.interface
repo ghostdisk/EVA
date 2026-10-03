@@ -1,0 +1,6 @@
+vertex VS
+  input location(0) float3 [0]
+  input location(1) float3 [1]
+  input location(2) int [2]
+  input location(3) uint2 [3]
+  output semantic(position) float4 []

@@ -54,6 +54,11 @@ static bool IsBoolScalarOrVector(Type* type)
 	return IsScalarOrVector(type) && ComponentKind(type) == PrimitiveKind::BOOL;
 }
 
+static bool IsFloatVector(Type* type)
+{
+	return type && type->type_kind == TypeKind::VECTOR && ComponentKind(type) == PrimitiveKind::FLOAT;
+}
+
 static bool IsFloatMatrix(Type* type)
 {
 	return type && type->type_kind == TypeKind::MATRIX;
@@ -600,6 +605,25 @@ struct Validator
 			if (types(0) != module.context->bool_type && !(IsScalarOrVector(type) && types(0) == BoolLike(type)))
 				return Fail("the condition is %s", TypeName(types(0)));
 			return true;
+		case IROp::MATMUL:
+		{
+			Context& context = *module.context;
+			Type* product = nullptr;
+			if (IsFloatMatrix(types(0)))
+			{
+				MatrixType* left = (MatrixType*)types(0);
+				if (IsFloatVector(types(1)) && ((VectorType*)types(1))->count == left->columns)
+					product = GetVectorType(context, left->element, left->rows);
+				else if (IsFloatMatrix(types(1)) && ((MatrixType*)types(1))->rows == left->columns)
+					product = GetMatrixType(context, left->element, ((MatrixType*)types(1))->columns, left->rows);
+			}
+			else if (IsFloatVector(types(0)) && IsFloatMatrix(types(1)) &&
+					 ((VectorType*)types(0))->count == ((MatrixType*)types(1))->rows)
+				product = GetVectorType(context, context.float_type, ((MatrixType*)types(1))->columns);
+			if (!product)
+				return Fail("can't multiply %s by %s", TypeName(types(0)), TypeName(types(1)));
+			return Expect(type, product, "the result");
+		}
 		case IROp::CONVERT:
 		{
 			bool convertible = IsScalarOrVector(types(0)) && IsScalarOrVector(type) &&
@@ -622,6 +646,19 @@ struct Validator
 					return Fail("%s of %u operands of %s", IRIntrinsicToString((IRIntrinsic)value.sub_op).CString(), o.count,
 						TypeName(type));
 				return Expect(types(0), type, "the left operand") && Expect(types(1), type, "the right operand");
+			case IRIntrinsic::DOT:
+				if (o.count != 2 || !IsFloatVector(types(0)))
+					return Fail("dot of %u operands of %s", o.count, TypeName(types(0)));
+				return Expect(types(1), types(0), "the right operand") &&
+					   Expect(type, module.context->float_type, "the result");
+			case IRIntrinsic::LENGTH:
+			case IRIntrinsic::NORMALIZE:
+			{
+				bool length = (IRIntrinsic)value.sub_op == IRIntrinsic::LENGTH;
+				if (o.count != 1 || !IsFloatVector(types(0)))
+					return Fail("%s of %u operands of %s", length ? "length" : "normalize", o.count, TypeName(types(0)));
+				return Expect(type, length ? module.context->float_type : types(0), "the result");
+			}
 			}
 			return Fail("intrinsic %u", (uint32)value.sub_op);
 		case IROp::CALL:

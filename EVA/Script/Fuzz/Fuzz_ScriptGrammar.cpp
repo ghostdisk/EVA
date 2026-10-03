@@ -713,6 +713,37 @@ struct Generator
 		return expr;
 	}
 
+	// min and max of any type, dot and length giving a float, normalize of a vector. Never constant.
+	Expr Builtin(GenType* type, Where where, uint32 depth)
+	{
+		Expr expr;
+		uint32 choice = Below(type == float_type ? 4 : type->kind == Kind::VECTOR ? 3 : 2);
+		if (choice < 2)
+		{
+			Expr left = Generate(type, where, depth + 1);
+			Expr right = Generate(type, where, depth + 1);
+			expr.text = std::string(choice ? "max(" : "min(") + left.text + ", " + right.text + ")";
+			if (left.literal && right.literal)
+				expr.hint_free = left.hint_free || right.hint_free;
+			else if (left.literal)
+				expr.hint_free = right.hint_free;
+			else
+				expr.hint_free = left.hint_free;
+			return expr;
+		}
+		if (type->kind == Kind::VECTOR)
+		{
+			expr.text = "normalize(" + Generate(type, where, depth + 1).text + ")";
+			return expr;
+		}
+		GenType* vector = vector_types[2 + Below(3)];
+		if (choice == 2)
+			expr.text = "dot(" + Generate(vector, where, depth + 1).text + ", " + Generate(vector, where, depth + 1).text + ")";
+		else
+			expr.text = "length(" + Generate(vector, where, depth + 1).text + ")";
+		return expr;
+	}
+
 	Expr InitList(GenType* type, Where where, uint32 depth)
 	{
 		Expr expr;
@@ -758,7 +789,7 @@ struct Generator
 			return InitList(type, where, depth);
 		}
 
-		switch (leaf ? 0 : Below(5))
+		switch (leaf ? 0 : Below(6))
 		{
 		case 1:
 			if (Place(type, where, depth, expr))
@@ -769,6 +800,10 @@ struct Generator
 		case 4:
 			if (type->kind == Kind::VECTOR)
 				return Constructor(type, where, depth);
+			break;
+		case 5:
+			if (!where.constant_only)
+				return Builtin(type, where, depth);
 			break;
 		}
 		if (type->kind == Kind::VECTOR)
@@ -848,9 +883,19 @@ struct Generator
 			expr.text = "x";
 			break;
 		case 14:
-			// Intrinsics and enum values used as values.
-			expr.text = Below(2) ? "semantic(position)" : (Below(2) ? "location" : "vertex_index");
+		{
+			// Intrinsics and enum values used as values, and built-in functions called wrong.
+			const char* const names[] = { "mul", "min", "max", "dot", "length", "normalize" };
+			switch (Below(5))
+			{
+			case 0: expr.text = "semantic(position)"; break;
+			case 1: expr.text = Below(2) ? "location" : "vertex_index"; break;
+			case 2: expr.text = names[Below(6)]; break;
+			case 3: expr.text = std::string(names[Below(6)]) + "(" + any() + ")"; break;
+			default: expr.text = std::string(names[Below(6)]) + "(" + any() + ", " + any() + ")"; break;
+			}
 			break;
+		}
 		case 15: expr.text = TypeText(PickType((uint32)struct_types.size()), true) + "(" + any() + ")"; break; // int(1), S(1)
 		case 16:
 		{

@@ -44,7 +44,7 @@ static const IROpInfo IR_OPS[] = {
 
 	{ "select", 3, 3, IR_OP_RESULT },
 
-	{ "matmul", 2, 2, IR_OP_RESULT | IR_OP_RESERVED },
+	{ "matmul", 2, 2, IR_OP_RESULT },
 	{ "scale", 2, 2, IR_OP_RESULT | IR_OP_RESERVED },
 	{ "transpose", 1, 1, IR_OP_RESULT | IR_OP_RESERVED },
 
@@ -77,6 +77,9 @@ ZTStringView IRIntrinsicToString(IRIntrinsic intrinsic)
 	{
 		case IRIntrinsic::MIN: return "min";
 		case IRIntrinsic::MAX: return "max";
+		case IRIntrinsic::DOT: return "dot";
+		case IRIntrinsic::LENGTH: return "length";
+		case IRIntrinsic::NORMALIZE: return "normalize";
 	}
 	return "?";
 }

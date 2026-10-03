@@ -98,6 +98,9 @@ enum class IRIntrinsic : uint8
 {
 	MIN,
 	MAX,
+	DOT,
+	LENGTH,
+	NORMALIZE,
 };
 
 enum IROpFlags : uint8

@@ -52,7 +52,7 @@ for shaders, later bytecode for the script VM.
 `Node`, `Type`, `Intrinsic` and `Constant` derive from `Element`, which starts with a 1-byte `ElementKind`. A
 `Definition` points to an `Element`, and every resolved identifier is a `REFERENCE` with `Element* target`.
 
-An `Intrinsic` has an `IntrinsicKind` (`SEMANTIC`, `LOCATION`, `ENTRY`; later `dot`, `sin`, `sample`...), a name and an
+An `Intrinsic` has an `IntrinsicKind` (the attributes `SEMANTIC`, `LOCATION`, `ENTRY`, and the built-in functions `MUL`, `MIN`, `MAX`, `DOT`, `LENGTH`, `NORMALIZE`), a name and an
 `argument_scope` (nullptr: arguments resolve normally).
 
 `CompileShader` builds a shader Context that registers `semantic`, `location` and `entry` in the global scope. A script

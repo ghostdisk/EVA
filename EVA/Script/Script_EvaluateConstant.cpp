@@ -164,7 +164,10 @@ static Type* ReferenceType(Evaluation& evaluation, Node* node)
 		EmitError(typer, "'%s' is a type, not a value", AtomName(typer, node->name));
 		return nullptr;
 	case ElementKind::INTRINSIC:
-		EmitError(typer, "'%s' can only be used as an attribute", AtomName(typer, node->name));
+		if (IsBuiltinFunction(((Intrinsic*)node->target)->intrinsic_kind))
+			EmitError(typer, "'%s' is a function, which can only be called", AtomName(typer, node->name));
+		else
+			EmitError(typer, "'%s' can only be used as an attribute", AtomName(typer, node->name));
 		return nullptr;
 	case ElementKind::NONE: break;
 	}

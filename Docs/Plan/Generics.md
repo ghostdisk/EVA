@@ -189,7 +189,7 @@ alias's name, a dump, reflection showing `Lights` rather than `ConstantBuffer(Li
 |---|---|---|
 | `EvaluateType` | declared types, return types, array elements, `TYPE` arguments | a `Type` is the answer, stored in the node's `type` as today; a `Generic` whose parameters all have defaults is instantiated with none given (bare `Texture2D`), one without is "'Array' needs arguments"; anything else is "expected a type". The node isn't rewritten: nothing after the typer reads type expressions but their `type`, and rewriting would have to carry every attribute in the dropped arguments along |
 | `TypeCall` | a call's callee | below |
-| `TypeReference` | a name in a value position | a `Type`, `Generic` or alias: "'x' is a type, not a value"; an `Intrinsic`: "can only be used as an attribute"; nodes as today |
+| `TypeReference` | a name in a value position | a `Type`, `Generic` or alias: "'x' is a type, not a value"; an `Intrinsic`: "can only be used as an attribute", or for a built-in function "is a function, which can only be called"; nodes as today |
 | `TypeAttribute` | an attribute's callee | an `Intrinsic`, or "isn't an attribute" |
 | `ConstructorType`, `ReferenceType` (constant evaluator) | the same as `TypeCall` and `TypeReference`, in constant expressions | the same dispatch, so `Vector(float, 3)(...)` and aliases work in consts too |
 
@@ -206,7 +206,7 @@ case ElementKind::TYPE: // float3(...), V(...) with type V = float3, Vector(floa
 case ElementKind::GENERIC: // the call is an instantiation, Vector(float, 3) itself, in a value position
 	EmitError(typer, "expected a value, got a type");
 	return false;
-case ElementKind::INTRINSIC: // later: sample(...), length(...); today only attributes
+case ElementKind::INTRINSIC: // built-in functions: mul(...), length(...); attributes can't be called
 	...
 case ElementKind::NODE:
 	if (((Node*)target)->node_type == NodeType::FUNCTION)

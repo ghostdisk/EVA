@@ -123,6 +123,13 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 			DefineType(context, scope, GetMatrixType(context, context.float_type, columns, rows));
 	}
 
+	DefineIntrinsic(context, scope, "mul", IntrinsicKind::MUL);
+	DefineIntrinsic(context, scope, "min", IntrinsicKind::MIN);
+	DefineIntrinsic(context, scope, "max", IntrinsicKind::MAX);
+	DefineIntrinsic(context, scope, "dot", IntrinsicKind::DOT);
+	DefineIntrinsic(context, scope, "length", IntrinsicKind::LENGTH);
+	DefineIntrinsic(context, scope, "normalize", IntrinsicKind::NORMALIZE);
+
 	if (kind == ContextKind::SHADER)
 	{
 		EnumType* semantic_type = NewEnumType(context, "Semantic");

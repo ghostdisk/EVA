@@ -23,6 +23,7 @@ TEST(Context, GlobalScopeHoldsTheBuiltInTypes)
 
 	uint32 types = 0;
 	uint32 generics = 0;
+	uint32 functions = 0;
 	for (Definition* definition = context.global_scope->first; definition; definition = definition->next)
 	{
 		if (definition->element->kind == ElementKind::GENERIC)
@@ -31,12 +32,22 @@ TEST(Context, GlobalScopeHoldsTheBuiltInTypes)
 			generics++;
 			continue;
 		}
+		if (definition->element->kind == ElementKind::INTRINSIC)
+		{
+			Intrinsic* intrinsic = (Intrinsic*)definition->element;
+			CHECK_EQ(definition->name, intrinsic->name);
+			CHECK(IsBuiltinFunction(intrinsic->intrinsic_kind)); // scripts have no attributes
+			CHECK(intrinsic->argument_scope == nullptr);
+			functions++;
+			continue;
+		}
 		CHECK_EQ(definition->element->kind, ElementKind::TYPE);
 		CHECK_EQ(definition->name, ((Type*)definition->element)->name); // named by the type's own name
 		types++;
 	}
 	CHECK_EQ(types, 16u); // void, int, uint, float, float2 to float4, float2x2 to float4x4
 	CHECK_EQ(generics, 3u);
+	CHECK_EQ(functions, 6u); // mul, min, max, dot, length, normalize
 	CHECK(context.array_generic);
 	CHECK(context.vector_generic);
 	CHECK(context.matrix_generic);

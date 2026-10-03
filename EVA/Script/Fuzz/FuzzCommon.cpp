@@ -506,9 +506,10 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			}
 			else if (!entry.in_attribute)
 			{
-				// A generic's name, as the callee of the CALL that instantiates it, names no type itself.
-				bool generic = node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::GENERIC &&
-							   node->usage == Usage::CALLEE;
+				// A generic's name, as the callee of the CALL that instantiates it, names no type itself, and neither
+				// does a built-in function's.
+				bool generic = node->node_type == NodeType::REFERENCE && node->usage == Usage::CALLEE &&
+							   (node->target->kind == ElementKind::GENERIC || node->target->kind == ElementKind::INTRINSIC);
 				bool untyped = node->node_type == NodeType::MODULE || node->node_type == NodeType::STRUCT ||
 							   node->node_type == NodeType::FUNCTION || node->node_type == NodeType::BLOCK ||
 							   node->node_type == NodeType::RETURN || generic;

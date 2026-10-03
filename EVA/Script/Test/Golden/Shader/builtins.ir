@@ -1,0 +1,84 @@
+global @VS.in0: *input float3 location(0)
+global @VS.in1: *input float3 location(1)
+global @VS.in2: *input int location(2)
+global @VS.in3: *input uint2 location(3)
+global @VS.out0: *output float4 semantic(position)
+
+function @VS(%0: float3, %1: float3, %2: int, %3: uint2): float4
+	local $0: *function float3
+	local $1: *function float3
+	local $2: *function int
+	local $3: *function uint2
+	local $4: *function float4x3
+	local $5: *function float3x4
+	local $6: *function float4x4
+	local $7: *function float4
+	local $8: *function float3
+	local $9: *function int
+	local $10: *function uint2
+	local $11: *function float3
+	local $12: *function float3
+	local $13: *function float
+block0:
+	store $0, %0
+	store $1, %1
+	store $2, %2
+	store $3, %3
+	%4: float3x4 = load $5
+	%5: float4x3 = load $4
+	%6: float4x4 = matmul %4, %5
+	store $6, %6
+	%7: float3 = load $0
+	%8: float4x3 = load $4
+	%9: float4 = matmul %7, %8
+	store $7, %9
+	%10: float4x3 = load $4
+	%11: float4 = load $7
+	%12: float3 = matmul %10, %11
+	store $8, %12
+	%13: int = load $2
+	%14: int = intrinsic min %13, int 3
+	%15: int = load $2
+	%16: int = neg int 1
+	%17: int = intrinsic max %15, %16
+	%18: int = add %14, %17
+	store $9, %18
+	%19: uint2 = load $3
+	%20: uint2 = construct uint 1, uint 1
+	%21: uint2 = intrinsic max %19, %20
+	store $10, %21
+	%22: float3 = load $8
+	%23: float3 = load $1
+	%24: float3 = construct float 0.0, float 0.0, float 0.0
+	%25: float3 = intrinsic max %23, %24
+	%26: float3 = intrinsic min %22, %25
+	store $11, %26
+	%27: float3 = load $1
+	%28: float3 = intrinsic normalize %27
+	store $12, %28
+	%29: float3 = load $12
+	%30: float3 = construct float 1.0, float 2.0, float 3.0
+	%31: float3 = intrinsic normalize %30
+	%32: float = intrinsic dot %29, %31
+	%33: float = intrinsic max %32, float 0.0
+	store $13, %33
+	%34: float4x4 = load $6
+	%35: float3 = load $11
+	%36: float = load $13
+	%37: float3 = construct %36, %36, %36
+	%38: float3 = mul %35, %37
+	%39: float3 = load $0
+	%40: float = intrinsic length %39
+	%41: float4 = construct %38, %40
+	%42: float4 = matmul %34, %41
+	return %42
+
+function @VS.entry(): void [entry vertex]
+block0:
+	%0: float3 = load @VS.in0
+	%1: float3 = load @VS.in1
+	%2: int = load @VS.in2
+	%3: uint2 = load @VS.in3
+	%4: float4 = call @VS, %0, %1, %2, %3
+	store @VS.out0, %4
+	return

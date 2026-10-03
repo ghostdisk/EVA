@@ -167,7 +167,7 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		EmitError(typer, "expected an attribute name");
 		return false;
 	}
-	if (callee->target->kind != ElementKind::INTRINSIC)
+	if (callee->target->kind != ElementKind::INTRINSIC || IsBuiltinFunction(((Intrinsic*)callee->target)->intrinsic_kind))
 	{
 		EmitError(typer, "'%s' isn't an attribute", AtomName(typer, callee->name));
 		return false;
@@ -211,7 +211,7 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		Node* argument = SingleArgument(typer, attribute, name);
 		return argument && TypeEnumArgument(typer, argument, typer.context->stage_type);
 	}
-	case IntrinsicKind::NONE: break;
+	default: break;
 	}
 	return false;
 }
@@ -676,7 +676,10 @@ static bool TypeReference(Typer& typer, Node* node)
 		EmitError(typer, "'%s' is a type, not a value", name);
 		return false;
 	case ElementKind::INTRINSIC:
-		EmitError(typer, "'%s' can only be used as an attribute", name);
+		if (IsBuiltinFunction(((Intrinsic*)node->target)->intrinsic_kind))
+			EmitError(typer, "'%s' is a function, which can only be called", name);
+		else
+			EmitError(typer, "'%s' can only be used as an attribute", name);
 		return false;
 	case ElementKind::CONSTANT:
 		node->type = ((Constant*)node->target)->type;
@@ -776,14 +779,9 @@ static bool TypeUnary(Typer& typer, Node* node, Type* expected)
 	return true;
 }
 
-static bool TypeBinary(Typer& typer, Node* node, Type* expected)
+// Literals take the other side's type, and two literals are float if either is written as one.
+static bool TypeOperandPair(Typer& typer, Node*& left, Node*& right, Type* expected)
 {
-	if (!CheckOperator(typer, NodeType::BINARY, node->op))
-		return false;
-
-	// Literals take the other side's type, so the other side goes first.
-	Node* left = FindChild(node, Usage::LEFT);
-	Node* right = FindChild(node, Usage::RIGHT);
 	bool left_literal = left->node_type == NodeType::NUMBER;
 	bool right_literal = right->node_type == NodeType::NUMBER;
 	if (left_literal && right_literal && !expected)
@@ -802,7 +800,16 @@ static bool TypeBinary(Typer& typer, Node* node, Type* expected)
 		return false;
 	if (!TypeNode(typer, second, first->type))
 		return false;
-	if (!ImplicitCoCast(typer, left, right) || !CheckOperands(typer, NodeType::BINARY, node->op, left->type))
+	return ImplicitCoCast(typer, left, right);
+}
+
+static bool TypeBinary(Typer& typer, Node* node, Type* expected)
+{
+	if (!CheckOperator(typer, NodeType::BINARY, node->op))
+		return false;
+	Node* left = FindChild(node, Usage::LEFT);
+	Node* right = FindChild(node, Usage::RIGHT);
+	if (!TypeOperandPair(typer, left, right, expected) || !CheckOperands(typer, NodeType::BINARY, node->op, left->type))
 		return false;
 	node->type = left->type;
 	return true;
@@ -855,7 +862,102 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 	return typed;
 }
 
-static bool TypeCall(Typer& typer, Node* node)
+static bool IsFloatVector(Type* type)
+{
+	return type->type_kind == TypeKind::VECTOR && ((VectorType*)type)->element->primitive_kind == PrimitiveKind::FLOAT;
+}
+
+// floatCxR takes C components on its right and R on its left.
+static Type* ProductType(Typer& typer, Type* a, Type* b)
+{
+	Context& context = *typer.context;
+	if (a->type_kind == TypeKind::MATRIX)
+	{
+		MatrixType* left = (MatrixType*)a;
+		if (IsFloatVector(b) && ((VectorType*)b)->count == left->columns)
+			return GetVectorType(context, left->element, left->rows);
+		if (b->type_kind == TypeKind::MATRIX && ((MatrixType*)b)->rows == left->columns)
+			return GetMatrixType(context, left->element, ((MatrixType*)b)->columns, left->rows);
+		return nullptr;
+	}
+	if (b->type_kind == TypeKind::MATRIX && IsFloatVector(a) && ((VectorType*)a)->count == ((MatrixType*)b)->rows)
+		return GetVectorType(context, ((MatrixType*)b)->element, ((MatrixType*)b)->columns);
+	return nullptr;
+}
+
+static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type* expected)
+{
+	const char* name = AtomName(typer, intrinsic->name);
+	IntrinsicKind kind = intrinsic->intrinsic_kind;
+	uint32 needed = kind == IntrinsicKind::LENGTH || kind == IntrinsicKind::NORMALIZE ? 1 : 2;
+	Node* arguments[2] = {};
+	uint32 count = 0;
+	for (Node* child = node->child; child; child = child->next)
+	{
+		if (child->usage != Usage::ARGUMENT)
+			continue;
+		if (count < 2)
+			arguments[count] = child;
+		count++;
+	}
+	if (count != needed)
+	{
+		EmitError(typer, "'%s' takes %u argument%s, got %u", name, needed, needed == 1 ? "" : "s", count);
+		return false;
+	}
+
+	switch (kind)
+	{
+	case IntrinsicKind::MUL:
+	{
+		bool typed = TypeNode(typer, arguments[0], nullptr);
+		typed = TypeNode(typer, arguments[1], nullptr) && typed;
+		if (!typed)
+			return false;
+		node->type = ProductType(typer, arguments[0]->type, arguments[1]->type);
+		if (!node->type)
+			EmitError(typer, "'mul' can't multiply %s by %s", TypeName(typer, arguments[0]->type),
+				TypeName(typer, arguments[1]->type));
+		return node->type != nullptr;
+	}
+	case IntrinsicKind::MIN:
+	case IntrinsicKind::MAX:
+	{
+		if (!TypeOperandPair(typer, arguments[0], arguments[1], expected))
+			return false;
+		Type* type = arguments[0]->type;
+		PrimitiveType* component = ComponentType(type);
+		if (!component || !IsNumeric(component))
+		{
+			EmitError(typer, "'%s' takes numbers or vectors of them, got %s", name, TypeName(typer, type));
+			return false;
+		}
+		node->type = type;
+		return true;
+	}
+	case IntrinsicKind::DOT:
+		if (!TypeOperandPair(typer, arguments[0], arguments[1], nullptr))
+			return false;
+		break;
+	default:
+		if (!TypeNode(typer, arguments[0], nullptr))
+			return false;
+		break;
+	}
+
+	// dot, length and normalize: float vectors.
+	Type* type = arguments[0]->type;
+	if (!IsFloatVector(type))
+	{
+		EmitError(typer, "'%s' takes %s, got %s", name, kind == IntrinsicKind::DOT ? "float vectors" : "a float vector",
+			TypeName(typer, type));
+		return false;
+	}
+	node->type = kind == IntrinsicKind::NORMALIZE ? type : ((VectorType*)type)->element;
+	return true;
+}
+
+static bool TypeCall(Typer& typer, Node* node, Type* expected)
 {
 	Node* callee = FindChild(node, Usage::CALLEE);
 	Element* target = nullptr;
@@ -863,6 +965,10 @@ static bool TypeCall(Typer& typer, Node* node)
 		return false;
 	switch (target ? target->kind : ElementKind::NONE)
 	{
+	case ElementKind::INTRINSIC:
+		if (IsBuiltinFunction(((Intrinsic*)target)->intrinsic_kind))
+			return TypeBuiltinCall(typer, node, (Intrinsic*)target, expected);
+		break;
 	case ElementKind::TYPE: // float3(...), and Array(...)(...) however the type is spelled
 		callee->type = (Type*)target;
 		return TypeConstructor(typer, node, callee->type);
@@ -1004,7 +1110,7 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 			typed = false;
 		break;
 	case NodeType::CALL:
-		if (!TypeCall(typer, node))
+		if (!TypeCall(typer, node, expected))
 			typed = false;
 		break;
 	case NodeType::INDEX:

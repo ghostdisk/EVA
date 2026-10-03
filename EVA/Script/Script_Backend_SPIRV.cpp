@@ -73,6 +73,10 @@ enum SpvOp : uint16
 	OpFDiv = 136,
 	OpUMod = 137,
 	OpFRem = 140,
+	OpVectorTimesMatrix = 144,
+	OpMatrixTimesVector = 145,
+	OpMatrixTimesMatrix = 146,
+	OpDot = 148,
 	OpLogicalEqual = 164,
 	OpLogicalNotEqual = 165,
 	OpLogicalOr = 166,
@@ -139,6 +143,8 @@ static const uint32 GLSL_SMIN = 39;
 static const uint32 GLSL_FMAX = 40;
 static const uint32 GLSL_UMAX = 41;
 static const uint32 GLSL_SMAX = 42;
+static const uint32 GLSL_LENGTH = 66;
+static const uint32 GLSL_NORMALIZE = 69;
 
 // An instruction's word count is 16 bits.
 static const uint32 MAX_INSTRUCTION_WORDS = 0xFFFF;
@@ -706,6 +712,18 @@ struct Emitter
 			else
 				Result(ref, OpBitcast, type, { Id(o[0]) });
 			break;
+		case IROp::MATMUL:
+		{
+			Type* left = module[o[0]].type;
+			Type* right = module[o[1]].type;
+			SpvOp op = OpMatrixTimesMatrix;
+			if (left->type_kind != TypeKind::MATRIX)
+				op = OpVectorTimesMatrix;
+			else if (right->type_kind != TypeKind::MATRIX)
+				op = OpMatrixTimesVector;
+			Result(ref, op, type, { Id(o[0]), Id(o[1]) });
+			break;
+		}
 		case IROp::INTRINSIC:
 		{
 			PrimitiveKind kind = ScalarKind(type);
@@ -717,6 +735,14 @@ struct Emitter
 				break;
 			case IRIntrinsic::MAX:
 				instruction = kind == PrimitiveKind::FLOAT ? GLSL_FMAX : kind == PrimitiveKind::SIGNED ? GLSL_SMAX : GLSL_UMAX;
+				break;
+			case IRIntrinsic::DOT: break; // a core instruction
+			case IRIntrinsic::LENGTH: instruction = GLSL_LENGTH; break;
+			case IRIntrinsic::NORMALIZE: instruction = GLSL_NORMALIZE; break;
+			}
+			if ((IRIntrinsic)value.sub_op == IRIntrinsic::DOT)
+			{
+				Result(ref, OpDot, type, { Id(o[0]), Id(o[1]) });
 				break;
 			}
 			Words arguments;

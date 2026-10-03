@@ -171,6 +171,29 @@ struct Generator
 		return Emit(IROp::CONSTRUCT, vector, Slice<IRRef>(arguments.data(), (uint32)arguments.size()));
 	}
 
+	IRRef BuiltinCall(Node* node, IntrinsicKind kind)
+	{
+		IRRef arguments[2] = {};
+		uint32 count = 0;
+		for (Node* argument = node->child; argument; argument = argument->next)
+		{
+			if (argument->usage == Usage::ARGUMENT)
+				arguments[count++] = Value(argument);
+		}
+		Slice<IRRef> operands(arguments, count);
+		switch (kind)
+		{
+		case IntrinsicKind::MUL: return Emit(IROp::MATMUL, node->type, operands);
+		case IntrinsicKind::MIN: return Emit(IROp::INTRINSIC, node->type, operands, (uint8)IRIntrinsic::MIN);
+		case IntrinsicKind::MAX: return Emit(IROp::INTRINSIC, node->type, operands, (uint8)IRIntrinsic::MAX);
+		case IntrinsicKind::DOT: return Emit(IROp::INTRINSIC, node->type, operands, (uint8)IRIntrinsic::DOT);
+		case IntrinsicKind::LENGTH: return Emit(IROp::INTRINSIC, node->type, operands, (uint8)IRIntrinsic::LENGTH);
+		case IntrinsicKind::NORMALIZE: return Emit(IROp::INTRINSIC, node->type, operands, (uint8)IRIntrinsic::NORMALIZE);
+		default: break;
+		}
+		Panic("IR gen: %s isn't a built-in function", GetAtomString(FindChild(node, Usage::CALLEE)->name, module.arena).CString());
+	}
+
 	IRRef Value(Node* node)
 	{
 		switch (node->node_type)
@@ -218,7 +241,13 @@ struct Generator
 				break;
 			return Emit(op, node->type, { left, right });
 		}
-		case NodeType::CALL: return Constructor(node); // only vector constructors type so far
+		case NodeType::CALL:
+		{
+			Node* callee = FindChild(node, Usage::CALLEE);
+			if (callee->node_type == NodeType::REFERENCE && callee->target->kind == ElementKind::INTRINSIC)
+				return BuiltinCall(node, ((Intrinsic*)callee->target)->intrinsic_kind);
+			return Constructor(node); // the other calls that type so far are vector constructors
+		}
 		default: break;
 		}
 		Panic("IR gen: can't lower %s as a value", NodeTypeToString(node->node_type).CString());

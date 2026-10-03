@@ -1,0 +1,21 @@
+// Built-in functions: mul in each form, which HLSL writes with the operands swapped, min and max on each component
+// kind, and dot, length and normalize.
+
+@entry(vertex)
+function VS(@location(0) position: float3, @location(1) normal: float3, @location(2) i: int, @location(3) u: Vector(uint, 2))
+	: @semantic(position) float4
+{
+	let m: float4x3;
+	let n: float3x4;
+	let transform: float4x4 = mul(n, m);
+	let row: float4 = mul(position, m);
+	let column: float3 = mul(m, row);
+
+	let a = min(i, 3) + max(i, -1);
+	let b = max(u, Vector(uint, 2)(1));
+	let c = min(column, max(normal, float3(0.0)));
+
+	let l = normalize(normal);
+	let light = max(dot(l, normalize(float3(1.0, 2.0, 3.0))), 0.0);
+	return mul(transform, float4(c * float3(light), length(position)));
+}

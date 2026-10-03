@@ -540,6 +540,10 @@ struct Emitter
 			Define(ref, Print("%s(%s)", function, Operand(o[0])));
 			break;
 		}
+		case IROp::MATMUL:
+			// HLSL's matrices are the IR's transposed, so the operands swap.
+			Define(ref, Print("mul(%s, %s)", Operand(o[1]), Operand(o[0])));
+			break;
 		case IROp::INTRINSIC: Define(ref, Call(IRIntrinsicToString((IRIntrinsic)value.sub_op).CString(), o, 0)); break;
 		case IROp::CALL:
 		{

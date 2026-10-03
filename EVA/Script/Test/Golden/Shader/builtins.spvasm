@@ -1,0 +1,140 @@
+; VS (vertex)
+OpCapability Shader
+%79 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %2 "main" %6 %7 %10 %14 %17
+OpDecorate %6 Location 0
+OpDecorate %7 Location 1
+OpDecorate %10 Location 2
+OpDecorate %14 Location 3
+OpDecorate %17 BuiltIn Position
+%3 = OpTypeFloat 32
+%4 = OpTypeVector %3 3
+%5 = OpTypePointer Input %4
+%6 = OpVariable %5 Input
+%7 = OpVariable %5 Input
+%8 = OpTypeInt 32 1
+%9 = OpTypePointer Input %8
+%10 = OpVariable %9 Input
+%11 = OpTypeInt 32 0
+%12 = OpTypeVector %11 2
+%13 = OpTypePointer Input %12
+%14 = OpVariable %13 Input
+%15 = OpTypeVector %3 4
+%16 = OpTypePointer Output %15
+%17 = OpVariable %16 Output
+%18 = OpTypeVoid
+%19 = OpTypeFunction %18
+%29 = OpTypeFunction %15 %4 %4 %8 %12
+%35 = OpConstantNull %4
+%37 = OpTypePointer Function %4
+%39 = OpConstantNull %8
+%41 = OpTypePointer Function %8
+%42 = OpConstantNull %12
+%44 = OpTypePointer Function %12
+%45 = OpTypeMatrix %4 4
+%46 = OpConstantNull %45
+%48 = OpTypePointer Function %45
+%49 = OpTypeMatrix %15 3
+%50 = OpConstantNull %49
+%52 = OpTypePointer Function %49
+%53 = OpTypeMatrix %15 4
+%54 = OpConstantNull %53
+%56 = OpTypePointer Function %53
+%57 = OpConstantNull %15
+%59 = OpTypePointer Function %15
+%65 = OpConstantNull %3
+%67 = OpTypePointer Function %3
+%78 = OpConstant %8 3
+%82 = OpConstant %8 1
+%87 = OpConstant %11 1
+%92 = OpConstant %3 0
+%99 = OpConstant %3 1
+%100 = OpConstant %3 2
+%101 = OpConstant %3 3
+%2 = OpFunction %18 None %19
+%20 = OpLabel
+%21 = OpLoad %4 %6
+%22 = OpLoad %4 %7
+%23 = OpLoad %8 %10
+%24 = OpLoad %12 %14
+%25 = OpFunctionCall %15 %1 %21 %22 %23 %24
+%26 = OpCompositeExtract %3 %25 1
+%27 = OpFNegate %3 %26
+%28 = OpCompositeInsert %15 %27 %25 1
+OpStore %17 %28
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %15 None %29
+%30 = OpFunctionParameter %4
+%31 = OpFunctionParameter %4
+%32 = OpFunctionParameter %8
+%33 = OpFunctionParameter %12
+%34 = OpLabel
+%36 = OpVariable %37 Function %35
+%38 = OpVariable %37 Function %35
+%40 = OpVariable %41 Function %39
+%43 = OpVariable %44 Function %42
+%47 = OpVariable %48 Function %46
+%51 = OpVariable %52 Function %50
+%55 = OpVariable %56 Function %54
+%58 = OpVariable %59 Function %57
+%60 = OpVariable %37 Function %35
+%61 = OpVariable %41 Function %39
+%62 = OpVariable %44 Function %42
+%63 = OpVariable %37 Function %35
+%64 = OpVariable %37 Function %35
+%66 = OpVariable %67 Function %65
+OpStore %36 %30
+OpStore %38 %31
+OpStore %40 %32
+OpStore %43 %33
+%68 = OpLoad %49 %51
+%69 = OpLoad %45 %47
+%70 = OpMatrixTimesMatrix %53 %68 %69
+OpStore %55 %70
+%71 = OpLoad %4 %36
+%72 = OpLoad %45 %47
+%73 = OpVectorTimesMatrix %15 %71 %72
+OpStore %58 %73
+%74 = OpLoad %45 %47
+%75 = OpLoad %15 %58
+%76 = OpMatrixTimesVector %4 %74 %75
+OpStore %60 %76
+%77 = OpLoad %8 %40
+%80 = OpExtInst %8 %79 SMin %77 %78
+%81 = OpLoad %8 %40
+%83 = OpSNegate %8 %82
+%84 = OpExtInst %8 %79 SMax %81 %83
+%85 = OpIAdd %8 %80 %84
+OpStore %61 %85
+%86 = OpLoad %12 %43
+%88 = OpCompositeConstruct %12 %87 %87
+%89 = OpExtInst %12 %79 UMax %86 %88
+OpStore %62 %89
+%90 = OpLoad %4 %60
+%91 = OpLoad %4 %38
+%93 = OpCompositeConstruct %4 %92 %92 %92
+%94 = OpExtInst %4 %79 FMax %91 %93
+%95 = OpExtInst %4 %79 FMin %90 %94
+OpStore %63 %95
+%96 = OpLoad %4 %38
+%97 = OpExtInst %4 %79 Normalize %96
+OpStore %64 %97
+%98 = OpLoad %4 %64
+%102 = OpCompositeConstruct %4 %99 %100 %101
+%103 = OpExtInst %4 %79 Normalize %102
+%104 = OpDot %3 %98 %103
+%105 = OpExtInst %3 %79 FMax %104 %92
+OpStore %66 %105
+%106 = OpLoad %53 %55
+%107 = OpLoad %4 %63
+%108 = OpLoad %3 %66
+%109 = OpCompositeConstruct %4 %108 %108 %108
+%110 = OpFMul %4 %107 %109
+%111 = OpLoad %4 %36
+%112 = OpExtInst %3 %79 Length %111
+%113 = OpCompositeConstruct %15 %110 %112
+%114 = OpMatrixTimesVector %15 %106 %113
+OpReturnValue %114
+OpFunctionEnd
