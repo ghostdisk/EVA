@@ -835,7 +835,7 @@ static bool ChoosePhysicalDevice()
 
 // Images are presented as drawn (preTransform = IDENTITY) and the compositor rotates them to the display, so the
 // backbuffers are in the window's current orientation. Android reports presents as suboptimal whenever the display is
-// rotated, which isn't worth a new swapchain unless the size changed too.
+// rotated, which isn't worth a new swapchain unless the size changed too. See Docs/GPU/Backend_Vulkan.md.
 static bool SwapchainMatchesSurface()
 {
 	VkSurfaceCapabilitiesKHR capabilities = {};
