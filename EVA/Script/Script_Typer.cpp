@@ -293,53 +293,149 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 	return typed;
 }
 
+// A constant argument of a generic as its parameter's type: an integer converts to another integer type if the value
+// fits, so Array(float, 3) and Array(float, 3u) are one type. nullptr with an error otherwise.
+static Constant* ConvertGenericConstant(Typer& typer, const GenericParam& param, Constant* constant)
+{
+	if (constant->type == param.type)
+		return constant;
+	PrimitiveType* component = ComponentType(constant->type);
+	if (!component || ComponentCount(constant->type) != 1 || !IsInteger(component))
+	{
+		EmitError(typer, "%s must be an int or uint, got %s", param.what, TypeName(typer, constant->type));
+		return nullptr;
+	}
+	assert(IsInteger(param.type));
+	int64 value = ConstantToInteger(constant);
+	bool fits = param.type->primitive_kind == PrimitiveKind::SIGNED ? value >= INT32_MIN && value <= INT32_MAX
+																   : value >= 0 && value <= UINT32_MAX;
+	if (!fits)
+	{
+		EmitError(typer, "%s %lld is out of range for %s", param.what, (long long)value, TypeName(typer, param.type));
+		return nullptr;
+	}
+	Constant* converted = typer.arena->New<Constant>();
+	converted->type = param.type;
+	uint32 bits = (uint32)value;
+	uint8* bytes = (uint8*)typer.arena->Allocate(4, 4);
+	memcpy(bytes, &bits, 4);
+	converted->bytes = Slice<uint8>(bytes, 4);
+	return converted;
+}
+
+// The most parameters a built-in generic has.
+static const uint32 MAX_GENERIC_PARAMS = 4;
+
+// Types arguments by generic's parameters and instantiates it. node, the CALL or ARRAY_TYPE, remembers the outcome, so
+// another visit neither types the arguments again nor repeats their errors.
+static bool InstantiateNode(Typer& typer, Node* node, Generic* generic, Slice<Node*> arguments, Element** out)
+{
+	if (node->typing_state == TypingState::TYPED)
+	{
+		*out = node->type;
+		return true;
+	}
+	if (node->typing_state == TypingState::FAILED)
+		return false;
+	node->typing_state = TypingState::FAILED; // until it succeeds
+
+	uint32 count = generic->params.count;
+	assert(count <= MAX_GENERIC_PARAMS);
+	if (arguments.count != count)
+	{
+		EmitError(typer, "'%s' takes %u argument%s, got %u", AtomName(typer, generic->name), count, count == 1 ? "" : "s",
+			arguments.count);
+		return false;
+	}
+
+	GenericArg args[MAX_GENERIC_PARAMS];
+	bool typed = true;
+	for (uint32 i = 0; i < count; ++i)
+	{
+		const GenericParam& param = generic->params[i];
+		if (param.kind == GenericParamKind::TYPE)
+		{
+			args[i].type = EvaluateType(typer, arguments[i]);
+			typed = args[i].type != nullptr && typed;
+			continue;
+		}
+		Constant* constant = EvaluateConstant(typer, arguments[i], param.type, param.what);
+		args[i].constant = constant ? ConvertGenericConstant(typer, param, constant) : nullptr;
+		typed = args[i].constant != nullptr && typed;
+	}
+	if (!typed)
+		return false;
+
+	Type* type = Instantiate(*typer.context, generic, Slice<GenericArg>(args, count), &typer);
+	if (!type)
+		return false;
+	node->type = type;
+	node->typing_state = TypingState::TYPED;
+	*out = type;
+	return true;
+}
+
+bool ResolveName(Typer& typer, Node* node, Element** out)
+{
+	*out = nullptr;
+	switch (node->node_type)
+	{
+	case NodeType::REFERENCE:
+		*out = node->target;
+		return true;
+	case NodeType::IDENTIFIER: return false; // unresolved, already reported
+	case NodeType::CALL:
+	{
+		CHECK_RECURSION(typer); // through the callee, a chain of calls can be long
+		Node* callee = FindChild(node, Usage::CALLEE);
+		Element* target = nullptr;
+		if (!ResolveName(typer, callee, &target))
+			return false;
+		if (!target || target->kind != ElementKind::GENERIC)
+			return true; // a constructor or a function call: a value
+		Node* arguments[MAX_GENERIC_PARAMS];
+		uint32 count = 0;
+		for (Node* child = node->child; child; child = child->next)
+		{
+			if (child->usage != Usage::ARGUMENT)
+				continue;
+			if (count == MAX_GENERIC_PARAMS)
+			{
+				count = MAX_GENERIC_PARAMS + 1; // too many, whatever the generic
+				break;
+			}
+			arguments[count++] = child;
+		}
+		return InstantiateNode(typer, node, (Generic*)target, Slice<Node*>(arguments, count), out);
+	}
+	case NodeType::ARRAY_TYPE:
+	{
+		Node* arguments[] = { FindChild(node, Usage::ELEMENT), FindChild(node, Usage::SIZE) };
+		return InstantiateNode(typer, node, typer.context->array_generic, Slice<Node*>(arguments, 2), out);
+	}
+	default: return true;
+	}
+}
+
 Type* EvaluateType(Typer& typer, Node* node)
 {
 	CHECK_RECURSION(typer);
 	TypeAttributes(typer, node);
 
-	Type* type = nullptr;
-	if (node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::TYPE)
+	Element* element = nullptr;
+	if (!ResolveName(typer, node, &element))
+		return nullptr;
+	if (!element || element->kind != ElementKind::TYPE)
 	{
-		type = (Type*)node->target;
-		if (type->type_kind == TypeKind::STRUCT)
-		{
-			if (!CompleteStruct(typer, (StructType*)type))
-				return nullptr;
-		}
+		if (element && element->kind == ElementKind::GENERIC)
+			EmitError(typer, "'%s' needs arguments", AtomName(typer, ((Generic*)element)->name));
+		else
+			EmitError(typer, "expected a type");
+		return nullptr;
 	}
-	else if (node->node_type == NodeType::ARRAY_TYPE)
-	{
-		Node* size = FindChild(node, Usage::SIZE);
-		Type* element = EvaluateType(typer, FindChild(node, Usage::ELEMENT));
-		Constant* length = EvaluateConstant(typer, size, typer.context->uint_type, "array size");
-		if (!length)
-			return nullptr;
-		PrimitiveType* size_type = ComponentType(length->type);
-		if (!size_type || ComponentCount(length->type) != 1 || !IsInteger(size_type))
-		{
-			EmitError(typer, "array size must be an int or uint, got %s", TypeName(typer, length->type));
-			return nullptr;
-		}
-		if (!element)
-			return nullptr;
-		int64 value = ConstantToInteger(length);
-		if (value < 1)
-		{
-			EmitError(typer, "array size must be at least 1, got %lld", (long long)value);
-			return nullptr;
-		}
-		type = GetArrayType(*typer.context, element, (uint32)value);
-		if (!type)
-		{
-			EmitError(typer, "[%lld]%s is too large", (long long)value, TypeName(typer, element));
-			return nullptr;
-		}
-	}
-	else if (node->node_type != NodeType::IDENTIFIER) // unresolved, already reported
-	{
-		EmitError(typer, "expected a type");
-	}
+	Type* type = (Type*)element;
+	if (type->type_kind == TypeKind::STRUCT && !CompleteStruct(typer, (StructType*)type))
+		return nullptr;
 	node->type = type;
 	return type;
 }
@@ -495,6 +591,7 @@ static bool TypeReference(Typer& typer, Node* node)
 		}
 	}
 	case ElementKind::TYPE:
+	case ElementKind::GENERIC:
 		EmitError(typer, "'%s' is a type, not a value", name);
 		return false;
 	case ElementKind::INTRINSIC:
@@ -680,29 +777,29 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 static bool TypeCall(Typer& typer, Node* node)
 {
 	Node* callee = FindChild(node, Usage::CALLEE);
-	if (callee->node_type == NodeType::IDENTIFIER)
-		return false; // unresolved, already reported
-	if (callee->node_type != NodeType::REFERENCE)
-	{
-		// Typed for its own errors, then it can't be called whatever it is.
-		if (TypeNode(typer, callee, nullptr))
-			EmitError(typer, "%s can't be called", TypeName(typer, callee->type));
+	Element* target = nullptr;
+	if (!ResolveName(typer, callee, &target))
 		return false;
-	}
-
-	if (callee->target->kind == ElementKind::TYPE)
+	switch (target ? target->kind : ElementKind::NONE)
 	{
-		callee->type = (Type*)callee->target;
+	case ElementKind::TYPE: // float3(...), and Array(...)(...) however the type is spelled
+		callee->type = (Type*)target;
 		return TypeConstructor(typer, node, callee->type);
-	}
-	if (callee->target->kind == ElementKind::NODE && ((Node*)callee->target)->node_type == NodeType::FUNCTION)
-	{
-		EmitError(typer, "calling functions isn't supported yet");
+	case ElementKind::GENERIC: // the call instantiates the generic, which makes a type, not a value
+		EmitError(typer, "expected a value, got a type");
 		return false;
+	case ElementKind::NODE:
+		if (((Node*)target)->node_type == NodeType::FUNCTION)
+		{
+			EmitError(typer, "calling functions isn't supported yet");
+			return false;
+		}
+		break;
+	default: break;
 	}
-	if (!TypeNode(typer, callee, nullptr))
-		return false;
-	EmitError(typer, "%s can't be called", TypeName(typer, callee->type));
+	// The callee is a value: typed for its own errors, then it can't be called whatever it is.
+	if (TypeNode(typer, callee, nullptr))
+		EmitError(typer, "%s can't be called", TypeName(typer, callee->type));
 	return false;
 }
 

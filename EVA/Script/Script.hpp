@@ -5,6 +5,7 @@
 #include <EVA/Core/Error.hpp>
 #include <EVA/Core/GPUShared.hpp>
 #include <EVA/Core/StringBuilder.hpp>
+#include <unordered_map>
 #include <vector>
 
 namespace EVA::Script
@@ -192,6 +193,7 @@ enum class ElementKind : uint8
 	TYPE,
 	INTRINSIC,
 	CONSTANT,
+	GENERIC,
 };
 
 // Base of everything a name can refer to.
@@ -214,7 +216,7 @@ struct Node : Element
 {
 	NodeType node_type = NodeType::NONE;
 	Usage usage = Usage::NONE;
-	TypingState typing_state = TypingState::UNTYPED; // CONST
+	TypingState typing_state = TypingState::UNTYPED; // CONST, and a type expression instantiating a generic
 	Atom name = Atom::NONE;
 	Type* type = nullptr; // set by the typer: the value's type, or for a type expression the type it names
 	union
@@ -306,15 +308,19 @@ enum class TypeKind : uint8
 	FUNCTION, // IR only for now
 };
 
+struct GenericInstance;
+
 // Base of the type structs, one per TypeKind.
 // Types are unique: there's only ever one instance of e.g. float2, so they can be compared by pointer. Types built from
-// other types, like function types later, have to be looked up in a cache before making a new one.
+// other types are looked up in a cache before making a new one: the generic instance cache (see Instantiate), and the
+// context's pointer and function type caches.
 struct Type : Element
 {
 	TypeKind type_kind = TypeKind::PRIMITIVE;
 	Atom name = Atom::NONE; // HLSL style, e.g. float4. Also the type's name in the global scope
 	uint32 size = 0;        // in bytes
 	uint32 alignment = 1; // in bytes. Buffer layout rules are applied on top of this
+	GenericInstance* instance = nullptr; // the generic and arguments that made it, for types made by a generic
 
 	Type() { kind = ElementKind::TYPE; }
 };
@@ -468,6 +474,67 @@ struct Constant : Element
 	Constant() { kind = ElementKind::CONSTANT; }
 };
 
+struct Context;
+struct Typer;
+struct Generic;
+
+enum class GenericParamKind : uint8
+{
+	TYPE,     // the argument must name a type
+	CONSTANT, // the argument must be a constant expression, converted to the parameter's type
+};
+
+// An argument, once typed: a type, or a constant of the parameter's type.
+struct GenericArg
+{
+	Type* type = nullptr;         // TYPE
+	Constant* constant = nullptr; // CONSTANT
+};
+
+struct GenericParam
+{
+	GenericParamKind kind = GenericParamKind::TYPE;
+	const char* what = "";           // in errors, e.g. "array size"
+	PrimitiveType* type = nullptr;   // CONSTANT: the type the argument is converted to, an integer type for now
+};
+
+// A generic and the arguments it was instantiated with.
+struct GenericInstance
+{
+	Generic* generic = nullptr;
+	Slice<GenericArg> args;
+};
+
+// Makes the type for instance's arguments, which are already typed and converted to the parameters' kinds and types.
+// Checks what only the generic knows, e.g. that an array's length is at least 1, emitting errors through typer and
+// returning nullptr. typer is nullptr for internal callers, whose arguments are always valid. A type it makes gets
+// instance as its instance; it can also return an existing type. Never called twice for the same arguments: the
+// instance cache is in front of it (see Instantiate).
+typedef Type* (*InstantiateFn)(Context& context, GenericInstance* instance, Typer* typer);
+
+// A built-in that a call turns into a type: Array(float2, 3).
+struct Generic : Element
+{
+	Atom name = Atom::NONE;
+	Slice<GenericParam> params;
+	InstantiateFn instantiate = nullptr;
+
+	Generic() { kind = ElementKind::GENERIC; }
+};
+
+// The instance cache's key: a generic and its arguments, compared by value.
+struct GenericInstanceKey
+{
+	const GenericInstance* instance = nullptr;
+
+	bool operator==(const GenericInstanceKey& other) const;
+};
+
+struct GenericInstanceHash
+{
+	size_t operator()(const GenericInstanceKey& key) const;
+};
+
 struct Definition
 {
 	Atom name = Atom::NONE;
@@ -512,8 +579,11 @@ struct Context
 	PrimitiveType* float_type = nullptr;
 	EnumType* semantic_type = nullptr; // SHADER only
 	EnumType* stage_type = nullptr;    // SHADER only
+	Generic* array_generic = nullptr;  // Array(T, N), also written [N]T
 
-	std::vector<ArrayType*> array_types; // see GetArrayType
+	// Every generic instance made so far. Instances can refer to a module's own types, so the cache assumes modules live
+	// as long as their context (TODO.md).
+	std::unordered_map<GenericInstanceKey, Type*, GenericInstanceHash> instances;
 	std::vector<VectorType*> vector_types;
 	std::vector<PointerType*> pointer_types;
 	std::vector<FunctionType*> function_types;
@@ -523,7 +593,13 @@ struct Context
 // arena of its own; a short-lived context can share a temporary one.
 void InitContext(Context& context, Arena* arena, ContextKind kind);
 
-// The one array type of element and length, made in the context's arena on first use. nullptr if it would be too large.
+// The one type for generic and args, made on first use in the context's arena. args must already match the generic's
+// parameters: as many, of the right kinds, constants of the parameters' types. nullptr if the generic rejects them,
+// with its errors emitted through typer (nullptr for internal callers). Failures aren't cached.
+Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer);
+
+// The one array type of element and length, through the instance cache. The arguments must be valid: length at least 1,
+// and the array under 4 GB.
 ArrayType* GetArrayType(Context& context, Type* element, uint32 length);
 
 // The one vector type of 2 to 4 elements, e.g. int3. The float ones are in the global scope, the others aren't yet.
@@ -609,6 +685,13 @@ bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32
 
 // Errors unless components is right for vector's constructor: all of them, or one for a splat.
 bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 components);
+
+// What node names, following references and generic instantiations to the end: a Type, a Generic, an Intrinsic or a
+// declaration Node (FUNCTION, CONST, VARIABLE, PARAMETER, ENUM_VALUE), in *out. *out is nullptr if node names nothing,
+// like a literal, arithmetic or a call to a function. Returns false on an error, emitted here or, for an unresolved
+// IDENTIFIER, already by the resolver. Doesn't change the tree: an instantiation remembers its type in the node, so
+// another visit returns it without typing the arguments again.
+bool ResolveName(Typer& typer, Node* node, Element** out);
 
 // The type a type expression names, also stored in the node.
 Type* EvaluateType(Typer& typer, Node* node);

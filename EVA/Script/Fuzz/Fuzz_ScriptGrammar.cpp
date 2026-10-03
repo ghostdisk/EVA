@@ -377,9 +377,15 @@ struct Generator
 
 	std::string TypeText(GenType* type, bool allow_references)
 	{
-		if (type->kind == Kind::ARRAY)
-			return "[" + LengthText(type->length, allow_references) + "]" + TypeText(type->element, allow_references);
-		return type->name;
+		if (type->kind != Kind::ARRAY)
+			return type->name;
+		// The two spellings of an array type: [N]T, or the generic Array(T, N).
+		if (Below(4) == 0)
+		{
+			std::string element = TypeText(type->element, allow_references);
+			return "Array(" + element + ", " + LengthText(type->length, allow_references) + ")";
+		}
+		return "[" + LengthText(type->length, allow_references) + "]" + TypeText(type->element, allow_references);
 	}
 
 	// Expressions

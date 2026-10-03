@@ -372,6 +372,7 @@ static ZTStringView TargetToString(Element* target, Arena* arena)
 		case ElementKind::TYPE: return aprintf(arena, "TYPE %s", TypeToString((Type*)target, arena).CString());
 		case ElementKind::INTRINSIC: return aprintf(arena, "INTRINSIC %s", GetAtomString(((Intrinsic*)target)->name, arena).CString());
 		case ElementKind::CONSTANT: return aprintf(arena, "CONSTANT %s", GetAtomString(((Constant*)target)->type->name, arena).CString());
+		case ElementKind::GENERIC: return aprintf(arena, "GENERIC %s", GetAtomString(((Generic*)target)->name, arena).CString());
 		case ElementKind::NONE: break;
 	}
 	return "?";

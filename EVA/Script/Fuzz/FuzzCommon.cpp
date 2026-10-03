@@ -362,6 +362,14 @@ static void CheckType(Compilation& compilation, Type* type, uint32 depth = 0)
 		Fail("%s has alignment %u", name, type->alignment);
 	if (type->size % type->alignment)
 		Fail("%s has size %u, not a multiple of its alignment %u", name, type->size, type->alignment);
+	if (GenericInstance* instance = type->instance)
+	{
+		// The cache has it under its generic and arguments.
+		if (!instance->generic || instance->args.count != instance->generic->params.count)
+			Fail("%s's instance doesn't match its generic", name);
+		if (Instantiate(compilation.context, instance->generic, instance->args, nullptr) != type)
+			Fail("%s isn't its generic's instance", name);
+	}
 
 	switch (type->type_kind)
 	{
@@ -498,9 +506,12 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			}
 			else if (!entry.in_attribute)
 			{
+				// A generic's name, as the callee of the CALL that instantiates it, names no type itself.
+				bool generic = node->node_type == NodeType::REFERENCE && node->target->kind == ElementKind::GENERIC &&
+							   node->usage == Usage::CALLEE;
 				bool untyped = node->node_type == NodeType::MODULE || node->node_type == NodeType::STRUCT ||
 							   node->node_type == NodeType::FUNCTION || node->node_type == NodeType::BLOCK ||
-							   node->node_type == NodeType::RETURN;
+							   node->node_type == NodeType::RETURN || generic;
 				if (!untyped && !node->type)
 					Fail("%s %s has no type", name, UsageToString(node->usage).CString());
 			}

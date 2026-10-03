@@ -45,23 +45,24 @@ struct GenericArg
 struct GenericParam
 {
 	GenericParamKind kind;
-	Atom name;                  // for errors: "Array's size must be a constant"
+	const char* what;           // in errors: "array size must be a constant"
 	PrimitiveType* type;        // CONSTANT: the type the argument is converted to, e.g. uint
-	GenericArg default_arg;     // used when the argument is left out; none if both members are nullptr
+	GenericArg default_arg;     // used when the argument is left out; none if both members are nullptr (later)
 };
 
-// Makes the type for args, which are already typed, converted to the parameters' kinds and types. Checks what only the
-// generic knows (a vector's count, a ConstantBuffer's element being plain data), emitting as many errors as it finds
-// through typer and returning nullptr. typer is nullptr for internal callers, whose arguments are always valid. Never
-// called twice for the same arguments: the cache (2) is in front of it.
-typedef Type* (*InstantiateFn)(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer);
+// Makes the type for instance's arguments, which are already typed and converted to the parameters' kinds and types.
+// Checks what only the generic knows (a vector's count, a ConstantBuffer's element being plain data), emitting as many
+// errors as it finds through typer and returning nullptr. typer is nullptr for internal callers, whose arguments are
+// always valid. A type it makes gets instance as its instance; it can also return an existing type. Never called twice
+// for the same arguments: the cache (2) is in front of it.
+typedef Type* (*InstantiateFn)(Context& context, GenericInstance* instance, Typer* typer);
 
 struct Generic : Element
 {
 	Atom name;                   // Array, ConstantBuffer...
 	Slice<GenericParam> params;
 	InstantiateFn instantiate;
-	void* user = nullptr;        // for the function: e.g. which buffer kind, or later a struct declaration
+	void* user = nullptr;        // for the function: e.g. which buffer kind, or later a struct declaration (later)
 
 	Generic() { kind = ElementKind::GENERIC; }
 };
@@ -145,12 +146,15 @@ name?", following references to the end, and the callers list the cases once.
 ### 4.1 `ResolveName`
 
 ```cpp
-// What node names: a Type, a Generic, an Intrinsic, or a declaration Node (FUNCTION, CONST, VARIABLE, PARAMETER,
-// ENUM_VALUE). Follows references, type aliases and generic calls to the end. nullptr if node names nothing (a literal,
-// arithmetic, a call to a function...) or on an error, which is emitted. Leaves the tree as it is: callers that want
-// node replaced by a REFERENCE to the result do it themselves.
-Element* ResolveName(Typer& typer, Node* node);
+// What node names, following references, type aliases and generic instantiations to the end: a Type, a Generic, an
+// Intrinsic or a declaration Node (FUNCTION, CONST, VARIABLE, PARAMETER, ENUM_VALUE), in *out. *out is nullptr if node
+// names nothing, like a literal, arithmetic or a call to a function. Returns false on an error, emitted here or, for an
+// unresolved IDENTIFIER, already by the resolver. Doesn't change the tree.
+bool ResolveName(Typer& typer, Node* node, Element** out);
 ```
+
+The `bool` separates "names nothing" (a value, which the caller types) from "failed" (already reported), so callers
+don't add a second error to a failed instantiation.
 
 What it follows:
 
@@ -178,7 +182,7 @@ alias's name, a dump, reflection showing `Lights` rather than `ConstantBuffer(Li
 
 | Caller | Position | What it does with the result |
 |---|---|---|
-| `EvaluateType` | declared types, return types, array elements, `TYPE` arguments | a `Type` is the answer; a `Generic` whose parameters all have defaults is instantiated with none given (bare `Texture2D`); anything else is "expected a type". Then replaces the node with a `REFERENCE` to the type, like `Fold` does for constants, since in a type position only the type matters from here on |
+| `EvaluateType` | declared types, return types, array elements, `TYPE` arguments | a `Type` is the answer, stored in the node's `type` as today; a `Generic` whose parameters all have defaults is instantiated with none given (bare `Texture2D`), one without is "'Array' needs arguments"; anything else is "expected a type". The node isn't rewritten: nothing after the typer reads type expressions but their `type`, and rewriting would have to carry every attribute in the dropped arguments along |
 | `TypeCall` | a call's callee | below |
 | `TypeReference` | a name in a value position | a `Type`, `Generic` or alias: "'x' is a type, not a value"; an `Intrinsic`: "can only be used as an attribute"; nodes as today |
 | `TypeAttribute` | an attribute's callee | an `Intrinsic`, or "isn't an attribute" |
@@ -192,10 +196,10 @@ Element* target = ResolveName(typer, callee);
 switch (target ? target->kind : ElementKind::NONE)
 {
 case ElementKind::TYPE: // float3(...), V(...) with type V = float3, Vector(float, 3)(...)
-	ReplaceWithReference(callee, target);
+	callee->type = (Type*)target;
 	return TypeConstructor(typer, node, (Type*)target);
 case ElementKind::GENERIC: // the call is an instantiation, Vector(float, 3) itself, in a value position
-	EmitError(typer, "'%s' is a type, not a value", ...);
+	EmitError(typer, "expected a value, got a type");
 	return false;
 case ElementKind::INTRINSIC: // later: sample(...), length(...); today only attributes
 	...
@@ -239,8 +243,7 @@ stays what it is, a constant value, with one rule everywhere.
 - **Typed on demand,** like consts: a `TypingState` on the node, so `ResolveName` can type an alias the first time it's
   referenced, before its turn, and `type A = B; type B = A;` is "'A' depends on itself". Its value goes through
   `EvaluateType`, and the alias's `type` holds the result.
-- **References to an alias** resolve to its type (4.1). In type positions `EvaluateType` then replaces them with a
-  `REFERENCE` to the type, so later passes only see types; chains (`type A = B;`) resolve through `B`'s stored type.
+- **References to an alias** resolve to its type (4.1); chains (`type A = B;`) resolve through `B`'s stored type.
 - **Errors:** a value that isn't a type expression ("expected a type"); an alias used as a value ("'Lights' is a type,
   not a value"), in the typer and the constant evaluator.
 - The `type` keyword makes `type` unavailable as a name.
@@ -298,8 +301,7 @@ stays what it is, a constant value, with one rule everywhere.
 - **`EvaluateType`:** generic calls and `ARRAY_TYPE` through 4.1, references to aliases through 5.
 - **`TypeCall`, `TypeReference`, `ReferenceType`, `ConstructorType`:** the value-position errors of 4.2.
 - **`TypeToString`:** instances (1).
-- **Tests:** typer expectations that show `ARRAY_TYPE` nodes after typing change to `REFERENCE`s
-  (`Test_Typer.cpp`, about 5 places). New tests: `Array(T, N)` equals `[N]T`, `Vector(float, 4)` equals `float4`,
+- **Tests:** existing expectations don't change, since type expressions keep their shape. New tests: `Array(T, N)` equals `[N]T`, `Vector(float, 4)` equals `float4`,
   argument kind errors (a constant where a type goes and the reverse), `int` sizes converting to `uint`, aliases, alias
   cycles, aliases used as values, generics used as values, nested instances (`Array(Array(float, 2), 3)`), the cache
   returning the same pointer, failures not cached, constructing instances, aliases used before their declaration,

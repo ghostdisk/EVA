@@ -155,6 +155,7 @@ static Type* ReferenceType(Evaluation& evaluation, Node* node)
 	}
 	case ElementKind::CONSTANT: return ((Constant*)node->target)->type;
 	case ElementKind::TYPE:
+	case ElementKind::GENERIC:
 		EmitError(typer, "'%s' is a type, not a value", AtomName(typer, node->name));
 		return nullptr;
 	case ElementKind::INTRINSIC:
@@ -200,12 +201,23 @@ static Type* ConstructorType(Evaluation& evaluation, Node* node)
 {
 	Typer& typer = evaluation.typer;
 	Node* callee = FindChild(node, Usage::CALLEE);
-	if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::TYPE)
+	Element* target = nullptr;
+	if (!ResolveName(typer, callee, &target))
+	{
+		evaluation.failed_before = true; // reported
+		return nullptr;
+	}
+	if (target && target->kind == ElementKind::GENERIC)
+	{
+		EmitError(typer, "expected a value, got a type"); // the call instantiates the generic
+		return nullptr;
+	}
+	if (!target || target->kind != ElementKind::TYPE)
 	{
 		evaluation.not_constant = true; // calls to functions
 		return nullptr;
 	}
-	Type* type = (Type*)callee->target;
+	Type* type = (Type*)target;
 	if (type->type_kind != TypeKind::VECTOR)
 	{
 		EmitError(typer, "constructing %s isn't supported yet", TypeName(typer, type));

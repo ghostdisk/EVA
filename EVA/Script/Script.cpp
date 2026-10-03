@@ -1,6 +1,7 @@
 #include <EVA/Script/Script.hpp>
 #include <EVA/Script/Script_IR.hpp>
 #include <EVA/Core/Panic.hpp>
+#include <string.h>
 
 namespace EVA::Script
 {
@@ -76,6 +77,23 @@ static void DefineEnumValue(Context& context, EnumType* type, StringView name, i
 	Define(context, type->scope, node->name, node);
 }
 
+static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer* typer);
+
+static Generic* DefineGeneric(Context& context, Scope* scope, StringView name, std::initializer_list<GenericParam> params,
+	InstantiateFn instantiate)
+{
+	Generic* generic = context.arena->New<Generic>();
+	generic->name = GetAtom(name);
+	GenericParam* copy = (GenericParam*)context.arena->Allocate(params.size() * sizeof(GenericParam), alignof(GenericParam));
+	uint32 count = 0;
+	for (const GenericParam& param : params)
+		copy[count++] = param;
+	generic->params = Slice<GenericParam>(copy, count);
+	generic->instantiate = instantiate;
+	Define(context, scope, generic->name, generic);
+	return generic;
+}
+
 // The scope above every module, naming the built-ins.
 static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 {
@@ -94,6 +112,13 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 	DefineType(context, scope, GetVectorType(context, context.float_type, 2));
 	DefineType(context, scope, GetVectorType(context, context.float_type, 3));
 	DefineType(context, scope, GetVectorType(context, context.float_type, 4));
+
+	context.array_generic = DefineGeneric(context, scope, "Array",
+		{
+			{ .kind = GenericParamKind::TYPE, .what = "array element" },
+			{ .kind = GenericParamKind::CONSTANT, .what = "array size", .type = context.uint_type },
+		},
+		InstantiateArray);
 
 	if (kind == ContextKind::SHADER)
 	{
@@ -120,17 +145,106 @@ void InitContext(Context& context, Arena* arena, ContextKind kind)
 	context.global_scope = CreateGlobalScope(context, kind);
 }
 
-ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
-{
-	for (ArrayType* type : context.array_types)
-	{
-		if (type->element == element && type->length == length)
-			return type;
-	}
+// Generics
 
+bool GenericInstanceKey::operator==(const GenericInstanceKey& other) const
+{
+	const GenericInstance& a = *instance;
+	const GenericInstance& b = *other.instance;
+	if (a.generic != b.generic || a.args.count != b.args.count)
+		return false;
+	for (uint32 i = 0; i < a.args.count; ++i)
+	{
+		const GenericArg& x = a.args[i];
+		const GenericArg& y = b.args[i];
+		if (x.type != y.type || !x.constant != !y.constant)
+			return false;
+		if (x.constant && (x.constant->type != y.constant->type || x.constant->bytes.count != y.constant->bytes.count ||
+							  memcmp(x.constant->bytes.data, y.constant->bytes.data, x.constant->bytes.count) != 0))
+			return false;
+	}
+	return true;
+}
+
+size_t GenericInstanceHash::operator()(const GenericInstanceKey& key) const
+{
+	// FNV-1a over the generic, and the arguments' types and constants' bytes.
+	uint64 hash = 14695981039346656037ull;
+	auto mix = [&](const void* data, size_t size) {
+		for (size_t i = 0; i < size; ++i)
+			hash = (hash ^ ((const uint8*)data)[i]) * 1099511628211ull;
+	};
+	mix(&key.instance->generic, sizeof(Generic*));
+	for (uint32 i = 0; i < key.instance->args.count; ++i)
+	{
+		const GenericArg& arg = key.instance->args[i];
+		mix(&arg.type, sizeof(Type*));
+		if (arg.constant)
+		{
+			mix(&arg.constant->type, sizeof(Type*));
+			mix(arg.constant->bytes.data, arg.constant->bytes.count);
+		}
+	}
+	return (size_t)hash;
+}
+
+Type* Instantiate(Context& context, Generic* generic, Slice<GenericArg> args, Typer* typer)
+{
+	assert(args.count == generic->params.count);
+	GenericInstance lookup = { .generic = generic, .args = args };
+	auto found = context.instances.find({ &lookup });
+	if (found != context.instances.end())
+		return found->second;
+
+	// The arguments can be the caller's temporaries, so the instance gets its own copies.
+	GenericArg* copies = (GenericArg*)context.arena->Allocate(args.count * sizeof(GenericArg), alignof(GenericArg));
+	for (uint32 i = 0; i < args.count; ++i)
+	{
+		copies[i] = args[i];
+		if (Constant* constant = args[i].constant)
+		{
+			Constant* copy = context.arena->New<Constant>();
+			copy->type = constant->type;
+			uint8* bytes = (uint8*)context.arena->Allocate(constant->bytes.count, 4);
+			memcpy(bytes, constant->bytes.data, constant->bytes.count);
+			copy->bytes = Slice<uint8>(bytes, constant->bytes.count);
+			copies[i].constant = copy;
+		}
+	}
+	GenericInstance* instance = context.arena->New<GenericInstance>();
+	instance->generic = generic;
+	instance->args = Slice<GenericArg>(copies, args.count);
+
+	Type* type = generic->instantiate(context, instance, typer);
+	if (type)
+		context.instances[{ instance }] = type;
+	return type;
+}
+
+static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer* typer)
+{
+	Type* element = instance->args[0].type;
+	uint32 length;
+	memcpy(&length, instance->args[1].constant->bytes.data, 4);
+	if (element->type_kind == TypeKind::PRIMITIVE && ((PrimitiveType*)element)->primitive_kind == PrimitiveKind::VOID)
+	{
+		if (typer)
+			EmitError(*typer, "can't make an array of void");
+		return nullptr;
+	}
+	if (length < 1)
+	{
+		if (typer)
+			EmitError(*typer, "array size must be at least 1, got %u", length);
+		return nullptr;
+	}
 	uint64 stride = ((uint64)element->size + element->alignment - 1) / element->alignment * element->alignment;
 	if (stride * length > UINT32_MAX)
+	{
+		if (typer)
+			EmitError(*typer, "[%u]%s is too large", length, TypeToString(element, typer->arena).CString());
 		return nullptr;
+	}
 
 	ArrayType* type = context.arena->New<ArrayType>();
 	type->element = element;
@@ -138,8 +252,19 @@ ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
 	type->stride = (uint32)stride;
 	type->size = (uint32)(stride * length);
 	type->alignment = element->alignment;
-	context.array_types.push_back(type);
+	type->instance = instance;
 	return type;
+}
+
+ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
+{
+	Constant constant;
+	constant.type = context.uint_type;
+	constant.bytes = Slice<uint8>((uint8*)&length, 4);
+	GenericArg args[] = { { .type = element }, { .constant = &constant } };
+	Type* type = Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), nullptr);
+	assert(type);
+	return (ArrayType*)type;
 }
 
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee)
