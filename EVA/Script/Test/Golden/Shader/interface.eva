@@ -1,0 +1,27 @@
+// Struct parameters and return values, locations of every kind, integers between stages. Struct inputs are stored into
+// a local by path, struct outputs loaded from the returned one.
+
+struct Color
+{
+	@location(1) value: float4;
+	@location(2) id: uint;
+}
+
+struct Varyings
+{
+	@semantic(position) position: float4;
+	@location(0) uv: float2;
+	color: Color;
+}
+
+@entry(vertex)
+function VS(@semantic(vertex_index) id: uint, @location(3) offset: float2, @location(0) index: int): Varyings
+{
+	return { float4(offset, 0.0, 1.0), offset, { float4(1.0), id } };
+}
+
+@entry(fragment)
+function PS(input: Varyings): @location(0) float4
+{
+	return input.color.value;
+}

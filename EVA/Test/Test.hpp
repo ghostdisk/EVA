@@ -15,6 +15,15 @@
 //   }
 //
 // CHECK records a failure and continues, REQUIRE records it and returns from the test.
+//
+// Tests whose cases come from data, like files of expected output, are added by a generator, which RunTests calls
+// before running or listing anything:
+//
+//   TEST_GENERATOR(Golden)
+//   {
+//       for (each case)
+//           EVA::Test::AddTest("Golden", name, path, 1, RunCase, data);
+//   }
 
 namespace EVA::Test
 {
@@ -23,6 +32,7 @@ namespace EVA::Test
 struct Context
 {
 	Arena* arena = nullptr; // fresh for each test
+	const void* data = nullptr; // the test case's
 	uint32 failures = 0;
 };
 
@@ -33,6 +43,7 @@ struct TestCase
 	const char* file = nullptr;
 	int line = 0;
 	void (*function)(Context& test) = nullptr;
+	const void* data = nullptr; // passed to the test as test.data
 	TestCase* next = nullptr;
 	bool failed = false; // set by RunTests
 };
@@ -48,6 +59,18 @@ struct Registrar
 {
 	Registrar(TestCase* test_case);
 };
+
+struct GeneratorRegistrar
+{
+	GeneratorRegistrar(void (*generator)());
+};
+
+// Adds a test case, from a generator. The strings and data have to stay alive until the run ends.
+void AddTest(const char* group, const char* name, const char* file, int line, void (*function)(Context& test), const void* data);
+
+// Whether the run was started with --update, which tells tests that compare against files of expected output to rewrite
+// those files with what they got instead of failing.
+bool UpdateExpected();
 
 void ReportFailure(Context& test, const char* file, int line, const char* format, ...);
 
@@ -87,7 +110,7 @@ bool CheckEqual(Context& test, const char* file, int line, const char* a_text, c
 	return false;
 }
 
-// Runs the registered tests. Arguments: --filter <substring of Group.Name>, --list.
+// Runs the registered tests. Arguments: --filter <substring of Group.Name>, --list, --update.
 // Returns the process exit code: 0 if every selected test passed.
 int RunTests(int argc, char** argv);
 
@@ -98,6 +121,11 @@ int RunTests(int argc, char** argv);
 	static EVA::Test::TestCase TestCase_##group##_##name = { #group, #name, __FILE__, __LINE__, Test_##group##_##name }; \
 	static EVA::Test::Registrar TestRegistrar_##group##_##name(&TestCase_##group##_##name);                             \
 	static void Test_##group##_##name([[maybe_unused]] EVA::Test::Context& test)
+
+#define TEST_GENERATOR(name)                                                                                            \
+	static void TestGenerator_##name();                                                                                 \
+	static EVA::Test::GeneratorRegistrar TestGeneratorRegistrar_##name(TestGenerator_##name);                           \
+	static void TestGenerator_##name()
 
 #define CHECK(expr)                                                                                                     \
 	do                                                                                                                  \

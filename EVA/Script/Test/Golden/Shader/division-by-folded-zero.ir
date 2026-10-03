@@ -1,0 +1,39 @@
+global @PS.in0: *input int location(0)
+global @PS.in1: *input uint location(1)
+global @PS.in2: *input float location(2)
+global @PS.out0: *output float4 location(0)
+
+function @PS(%0: int, %1: uint, %2: float): float4
+	local $0: *function int
+	local $1: *function uint
+	local $2: *function float
+block0:
+	store $0, %0
+	store $1, %1
+	store $2, %2
+	%3: int = load $0
+	%4: int = div %3, int 0
+	%5: int = load $0
+	%6: int = load $0
+	%7: int = load $0
+	%8: int = sub %6, %7
+	%9: int = rem %5, %8
+	%10: uint = load $1
+	%11: uint = load $1
+	%12: uint = mul %11, uint 0
+	%13: uint = div %10, %12
+	%14: uint = load $1
+	%15: uint = rem %14, uint 0
+	%16: float = load $2
+	%17: float = div %16, float 0.0
+	%18: float4 = construct %17, %17, %17, %17
+	return %18
+
+function @PS.entry(): void [entry fragment]
+block0:
+	%0: int = load @PS.in0
+	%1: uint = load @PS.in1
+	%2: float = load @PS.in2
+	%3: float4 = call @PS, %0, %1, %2
+	store @PS.out0, %3
+	return

@@ -245,33 +245,6 @@ TEST(Resolver, NoCapturing)
 	CHECK_RESOLVE_ERRORS("function f() { const c = 1; struct T {} function h() {} function g() { c; h; x: T; } }", "");
 }
 
-TEST(Resolver, TriangleShader)
-{
-	CHECK_SHADER_RESOLVE_ERRORS(R"(
-const positions: [3]float2 = {
-	float2( 0.0,  0.5),
-	float2( 0.5, -0.5),
-	float2(-0.5, -0.5),
-};
-
-struct VSOutput
-{
-	position: float4;
-}
-
-function VSMain(@semantic(vertex_index) vertex_id: uint): @semantic(position) float4
-{
-	return float4(positions[vertex_id], 0.0, 1.0);
-}
-
-function PSMain(): @location(0) float4
-{
-	return float4(1.0, 1.0, 1.0, 1.0);
-}
-)",
-		"");
-}
-
 TEST(Resolver, ShaderIntrinsics)
 {
 	CHECK_SHADER_RESOLVE("@entry(vertex) function f() {}",

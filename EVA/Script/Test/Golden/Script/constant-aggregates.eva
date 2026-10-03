@@ -1,0 +1,6 @@
+// Array and struct consts become constant globals, copied whole or indexed.
+
+const t: [2]float = { 1.0, 2.0 };
+
+function f(): [2]float { return t; }
+function g(): float { return t[1]; }

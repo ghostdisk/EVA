@@ -1,0 +1,6 @@
+function f(x: uint): uint
+{
+	x;
+	1 + 2;
+	return x % 3;
+}

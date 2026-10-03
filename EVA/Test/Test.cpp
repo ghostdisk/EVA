@@ -1,10 +1,10 @@
 #include <EVA/Test/Test.hpp>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <chrono>
 #ifdef EVA_WIN32
 #include <crtdbg.h>
-#include <stdlib.h>
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
@@ -16,6 +16,12 @@ namespace EVA::Test
 static TestCase* first_test = nullptr;
 static TestCase* last_test = nullptr;
 
+static const uint32 MAX_GENERATORS = 64;
+static void (*generators[MAX_GENERATORS])();
+static uint32 generator_count = 0;
+
+static bool update_expected = false;
+
 Registrar::Registrar(TestCase* test_case)
 {
 	if (last_test)
@@ -23,6 +29,28 @@ Registrar::Registrar(TestCase* test_case)
 	else
 		first_test = test_case;
 	last_test = test_case;
+}
+
+GeneratorRegistrar::GeneratorRegistrar(void (*generator)())
+{
+	if (generator_count == MAX_GENERATORS)
+	{
+		fprintf(stderr, "more than %u test generators\n", MAX_GENERATORS);
+		abort();
+	}
+	generators[generator_count++] = generator;
+}
+
+void AddTest(const char* group, const char* name, const char* file, int line, void (*function)(Context& test), const void* data)
+{
+	// Lives until the process ends, like the TEST macro's.
+	TestCase* test_case = new TestCase{ .group = group, .name = name, .file = file, .line = line, .function = function, .data = data };
+	Registrar registrar(test_case);
+}
+
+bool UpdateExpected()
+{
+	return update_expected;
 }
 
 void ReportFailure(Context& test, const char* file, int line, const char* format, ...)
@@ -75,6 +103,7 @@ static bool RunTest(TestCase* test_case)
 
 	Context test;
 	test.arena = CreateArena();
+	test.data = test_case->data;
 	auto start = std::chrono::steady_clock::now();
 	try
 	{
@@ -108,12 +137,18 @@ int RunTests(int argc, char** argv)
 			filter = argv[++i];
 		else if (strcmp(argv[i], "--list") == 0)
 			list = true;
+		else if (strcmp(argv[i], "--update") == 0)
+			update_expected = true;
 		else
 		{
-			fprintf(stderr, "unknown argument '%s'\nusage: %s [--filter <substring of Group.Name>] [--list]\n", argv[i], argv[0]);
+			fprintf(stderr, "unknown argument '%s'\nusage: %s [--filter <substring of Group.Name>] [--list] [--update]\n", argv[i],
+				argv[0]);
 			return 2;
 		}
 	}
+
+	for (uint32 i = 0; i < generator_count; ++i)
+		generators[i]();
 
 	if (list)
 	{

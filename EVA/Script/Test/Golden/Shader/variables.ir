@@ -1,0 +1,38 @@
+global @VS.in0: *input uint semantic(vertex_index)
+global @VS.out0: *output float4 semantic(position)
+
+function @unused(): float
+block0:
+	return float 1.0
+
+function @VS(%0: uint): float4
+	local $0: *function uint
+	local $1: *function S
+	local $2: *function [2][2]float4
+block0:
+	store $0, %0
+	%1: *function [4]float4 = access $1, uint 0
+	%2: uint = load $0
+	%3: *function float4 = access %1, %2
+	%4: float4 = load %3
+	%5: uint = load $0
+	%6: *function [2]float4 = access $2, %5
+	%7: *function float4 = access %6, uint 1
+	%8: float4 = load %7
+	%9: float4 = add %4, %8
+	return %9
+block1:
+	%10: float4 = construct float 2.0, float 2.0, float 2.0, float 2.0
+	return %10
+
+function @nested(): int
+block0:
+	%0: int = not int 1
+	return %0
+
+function @VS.entry(): void [entry vertex]
+block0:
+	%0: uint = load @VS.in0
+	%1: float4 = call @VS, %0
+	store @VS.out0, %1
+	return

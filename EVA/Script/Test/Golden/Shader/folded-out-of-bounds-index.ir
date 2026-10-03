@@ -1,0 +1,38 @@
+global @table: *constant [3]float4 = {(1.0, 1.0, 1.0, 1.0), (2.0, 2.0, 2.0, 2.0), (3.0, 3.0, 3.0, 3.0)}
+global @VS.in0: *input uint semantic(vertex_index)
+global @VS.in1: *input int location(0)
+global @VS.out0: *output float4 semantic(position)
+
+function @VS(%0: uint, %1: int): float4
+	local $0: *function uint
+	local $1: *function int
+	local $2: *function [2]float4
+block0:
+	store $0, %0
+	store $1, %1
+	%2: uint = load $0
+	%3: uint = mul %2, uint 0
+	%4: uint = add %3, uint 5
+	%5: *constant float4 = access @table, %4
+	%6: float4 = load %5
+	%7: int = load $1
+	%8: int = load $1
+	%9: int = sub %7, %8
+	%10: int = sub %9, int 1
+	%11: *constant float4 = access @table, %10
+	%12: float4 = load %11
+	%13: float4 = add %6, %12
+	%14: uint = load $0
+	%15: uint = add %14, uint 7
+	%16: *function float4 = access $2, %15
+	%17: float4 = load %16
+	%18: float4 = add %13, %17
+	return %18
+
+function @VS.entry(): void [entry vertex]
+block0:
+	%0: uint = load @VS.in0
+	%1: int = load @VS.in1
+	%2: float4 = call @VS, %0, %1
+	store @VS.out0, %2
+	return

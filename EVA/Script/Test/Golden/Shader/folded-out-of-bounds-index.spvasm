@@ -1,0 +1,90 @@
+; VS (vertex)
+OpCapability Shader
+%53 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %2 "main" %18 %21 %23
+OpDecorate %18 BuiltIn VertexIndex
+OpDecorate %21 Location 0
+OpDecorate %23 BuiltIn Position
+%3 = OpTypeFloat 32
+%4 = OpTypeVector %3 4
+%5 = OpTypeInt 32 0
+%6 = OpConstant %5 3
+%7 = OpTypeArray %4 %6
+%8 = OpTypePointer Private %7
+%10 = OpConstant %3 1
+%11 = OpConstantComposite %4 %10 %10 %10 %10
+%12 = OpConstant %3 2
+%13 = OpConstantComposite %4 %12 %12 %12 %12
+%14 = OpConstant %3 3
+%15 = OpConstantComposite %4 %14 %14 %14 %14
+%16 = OpConstantComposite %7 %11 %13 %15
+%9 = OpVariable %8 Private %16
+%17 = OpTypePointer Input %5
+%18 = OpVariable %17 Input
+%19 = OpTypeInt 32 1
+%20 = OpTypePointer Input %19
+%21 = OpVariable %20 Input
+%22 = OpTypePointer Output %4
+%23 = OpVariable %22 Output
+%24 = OpTypeVoid
+%25 = OpTypeFunction %24
+%33 = OpTypeFunction %4 %5 %19
+%37 = OpConstantNull %5
+%39 = OpTypePointer Function %5
+%40 = OpConstantNull %19
+%42 = OpTypePointer Function %19
+%43 = OpConstant %5 2
+%44 = OpTypeArray %4 %43
+%45 = OpConstantNull %44
+%47 = OpTypePointer Function %44
+%49 = OpConstant %5 0
+%51 = OpConstant %5 5
+%55 = OpTypePointer Private %4
+%61 = OpConstant %19 1
+%69 = OpConstant %5 7
+%71 = OpConstant %5 1
+%73 = OpTypePointer Function %4
+%2 = OpFunction %24 None %25
+%26 = OpLabel
+%27 = OpLoad %5 %18
+%28 = OpLoad %19 %21
+%29 = OpFunctionCall %4 %1 %27 %28
+%30 = OpCompositeExtract %3 %29 1
+%31 = OpFNegate %3 %30
+%32 = OpCompositeInsert %4 %31 %29 1
+OpStore %23 %32
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %4 None %33
+%34 = OpFunctionParameter %5
+%35 = OpFunctionParameter %19
+%36 = OpLabel
+%38 = OpVariable %39 Function %37
+%41 = OpVariable %42 Function %40
+%46 = OpVariable %47 Function %45
+OpStore %38 %34
+OpStore %41 %35
+%48 = OpLoad %5 %38
+%50 = OpIMul %5 %48 %49
+%52 = OpIAdd %5 %50 %51
+%54 = OpExtInst %5 %53 UMin %52 %43
+%56 = OpAccessChain %55 %9 %54
+%57 = OpLoad %4 %56
+%58 = OpLoad %19 %41
+%59 = OpLoad %19 %41
+%60 = OpISub %19 %58 %59
+%62 = OpISub %19 %60 %61
+%63 = OpBitcast %5 %62
+%64 = OpExtInst %5 %53 UMin %63 %43
+%65 = OpAccessChain %55 %9 %64
+%66 = OpLoad %4 %65
+%67 = OpFAdd %4 %57 %66
+%68 = OpLoad %5 %38
+%70 = OpIAdd %5 %68 %69
+%72 = OpExtInst %5 %53 UMin %70 %71
+%74 = OpAccessChain %73 %46 %72
+%75 = OpLoad %4 %74
+%76 = OpFAdd %4 %67 %75
+OpReturnValue %76
+OpFunctionEnd

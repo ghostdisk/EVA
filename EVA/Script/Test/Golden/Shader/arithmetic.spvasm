@@ -1,0 +1,95 @@
+; PS (fragment)
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %2 "main" %5 %8 %12 %14
+OpExecutionMode %2 OriginUpperLeft
+OpDecorate %5 Location 0
+OpDecorate %5 Flat
+OpDecorate %8 Location 1
+OpDecorate %8 Flat
+OpDecorate %12 Location 2
+OpDecorate %14 Location 0
+%3 = OpTypeInt 32 1
+%4 = OpTypePointer Input %3
+%5 = OpVariable %4 Input
+%6 = OpTypeInt 32 0
+%7 = OpTypePointer Input %6
+%8 = OpVariable %7 Input
+%9 = OpTypeFloat 32
+%10 = OpTypeVector %9 4
+%11 = OpTypePointer Input %10
+%12 = OpVariable %11 Input
+%13 = OpTypePointer Output %10
+%14 = OpVariable %13 Output
+%15 = OpTypeVoid
+%16 = OpTypeFunction %15
+%22 = OpTypeFunction %10 %3 %6 %10
+%27 = OpConstantNull %3
+%29 = OpTypePointer Function %3
+%30 = OpConstantNull %6
+%32 = OpTypePointer Function %6
+%33 = OpConstantNull %10
+%35 = OpTypePointer Function %10
+%38 = OpConstant %3 2
+%42 = OpConstant %3 3
+%56 = OpConstant %6 7
+%71 = OpConstant %9 1.5e-30
+%74 = OpConstant %9 3.39999995e+38
+%2 = OpFunction %15 None %16
+%17 = OpLabel
+%18 = OpLoad %3 %5
+%19 = OpLoad %6 %8
+%20 = OpLoad %10 %12
+%21 = OpFunctionCall %10 %1 %18 %19 %20
+OpStore %14 %21
+OpReturn
+OpFunctionEnd
+%1 = OpFunction %10 None %22
+%23 = OpFunctionParameter %3
+%24 = OpFunctionParameter %6
+%25 = OpFunctionParameter %10
+%26 = OpLabel
+%28 = OpVariable %29 Function %27
+%31 = OpVariable %32 Function %30
+%34 = OpVariable %35 Function %33
+OpStore %28 %23
+OpStore %31 %24
+OpStore %34 %25
+%36 = OpLoad %3 %28
+%37 = OpLoad %3 %28
+%39 = OpIMul %3 %38 %37
+%40 = OpIAdd %3 %36 %39
+%41 = OpLoad %3 %28
+%43 = OpSDiv %3 %41 %42
+%44 = OpLoad %3 %28
+%45 = OpSDiv %3 %43 %44
+%46 = OpIMul %3 %44 %45
+%47 = OpISub %3 %43 %46
+%48 = OpISub %3 %40 %47
+%49 = OpLoad %3 %28
+%50 = OpSNegate %3 %49
+%51 = OpISub %3 %48 %50
+%52 = OpLoad %6 %31
+%53 = OpLoad %6 %31
+%54 = OpUDiv %6 %52 %53
+%55 = OpLoad %6 %31
+%57 = OpUMod %6 %55 %56
+%58 = OpIAdd %6 %54 %57
+%59 = OpLoad %6 %31
+%60 = OpLoad %6 %31
+%61 = OpIMul %6 %59 %60
+%62 = OpISub %6 %58 %61
+%63 = OpLoad %10 %34
+%64 = OpFNegate %10 %63
+%65 = OpLoad %10 %34
+%66 = OpFMul %10 %64 %65
+%67 = OpLoad %10 %34
+%68 = OpFDiv %10 %66 %67
+%69 = OpLoad %10 %34
+%70 = OpFRem %10 %68 %69
+%72 = OpCompositeConstruct %10 %71 %71 %71 %71
+%73 = OpFSub %10 %70 %72
+%75 = OpCompositeConstruct %10 %74 %74 %74 %74
+%76 = OpFAdd %10 %73 %75
+OpReturnValue %76
+OpFunctionEnd

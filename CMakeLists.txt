@@ -200,7 +200,8 @@ option(EVA_BUILD_TESTS "Build the test executables" ON)
 # it's installed. The SDK's shared library has a C API, so it works with any C runtime, including the fuzz build's static
 # one.
 if(EVA_FUZZ OR (EVA_BUILD_TESTS AND NOT ANDROID))
-	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp)
+	add_library(OutputValidation STATIC EVA/Script/Test/OutputValidation.hpp EVA/Script/Test/OutputValidation.cpp
+		EVA/Script/Test/SPIRVText.cpp)
 	eva_init_target(OutputValidation)
 	target_link_libraries(OutputValidation PUBLIC Script)
 	if(WIN32)
@@ -255,6 +256,11 @@ if(EVA_BUILD_TESTS AND NOT ANDROID)
 	eva_add_tests(Core)
 	eva_add_tests(Script)
 	eva_link_output_validation(ScriptTests)
+	# Found when the tests run, see EVA/Script/Test/Golden/README.md.
+	target_compile_definitions(ScriptTests PRIVATE EVA_GOLDEN_DIR="${PROJECT_SOURCE_DIR}/EVA/Script/Test/Golden")
+	if(WIN32)
+		target_compile_definitions(ScriptTests PRIVATE _CRT_SECURE_NO_WARNINGS) # fopen
+	endif()
 endif()
 
 # Fuzz targets, EVA/Script/Fuzz/Fuzz_<name>.cpp, each defining LLVMFuzzerTestOneInput (see EVA/Script/Fuzz/README.md).

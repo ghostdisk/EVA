@@ -1,0 +1,14 @@
+function @f(%0: uint, %1: *function S): float4
+	local $0: *function uint
+	local $1: *function S
+block0:
+	store $0, %0
+	%2: *function [2]float4 = access $1, uint 0
+	%3: uint = load $0
+	%4: *function float4 = access %2, %3
+	%5: float4 = load %4
+	%6: *function [2]float4 = access %1, uint 0
+	%7: *function float4 = access %6, uint 1
+	%8: float4 = load %7
+	%9: float4 = add %5, %8
+	return %9

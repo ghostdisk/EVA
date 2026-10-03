@@ -1,0 +1,54 @@
+// VS (vertex)
+#include <metal_stdlib>
+using namespace metal;
+
+struct A1
+{
+	float4 e[4];
+};
+
+struct S0
+{
+	A1 m0;
+	uint m1;
+};
+
+struct A2
+{
+	float4 e[2];
+};
+
+struct A0
+{
+	A2 e[2];
+};
+
+struct Out
+{
+	float4 out0 [[position]];
+};
+
+float4 f0(uint p0)
+{
+	uint l0 = {};
+	S0 l1 = {};
+	A0 l2 = {};
+	l0 = p0;
+	uint v0 = l0;
+	uint v1 = min(v0, 3u);
+	float4 v2 = l1.m0.e[v1];
+	uint v3 = l0;
+	uint v4 = min(v3, 1u);
+	float4 v5 = l2.e[v4].e[1u];
+	float4 v6 = v2 + v5;
+	return v6;
+}
+
+vertex Out main0(uint in0 [[vertex_id]])
+{
+	Out out = {};
+	uint v0 = in0;
+	float4 v1 = f0(v0);
+	out.out0 = v1;
+	return out;
+}

@@ -11,6 +11,7 @@
 - When assignment lands: IR gen has to build values for assignment into existing memory in a temporary and `copy` it, so `s = { s.b, s.a }` reads `s.a` before overwriting it. Add a test for that case, it's easy to break.
 - Cap shader source size to a few MB, since shaders come from untrusted content.
 - Cap the errors per compile and report only the first N, so a large source can't produce an unbounded list.
+- Module lifetimes. For now a module lives as long as its context, so context-level caches can refer to a module's types: today `Context::array_types`, and the generic instance cache that replaces it (`Array(MyStruct, 3)`, Docs/Plan/Generics.md). A long-lived script context with modules loaded and unloaded needs those entries per module, or a module-level cache chained to the context's.
 - `std::vector` growth in the compiler (`Parser`, `Resolver` and `Typer` errors, the expression parser's stacks, `Context::array_types`) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.
 
 ## GPU
@@ -24,3 +25,7 @@
 
 - The atom table stores its strings in `std::string`s keyed by an `std::unordered_map`. Replace both: keep the strings in an arena owned by the table so they never move, and use our own hash map keyed by `StringView`. That removes the `std::string` built on every `GetAtom` lookup, and lets atom strings be returned as views without copying them into the caller's arena (e.g. in `SerializeNode`).
 - `GetAtom` isn't thread-safe: the table is a global with no locking. Fine while everything is single threaded, but compiling shaders on worker threads needs the new table to support concurrent lookups and inserts. Its atoms also never go away, so untrusted identifiers grow it for the lifetime of the process.
+
+## Build
+
+- Vendor the Vulkan headers and SPIRV-Tools. Today the Vulkan backend is only built when CMake finds the Vulkan SDK, and the SPIR-V validator the tests and fuzzers use comes from the SDK's `SPIRV-Tools-shared` library, so without the SDK there's no Vulkan backend and SPIR-V output goes unvalidated. SPIRV-Tools generates its tables from SPIRV-Headers' grammar files at build time, so it needs SPIRV-Headers too.

@@ -16,8 +16,12 @@ bool HaveMetal();
 // Validates a module for Vulkan 1.0.
 ZTStringView ValidateSPIRV(Slice<uint32> words, Arena* arena);
 
-// The module as text, for tests. Empty without SPIRV-Tools.
+// The module as text, as SPIRV-Tools' disassembler prints it without a header, by our own disassembler (SPIRVText.cpp),
+// so it doesn't need the Vulkan SDK.
 ZTStringView DisassembleSPIRV(Slice<uint32> words, Arena* arena);
+
+// The same by SPIRV-Tools, to check ours against. Empty without SPIRV-Tools.
+ZTStringView DisassembleSPIRVWithTools(Slice<uint32> words, Arena* arena);
 
 // Compiles main with fxc for the stage at shader model 5.0.
 ZTStringView CompileHLSL(StringView text, ShaderStage stage, Arena* arena);

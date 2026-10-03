@@ -1,0 +1,7 @@
+@entry(fragment)
+function PS(@location(0) a: int, @location(1) b: uint, @location(2) c: float4): @location(0) float4
+{
+	a + 2 * a - a / 3 % a - -a;
+	b / b + b % 7 - b * b;
+	return -c * c / c % c - float4(1.5e-30) + float4(3.4e38);
+}

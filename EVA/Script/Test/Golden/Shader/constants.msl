@@ -1,0 +1,154 @@
+// PS (fragment)
+#include <metal_stdlib>
+using namespace metal;
+
+struct S0
+{
+	int m0;
+	uint m1;
+};
+
+struct A1
+{
+	int e[3];
+};
+
+struct A0
+{
+	A1 e[2];
+};
+
+struct A3
+{
+	float2 e[2];
+};
+
+struct S2
+{
+	uint m0;
+	A3 m1;
+};
+
+struct A2
+{
+	S2 e[2];
+};
+
+struct S1
+{
+	A2 m0;
+	int m1;
+	float4 m2;
+};
+
+struct In
+{
+	uint in0 [[user(locn0), flat]];
+};
+
+struct Out
+{
+	int out0 [[color(0)]];
+	uint out1 [[color(1)]];
+};
+
+constant A0 g0 = { { { { 1, 2, 3 } }, { { (-2147483647 - 1), 0, 2147483647 } } } };
+constant S1 g1 = { { { { 1u, { { float2(1.0, 2.0), float2(3.0, 4.0) } } }, { 2u, { { float2(5.0, 5.0), float2(6.0, 6.0) } } } } }, (-7), float4(as_type<float>(0x00000001u), as_type<float>(0x006CE3EEu), 3.4e+38, as_type<float>(0x80000000u)) };
+
+void f0(uint p0, thread S0& p1)
+{
+	uint l0 = {};
+	l0 = p0;
+	uint v0 = l0;
+	uint v1 = min(v0, 1u);
+	uint v2 = l0;
+	uint v3 = min(v2, 2u);
+	int v4 = g0.e[v1].e[v3];
+	int v5 = g1.m1;
+	uint v6 = l0;
+	uint v7 = min(v6, 2u);
+	int v8 = g0.e[1u].e[v7];
+	int v9 = v5 * v8;
+	int v10 = v4 + v9;
+	p1.m0 = v10;
+	uint v11 = l0;
+	uint v12 = min(v11, 1u);
+	uint v13 = g1.m0.e[v12].m0;
+	p1.m1 = v13;
+}
+
+fragment Out main0(In in [[stage_in]])
+{
+	Out out = {};
+	S0 l0 = {};
+	uint v0 = in.in0;
+	f0(v0, l0);
+	int v1 = l0.m0;
+	out.out0 = v1;
+	uint v2 = l0.m1;
+	out.out1 = v2;
+	return out;
+}
+
+// VS (vertex)
+#include <metal_stdlib>
+using namespace metal;
+
+struct A1
+{
+	float2 e[2];
+};
+
+struct S1
+{
+	uint m0;
+	A1 m1;
+};
+
+struct A0
+{
+	S1 e[2];
+};
+
+struct S0
+{
+	A0 m0;
+	int m1;
+	float4 m2;
+};
+
+struct In
+{
+	uint in0 [[attribute(0)]];
+};
+
+struct Out
+{
+	float4 out0 [[position]];
+};
+
+constant S0 g0 = { { { { 1u, { { float2(1.0, 2.0), float2(3.0, 4.0) } } }, { 2u, { { float2(5.0, 5.0), float2(6.0, 6.0) } } } } }, (-7), float4(as_type<float>(0x00000001u), as_type<float>(0x006CE3EEu), 3.4e+38, as_type<float>(0x80000000u)) };
+
+float4 f0(uint p0)
+{
+	uint l0 = {};
+	l0 = p0;
+	uint v0 = l0;
+	uint v1 = min(v0, 1u);
+	uint v2 = l0;
+	uint v3 = min(v2, 1u);
+	float2 v4 = g0.m0.e[v1].m1.e[v3];
+	float4 v5 = float4(v4, 0.0, 1.0);
+	float4 v6 = g0.m2;
+	float4 v7 = v5 + v6;
+	return v7;
+}
+
+vertex Out main0(In in [[stage_in]])
+{
+	Out out = {};
+	uint v0 = in.in0;
+	float4 v1 = f0(v0);
+	out.out0 = v1;
+	return out;
+}

@@ -71,7 +71,7 @@ ZTStringView ValidateSPIRV(Slice<uint32> words, Arena* arena)
 #endif
 }
 
-ZTStringView DisassembleSPIRV(Slice<uint32> words, Arena* arena)
+ZTStringView DisassembleSPIRVWithTools(Slice<uint32> words, Arena* arena)
 {
 #ifdef EVA_HAVE_SPIRV_TOOLS
 	static spv_context context = spvContextCreate(SPV_ENV_VULKAN_1_0);
