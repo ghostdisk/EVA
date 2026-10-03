@@ -16,7 +16,8 @@ enum class ParseLevel
 // marked ROOT; a file gives its declarations, space separated. If parsing fails, gives "error: <message>" instead.
 static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* source)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
+	Context context = { .arena = arena, .error_arena = arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = arena };
 	StringBuilder builder(arena);
 
 	Node* first = nullptr;
@@ -45,7 +46,7 @@ static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* so
 		parsed = LexToken(parser);
 		if (parsed && parser.token.token_type != TokenType::END_OF_FILE)
 		{
-			EmitError(parser, "unparsed input '%s'", parser.token.start);
+			EmitError(parser.context, "unparsed input '%s'", parser.token.start);
 			parsed = false;
 		}
 	}
@@ -53,11 +54,11 @@ static ZTStringView ParseToString(Arena* arena, ParseLevel level, const char* so
 	if (!parsed)
 	{
 		builder.Append("error: ");
-		for (size_t i = 0; i < parser.errors.size(); ++i)
+		for (size_t i = 0; i < parser.context.errors.size(); ++i)
 		{
 			if (i)
 				builder.Append(" | ");
-			builder.Append(parser.errors[i]->message);
+			builder.Append(parser.context.errors[i]->message);
 		}
 		return builder.ToString();
 	}
@@ -427,7 +428,8 @@ TEST(Parser, Module)
 {
 	// CHECK_PARSE shows only the declarations, this checks the MODULE node holding them.
 	const char* source = "const a = 1; function f() {}";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
 
@@ -724,10 +726,11 @@ TEST(ParserRecursion, DepthIsRestored)
 	const char* sources[] = { "function f() { if a { b; } }", "function f() { function g() { function h() {} } }" };
 	for (const char* source : sources)
 	{
-		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+		Context context = { .arena = test.arena, .error_arena = test.arena };
+		Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 		Node* module = nullptr;
 		Parse(parser, &module);
-		CHECK_EQ(parser.recursion_depth, 0u);
+		CHECK_EQ(context.recursion_depth, 0u);
 	}
 }
 
@@ -741,7 +744,8 @@ TEST(Parser, LongPrefixChainDoesNotRecurse)
 {
 	// Prefix operators wait on the parser's operator stack rather than recursing, so they aren't limited by nesting.
 	ZTStringView source = Repeat(test.arena, "", "!", 10000, "a", "");
-	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = test.arena };
 	Node* node = ParseExpression(parser);
 	REQUIRE(node);
 	CHECK_EQ(node->node_type, NodeType::UNARY);
@@ -754,9 +758,10 @@ static void CheckParseTerminates(Test::Context& test, const char* source)
 {
 	ArenaMark mark = test.arena->Mark();
 	{
-		Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+		Context context = { .arena = test.arena, .error_arena = test.arena };
+		Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 		Node* module = nullptr;
-		if (!Parse(parser, &module) && parser.errors.empty())
+		if (!Parse(parser, &module) && parser.context.errors.empty())
 			Test::ReportFailure(test, __FILE__, __LINE__, "parse failed without an error for:\n%s", source);
 	}
 	test.arena->Rewind(mark);

@@ -151,8 +151,8 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 	}
 	ClampIndices(f.module);
 	CompiledEntryPoint entry_point = { .stage = ShaderStage::FRAGMENT };
-	std::vector<ScriptError*> errors;
-	Slice<uint32> words = EmitSPIRV(f.module, f.wrapper, test.arena, errors);
+	std::vector<ScriptError*>& errors = f.context.errors;
+	Slice<uint32> words = EmitSPIRV(f.module, f.wrapper, test.arena);
 	if (CheckBackendError(test, file, line, "SPIR-V", words.count != 0, errors, spirv_error) && !spirv_error)
 	{
 		entry_point.code = Slice<uint8>((uint8*)words.data, words.count * 4);
@@ -162,7 +162,7 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 				Validation::DisassembleSPIRV(words, test.arena).CString());
 	}
 	errors.clear();
-	ZTStringView hlsl = EmitHLSL(f.module, f.wrapper, test.arena, errors);
+	ZTStringView hlsl = EmitHLSL(f.module, f.wrapper, test.arena);
 	if (CheckBackendError(test, file, line, "HLSL", hlsl.length != 0, errors, hlsl_error) && !hlsl_error)
 	{
 		entry_point.code = Slice<uint8>(hlsl.data, (uint32)hlsl.length);
@@ -171,7 +171,7 @@ static void CheckFixture(Test::Context& test, const char* file, int line, Fixtur
 			Test::ReportFailure(test, file, line, "invalid HLSL: %s\n%s", problem.CString(), hlsl.CString());
 	}
 	errors.clear();
-	ZTStringView msl = EmitMSL(f.module, f.wrapper, test.arena, errors);
+	ZTStringView msl = EmitMSL(f.module, f.wrapper, test.arena);
 	if (CheckBackendError(test, file, line, "MSL", msl.length != 0, errors, msl_error) && !msl_error)
 	{
 		entry_point.code = Slice<uint8>(msl.data, (uint32)msl.length);

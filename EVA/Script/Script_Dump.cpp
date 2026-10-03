@@ -306,9 +306,7 @@ struct ValuePrinter
 			case PrimitiveKind::BOOL: builder.Append(bits ? "true" : "false"); break;
 			case PrimitiveKind::FLOAT:
 			{
-				float value;
-				memcpy(&value, &bits, 4);
-				AppendFloat(builder, value);
+				AppendFloat(builder, BitsToFloat(bits));
 				break;
 			}
 			case PrimitiveKind::VOID: break;

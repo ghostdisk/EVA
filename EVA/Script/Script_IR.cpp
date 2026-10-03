@@ -263,9 +263,7 @@ IRRef GetIRInt(IRModule& module, int32 value)
 
 IRRef GetIRFloat(IRModule& module, float value)
 {
-	uint32 bits;
-	memcpy(&bits, &value, 4);
-	return GetIRScalar(module, module.context->float_type, bits);
+	return GetIRScalar(module, module.context->float_type, FloatToBits(value));
 }
 
 static uint32 AppendOperands(IRModule& module, Slice<IRRef> operands)

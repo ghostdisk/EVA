@@ -1,57 +1,10 @@
 #include <EVA/Script/Script.hpp>
 #include <math.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 namespace EVA::Script
 {
-
-ScriptError* EmitError(Typer& typer, const char* format, ...)
-{
-	ScriptError* error = typer.error_arena->New<ScriptError>();
-	va_list args;
-	va_start(args, format);
-	error->message = avprintf(typer.error_arena, format, args);
-	va_end(args);
-	typer.errors.push_back(error);
-	return error;
-}
-
-static const char* AtomName(Typer& typer, Atom atom)
-{
-	return GetAtomString(atom, typer.arena).CString();
-}
-
-static const char* TypeName(Typer& typer, Type* type)
-{
-	return TypeToString(type, typer.arena).CString();
-}
-
-PrimitiveType* ComponentType(Type* type)
-{
-	if (type->type_kind == TypeKind::PRIMITIVE)
-		return (PrimitiveType*)type;
-	if (type->type_kind == TypeKind::VECTOR)
-		return ((VectorType*)type)->element;
-	return nullptr;
-}
-
-uint32 ComponentCount(Type* type)
-{
-	return type->type_kind == TypeKind::VECTOR ? ((VectorType*)type)->count : 1;
-}
-
-bool IsNumeric(PrimitiveType* type)
-{
-	return type->primitive_kind == PrimitiveKind::SIGNED || type->primitive_kind == PrimitiveKind::UNSIGNED ||
-		   type->primitive_kind == PrimitiveKind::FLOAT;
-}
-
-bool IsInteger(PrimitiveType* type)
-{
-	return type->primitive_kind == PrimitiveKind::SIGNED || type->primitive_kind == PrimitiveKind::UNSIGNED;
-}
 
 // Returns node as target_type, or nullptr without an error if it can't be.
 static Node* TryImplicitCast(Typer& typer, Node* node, Type* target_type)
@@ -67,7 +20,7 @@ static Node* ImplicitCast(Typer& typer, Node* node, Type* target_type)
 {
 	if (Node* cast = TryImplicitCast(typer, node, target_type))
 		return cast;
-	EmitError(typer, "expected %s, got %s", TypeName(typer, target_type), TypeName(typer, node->type));
+	EmitError(typer.context, "expected %s, got %s", GetTypeNameCString(typer.context, target_type), GetTypeNameCString(typer.context, node->type));
 	return nullptr;
 }
 
@@ -84,13 +37,13 @@ static bool ImplicitCoCast(Typer& typer, Node*& a, Node*& b)
 		b = cast;
 		return true;
 	}
-	EmitError(typer, "mismatched types %s and %s", TypeName(typer, a->type), TypeName(typer, b->type));
+	EmitError(typer.context, "mismatched types %s and %s", GetTypeNameCString(typer.context, a->type), GetTypeNameCString(typer.context, b->type));
 	return false;
 }
 
-static const char* NumberName(Typer& typer, NumberLiteral* number)
+static const char* GetNumberNameCString(Context& context, NumberLiteral* number)
 {
-	return NumberToString(number, typer.arena).CString();
+	return NumberToString(number, context.arena).CString();
 }
 
 // Whether the integer has at most bits significant bits, so a float with a mantissa that wide holds it exactly.
@@ -108,12 +61,12 @@ static bool CheckNumberFits(Typer& typer, NumberLiteral* number, PrimitiveType* 
 	{
 		if (number->kind == NumberKind::FLOAT && isinf(number->f32))
 		{
-			EmitError(typer, "'%s' is out of range for float", NumberName(typer, number));
+			EmitError(typer.context, "'%s' is out of range for float", GetNumberNameCString(typer.context, number));
 			return false;
 		}
 		if (number->kind == NumberKind::INTEGER && !FitsMantissa(number->integer, 24))
 		{
-			EmitError(typer, "'%s' can't be represented exactly as a float", NumberName(typer, number));
+			EmitError(typer.context, "'%s' can't be represented exactly as a float", GetNumberNameCString(typer.context, number));
 			return false;
 		}
 		return true;
@@ -121,7 +74,7 @@ static bool CheckNumberFits(Typer& typer, NumberLiteral* number, PrimitiveType* 
 
 	if (number->kind == NumberKind::FLOAT)
 	{
-		EmitError(typer, "'%s' is not an integer", NumberName(typer, number));
+		EmitError(typer.context, "'%s' is not an integer", GetNumberNameCString(typer.context, number));
 		return false;
 	}
 	uint64 limit = UINT32_MAX;
@@ -129,7 +82,7 @@ static bool CheckNumberFits(Typer& typer, NumberLiteral* number, PrimitiveType* 
 		limit = INT32_MAX;
 	if (number->integer > limit)
 	{
-		EmitError(typer, "'%s' is out of range for %s", NumberName(typer, number), TypeName(typer, type));
+		EmitError(typer.context, "'%s' is out of range for %s", GetNumberNameCString(typer.context, number), GetTypeNameCString(typer.context, type));
 		return false;
 	}
 	return true;
@@ -138,12 +91,12 @@ static bool CheckNumberFits(Typer& typer, NumberLiteral* number, PrimitiveType* 
 static bool TypeNode(Typer& typer, Node* node, Type* expected);
 
 // The only argument of an attribute, or nullptr with an error.
-static Node* SingleArgument(Typer& typer, Node* attribute, const char* name)
+static Node* GetSingleArgument(Typer& typer, Node* attribute, const char* name)
 {
 	Node* argument = attribute->node_type == NodeType::CALL ? FindChild(attribute, Usage::ARGUMENT) : nullptr;
 	if (!argument || (argument->next && argument->next->usage == Usage::ARGUMENT))
 	{
-		EmitError(typer, "'%s' takes one argument", name);
+		EmitError(typer.context, "'%s' takes one argument", name);
 		return nullptr;
 	}
 	return argument;
@@ -164,17 +117,17 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		return false; // unresolved, already reported
 	if (callee->node_type != NodeType::REFERENCE)
 	{
-		EmitError(typer, "expected an attribute name");
+		EmitError(typer.context, "expected an attribute name");
 		return false;
 	}
 	if (callee->target->kind != ElementKind::INTRINSIC || IsBuiltinFunction(((Intrinsic*)callee->target)->intrinsic_kind))
 	{
-		EmitError(typer, "'%s' isn't an attribute", AtomName(typer, callee->name));
+		EmitError(typer.context, "'%s' isn't an attribute", GetAtomNameCString(typer.context, callee->name));
 		return false;
 	}
 
 	Intrinsic* intrinsic = (Intrinsic*)callee->target;
-	const char* name = AtomName(typer, intrinsic->name);
+	const char* name = GetAtomNameCString(typer.context, intrinsic->name);
 	switch (intrinsic->intrinsic_kind)
 	{
 	case IntrinsicKind::SEMANTIC:
@@ -183,20 +136,20 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 		if (target->node_type != NodeType::PARAMETER && target->node_type != NodeType::FIELD &&
 			target->usage != Usage::RETURN_TYPE)
 		{
-			EmitError(typer, "'%s' can only be used on parameters, fields and return types", name);
+			EmitError(typer.context, "'%s' can only be used on parameters, fields and return types", name);
 			return false;
 		}
-		Node* argument = SingleArgument(typer, attribute, name);
+		Node* argument = GetSingleArgument(typer, attribute, name);
 		if (!argument)
 			return false;
 		if (intrinsic->intrinsic_kind == IntrinsicKind::SEMANTIC)
-			return TypeEnumArgument(typer, argument, typer.context->semantic_type);
-		Constant* location = EvaluateConstant(typer, argument, typer.context->uint_type, "a location");
+			return TypeEnumArgument(typer, argument, typer.context.semantic_type);
+		Constant* location = EvaluateConstant(typer, argument, typer.context.uint_type, "a location");
 		if (!location)
 			return false;
-		if (location->type != typer.context->uint_type)
+		if (location->type != typer.context.uint_type)
 		{
-			EmitError(typer, "expected uint, got %s", TypeName(typer, location->type));
+			EmitError(typer.context, "expected uint, got %s", GetTypeNameCString(typer.context, location->type));
 			return false;
 		}
 		return true;
@@ -205,11 +158,11 @@ static bool TypeAttribute(Typer& typer, Node* attribute, Node* target)
 	{
 		if (target->node_type != NodeType::FUNCTION)
 		{
-			EmitError(typer, "'%s' can only be used on functions", name);
+			EmitError(typer.context, "'%s' can only be used on functions", name);
 			return false;
 		}
-		Node* argument = SingleArgument(typer, attribute, name);
-		return argument && TypeEnumArgument(typer, argument, typer.context->stage_type);
+		Node* argument = GetSingleArgument(typer, attribute, name);
+		return argument && TypeEnumArgument(typer, argument, typer.context.stage_type);
 	}
 	default: break;
 	}
@@ -230,14 +183,14 @@ static bool TypeAttributes(Typer& typer, Node* node)
 // Types the struct's fields and lays them out, the first time it's needed.
 static bool CompleteStruct(Typer& typer, StructType* type)
 {
-	CHECK_RECURSION(typer);
+	CHECK_RECURSION(typer.context);
 	if (type->state == StructState::COMPLETE)
 		return true;
 	if (type->state == StructState::FAILED)
 		return false;
 	if (type->state == StructState::COMPLETING)
 	{
-		EmitError(typer, "'%s' contains itself", AtomName(typer, type->name));
+		EmitError(typer.context, "'%s' contains itself", GetAtomNameCString(typer.context, type->name));
 		return false;
 	}
 	type->state = StructState::COMPLETING;
@@ -261,7 +214,7 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 		typed = TypeAttributes(typer, field) && typed;
 		if (FindChild(field, Usage::VALUE))
 		{
-			EmitError(typer, "default values aren't supported yet");
+			EmitError(typer.context, "default values aren't supported yet");
 			typed = false;
 		}
 		Type* field_type = EvaluateType(typer, FindChild(field, Usage::DECLARED_TYPE));
@@ -283,7 +236,7 @@ static bool CompleteStruct(Typer& typer, StructType* type)
 	offset = (offset + alignment - 1) / alignment * alignment;
 	if (offset > UINT32_MAX)
 	{
-		EmitError(typer, "'%s' is too large", AtomName(typer, type->name));
+		EmitError(typer.context, "'%s' is too large", GetAtomNameCString(typer.context, type->name));
 		typed = false;
 	}
 	type->fields = Slice<StructField>(fields, index);
@@ -299,10 +252,10 @@ static Constant* ConvertGenericConstant(Typer& typer, const GenericParam& param,
 {
 	if (constant->type == param.type)
 		return constant;
-	PrimitiveType* component = ComponentType(constant->type);
-	if (!component || ComponentCount(constant->type) != 1 || !IsInteger(component))
+	PrimitiveType* component = GetComponentType(constant->type);
+	if (!component || GetComponentCount(constant->type) != 1 || !IsInteger(component))
 	{
-		EmitError(typer, "%s must be an int or uint, got %s", param.what, TypeName(typer, constant->type));
+		EmitError(typer.context, "%s must be an int or uint, got %s", param.what, GetTypeNameCString(typer.context, constant->type));
 		return nullptr;
 	}
 	assert(IsInteger(param.type));
@@ -311,7 +264,7 @@ static Constant* ConvertGenericConstant(Typer& typer, const GenericParam& param,
 																   : value >= 0 && value <= UINT32_MAX;
 	if (!fits)
 	{
-		EmitError(typer, "%s %lld is out of range for %s", param.what, (long long)value, TypeName(typer, param.type));
+		EmitError(typer.context, "%s %lld is out of range for %s", param.what, (long long)value, GetTypeNameCString(typer.context, param.type));
 		return nullptr;
 	}
 	Constant* converted = typer.arena->New<Constant>();
@@ -343,7 +296,7 @@ static bool InstantiateNode(Typer& typer, Node* node, Generic* generic, Slice<No
 	assert(count <= MAX_GENERIC_PARAMS);
 	if (arguments.count != count)
 	{
-		EmitError(typer, "'%s' takes %u argument%s, got %u", AtomName(typer, generic->name), count, count == 1 ? "" : "s",
+		EmitError(typer.context, "'%s' takes %u argument%s, got %u", GetAtomNameCString(typer.context, generic->name), count, count == 1 ? "" : "s",
 			arguments.count);
 		return false;
 	}
@@ -366,7 +319,7 @@ static bool InstantiateNode(Typer& typer, Node* node, Generic* generic, Slice<No
 	if (!typed)
 		return false;
 
-	Type* type = Instantiate(*typer.context, generic, Slice<GenericArg>(args, count), &typer);
+	Type* type = Instantiate(typer.context, generic, Slice<GenericArg>(args, count), &typer);
 	if (!type)
 		return false;
 	node->type = type;
@@ -398,7 +351,7 @@ bool ResolveName(Typer& typer, Node* node, Element** out)
 	case NodeType::IDENTIFIER: return false; // unresolved, already reported
 	case NodeType::CALL:
 	{
-		CHECK_RECURSION(typer); // through the callee, a chain of calls can be long
+		CHECK_RECURSION(typer.context); // through the callee, a chain of calls can be long
 		Node* callee = FindChild(node, Usage::CALLEE);
 		Element* target = nullptr;
 		if (!ResolveName(typer, callee, &target))
@@ -423,7 +376,7 @@ bool ResolveName(Typer& typer, Node* node, Element** out)
 	case NodeType::ARRAY_TYPE:
 	{
 		Node* arguments[] = { FindChild(node, Usage::ELEMENT), FindChild(node, Usage::SIZE) };
-		return InstantiateNode(typer, node, typer.context->array_generic, Slice<Node*>(arguments, 2), out);
+		return InstantiateNode(typer, node, typer.context.array_generic, Slice<Node*>(arguments, 2), out);
 	}
 	default: return true;
 	}
@@ -431,7 +384,7 @@ bool ResolveName(Typer& typer, Node* node, Element** out)
 
 Type* EvaluateType(Typer& typer, Node* node)
 {
-	CHECK_RECURSION(typer);
+	CHECK_RECURSION(typer.context);
 	TypeAttributes(typer, node);
 
 	Element* element = nullptr;
@@ -440,9 +393,9 @@ Type* EvaluateType(Typer& typer, Node* node)
 	if (!element || element->kind != ElementKind::TYPE)
 	{
 		if (element && element->kind == ElementKind::GENERIC)
-			EmitError(typer, "'%s' needs arguments", AtomName(typer, ((Generic*)element)->name));
+			EmitError(typer.context, "'%s' needs arguments", GetAtomNameCString(typer.context, ((Generic*)element)->name));
 		else
-			EmitError(typer, "expected a type");
+			EmitError(typer.context, "expected a type");
 		return nullptr;
 	}
 	Type* type = (Type*)element;
@@ -470,7 +423,7 @@ static bool TypeConstValue(Typer& typer, Node* node)
 		return false;
 	if (type && constant->type != type)
 	{
-		EmitError(typer, "expected %s, got %s", TypeName(typer, type), TypeName(typer, constant->type));
+		EmitError(typer.context, "expected %s, got %s", GetTypeNameCString(typer.context, type), GetTypeNameCString(typer.context, constant->type));
 		return false;
 	}
 	node->type = constant->type; // the value is now a CONSTANT
@@ -486,7 +439,7 @@ static bool TypeOnDemand(Typer& typer, Node* node, bool (*type_value)(Typer&, No
 	case TypingState::TYPED: return true;
 	case TypingState::FAILED: return false; // already reported
 	case TypingState::TYPING:
-		EmitError(typer, "'%s' depends on itself", AtomName(typer, node->name));
+		EmitError(typer.context, "'%s' depends on itself", GetAtomNameCString(typer.context, node->name));
 		return false;
 	case TypingState::UNTYPED: break;
 	}
@@ -523,14 +476,14 @@ static bool TypeFunction(Typer& typer, Node* node)
 		typed = TypeAttributes(typer, parameter) && typed;
 		if (FindChild(parameter, Usage::VALUE))
 		{
-			EmitError(typer, "default values aren't supported yet");
+			EmitError(typer.context, "default values aren't supported yet");
 			typed = false;
 		}
 		parameter->type = EvaluateType(typer, FindChild(parameter, Usage::DECLARED_TYPE));
 		typed = parameter->type != nullptr && typed;
 	}
 
-	Type* return_type = typer.context->void_type;
+	Type* return_type = typer.context.void_type;
 	if (Node* return_node = FindChild(node, Usage::RETURN_TYPE))
 		return_type = EvaluateType(typer, return_node);
 	if (!return_type)
@@ -566,7 +519,7 @@ static bool TypeVariable(Typer& typer, Node* node)
 			return false;
 		if (type && constant->type != type)
 		{
-			EmitError(typer, "expected %s, got %s", TypeName(typer, type), TypeName(typer, constant->type));
+			EmitError(typer.context, "expected %s, got %s", GetTypeNameCString(typer.context, type), GetTypeNameCString(typer.context, constant->type));
 			return false;
 		}
 		type = constant->type;
@@ -601,16 +554,16 @@ static bool TypeReturn(Typer& typer, Node* node)
 		return false;
 	}
 
-	if (return_type == typer.context->void_type)
+	if (return_type == typer.context.void_type)
 	{
 		if (!value)
 			return true;
-		EmitError(typer, "a function returning void can't return a value");
+		EmitError(typer.context, "a function returning void can't return a value");
 		return false;
 	}
 	if (!value)
 	{
-		EmitError(typer, "'return' needs a value of type %s", TypeName(typer, return_type));
+		EmitError(typer.context, "'return' needs a value of type %s", GetTypeNameCString(typer.context, return_type));
 		return false;
 	}
 	if (!TypeNode(typer, value, return_type))
@@ -620,25 +573,25 @@ static bool TypeReturn(Typer& typer, Node* node)
 	return true;
 }
 
-PrimitiveType* NumberType(Typer& typer, NumberLiteral* number, Type* expected)
+PrimitiveType* GetNumberType(Typer& typer, NumberLiteral* number, Type* expected)
 {
-	PrimitiveType* type = typer.context->int_type;
+	PrimitiveType* type = typer.context.int_type;
 	if (expected && expected->type_kind == TypeKind::PRIMITIVE && IsNumeric((PrimitiveType*)expected))
 		type = (PrimitiveType*)expected;
 	else if (number->kind == NumberKind::FLOAT)
-		type = typer.context->float_type;
+		type = typer.context.float_type;
 	return CheckNumberFits(typer, number, type) ? type : nullptr;
 }
 
 static bool TypeNumber(Typer& typer, Node* node, Type* expected)
 {
-	node->type = NumberType(typer, node->number, expected);
+	node->type = GetNumberType(typer, node->number, expected);
 	return node->type != nullptr;
 }
 
 static bool TypeReference(Typer& typer, Node* node)
 {
-	const char* name = AtomName(typer, node->name);
+	const char* name = GetAtomNameCString(typer.context, node->name);
 	switch (node->target->kind)
 	{
 	case ElementKind::NODE:
@@ -661,25 +614,25 @@ static bool TypeReference(Typer& typer, Node* node)
 			node->type = target->type;
 			return node->type != nullptr; // nullptr if the declaration failed, already reported
 		case NodeType::FUNCTION:
-			EmitError(typer, "'%s' is a function, which can only be called", name);
+			EmitError(typer.context, "'%s' is a function, which can only be called", name);
 			return false;
 		case NodeType::TYPE_ALIAS:
-			EmitError(typer, "'%s' is a type, not a value", name);
+			EmitError(typer.context, "'%s' is a type, not a value", name);
 			return false;
 		default:
-			EmitError(typer, "'%s' can't be used as a value", name);
+			EmitError(typer.context, "'%s' can't be used as a value", name);
 			return false;
 		}
 	}
 	case ElementKind::TYPE:
 	case ElementKind::GENERIC:
-		EmitError(typer, "'%s' is a type, not a value", name);
+		EmitError(typer.context, "'%s' is a type, not a value", name);
 		return false;
 	case ElementKind::INTRINSIC:
 		if (IsBuiltinFunction(((Intrinsic*)node->target)->intrinsic_kind))
-			EmitError(typer, "'%s' is a function, which can only be called", name);
+			EmitError(typer.context, "'%s' is a function, which can only be called", name);
 		else
-			EmitError(typer, "'%s' can only be used as an attribute", name);
+			EmitError(typer.context, "'%s' can only be used as an attribute", name);
 		return false;
 	case ElementKind::CONSTANT:
 		node->type = ((Constant*)node->target)->type;
@@ -693,7 +646,7 @@ static bool TypeInitList(Typer& typer, Node* node, Type* expected)
 {
 	if (!expected)
 	{
-		EmitError(typer, "can't tell the type of an initializer list here");
+		EmitError(typer.context, "can't tell the type of an initializer list here");
 		return false;
 	}
 
@@ -711,12 +664,12 @@ static bool TypeInitList(Typer& typer, Node* node, Type* expected)
 		expected_count = ((StructType*)expected)->fields.count;
 	else
 	{
-		EmitError(typer, "can't initialize %s with an initializer list", TypeName(typer, expected));
+		EmitError(typer.context, "can't initialize %s with an initializer list", GetTypeNameCString(typer.context, expected));
 		return false;
 	}
 	if (count != expected_count)
 	{
-		EmitError(typer, "%s needs %u elements, got %u", TypeName(typer, expected), expected_count, count);
+		EmitError(typer.context, "%s needs %u elements, got %u", GetTypeNameCString(typer.context, expected), expected_count, count);
 		return false;
 	}
 
@@ -749,13 +702,13 @@ bool CheckOperator(Typer& typer, NodeType node_type, TokenType op)
 		supported = op == TokenType::PLUS || op == TokenType::MINUS || op == TokenType::ASTERISK || op == TokenType::SLASH ||
 					op == TokenType::PERCENT;
 	if (!supported)
-		EmitError(typer, "'%s' isn't supported yet", TokenToString(op).CString());
+		EmitError(typer.context, "'%s' isn't supported yet", TokenToString(op).CString());
 	return supported;
 }
 
 bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type)
 {
-	PrimitiveType* component = ComponentType(type);
+	PrimitiveType* component = GetComponentType(type);
 	bool valid = false;
 	if (component && node_type == NodeType::UNARY && op == TokenType::TILDE)
 		valid = IsInteger(component);
@@ -764,7 +717,7 @@ bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type)
 	else if (component)
 		valid = IsNumeric(component);
 	if (!valid)
-		EmitError(typer, "can't apply '%s' to %s", TokenToString(op).CString(), TypeName(typer, type));
+		EmitError(typer.context, "can't apply '%s' to %s", TokenToString(op).CString(), GetTypeNameCString(typer.context, type));
 	return valid;
 }
 
@@ -787,7 +740,7 @@ static bool TypeOperandPair(Typer& typer, Node*& left, Node*& right, Type* expec
 	if (left_literal && right_literal && !expected)
 	{
 		if (left->number->kind == NumberKind::FLOAT || right->number->kind == NumberKind::FLOAT)
-			expected = typer.context->float_type;
+			expected = typer.context.float_type;
 	}
 	Node* first = left;
 	Node* second = right;
@@ -823,7 +776,7 @@ bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32
 		*components += ((VectorType*)type)->count;
 	else
 	{
-		EmitError(typer, "can't construct %s from %s", TypeName(typer, vector), TypeName(typer, type));
+		EmitError(typer.context, "can't construct %s from %s", GetTypeNameCString(typer.context, vector), GetTypeNameCString(typer.context, type));
 		return false;
 	}
 	return true;
@@ -833,7 +786,7 @@ bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 compone
 {
 	if (components == vector->count || components == 1)
 		return true;
-	EmitError(typer, "%s needs %u components, got %u", TypeName(typer, vector), vector->count, components);
+	EmitError(typer.context, "%s needs %u components, got %u", GetTypeNameCString(typer.context, vector), vector->count, components);
 	return false;
 }
 
@@ -841,7 +794,7 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 {
 	if (type->type_kind != TypeKind::VECTOR)
 	{
-		EmitError(typer, "constructing %s isn't supported yet", TypeName(typer, type));
+		EmitError(typer.context, "constructing %s isn't supported yet", GetTypeNameCString(typer.context, type));
 		return false;
 	}
 	VectorType* vector = (VectorType*)type;
@@ -862,15 +815,10 @@ static bool TypeConstructor(Typer& typer, Node* node, Type* type)
 	return typed;
 }
 
-static bool IsFloatVector(Type* type)
-{
-	return type->type_kind == TypeKind::VECTOR && ((VectorType*)type)->element->primitive_kind == PrimitiveKind::FLOAT;
-}
-
 // floatCxR takes C components on its right and R on its left.
-static Type* ProductType(Typer& typer, Type* a, Type* b)
+static Type* GetProductType(Typer& typer, Type* a, Type* b)
 {
-	Context& context = *typer.context;
+	Context& context = typer.context;
 	if (a->type_kind == TypeKind::MATRIX)
 	{
 		MatrixType* left = (MatrixType*)a;
@@ -887,7 +835,7 @@ static Type* ProductType(Typer& typer, Type* a, Type* b)
 
 static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type* expected)
 {
-	const char* name = AtomName(typer, intrinsic->name);
+	const char* name = GetAtomNameCString(typer.context, intrinsic->name);
 	IntrinsicKind kind = intrinsic->intrinsic_kind;
 	uint32 needed = kind == IntrinsicKind::LENGTH || kind == IntrinsicKind::NORMALIZE ? 1 : 2;
 	Node* arguments[2] = {};
@@ -902,7 +850,7 @@ static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type
 	}
 	if (count != needed)
 	{
-		EmitError(typer, "'%s' takes %u argument%s, got %u", name, needed, needed == 1 ? "" : "s", count);
+		EmitError(typer.context, "'%s' takes %u argument%s, got %u", name, needed, needed == 1 ? "" : "s", count);
 		return false;
 	}
 
@@ -914,10 +862,10 @@ static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type
 		typed = TypeNode(typer, arguments[1], nullptr) && typed;
 		if (!typed)
 			return false;
-		node->type = ProductType(typer, arguments[0]->type, arguments[1]->type);
+		node->type = GetProductType(typer, arguments[0]->type, arguments[1]->type);
 		if (!node->type)
-			EmitError(typer, "'mul' can't multiply %s by %s", TypeName(typer, arguments[0]->type),
-				TypeName(typer, arguments[1]->type));
+			EmitError(typer.context, "'mul' can't multiply %s by %s", GetTypeNameCString(typer.context, arguments[0]->type),
+				GetTypeNameCString(typer.context, arguments[1]->type));
 		return node->type != nullptr;
 	}
 	case IntrinsicKind::MIN:
@@ -926,10 +874,10 @@ static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type
 		if (!TypeOperandPair(typer, arguments[0], arguments[1], expected))
 			return false;
 		Type* type = arguments[0]->type;
-		PrimitiveType* component = ComponentType(type);
+		PrimitiveType* component = GetComponentType(type);
 		if (!component || !IsNumeric(component))
 		{
-			EmitError(typer, "'%s' takes numbers or vectors of them, got %s", name, TypeName(typer, type));
+			EmitError(typer.context, "'%s' takes numbers or vectors of them, got %s", name, GetTypeNameCString(typer.context, type));
 			return false;
 		}
 		node->type = type;
@@ -949,8 +897,8 @@ static bool TypeBuiltinCall(Typer& typer, Node* node, Intrinsic* intrinsic, Type
 	Type* type = arguments[0]->type;
 	if (!IsFloatVector(type))
 	{
-		EmitError(typer, "'%s' takes %s, got %s", name, kind == IntrinsicKind::DOT ? "float vectors" : "a float vector",
-			TypeName(typer, type));
+		EmitError(typer.context, "'%s' takes %s, got %s", name, kind == IntrinsicKind::DOT ? "float vectors" : "a float vector",
+			GetTypeNameCString(typer.context, type));
 		return false;
 	}
 	node->type = kind == IntrinsicKind::NORMALIZE ? type : ((VectorType*)type)->element;
@@ -973,12 +921,12 @@ static bool TypeCall(Typer& typer, Node* node, Type* expected)
 		callee->type = (Type*)target;
 		return TypeConstructor(typer, node, callee->type);
 	case ElementKind::GENERIC: // the call instantiates the generic, which makes a type, not a value
-		EmitError(typer, "expected a value, got a type");
+		EmitError(typer.context, "expected a value, got a type");
 		return false;
 	case ElementKind::NODE:
 		if (((Node*)target)->node_type == NodeType::FUNCTION)
 		{
-			EmitError(typer, "calling functions isn't supported yet");
+			EmitError(typer.context, "calling functions isn't supported yet");
 			return false;
 		}
 		break;
@@ -986,7 +934,7 @@ static bool TypeCall(Typer& typer, Node* node, Type* expected)
 	}
 	// The callee is a value: typed for its own errors, then it can't be called whatever it is.
 	if (TypeNode(typer, callee, nullptr))
-		EmitError(typer, "%s can't be called", TypeName(typer, callee->type));
+		EmitError(typer.context, "%s can't be called", GetTypeNameCString(typer.context, callee->type));
 	return false;
 }
 
@@ -995,20 +943,20 @@ static bool TypeIndex(Typer& typer, Node* node)
 	Node* object = FindChild(node, Usage::OBJECT);
 	Node* index = FindChild(node, Usage::INDEX);
 	bool object_typed = TypeNode(typer, object, nullptr);
-	bool index_typed = TypeNode(typer, index, typer.context->uint_type);
+	bool index_typed = TypeNode(typer, index, typer.context.uint_type);
 	if (!object_typed || !index_typed)
 		return false;
 
 	if (object->type->type_kind != TypeKind::ARRAY)
 	{
-		EmitError(typer, "can't index %s", TypeName(typer, object->type));
+		EmitError(typer.context, "can't index %s", GetTypeNameCString(typer.context, object->type));
 		return false;
 	}
 	ArrayType* array = (ArrayType*)object->type;
-	PrimitiveType* index_type = ComponentType(index->type);
-	if (!index_type || ComponentCount(index->type) != 1 || !IsInteger(index_type))
+	PrimitiveType* index_type = GetComponentType(index->type);
+	if (!index_type || GetComponentCount(index->type) != 1 || !IsInteger(index_type))
 	{
-		EmitError(typer, "index must be an int or uint, got %s", TypeName(typer, index->type));
+		EmitError(typer.context, "index must be an int or uint, got %s", GetTypeNameCString(typer.context, index->type));
 		return false;
 	}
 	if (Constant* constant = TryEvaluateConstant(typer, index, index->type))
@@ -1016,7 +964,7 @@ static bool TypeIndex(Typer& typer, Node* node)
 		int64 value = ConstantToInteger(constant);
 		if (value < 0 || value >= array->length)
 		{
-			EmitError(typer, "index %lld is out of bounds for %s", (long long)value, TypeName(typer, array));
+			EmitError(typer.context, "index %lld is out of bounds for %s", (long long)value, GetTypeNameCString(typer.context, array));
 			return false;
 		}
 	}
@@ -1041,7 +989,7 @@ static bool TypeMember(Typer& typer, Node* node)
 			}
 		}
 	}
-	EmitError(typer, "%s has no member '%s'", TypeName(typer, object->type), AtomName(typer, node->name));
+	EmitError(typer.context, "%s has no member '%s'", GetTypeNameCString(typer.context, object->type), GetAtomNameCString(typer.context, node->name));
 	return false;
 }
 
@@ -1049,7 +997,7 @@ static bool TypeMember(Typer& typer, Node* node)
 // The parent checks the result against it.
 static bool TypeNode(Typer& typer, Node* node, Type* expected)
 {
-	CHECK_RECURSION(typer);
+	CHECK_RECURSION(typer.context);
 	bool typed = TypeAttributes(typer, node);
 
 	switch (node->node_type)
@@ -1125,23 +1073,23 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 		typed = false; // unresolved, already reported
 		break;
 	case NodeType::ARRAY_TYPE:
-		EmitError(typer, "expected a value, got a type");
+		EmitError(typer.context, "expected a value, got a type");
 		typed = false;
 		break;
 	case NodeType::BOOL:
-		EmitError(typer, "bool isn't supported yet");
+		EmitError(typer.context, "bool isn't supported yet");
 		typed = false;
 		break;
 	case NodeType::IF:
-		EmitError(typer, "'if' isn't supported yet");
+		EmitError(typer.context, "'if' isn't supported yet");
 		typed = false;
 		break;
 	case NodeType::POSTFIX:
-		EmitError(typer, "'%s' isn't supported yet", TokenToString(node->op).CString());
+		EmitError(typer.context, "'%s' isn't supported yet", TokenToString(node->op).CString());
 		typed = false;
 		break;
 	default:
-		EmitError(typer, "unexpected %s", NodeTypeToString(node->node_type).CString());
+		EmitError(typer.context, "unexpected %s", NodeTypeToString(node->node_type).CString());
 		typed = false;
 		break;
 	}
@@ -1150,9 +1098,10 @@ static bool TypeNode(Typer& typer, Node* node, Type* expected)
 
 bool TypeCheck(Typer& typer, Node* module)
 {
+	size_t errors = typer.context.errors.size();
 	bool typed = TypeNode(typer, module, nullptr);
-	assert(typed || !typer.errors.empty()); // every failure is reported
-	return typer.errors.empty();
+	assert(typed || typer.context.errors.size() > errors); // every failure is reported
+	return typer.context.errors.size() == errors;
 }
 
 }

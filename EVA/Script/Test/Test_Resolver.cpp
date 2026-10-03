@@ -8,25 +8,25 @@ using namespace EVA::Script;
 // Resolve errors go to out_errors joined with " | ", empty if there were none.
 static Node* ParseAndResolve(Arena* arena, ContextKind kind, const char* source, ZTStringView* out_errors)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
+	Context context;
+	InitContext(context, arena, kind); // in arena, so the types outlive this function along with the tree referencing them
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = arena };
 	Node* module = nullptr;
 	if (!Parse(parser, &module))
 	{
-		*out_errors = aprintf(arena, "parse error: %s", parser.errors.back()->message.CString());
+		*out_errors = aprintf(arena, "parse error: %s", context.errors.back()->message.CString());
 		return nullptr;
 	}
 
-	Context context;
-	InitContext(context, arena, kind); // in arena, so the types outlive this function along with the tree referencing them
-	Resolver resolver = { .context = &context, .arena = arena, .error_arena = arena };
+	Resolver resolver = { .context = context, .arena = arena };
 	Resolve(resolver, module);
 
 	StringBuilder builder(arena);
-	for (size_t i = 0; i < resolver.errors.size(); ++i)
+	for (size_t i = 0; i < context.errors.size(); ++i)
 	{
 		if (i)
 			builder.Append(" | ");
-		builder.Append(resolver.errors[i]->message);
+		builder.Append(context.errors[i]->message);
 	}
 	*out_errors = builder.ToString();
 	return module;
@@ -212,12 +212,12 @@ TEST(Resolver, Attributes)
 TEST(Resolver, Scopes)
 {
 	const char* source = "function f() { { } }";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
-	Node* module = nullptr;
-	REQUIRE(Parse(parser, &module));
 	Context context;
 	InitContext(context, test.arena, ContextKind::SCRIPT);
-	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
+	Node* module = nullptr;
+	REQUIRE(Parse(parser, &module));
+	Resolver resolver = { .context = context, .arena = test.arena };
 	REQUIRE(Resolve(resolver, module));
 
 	Node* function = module->child;
@@ -319,10 +319,10 @@ TEST(Resolver, BuiltInConstants)
 	context.global_scope->first = definition;
 
 	const char* source = "const a = answer;";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	Node* module = nullptr;
 	REQUIRE(Parse(parser, &module));
-	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	Resolver resolver = { .context = context, .arena = test.arena };
 	REQUIRE(Resolve(resolver, module));
 
 	Node* value = FindChild(module->child, Usage::VALUE);

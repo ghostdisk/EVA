@@ -89,7 +89,7 @@ static bool IsDigit(char ch)
 	return ch >= '0' && ch <= '9';
 }
 
-static uint32 HexDigitValue(char ch)
+static uint32 GetHexDigitValue(char ch)
 {
 	if (ch >= '0' && ch <= '9')
 		return ch - '0';
@@ -148,7 +148,7 @@ static NumberLiteral* LexNumber(Parser& parser, char* start, char* end)
 	{
 		if (!IsDecimalFloat(text))
 		{
-			EmitError(parser, "invalid number '%s'", text);
+			EmitError(parser.context, "invalid number '%s'", text);
 			return nullptr;
 		}
 		number->kind = NumberKind::FLOAT;
@@ -156,7 +156,7 @@ static NumberLiteral* LexNumber(Parser& parser, char* start, char* end)
 		number->f32 = strtof(text, nullptr);
 		if (isinf(number->f64))
 		{
-			EmitError(parser, "'%s' is out of range", text);
+			EmitError(parser.context, "'%s' is out of range", text);
 			return nullptr;
 		}
 		return number;
@@ -171,21 +171,21 @@ static NumberLiteral* LexNumber(Parser& parser, char* start, char* end)
 	}
 	if (!*digit)
 	{
-		EmitError(parser, "invalid number '%s'", text);
+		EmitError(parser.context, "invalid number '%s'", text);
 		return nullptr;
 	}
 	uint64 value = 0;
 	for (; *digit; ++digit)
 	{
-		uint32 digit_value = HexDigitValue(*digit);
+		uint32 digit_value = GetHexDigitValue(*digit);
 		if (digit_value >= base)
 		{
-			EmitError(parser, "invalid number '%s'", text);
+			EmitError(parser.context, "invalid number '%s'", text);
 			return nullptr;
 		}
 		if (value > (UINT64_MAX - digit_value) / base)
 		{
-			EmitError(parser, "'%s' is out of range", text);
+			EmitError(parser.context, "'%s' is out of range", text);
 			return nullptr;
 		}
 		value = value * base + digit_value;
@@ -259,7 +259,7 @@ bool LexToken(Parser& parser)
 
 	if (ch == '/' && parser.head[1] == '*')
 	{
-		EmitError(parser, "unterminated block comment");
+		EmitError(parser.context, "unterminated block comment");
 		return false;
 	}
 
@@ -342,9 +342,9 @@ bool LexToken(Parser& parser)
 	// ...
 
 	if (ch >= ' ' && ch <= '~')
-		EmitError(parser, "unexpected character '%c'", ch);
+		EmitError(parser.context, "unexpected character '%c'", ch);
 	else
-		EmitError(parser, "unexpected byte 0x%02X", (uint8)ch);
+		EmitError(parser.context, "unexpected byte 0x%02X", (uint8)ch);
 	return false;
 }
 

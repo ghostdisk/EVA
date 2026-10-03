@@ -9,32 +9,32 @@ using namespace EVA::Script;
 // out_errors. Type errors go to out_errors joined with " | ", empty if there were none.
 static Node* ParseResolveAndType(Arena* arena, ContextKind kind, const char* source, ZTStringView* out_errors)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
+	Context& context = *arena->New<Context>(); // outlives this function along with the tree referencing its types
+	InitContext(context, arena, kind);
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = arena };
 	Node* module = nullptr;
 	if (!Parse(parser, &module))
 	{
-		*out_errors = aprintf(arena, "parse error: %s", parser.errors.back()->message.CString());
+		*out_errors = aprintf(arena, "parse error: %s", context.errors.back()->message.CString());
 		return nullptr;
 	}
 
-	Context* context = arena->New<Context>(); // outlives this function along with the tree referencing its types
-	InitContext(*context, arena, kind);
-	Resolver resolver = { .context = context, .arena = arena, .error_arena = arena };
+	Resolver resolver = { .context = context, .arena = arena };
 	if (!Resolve(resolver, module))
 	{
-		*out_errors = aprintf(arena, "resolve error: %s", resolver.errors[0]->message.CString());
+		*out_errors = aprintf(arena, "resolve error: %s", context.errors[0]->message.CString());
 		return nullptr;
 	}
 
-	Typer typer = { .context = context, .arena = arena, .error_arena = arena };
+	Typer typer = { .context = context, .arena = arena };
 	TypeCheck(typer, module);
 
 	StringBuilder builder(arena);
-	for (size_t i = 0; i < typer.errors.size(); ++i)
+	for (size_t i = 0; i < context.errors.size(); ++i)
 	{
 		if (i)
 			builder.Append(" | ");
-		builder.Append(typer.errors[i]->message);
+		builder.Append(context.errors[i]->message);
 	}
 	*out_errors = builder.ToString();
 	return module;

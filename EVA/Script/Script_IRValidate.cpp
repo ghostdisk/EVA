@@ -26,37 +26,27 @@ static bool IsValueType(Type* type)
 	return IsScalarOrVector(type) || (type && (type->type_kind == TypeKind::MATRIX || type->type_kind == TypeKind::POINTER));
 }
 
-static PrimitiveKind ComponentKind(Type* type)
+static bool IsNumericScalarOrVector(Type* type)
 {
-	return ComponentType(type)->primitive_kind;
+	return IsScalarOrVector(type) && GetScalarKind(type) != PrimitiveKind::BOOL;
 }
 
-static bool IsNumeric(Type* type)
-{
-	return IsScalarOrVector(type) && ComponentKind(type) != PrimitiveKind::BOOL;
-}
-
-static bool IsInteger(Type* type)
+static bool IsIntegerScalarOrVector(Type* type)
 {
 	if (!IsScalarOrVector(type))
 		return false;
-	PrimitiveKind kind = ComponentKind(type);
+	PrimitiveKind kind = GetScalarKind(type);
 	return kind == PrimitiveKind::SIGNED || kind == PrimitiveKind::UNSIGNED;
 }
 
 static bool IsIntegerScalar(Type* type)
 {
-	return IsScalar(type) && IsInteger(type);
+	return IsScalar(type) && IsIntegerScalarOrVector(type);
 }
 
 static bool IsBoolScalarOrVector(Type* type)
 {
-	return IsScalarOrVector(type) && ComponentKind(type) == PrimitiveKind::BOOL;
-}
-
-static bool IsFloatVector(Type* type)
-{
-	return type && type->type_kind == TypeKind::VECTOR && ComponentKind(type) == PrimitiveKind::FLOAT;
+	return IsScalarOrVector(type) && GetScalarKind(type) == PrimitiveKind::BOOL;
 }
 
 static bool IsFloatMatrix(Type* type)
@@ -498,9 +488,9 @@ struct Validator
 				for (uint32 i = 0; i < o.count; ++i)
 				{
 					Type* part = types(i);
-					if (!IsScalarOrVector(part) || ComponentType(part) != vector->element)
+					if (!IsScalarOrVector(part) || GetComponentType(part) != vector->element)
 						return Fail("can't construct %s from %s", TypeName(type), TypeName(part));
-					components += ComponentCount(part);
+					components += GetComponentCount(part);
 				}
 				if (components != vector->count)
 					return Fail("constructs %s from %u components", TypeName(type), components);
@@ -547,34 +537,34 @@ struct Validator
 		case IROp::SHUFFLE:
 		{
 			if (types(0)->type_kind != TypeKind::VECTOR || types(1)->type_kind != TypeKind::VECTOR ||
-				ComponentType(types(0)) != ComponentType(types(1)))
+				GetComponentType(types(0)) != GetComponentType(types(1)))
 				return Fail("can't shuffle %s and %s", TypeName(types(0)), TypeName(types(1)));
-			uint32 limit = ComponentCount(types(0)) + ComponentCount(types(1));
+			uint32 limit = GetComponentCount(types(0)) + GetComponentCount(types(1));
 			for (uint32 i = 2; i < o.count; ++i)
 			{
 				uint32 index = 0;
 				if (!ConstantIndex(o[i], limit, "the component", &index))
 					return false;
 			}
-			return Expect(type, GetVectorType(*module.context, ComponentType(types(0)), o.count - 2), "the result");
+			return Expect(type, GetVectorType(*module.context, GetComponentType(types(0)), o.count - 2), "the result");
 		}
 		case IROp::ADD:
 		case IROp::SUB:
 		case IROp::MUL:
 		case IROp::DIV:
 		case IROp::REM:
-			if (!IsNumeric(type) && !IsFloatMatrix(type))
+			if (!IsNumericScalarOrVector(type) && !IsFloatMatrix(type))
 				return Fail("can't %s %s", info.name, TypeName(type));
 			return Expect(types(0), type, "the left operand") && Expect(types(1), type, "the right operand");
 		case IROp::NEG:
-			if ((!IsNumeric(type) || ComponentKind(type) == PrimitiveKind::UNSIGNED) && !IsFloatMatrix(type))
+			if ((!IsNumericScalarOrVector(type) || GetScalarKind(type) == PrimitiveKind::UNSIGNED) && !IsFloatMatrix(type))
 				return Fail("can't negate %s", TypeName(type));
 			return Expect(types(0), type, "the operand");
 		case IROp::AND:
 		case IROp::OR:
 		case IROp::XOR:
 		case IROp::NOT:
-			if (!IsInteger(type) && !IsBoolScalarOrVector(type))
+			if (!IsIntegerScalarOrVector(type) && !IsBoolScalarOrVector(type))
 				return Fail("can't %s %s", info.name, TypeName(type));
 			for (uint32 i = 0; i < o.count; ++i)
 			{
@@ -584,7 +574,7 @@ struct Validator
 			return true;
 		case IROp::SHL:
 		case IROp::SHR:
-			if (!IsInteger(type))
+			if (!IsIntegerScalarOrVector(type))
 				return Fail("can't shift %s", TypeName(type));
 			return Expect(types(0), type, "the value") && Expect(types(1), type, "the shift");
 		case IROp::EQ:
@@ -595,7 +585,7 @@ struct Validator
 		case IROp::GE:
 		{
 			bool equality = value.op == IROp::EQ || value.op == IROp::NE;
-			if (!(equality ? IsScalarOrVector(types(0)) : IsNumeric(types(0))))
+			if (!(equality ? IsScalarOrVector(types(0)) : IsNumericScalarOrVector(types(0))))
 				return Fail("can't compare %s", TypeName(types(0)));
 			return Expect(types(1), types(0), "the right operand") && Expect(type, BoolLike(types(0)), "the result");
 		}
@@ -627,14 +617,14 @@ struct Validator
 		case IROp::CONVERT:
 		{
 			bool convertible = IsScalarOrVector(types(0)) && IsScalarOrVector(type) &&
-							   ComponentCount(types(0)) == ComponentCount(type) &&
+							   GetComponentCount(types(0)) == GetComponentCount(type) &&
 							   (types(0)->type_kind == TypeKind::VECTOR) == (type->type_kind == TypeKind::VECTOR);
 			if (!convertible)
 				return Fail("can't convert %s to %s", TypeName(types(0)), TypeName(type));
 			return true;
 		}
 		case IROp::BITCAST:
-			if (!IsNumeric(types(0)) || !IsNumeric(type) || types(0)->size != type->size)
+			if (!IsNumericScalarOrVector(types(0)) || !IsNumericScalarOrVector(type) || types(0)->size != type->size)
 				return Fail("can't bitcast %s to %s", TypeName(types(0)), TypeName(type));
 			return true;
 		case IROp::INTRINSIC:
@@ -642,7 +632,7 @@ struct Validator
 			{
 			case IRIntrinsic::MIN:
 			case IRIntrinsic::MAX:
-				if (o.count != 2 || !IsNumeric(type))
+				if (o.count != 2 || !IsNumericScalarOrVector(type))
 					return Fail("%s of %u operands of %s", IRIntrinsicToString((IRIntrinsic)value.sub_op).CString(), o.count,
 						TypeName(type));
 				return Expect(types(0), type, "the left operand") && Expect(types(1), type, "the right operand");

@@ -8,13 +8,13 @@
 #include <unordered_map>
 #include <vector>
 
-#define CHECK_RECURSION(owner)                     \
-	(owner).recursion_depth++;                     \
-	DEFER((owner).recursion_depth--);              \
-	if ((owner).recursion_depth > RECURSION_LIMIT) \
-	{                                              \
-		EmitError(owner, "nested too deeply");     \
-		return {};                                 \
+#define CHECK_RECURSION(context)                       \
+	(context).recursion_depth++;                       \
+	DEFER((context).recursion_depth--);                \
+	if ((context).recursion_depth > RECURSION_LIMIT)   \
+	{                                                  \
+		EmitError(context, "nested too deeply");       \
+		return {};                                     \
 	}
 
 namespace EVA::Script
@@ -261,18 +261,15 @@ struct ScriptError : Error
 
 struct Parser
 {
+	Context& context;
 	char* source = nullptr;
 	char* head = nullptr;
 	Token token = {};
 	Arena* arena = nullptr;
-	Arena* error_arena = nullptr; // errors can outlive the AST
-	std::vector<ScriptError*> errors;
 
 	// Shared by nested expressions, each only touching entries above where it started.
 	std::vector<Node*> operands;
 	std::vector<PendingOp> operators;
-
-	uint32 recursion_depth = 0;
 };
 
 enum class TypeKind : uint8
@@ -581,27 +578,25 @@ struct Context
 	std::unordered_map<GenericInstanceKey, Type*, GenericInstanceHash> instances;
 	std::vector<PointerType*> pointer_types;
 	std::vector<FunctionType*> function_types;
+
+	Arena* error_arena = nullptr; // errors can outlive everything else
+	std::vector<ScriptError*> errors;
+	uint32 recursion_depth = 0;
 };
 
 struct Resolver
 {
-	Context* context = nullptr;
+	Context& context;
 	Arena* arena = nullptr;
-	Arena* error_arena = nullptr;
-	std::vector<ScriptError*> errors;
 	Scope* scope = nullptr;
-	uint32 recursion_depth = 0;
 };
 
 struct Typer
 {
-	Context* context = nullptr;
+	Context& context;
 	Arena* arena = nullptr;
-	Arena* error_arena = nullptr;
-	std::vector<ScriptError*> errors;
 	Type* return_type = nullptr; // of the function being typed
 	uint64 constant_size = 0;
-	uint32 recursion_depth = 0;
 };
 
 enum class IODirection : uint8
@@ -641,10 +636,8 @@ struct ShaderInterface
 
 struct ShaderInterfaceBuilder
 {
+	Context& context;
 	Arena* arena = nullptr;
-	Arena* error_arena = nullptr;
-	std::vector<ScriptError*> errors;
-	uint32 recursion_depth = 0;
 };
 
 struct CompileShaderOptions
@@ -690,6 +683,29 @@ VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count
 MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows);
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee);
 FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> parameters);
+ScriptError* EmitError(Context& context, const char* format, ...);
+const char* GetAtomNameCString(Context& context, Atom atom);
+const char* GetTypeNameCString(Context& context, Type* type);
+PrimitiveType* GetComponentType(Type* type);
+uint32 GetComponentCount(Type* type);
+PrimitiveKind GetScalarKind(Type* type);
+const char* GetScalarName(PrimitiveKind kind);
+bool IsNumeric(PrimitiveType* type);
+bool IsInteger(PrimitiveType* type);
+bool IsFloatVector(Type* type);
+uint32 ReadComponent(Slice<uint8> bytes, uint32 index);
+void WriteComponent(Slice<uint8> bytes, uint32 index, uint32 bits);
+float BitsToFloat(uint32 bits);
+uint32 FloatToBits(float value);
+
+template <typename T>
+Slice<T> ToSlice(Arena* arena, const std::vector<T>& items)
+{
+	T* data = (T*)arena->Allocate(items.size() * sizeof(T), alignof(T));
+	for (size_t i = 0; i < items.size(); ++i)
+		data[i] = items[i];
+	return Slice<T>(data, (uint32)items.size());
+}
 
 // --- LEXER & PARSER -----------------------------------------
 
@@ -700,7 +716,6 @@ Node* ParseExpression(Parser& parser);
 Node* ParseStatement(Parser& parser);
 bool LexToken(Parser& parser);
 void EatToken(Parser& parser);
-ScriptError* EmitError(Parser& parser, const char* format, ...);
 
 // --- RESOLVER -----------------------------------------------
 
@@ -709,36 +724,29 @@ ScriptError* EmitError(Parser& parser, const char* format, ...);
 // names stay IDENTIFIERs.
 bool Resolve(Resolver& resolver, Node* module);
 
-ScriptError* EmitError(Resolver& resolver, const char* format, ...);
-
 // --- TYPER --------------------------------------------------
 
 // Gives every expression and declaration its type. Constant expressions (a const's value, array sizes, locations)
 // aren't typed but evaluated, and become CONSTANT nodes. Errors don't stop typing the rest of the module.
 bool TypeCheck(Typer& typer, Node* module);
-ScriptError* EmitError(Typer& typer, const char* format, ...);
 bool TypeConst(Typer& typer, Node* node);
 Type* EvaluateType(Typer& typer, Node* node);
 bool ResolveName(Typer& typer, Node* node, Element** out);
 Constant* EvaluateConstant(Typer& typer, Node* node, Type* expected, const char* what);
 Constant* TryEvaluateConstant(Typer& typer, Node* node, Type* expected);
 int64 ConstantToInteger(Constant* constant);
-PrimitiveType* NumberType(Typer& typer, NumberLiteral* number, Type* expected);
+PrimitiveType* GetNumberType(Typer& typer, NumberLiteral* number, Type* expected);
 bool CheckOperator(Typer& typer, NodeType node_type, TokenType op);
 bool CheckOperands(Typer& typer, NodeType node_type, TokenType op, Type* type);
 bool AddConstructorArgument(Typer& typer, VectorType* vector, Type* type, uint32* components);
 bool CheckConstructorComponents(Typer& typer, VectorType* vector, uint32 components);
-PrimitiveType* ComponentType(Type* type);
-uint32 ComponentCount(Type* type);
-bool IsNumeric(PrimitiveType* type);
-bool IsInteger(PrimitiveType* type);
 
 // --- SHADER INTERFACE PASS ----------------------------------
 
 // Finds the entry points of a typed shader module and flattens their parameters and return values into inputs and
 // outputs, checking their semantics and locations.
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface);
-ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...);
+Intrinsic* GetAttributeIntrinsic(Node* attribute);
 
 // --- PRINTING -----------------------------------------------
 

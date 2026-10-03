@@ -12,7 +12,9 @@
 - Cap shader source size to a few MB, since shaders come from untrusted content.
 - Cap the errors per compile and report only the first N, so a large source can't produce an unbounded list.
 - Module lifetimes. For now a module lives as long as its context, so context-level caches can refer to a module's types: today `Context::array_types`, and the generic instance cache that replaces it (`Array(MyStruct, 3)`, Docs/Plan/Generics.md). A long-lived script context with modules loaded and unloaded needs those entries per module, or a module-level cache chained to the context's.
-- `std::vector` growth in the compiler (`Parser`, `Resolver` and `Typer` errors, the expression parser's stacks, `Context::array_types`) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.
+- `std::vector` growth in the compiler (`Context::errors`, the expression parser's stacks, the context's type caches) throws `std::bad_alloc` when out of memory, which ends the process. Decide whether `std::vector` stays allowed; arena-backed lists would make running out a limit error like the rest.
+- The HLSL and MSL emitters duplicate most of their text plumbing: `Print`, `Line`, `Define`, `Call`, `AppendFloat`, `AppendScalar`, `AppendConstant`, `FindReachableBlocks` and `Region`. Pull it into a shared text emitter both build on.
+- The resolver, typer and shader interface tests each join errors with " | " by hand. Share one helper, like `Test_Golden`'s `JoinErrors`.
 
 ## GPU
 

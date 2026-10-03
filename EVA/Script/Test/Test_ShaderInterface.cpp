@@ -9,26 +9,26 @@ using namespace EVA::Script;
 static bool BuildInterface(Test::Context& test, const char* file, int line, const char* source, ShaderInterface* out_interface,
 	ZTStringView* out_errors)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context& context = *test.arena->New<Context>(); // outlives this function along with the interface referencing its types
+	InitContext(context, test.arena, ContextKind::SHADER);
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	Node* module = nullptr;
-	Context* context = test.arena->New<Context>(); // outlives this function along with the interface referencing its types
-	InitContext(*context, test.arena, ContextKind::SHADER);
-	Resolver resolver = { .context = context, .arena = test.arena, .error_arena = test.arena };
-	Typer typer = { .context = context, .arena = test.arena, .error_arena = test.arena };
+	Resolver resolver = { .context = context, .arena = test.arena };
+	Typer typer = { .context = context, .arena = test.arena };
 	if (!Parse(parser, &module) || !Resolve(resolver, module) || !TypeCheck(typer, module))
 	{
 		Test::ReportFailure(test, file, line, "\"%s\"\n    failed before the interface pass", source);
 		return false;
 	}
 
-	ShaderInterfaceBuilder builder = { .arena = test.arena, .error_arena = test.arena };
+	ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena };
 	BuildShaderInterface(builder, module, out_interface);
 	StringBuilder errors(test.arena);
-	for (size_t i = 0; i < builder.errors.size(); ++i)
+	for (size_t i = 0; i < context.errors.size(); ++i)
 	{
 		if (i)
 			errors.Append(" | ");
-		errors.Append(builder.errors[i]->message);
+		errors.Append(context.errors[i]->message);
 	}
 	*out_errors = errors.ToString();
 	return true;

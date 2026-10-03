@@ -30,26 +30,6 @@ namespace
 // fxc's limit on the elements of an array, all its dimensions together (X3059).
 static const uint32 MAX_ARRAY_ELEMENTS = 65536;
 
-PrimitiveKind ScalarKind(Type* type)
-{
-	if (type->type_kind == TypeKind::MATRIX)
-		return ((MatrixType*)type)->element->primitive_kind;
-	return ComponentType(type)->primitive_kind;
-}
-
-const char* ScalarName(PrimitiveKind kind)
-{
-	switch (kind)
-	{
-	case PrimitiveKind::VOID: return "void";
-	case PrimitiveKind::BOOL: return "bool";
-	case PrimitiveKind::SIGNED: return "int";
-	case PrimitiveKind::UNSIGNED: return "uint";
-	case PrimitiveKind::FLOAT: return "float";
-	}
-	return "?";
-}
-
 // A pointer whose last step picks a vector component or matrix row at runtime.
 struct DynamicComponent
 {
@@ -96,18 +76,18 @@ struct Emitter
 		ZTStringView name;
 		switch (type->type_kind)
 		{
-		case TypeKind::PRIMITIVE: name = ScalarName(((PrimitiveType*)type)->primitive_kind); break;
+		case TypeKind::PRIMITIVE: name = GetScalarName(((PrimitiveType*)type)->primitive_kind); break;
 		case TypeKind::VECTOR:
 		{
 			VectorType* vector = (VectorType*)type;
-			name = Print("%s%u", ScalarName(vector->element->primitive_kind), vector->count);
+			name = Print("%s%u", GetScalarName(vector->element->primitive_kind), vector->count);
 			break;
 		}
 		case TypeKind::MATRIX:
 		{
 			// HLSL's rows are the IR's columns, so indexing gives the same vector.
 			MatrixType* matrix = (MatrixType*)type;
-			name = Print("%s%ux%u", ScalarName(matrix->element->primitive_kind), matrix->columns, matrix->rows);
+			name = Print("%s%ux%u", GetScalarName(matrix->element->primitive_kind), matrix->columns, matrix->rows);
 			break;
 		}
 		case TypeKind::STRUCT:
@@ -191,8 +171,7 @@ struct Emitter
 	// zero and denormals are written as their bits, which fxc keeps exactly.
 	void AppendFloat(StringBuilder& text, uint32 bits)
 	{
-		float value;
-		memcpy(&value, &bits, 4);
+		float value = BitsToFloat(bits);
 		bool denormal = (bits & 0x7F800000) == 0 && (bits & 0x007FFFFF) != 0;
 		if (!isfinite(value) || denormal || bits == 0x80000000)
 		{
@@ -417,7 +396,7 @@ struct Emitter
 		IRValue& value = module[ref];
 		Slice<IRRef> o = GetIROperands(module, ref);
 		Type* type = value.type;
-		bool logical = type && type->type_kind != TypeKind::POINTER && ScalarKind(type) == PrimitiveKind::BOOL;
+		bool logical = type && type->type_kind != TypeKind::POINTER && GetScalarKind(type) == PrimitiveKind::BOOL;
 		switch (value.op)
 		{
 		case IROp::LOAD: Define(ref, Operand(o[0])); break;
@@ -476,7 +455,7 @@ struct Emitter
 		case IROp::SHUFFLE:
 		{
 			static const char COMPONENTS[] = "xyzw";
-			uint32 first_count = ComponentCount(module[o[0]].type);
+			uint32 first_count = GetComponentCount(module[o[0]].type);
 			StringBuilder text(arena);
 			text.AppendFormat("%s(", TypeName(type));
 			for (uint32 i = 2; i < o.count; ++i)
@@ -497,7 +476,7 @@ struct Emitter
 		case IROp::REM:
 		{
 			const char* op = value.op == IROp::DIV ? "/" : "%";
-			if (ScalarKind(type) == PrimitiveKind::FLOAT || NonZeroConstant(o[1]))
+			if (GetScalarKind(type) == PrimitiveKind::FLOAT || NonZeroConstant(o[1]))
 			{
 				Define(ref, Binary(o, op));
 				break;
@@ -535,7 +514,7 @@ struct Emitter
 				names[ref] = ZTStringView(Operand(o[0]));
 				break;
 			}
-			PrimitiveKind kind = ScalarKind(type);
+			PrimitiveKind kind = GetScalarKind(type);
 			const char* function = kind == PrimitiveKind::FLOAT ? "asfloat" : kind == PrimitiveKind::SIGNED ? "asint" : "asuint";
 			Define(ref, Print("%s(%s)", function, Operand(o[0])));
 			break;
@@ -726,7 +705,7 @@ struct Emitter
 
 		// Integers between stages can't be interpolated.
 		bool between_stages = io->io_kind == IOKind::LOCATION && vertex != input;
-		bool flat = between_stages && ScalarKind(io->type) != PrimitiveKind::FLOAT;
+		bool flat = between_stages && GetScalarKind(io->type) != PrimitiveKind::FLOAT;
 		return Print("%s%s%s %s : %s", flat ? "nointerpolation " : "", input ? "" : "out ", TypeName(io->type),
 			names[global].CString(), semantic.CString());
 	}
@@ -790,7 +769,7 @@ struct Emitter
 		return largest;
 	}
 
-	ZTStringView Module(IRRef wrapper, Arena* output_arena, std::vector<ScriptError*>& errors)
+	ZTStringView Module(IRRef wrapper, Arena* output_arena)
 	{
 		names.assign(module.count, ZTStringView());
 		reachable.assign(module.count, 0);
@@ -802,10 +781,8 @@ struct Emitter
 		uint64 largest = LargestUsedArray(used);
 		if (largest > MAX_ARRAY_ELEMENTS)
 		{
-			ScriptError* error = output_arena->New<ScriptError>();
-			error->message = aprintf(output_arena, "an array of %llu elements is too large for HLSL, the limit is %u",
-				(unsigned long long)largest, MAX_ARRAY_ELEMENTS);
-			errors.push_back(error);
+			EmitError(context, "an array of %llu elements is too large for HLSL, the limit is %u", (unsigned long long)largest,
+				MAX_ARRAY_ELEMENTS);
 			return {};
 		}
 		for (size_t i = 0; i < used.functions.size(); ++i)
@@ -878,10 +855,10 @@ struct Emitter
 
 }
 
-ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
+ZTStringView EmitHLSL(IRModule& module, IRRef wrapper, Arena* arena)
 {
 	Emitter emitter = { .module = module, .context = *module.context, .arena = module.arena };
-	return emitter.Module(wrapper, arena, errors);
+	return emitter.Module(wrapper, arena);
 }
 
 }

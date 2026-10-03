@@ -9,14 +9,15 @@ using namespace EVA::Script;
 // separated: "a <<= 1" gives "identifier(a) <<= number(1)". A lex error ends the string with "error: <message>".
 static ZTStringView LexToString(Arena* arena, const char* source)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = arena, .error_arena = arena };
+	Context context = { .arena = arena, .error_arena = arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = arena };
 	StringBuilder builder(arena);
 	for (;;)
 	{
 		if (!LexToken(parser))
 		{
 			builder.Append(builder.length ? " error: " : "error: ");
-			builder.Append(parser.errors.back()->message);
+			builder.Append(parser.context.errors.back()->message);
 			break;
 		}
 
@@ -73,7 +74,8 @@ TEST(Lexer, KeywordLookalikesAreIdentifiers)
 TEST(Lexer, IdentifiersGetAtoms)
 {
 	const char* source = "foo if";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 
 	REQUIRE(LexToken(parser));
 	CHECK_EQ(parser.token.atom, GetAtom("foo"));
@@ -93,7 +95,8 @@ TEST(Lexer, Numbers)
 // Lexes source as a single NUMBER token.
 static NumberLiteral* LexNumber(Test::Context& test, const char* source)
 {
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	if (!LexToken(parser) || parser.token.token_type != TokenType::NUMBER)
 		return nullptr;
 	return parser.token.number;
@@ -234,7 +237,8 @@ TEST(Lexer, UnexpectedCharacter)
 TEST(Lexer, TokenIsLexedOnceUntilEaten)
 {
 	const char* source = "foo bar";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 
 	REQUIRE(LexToken(parser));
 	Token first = parser.token;
@@ -251,7 +255,8 @@ TEST(Lexer, TokenIsLexedOnceUntilEaten)
 TEST(Lexer, TokenTextPointsIntoSource)
 {
 	const char* source = "  foo";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	REQUIRE(LexToken(parser));
 	CHECK(parser.token.start == source + 2);
 	CHECK(parser.token.end == source + 5);
@@ -260,7 +265,8 @@ TEST(Lexer, TokenTextPointsIntoSource)
 TEST(Lexer, EndOfFileRepeats)
 {
 	const char* source = "a";
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Context context = { .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	REQUIRE(LexToken(parser));
 	EatToken(parser);
 	for (int i = 0; i < 3; ++i)

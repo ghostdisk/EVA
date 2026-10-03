@@ -175,7 +175,7 @@ struct ConstantKeyHash
 	}
 };
 
-uint32 StorageClass(AddressSpace space)
+uint32 GetStorageClass(AddressSpace space)
 {
 	switch (space)
 	{
@@ -187,14 +187,6 @@ uint32 StorageClass(AddressSpace space)
 	case AddressSpace::MEMORY: break;
 	}
 	Panic("SPIR-V: no storage class for %s", AddressSpaceToString(space).CString());
-}
-
-// The scalar kind of a scalar, vector or matrix.
-PrimitiveKind ScalarKind(Type* type)
-{
-	if (type->type_kind == TypeKind::MATRIX)
-		return ((MatrixType*)type)->element->primitive_kind;
-	return ComponentType(type)->primitive_kind;
 }
 
 struct Emitter
@@ -334,7 +326,7 @@ struct Emitter
 		case TypeKind::POINTER:
 		{
 			PointerType* pointer = (PointerType*)type;
-			id = PointerTypeId(StorageClass(pointer->space), TypeId(pointer->pointee));
+			id = PointerTypeId(GetStorageClass(pointer->space), TypeId(pointer->pointee));
 			break;
 		}
 		case TypeKind::FUNCTION:
@@ -511,7 +503,7 @@ struct Emitter
 			operands.push_back(Id(o[i]));
 		if (type->type_kind == TypeKind::MATRIX)
 			return ids[ref] = Columns(float_op, (MatrixType*)type, Slice<uint32>(operands.data(), (uint32)operands.size()));
-		PrimitiveKind kind = ScalarKind(type);
+		PrimitiveKind kind = GetScalarKind(type);
 		SpvOp op = kind == PrimitiveKind::FLOAT ? float_op : kind == PrimitiveKind::SIGNED ? signed_op : unsigned_op;
 		return Result(ref, op, type, {}, operands);
 	}
@@ -519,7 +511,7 @@ struct Emitter
 	uint32 Compare(IRRef ref, SpvOp signed_op, SpvOp unsigned_op, SpvOp float_op, SpvOp bool_op, Slice<IRRef> o)
 	{
 		SpvOp op = signed_op;
-		switch (ScalarKind(module[o[0]].type))
+		switch (GetScalarKind(module[o[0]].type))
 		{
 		case PrimitiveKind::SIGNED: op = signed_op; break;
 		case PrimitiveKind::UNSIGNED: op = unsigned_op; break;
@@ -539,8 +531,8 @@ struct Emitter
 			ids[ref] = Id(operand);
 			return;
 		}
-		PrimitiveKind to_kind = ScalarKind(to);
-		PrimitiveKind from_kind = ScalarKind(from);
+		PrimitiveKind to_kind = GetScalarKind(to);
+		PrimitiveKind from_kind = GetScalarKind(from);
 		uint32 value = Id(operand);
 		if (to_kind == PrimitiveKind::BOOL)
 		{
@@ -659,7 +651,7 @@ struct Emitter
 		case IROp::MUL: Arithmetic(ref, OpIMul, OpIMul, OpFMul, o); break;
 		case IROp::DIV: Arithmetic(ref, OpSDiv, OpUDiv, OpFDiv, o); break;
 		case IROp::REM:
-			if (type->type_kind != TypeKind::MATRIX && ScalarKind(type) == PrimitiveKind::SIGNED)
+			if (type->type_kind != TypeKind::MATRIX && GetScalarKind(type) == PrimitiveKind::SIGNED)
 			{
 				// a - b * (a / b): truncated like C and HLSL. OpSRem is undefined for negative operands in Vulkan without
 				// VK_KHR_maintenance8, and gives wrong results on some drivers.
@@ -678,7 +670,7 @@ struct Emitter
 		case IROp::XOR:
 		case IROp::NOT:
 		{
-			bool logical = ScalarKind(type) == PrimitiveKind::BOOL;
+			bool logical = GetScalarKind(type) == PrimitiveKind::BOOL;
 			SpvOp op = OpNot;
 			switch (value.op)
 			{
@@ -695,7 +687,7 @@ struct Emitter
 		}
 		case IROp::SHL: Result(ref, OpShiftLeftLogical, type, { Id(o[0]), Id(o[1]) }); break;
 		case IROp::SHR:
-			Result(ref, ScalarKind(type) == PrimitiveKind::SIGNED ? OpShiftRightArithmetic : OpShiftRightLogical, type,
+			Result(ref, GetScalarKind(type) == PrimitiveKind::SIGNED ? OpShiftRightArithmetic : OpShiftRightLogical, type,
 				{ Id(o[0]), Id(o[1]) });
 			break;
 		case IROp::EQ: Compare(ref, OpIEqual, OpIEqual, OpFOrdEqual, OpLogicalEqual, o); break;
@@ -726,7 +718,7 @@ struct Emitter
 		}
 		case IROp::INTRINSIC:
 		{
-			PrimitiveKind kind = ScalarKind(type);
+			PrimitiveKind kind = GetScalarKind(type);
 			uint32 instruction = 0;
 			switch ((IRIntrinsic)value.sub_op)
 			{
@@ -894,14 +886,14 @@ struct Emitter
 			return;
 		}
 
-		Emit(declarations, OpVariable, { pointer_type, id, StorageClass(pointer->space) });
+		Emit(declarations, OpVariable, { pointer_type, id, GetStorageClass(pointer->space) });
 		interface_ids.push_back(id);
 		ShaderIO* io = value.global.io;
 		if (io->io_kind == IOKind::LOCATION)
 		{
 			Emit(annotations, OpDecorate, { id, DECORATION_LOCATION, io->location });
 			// Integer inputs of fragment shaders can't be interpolated.
-			bool integer = ScalarKind(io->type) != PrimitiveKind::FLOAT;
+			bool integer = GetScalarKind(io->type) != PrimitiveKind::FLOAT;
 			if (entry_point->stage == ShaderStage::FRAGMENT && io->direction == IODirection::INPUT && integer)
 				Emit(annotations, OpDecorate, { id, DECORATION_FLAT });
 			return;
@@ -915,7 +907,7 @@ struct Emitter
 		Emit(annotations, OpDecorate, { id, DECORATION_BUILT_IN, built_in });
 	}
 
-	Slice<uint32> Module(IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
+	Slice<uint32> Module(IRRef wrapper, Arena* arena)
 	{
 		ids.assign(module.count, 0);
 		reachable.assign(module.count, 0);
@@ -951,10 +943,8 @@ struct Emitter
 
 		if (too_large)
 		{
-			ScriptError* error = arena->New<ScriptError>();
-			error->message = aprintf(arena, "a constant or type is too large for SPIR-V: it needs an instruction of %zu words, "
-				"the limit is %u", too_large, MAX_INSTRUCTION_WORDS);
-			errors.push_back(error);
+			EmitError(context, "a constant or type is too large for SPIR-V: it needs an instruction of %zu words, the limit is %u",
+				too_large, MAX_INSTRUCTION_WORDS);
 			return {};
 		}
 
@@ -966,10 +956,10 @@ struct Emitter
 
 }
 
-Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
+Slice<uint32> EmitSPIRV(IRModule& module, IRRef wrapper, Arena* arena)
 {
 	Emitter emitter = { .module = module, .context = *module.context };
-	return emitter.Module(wrapper, arena, errors);
+	return emitter.Module(wrapper, arena);
 }
 
 }

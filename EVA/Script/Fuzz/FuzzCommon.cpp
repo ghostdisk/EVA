@@ -80,15 +80,19 @@ void InitFuzzing()
 
 // Errors have to be in the output arena, readable after the intermediate one is gone, and printable: they end up in
 // logs and terminals, so source text in them mustn't carry control characters.
-static void CheckErrors(Compilation& compilation, const std::vector<ScriptError*>& errors, bool succeeded, const char* stage)
+// The stage's errors are the context's from first on.
+static void CheckErrors(Compilation& compilation, size_t first, bool succeeded, const char* stage)
 {
-	if (!succeeded && errors.empty())
+	std::vector<ScriptError*>& all = compilation.context.errors;
+	size_t count = all.size() - first;
+	if (!succeeded && !count)
 		Fail("%s failed without an error", stage);
-	if (succeeded && !errors.empty())
-		Fail("%s succeeded with %zu errors, the first: %s", stage, errors.size(), errors[0]->message.CString());
+	if (succeeded && count)
+		Fail("%s succeeded with %zu errors, the first: %s", stage, count, all[first]->message.CString());
 
-	for (ScriptError* error : errors)
+	for (size_t i = first; i < all.size(); ++i)
 	{
+		ScriptError* error = all[i];
 		if (!error || !compilation.output_arena->Contains(error))
 			Fail("%s error isn't in the output arena", stage);
 		if (error->error_family != ErrorFamily::SCRIPT_ERROR)
@@ -100,20 +104,12 @@ static void CheckErrors(Compilation& compilation, const std::vector<ScriptError*
 			Fail("%s error's message isn't in the output arena: %s", stage, message.CString());
 		if (message.CString()[message.length] != '\0')
 			Fail("%s error's message isn't zero terminated", stage);
-		for (size_t i = 0; i < message.length; ++i)
+		for (size_t c = 0; c < message.length; ++c)
 		{
-			if (message[i] < ' ' || message[i] > '~')
-				Fail("%s error's message has byte 0x%02X at %zu: %s", stage, message[i], i, message.CString());
+			if (message[c] < ' ' || message[c] > '~')
+				Fail("%s error's message has byte 0x%02X at %zu: %s", stage, message[c], c, message.CString());
 		}
 	}
-}
-
-static Slice<ScriptError*> CopyErrors(Arena* arena, const std::vector<ScriptError*>& errors)
-{
-	ScriptError** data = (ScriptError**)arena->Allocate(errors.size() * sizeof(ScriptError*), alignof(ScriptError*));
-	for (size_t i = 0; i < errors.size(); ++i)
-		data[i] = errors[i];
-	return Slice<ScriptError*>(data, (uint32)errors.size());
 }
 
 // Tree shape
@@ -499,10 +495,8 @@ static void CheckTree(Compilation& compilation, Stage stage, bool succeeded)
 			if (node->usage == Usage::ATTRIBUTE && !entry.on_constant)
 			{
 				// Typing succeeded, so every attribute is one the typer understood.
-				Node* callee = node->node_type == NodeType::CALL ? FindChild(node, Usage::CALLEE) : node;
-				if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC)
-					Fail("attribute %s on a %s isn't an intrinsic", NodeTypeToString(callee->node_type).CString(),
-						NodeTypeToString(node->node_type).CString());
+				if (!GetAttributeIntrinsic(node))
+					Fail("an attribute %s isn't an intrinsic", NodeTypeToString(node->node_type).CString());
 			}
 			else if (!entry.in_attribute)
 			{
@@ -562,9 +556,8 @@ static bool EntryStage(Node* function, ShaderStage* stage)
 	{
 		if (attribute->usage != Usage::ATTRIBUTE || attribute->node_type != NodeType::CALL)
 			continue;
-		Node* callee = FindChild(attribute, Usage::CALLEE);
-		if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC ||
-			((Intrinsic*)callee->target)->intrinsic_kind != IntrinsicKind::ENTRY)
+		Intrinsic* intrinsic = GetAttributeIntrinsic(attribute);
+		if (!intrinsic || intrinsic->intrinsic_kind != IntrinsicKind::ENTRY)
 			continue;
 		*stage = (ShaderStage)((Node*)FindChild(attribute, Usage::ARGUMENT)->target)->enum_value;
 		count++;
@@ -581,10 +574,10 @@ static uint32 ReadIOAttributes(Node* declaration, IOKind* kind, uint32* value)
 	{
 		if (attribute->usage != Usage::ATTRIBUTE || attribute->node_type != NodeType::CALL)
 			continue;
-		Node* callee = FindChild(attribute, Usage::CALLEE);
-		if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC)
+		Intrinsic* found = GetAttributeIntrinsic(attribute);
+		if (!found)
 			continue;
-		IntrinsicKind intrinsic = ((Intrinsic*)callee->target)->intrinsic_kind;
+		IntrinsicKind intrinsic = found->intrinsic_kind;
 		Node* argument = FindChild(attribute, Usage::ARGUMENT);
 		if (intrinsic == IntrinsicKind::SEMANTIC)
 		{
@@ -667,7 +660,7 @@ static void CheckShaderIO(Compilation& compilation, EntryPoint& entry_point, Sha
 		Fail("%s's IO path leads to %s, the record has %s", function_name, TypeToString(type, arena).CString(),
 			TypeToString(io.type, arena).CString());
 
-	PrimitiveType* component = ComponentType(type);
+	PrimitiveType* component = GetComponentType(type);
 	if (!component || !IsNumeric(component))
 		Fail("%s has an IO of type %s", function_name, TypeToString(type, arena).CString());
 
@@ -784,7 +777,8 @@ static uint32 CountAttributes(ZTStringView source)
 {
 	Arena* arena = CreateArena();
 	DEFER(DestroyArena(arena));
-	Parser parser = { .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = arena, .error_arena = arena };
+	Context context = { .arena = arena, .error_arena = arena };
+	Parser parser = { .context = context, .source = (char*)source.CString(), .head = (char*)source.CString(), .arena = arena };
 	uint32 count = 0;
 	while (LexToken(parser) && parser.token.token_type != TokenType::END_OF_FILE)
 	{
@@ -853,23 +847,19 @@ static void EmitBackends(Compilation& compilation, bool validate)
 		EntryPoint* entry_point = ir[function].function.info->entry_point;
 		if (!entry_point)
 			continue;
-		std::vector<ScriptError*> spirv_errors;
-		std::vector<ScriptError*> hlsl_errors;
-		std::vector<ScriptError*> msl_errors;
-		Slice<uint32> words = EmitSPIRV(ir, function, arena, spirv_errors);
-		ZTStringView hlsl = EmitHLSL(ir, function, arena, hlsl_errors);
-		ZTStringView msl = EmitMSL(ir, function, arena, msl_errors);
-		CheckErrors(compilation, spirv_errors, words.count != 0, "emitting SPIR-V");
-		CheckErrors(compilation, hlsl_errors, hlsl.length != 0, "emitting HLSL");
-		CheckErrors(compilation, msl_errors, msl.length != 0, "emitting MSL");
+		std::vector<ScriptError*>& errors = compilation.context.errors;
+		size_t first = errors.size();
+		Slice<uint32> words = EmitSPIRV(ir, function, arena);
+		CheckErrors(compilation, first, words.count != 0, "emitting SPIR-V");
+		first = errors.size();
+		ZTStringView hlsl = EmitHLSL(ir, function, arena);
+		CheckErrors(compilation, first, hlsl.length != 0, "emitting HLSL");
+		first = errors.size();
+		ZTStringView msl = EmitMSL(ir, function, arena);
+		CheckErrors(compilation, first, msl.length != 0, "emitting MSL");
 		compilation.spirv.push_back(words);
 		compilation.hlsl.push_back(hlsl);
 		compilation.msl.push_back(msl);
-		for (std::vector<ScriptError*>* errors : { &spirv_errors, &hlsl_errors, &msl_errors })
-		{
-			for (ScriptError* error : *errors)
-				compilation.backend_errors.push_back(error);
-		}
 		if (!validate)
 			continue;
 		if (words.count)
@@ -908,55 +898,49 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 	DEFER(SetArenaFill(-1));
 	compilation.output_arena = CreateArena();
 	compilation.intermediate_arena = CreateArena();
-	InitContext(compilation.context, compilation.intermediate_arena, kind);
+	Context& context = compilation.context;
+	InitContext(context, compilation.intermediate_arena, kind);
+	context.error_arena = compilation.output_arena;
 
 	Parser parser = {
+		.context = context,
 		.source = (char*)source.CString(),
 		.head = (char*)source.CString(),
 		.arena = compilation.intermediate_arena,
-		.error_arena = compilation.output_arena,
 	};
 	bool parsed = Parse(parser, &compilation.module);
 	if (parsed)
 		compilation.attribute_count = CountAttributes(source);
-	CheckErrors(compilation, parser.errors, parsed, "parsing");
+	CheckErrors(compilation, 0, parsed, "parsing");
 	if (!compilation.module)
 		Fail("Parse returned no module");
 	CheckTree(compilation, Stage::PARSE, parsed);
 	if (!parsed)
 	{
 		compilation.failed_stage = Stage::PARSE;
-		compilation.errors = CopyErrors(compilation.output_arena, parser.errors);
+		compilation.errors = ToSlice(compilation.output_arena, context.errors);
 		return;
 	}
 
-	Resolver resolver = {
-		.context = &compilation.context,
-		.arena = compilation.intermediate_arena,
-		.error_arena = compilation.output_arena,
-	};
+	Resolver resolver = { .context = context, .arena = compilation.intermediate_arena };
 	bool resolved = Resolve(resolver, compilation.module);
-	CheckErrors(compilation, resolver.errors, resolved, "resolving");
+	CheckErrors(compilation, 0, resolved, "resolving");
 	CheckTree(compilation, Stage::RESOLVE, resolved);
 	if (!resolved)
 	{
 		compilation.failed_stage = Stage::RESOLVE;
-		compilation.errors = CopyErrors(compilation.output_arena, resolver.errors);
+		compilation.errors = ToSlice(compilation.output_arena, context.errors);
 		return;
 	}
 
-	Typer typer = {
-		.context = &compilation.context,
-		.arena = compilation.intermediate_arena,
-		.error_arena = compilation.output_arena,
-	};
+	Typer typer = { .context = context, .arena = compilation.intermediate_arena };
 	bool typed = TypeCheck(typer, compilation.module);
-	CheckErrors(compilation, typer.errors, typed, "typing");
+	CheckErrors(compilation, 0, typed, "typing");
 	CheckTree(compilation, Stage::TYPE, typed);
 	if (!typed)
 	{
 		compilation.failed_stage = Stage::TYPE;
-		compilation.errors = CopyErrors(compilation.output_arena, typer.errors);
+		compilation.errors = ToSlice(compilation.output_arena, context.errors);
 		return;
 	}
 	if (kind == ContextKind::SHADER)
@@ -984,14 +968,14 @@ static void CompileStages(Compilation& compilation, ZTStringView source, Context
 
 static bool BuildInterface(Compilation& compilation)
 {
-	ShaderInterfaceBuilder builder = { .arena = compilation.intermediate_arena, .error_arena = compilation.output_arena };
+	ShaderInterfaceBuilder builder = { .context = compilation.context, .arena = compilation.intermediate_arena };
 	bool built = BuildShaderInterface(builder, compilation.module, &compilation.shader_interface);
-	CheckErrors(compilation, builder.errors, built, "building the shader interface");
+	CheckErrors(compilation, 0, built, "building the shader interface");
 	CheckShaderInterface(compilation, built);
 	if (!built)
 	{
 		compilation.failed_stage = Stage::INTERFACE;
-		compilation.errors = CopyErrors(compilation.output_arena, builder.errors);
+		compilation.errors = ToSlice(compilation.output_arena, compilation.context.errors);
 	}
 	return built;
 }
@@ -1027,11 +1011,13 @@ ZTStringView Fingerprint(Compilation& compilation, Arena* arena)
 		builder.Append(ShaderInterfaceToString(compilation.shader_interface, arena));
 	}
 	if (compilation.failed_stage == Stage::DONE)
-		builder.Append(IRModuleToString(compilation.ir, arena));
-	for (ScriptError* error : compilation.backend_errors)
 	{
-		builder.Append(error->message);
-		builder.Append("\n");
+		builder.Append(IRModuleToString(compilation.ir, arena));
+		for (ScriptError* error : compilation.context.errors) // the backends'
+		{
+			builder.Append(error->message);
+			builder.Append("\n");
+		}
 	}
 	for (size_t i = 0; i < compilation.hlsl.size(); ++i)
 	{

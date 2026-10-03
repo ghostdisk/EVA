@@ -1,5 +1,4 @@
 #include <EVA/Script/Script.hpp>
-#include <stdarg.h>
 
 namespace EVA::Script
 {
@@ -9,28 +8,7 @@ namespace EVA::Script
 static const uint32 LOCATION_LIMIT = 32;
 static const uint32 COLOR_TARGET_LIMIT = 8;
 
-ScriptError* EmitError(ShaderInterfaceBuilder& builder, const char* format, ...)
-{
-	ScriptError* error = builder.error_arena->New<ScriptError>();
-	va_list args;
-	va_start(args, format);
-	error->message = avprintf(builder.error_arena, format, args);
-	va_end(args);
-	builder.errors.push_back(error);
-	return error;
-}
-
-static const char* AtomName(ShaderInterfaceBuilder& builder, Atom atom)
-{
-	return GetAtomString(atom, builder.arena).CString();
-}
-
-static const char* TypeName(ShaderInterfaceBuilder& builder, Type* type)
-{
-	return TypeToString(type, builder.arena).CString();
-}
-
-static Intrinsic* AttributeIntrinsic(Node* attribute)
+Intrinsic* GetAttributeIntrinsic(Node* attribute)
 {
 	Node* callee = attribute->node_type == NodeType::CALL ? FindChild(attribute, Usage::CALLEE) : attribute;
 	if (callee->node_type != NodeType::REFERENCE || callee->target->kind != ElementKind::INTRINSIC)
@@ -46,7 +24,7 @@ static uint32 FindIOAttributes(Node* node, ShaderIO* io)
 	{
 		if (attribute->usage != Usage::ATTRIBUTE)
 			continue;
-		Intrinsic* intrinsic = AttributeIntrinsic(attribute);
+		Intrinsic* intrinsic = GetAttributeIntrinsic(attribute);
 		if (!intrinsic)
 			continue;
 		if (intrinsic->intrinsic_kind != IntrinsicKind::SEMANTIC && intrinsic->intrinsic_kind != IntrinsicKind::LOCATION)
@@ -77,7 +55,7 @@ static uint32 CountEntryAttributes(Node* function, ShaderStage* stage)
 	{
 		if (attribute->usage != Usage::ATTRIBUTE)
 			continue;
-		Intrinsic* intrinsic = AttributeIntrinsic(attribute);
+		Intrinsic* intrinsic = GetAttributeIntrinsic(attribute);
 		if (!intrinsic || intrinsic->intrinsic_kind != IntrinsicKind::ENTRY)
 			continue;
 		// An ENUM_VALUE reference, checked by the typer.
@@ -120,17 +98,17 @@ struct Flattening
 	uint32 semantics = 0; // bit per Semantic
 };
 
-static const char* DirectionName(IODirection direction)
+static const char* GetDirectionName(IODirection direction)
 {
 	return direction == IODirection::INPUT ? "input" : "output";
 }
 
 // e.g. 'color', the return value
-static const char* DeclarationName(ShaderInterfaceBuilder& builder, Node* declaration)
+static const char* GetDeclarationNameCString(Context& context, Node* declaration)
 {
 	if (declaration->usage == Usage::RETURN_TYPE)
 		return "the return value";
-	return aprintf(builder.arena, "'%s'", AtomName(builder, declaration->name)).CString();
+	return aprintf(context.arena, "'%s'", GetAtomNameCString(context, declaration->name)).CString();
 }
 
 static bool CheckSemantic(Flattening& flattening, ShaderIO& io)
@@ -141,16 +119,16 @@ static bool CheckSemantic(Flattening& flattening, ShaderIO& io)
 	{
 		if (rule.semantic != io.semantic || rule.stage != flattening.stage || rule.direction != flattening.direction)
 			continue;
-		PrimitiveType* component = ComponentType(io.type);
-		if (component->primitive_kind != rule.component || ComponentCount(io.type) != rule.count ||
+		PrimitiveType* component = GetComponentType(io.type);
+		if (component->primitive_kind != rule.component || GetComponentCount(io.type) != rule.count ||
 			(rule.count == 1) != (io.type->type_kind == TypeKind::PRIMITIVE))
 		{
-			EmitError(builder, "'%s' must be %s, got %s", name, rule.type_name, TypeName(builder, io.type));
+			EmitError(builder.context, "'%s' must be %s, got %s", name, rule.type_name, GetTypeNameCString(builder.context, io.type));
 			return false;
 		}
 		return true;
 	}
-	EmitError(builder, "'%s' can't be an %s of a %s shader", name, DirectionName(flattening.direction),
+	EmitError(builder.context, "'%s' can't be an %s of a %s shader", name, GetDirectionName(flattening.direction),
 		ShaderStageToString(flattening.stage).CString());
 	return false;
 }
@@ -161,23 +139,23 @@ static bool CheckSemantic(Flattening& flattening, ShaderIO& io)
 static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 {
 	ShaderInterfaceBuilder& builder = flattening.builder;
-	CHECK_RECURSION(builder);
+	CHECK_RECURSION(builder.context);
 
 	ShaderIO io = { .direction = flattening.direction, .type = type, .declaration = declaration };
 	uint32 attributes = FindIOAttributes(declaration, &io);
-	const char* name = DeclarationName(builder, declaration);
+	const char* name = GetDeclarationNameCString(builder.context, declaration);
 
 	if (type->type_kind == TypeKind::STRUCT)
 	{
 		StructType* struct_type = (StructType*)type;
 		if (attributes)
 		{
-			EmitError(builder, "%s is a struct, only its fields can have a semantic or location", name);
+			EmitError(builder.context, "%s is a struct, only its fields can have a semantic or location", name);
 			return false;
 		}
 		if (!struct_type->fields.count)
 		{
-			EmitError(builder, "%s is an empty struct, which can't be an %s", name, DirectionName(flattening.direction));
+			EmitError(builder.context, "%s is an empty struct, which can't be an %s", name, GetDirectionName(flattening.direction));
 			return false;
 		}
 		for (uint32 i = 0; i < struct_type->fields.count; ++i)
@@ -191,20 +169,20 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 		return true;
 	}
 
-	PrimitiveType* component = ComponentType(type);
+	PrimitiveType* component = GetComponentType(type);
 	if (!component || !IsNumeric(component))
 	{
-		EmitError(builder, "%s is %s, which can't be an %s", name, TypeName(builder, type), DirectionName(flattening.direction));
+		EmitError(builder.context, "%s is %s, which can't be an %s", name, GetTypeNameCString(builder.context, type), GetDirectionName(flattening.direction));
 		return false;
 	}
 	if (!attributes)
 	{
-		EmitError(builder, "%s needs a semantic or location", name);
+		EmitError(builder.context, "%s needs a semantic or location", name);
 		return false;
 	}
 	if (attributes > 1)
 	{
-		EmitError(builder, "%s can only have one semantic or location", name);
+		EmitError(builder.context, "%s can only have one semantic or location", name);
 		return false;
 	}
 
@@ -216,7 +194,7 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 		uint32 bit = 1u << (uint32)io.semantic;
 		if (flattening.semantics & bit)
 		{
-			EmitError(builder, "'%s' is used twice in the %s", SemanticToString(io.semantic).CString(), direction);
+			EmitError(builder.context, "'%s' is used twice in the %s", SemanticToString(io.semantic).CString(), direction);
 			return false;
 		}
 		flattening.semantics |= bit;
@@ -227,14 +205,14 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 		uint32 limit = color_target ? COLOR_TARGET_LIMIT : LOCATION_LIMIT;
 		if (io.location >= limit)
 		{
-			EmitError(builder, "location %u is out of range, the limit is %u%s", io.location, limit - 1,
+			EmitError(builder.context, "location %u is out of range, the limit is %u%s", io.location, limit - 1,
 				color_target ? " for fragment outputs" : "");
 			return false;
 		}
 		uint32 bit = 1u << io.location;
 		if (flattening.locations & bit)
 		{
-			EmitError(builder, "location %u is used twice in the %s", io.location, direction);
+			EmitError(builder.context, "location %u is used twice in the %s", io.location, direction);
 			return false;
 		}
 		flattening.locations |= bit;
@@ -246,15 +224,6 @@ static bool Flatten(Flattening& flattening, Type* type, Node* declaration)
 	io.path = Slice<uint32>(path, (uint32)flattening.path.size());
 	flattening.io.push_back(io);
 	return true;
-}
-
-template<typename T>
-static Slice<T> ToSlice(Arena* arena, const std::vector<T>& items)
-{
-	T* data = (T*)arena->Allocate(items.size() * sizeof(T), alignof(T));
-	for (size_t i = 0; i < items.size(); ++i)
-		data[i] = items[i];
-	return Slice<T>(data, (uint32)items.size());
 }
 
 static bool BuildEntryPoint(ShaderInterfaceBuilder& builder, Node* function, ShaderStage stage, EntryPoint* out)
@@ -284,7 +253,7 @@ static bool BuildEntryPoint(ShaderInterfaceBuilder& builder, Node* function, Sha
 	}
 	if (outputs_built && stage == ShaderStage::VERTEX && !(outputs.semantics & (1u << (uint32)Semantic::POSITION)))
 	{
-		EmitError(builder, "vertex shader '%s' has to output @semantic(position)", AtomName(builder, function->name));
+		EmitError(builder.context, "vertex shader '%s' has to output @semantic(position)", GetAtomNameCString(builder.context, function->name));
 		outputs_built = false;
 	}
 
@@ -300,8 +269,8 @@ static bool CheckFunction(ShaderInterfaceBuilder& builder, Node* function)
 	{
 		if ((child->usage == Usage::PARAMETER || child->usage == Usage::RETURN_TYPE) && FindIOAttributes(child, &unused))
 		{
-			EmitError(builder, "'%s' isn't an entry point, so its parameters and return value can't have a semantic or location",
-				AtomName(builder, function->name));
+			EmitError(builder.context, "'%s' isn't an entry point, so its parameters and return value can't have a semantic or location",
+				GetAtomNameCString(builder.context, function->name));
 			return false;
 		}
 	}
@@ -310,21 +279,21 @@ static bool CheckFunction(ShaderInterfaceBuilder& builder, Node* function)
 
 static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool top_level, std::vector<EntryPoint>& entry_points)
 {
-	CHECK_RECURSION(builder);
+	CHECK_RECURSION(builder.context);
 	bool found = true;
 	if (node->node_type == NodeType::FUNCTION)
 	{
 		ShaderStage stage = ShaderStage::VERTEX;
 		uint32 stages = CountEntryAttributes(node, &stage);
-		const char* name = AtomName(builder, node->name);
+		const char* name = GetAtomNameCString(builder.context, node->name);
 		if (stages > 1)
 		{
-			EmitError(builder, "'%s' can only have one 'entry'", name);
+			EmitError(builder.context, "'%s' can only have one 'entry'", name);
 			found = false;
 		}
 		else if (stages && !top_level)
 		{
-			EmitError(builder, "entry point '%s' has to be declared at the top level", name);
+			EmitError(builder.context, "entry point '%s' has to be declared at the top level", name);
 			found = false;
 		}
 		else if (stages)
@@ -347,18 +316,19 @@ static bool FindEntryPoints(ShaderInterfaceBuilder& builder, Node* node, bool to
 
 bool BuildShaderInterface(ShaderInterfaceBuilder& builder, Node* module, ShaderInterface* out_interface)
 {
+	size_t errors = builder.context.errors.size();
 	// Scripts have globals; shaders only will through bind groups (Docs/Plan/Bindings.md).
 	for (Node* declaration = module->child; declaration; declaration = declaration->next)
 	{
 		if (declaration->node_type == NodeType::VARIABLE)
-			EmitError(builder, "'%s' is a global, which shaders don't support yet", AtomName(builder, declaration->name));
+			EmitError(builder.context, "'%s' is a global, which shaders don't support yet", GetAtomNameCString(builder.context, declaration->name));
 	}
 
 	std::vector<EntryPoint> entry_points;
 	bool built = FindEntryPoints(builder, module, false, entry_points);
-	assert(built || !builder.errors.empty()); // every failure is reported
+	assert(built || builder.context.errors.size() > errors); // every failure is reported
 	out_interface->entry_points = ToSlice(builder.arena, entry_points);
-	return builder.errors.empty();
+	return builder.context.errors.size() == errors;
 }
 
 }

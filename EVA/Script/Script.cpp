@@ -1,6 +1,7 @@
 #include <EVA/Script/Script.hpp>
 #include <EVA/Script/Script_IR.hpp>
 #include <EVA/Core/Panic.hpp>
+#include <stdarg.h>
 #include <string.h>
 
 namespace EVA::Script
@@ -152,6 +153,7 @@ static Scope* CreateGlobalScope(Context& context, ContextKind kind)
 void InitContext(Context& context, Arena* arena, ContextKind kind)
 {
 	context.arena = arena;
+	context.error_arena = arena;
 	context.global_scope = CreateGlobalScope(context, kind);
 }
 
@@ -239,20 +241,20 @@ static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer
 	if (element->type_kind == TypeKind::PRIMITIVE && ((PrimitiveType*)element)->primitive_kind == PrimitiveKind::VOID)
 	{
 		if (typer)
-			EmitError(*typer, "can't make an array of void");
+			EmitError(context, "can't make an array of void");
 		return nullptr;
 	}
 	if (length < 1)
 	{
 		if (typer)
-			EmitError(*typer, "array size must be at least 1, got %u", length);
+			EmitError(context, "array size must be at least 1, got %u", length);
 		return nullptr;
 	}
 	uint64 stride = ((uint64)element->size + element->alignment - 1) / element->alignment * element->alignment;
 	if (stride * length > UINT32_MAX)
 	{
 		if (typer)
-			EmitError(*typer, "[%u]%s is too large", length, TypeToString(element, typer->arena).CString());
+			EmitError(context, "[%u]%s is too large", length, GetTypeNameCString(context, element));
 		return nullptr;
 	}
 
@@ -266,7 +268,7 @@ static Type* InstantiateArray(Context& context, GenericInstance* instance, Typer
 	return type;
 }
 
-static uint32 UintArg(GenericInstance* instance, uint32 index)
+static uint32 GetUintArg(GenericInstance* instance, uint32 index)
 {
 	uint32 value;
 	memcpy(&value, instance->args[index].constant->bytes.data, 4);
@@ -276,18 +278,18 @@ static uint32 UintArg(GenericInstance* instance, uint32 index)
 static Type* InstantiateVector(Context& context, GenericInstance* instance, Typer* typer)
 {
 	Type* element = instance->args[0].type;
-	uint32 count = UintArg(instance, 1);
+	uint32 count = GetUintArg(instance, 1);
 	PrimitiveKind kind = element->type_kind == TypeKind::PRIMITIVE ? ((PrimitiveType*)element)->primitive_kind : PrimitiveKind::VOID;
 	if (kind == PrimitiveKind::VOID) // not a primitive, or void
 	{
 		if (typer)
-			EmitError(*typer, "can't make a vector of %s", TypeToString(element, typer->arena).CString());
+			EmitError(context, "can't make a vector of %s", GetTypeNameCString(context, element));
 		return nullptr;
 	}
 	if (count < 1 || count > 4)
 	{
 		if (typer)
-			EmitError(*typer, "vector size must be 1 to 4, got %u", count);
+			EmitError(context, "vector size must be 1 to 4, got %u", count);
 		return nullptr;
 	}
 	if (count == 1)
@@ -306,20 +308,20 @@ static Type* InstantiateVector(Context& context, GenericInstance* instance, Type
 static Type* InstantiateMatrix(Context& context, GenericInstance* instance, Typer* typer)
 {
 	Type* element = instance->args[0].type;
-	uint32 columns = UintArg(instance, 1);
-	uint32 rows = UintArg(instance, 2);
+	uint32 columns = GetUintArg(instance, 1);
+	uint32 rows = GetUintArg(instance, 2);
 	// SPIR-V's matrix columns are float vectors, and MSL only has float and half matrices.
 	if (element != context.float_type)
 	{
 		if (typer)
-			EmitError(*typer, "can't make a matrix of %s, only of float", TypeToString(element, typer->arena).CString());
+			EmitError(context, "can't make a matrix of %s, only of float", GetTypeNameCString(context, element));
 		return nullptr;
 	}
 	// Neither SPIR-V nor MSL has matrices with a single column or row.
 	if (columns < 2 || columns > 4 || rows < 2 || rows > 4)
 	{
 		if (typer)
-			EmitError(*typer, "matrix columns and rows must be 2 to 4, got %u and %u", columns, rows);
+			EmitError(context, "matrix columns and rows must be 2 to 4, got %u and %u", columns, rows);
 		return nullptr;
 	}
 
@@ -344,7 +346,7 @@ static Type* InstantiateValid(Context& context, Generic* generic, std::initializ
 }
 
 // A uint constant for a generic argument, in the caller's storage.
-static Constant* UintConstant(Context& context, Constant* storage, uint32* value)
+static Constant* GetUintConstant(Context& context, Constant* storage, uint32* value)
 {
 	storage->type = context.uint_type;
 	storage->bytes = Slice<uint8>((uint8*)value, 4);
@@ -355,7 +357,7 @@ ArrayType* GetArrayType(Context& context, Type* element, uint32 length)
 {
 	Constant constant;
 	return (ArrayType*)InstantiateValid(context, context.array_generic,
-		{ { .type = element }, { .constant = UintConstant(context, &constant, &length) } });
+		{ { .type = element }, { .constant = GetUintConstant(context, &constant, &length) } });
 }
 
 VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count)
@@ -363,7 +365,7 @@ VectorType* GetVectorType(Context& context, PrimitiveType* element, uint32 count
 	assert(count >= 2 && count <= 4);
 	Constant constant;
 	return (VectorType*)InstantiateValid(context, context.vector_generic,
-		{ { .type = element }, { .constant = UintConstant(context, &constant, &count) } });
+		{ { .type = element }, { .constant = GetUintConstant(context, &constant, &count) } });
 }
 
 MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 columns, uint32 rows)
@@ -371,8 +373,8 @@ MatrixType* GetMatrixType(Context& context, PrimitiveType* element, uint32 colum
 	Constant columns_constant;
 	Constant rows_constant;
 	return (MatrixType*)InstantiateValid(context, context.matrix_generic,
-		{ { .type = element }, { .constant = UintConstant(context, &columns_constant, &columns) },
-			{ .constant = UintConstant(context, &rows_constant, &rows) } });
+		{ { .type = element }, { .constant = GetUintConstant(context, &columns_constant, &columns) },
+			{ .constant = GetUintConstant(context, &rows_constant, &rows) } });
 }
 
 PointerType* GetPointerType(Context& context, AddressSpace space, Type* pointee)
@@ -414,13 +416,103 @@ FunctionType* GetFunctionType(Context& context, Type* return_type, Slice<Type*> 
 	return type;
 }
 
-// Copies the list of errors into arena, where the errors themselves already are.
-static Slice<ScriptError*> ToSlice(Arena* arena, const std::vector<ScriptError*>& errors)
+ScriptError* EmitError(Context& context, const char* format, ...)
 {
-	ScriptError** data = (ScriptError**)arena->Allocate(errors.size() * sizeof(ScriptError*), alignof(ScriptError*));
-	for (size_t i = 0; i < errors.size(); ++i)
-		data[i] = errors[i];
-	return Slice<ScriptError*>(data, (uint32)errors.size());
+	ScriptError* error = context.error_arena->New<ScriptError>();
+	va_list args;
+	va_start(args, format);
+	error->message = avprintf(context.error_arena, format, args);
+	va_end(args);
+	context.errors.push_back(error);
+	return error;
+}
+
+const char* GetAtomNameCString(Context& context, Atom atom)
+{
+	return GetAtomString(atom, context.arena).CString();
+}
+
+const char* GetTypeNameCString(Context& context, Type* type)
+{
+	return TypeToString(type, context.arena).CString();
+}
+
+PrimitiveType* GetComponentType(Type* type)
+{
+	if (type->type_kind == TypeKind::PRIMITIVE)
+		return (PrimitiveType*)type;
+	if (type->type_kind == TypeKind::VECTOR)
+		return ((VectorType*)type)->element;
+	return nullptr;
+}
+
+uint32 GetComponentCount(Type* type)
+{
+	return type->type_kind == TypeKind::VECTOR ? ((VectorType*)type)->count : 1;
+}
+
+PrimitiveKind GetScalarKind(Type* type)
+{
+	if (type->type_kind == TypeKind::MATRIX)
+		return ((MatrixType*)type)->element->primitive_kind;
+	return GetComponentType(type)->primitive_kind;
+}
+
+const char* GetScalarName(PrimitiveKind kind)
+{
+	switch (kind)
+	{
+	case PrimitiveKind::VOID: return "void";
+	case PrimitiveKind::BOOL: return "bool";
+	case PrimitiveKind::SIGNED: return "int";
+	case PrimitiveKind::UNSIGNED: return "uint";
+	case PrimitiveKind::FLOAT: return "float";
+	}
+	return "?";
+}
+
+bool IsNumeric(PrimitiveType* type)
+{
+	return type->primitive_kind == PrimitiveKind::SIGNED || type->primitive_kind == PrimitiveKind::UNSIGNED ||
+		   type->primitive_kind == PrimitiveKind::FLOAT;
+}
+
+bool IsInteger(PrimitiveType* type)
+{
+	return type->primitive_kind == PrimitiveKind::SIGNED || type->primitive_kind == PrimitiveKind::UNSIGNED;
+}
+
+bool IsFloatVector(Type* type)
+{
+	return type && type->type_kind == TypeKind::VECTOR && ((VectorType*)type)->element->primitive_kind == PrimitiveKind::FLOAT;
+}
+
+uint32 ReadComponent(Slice<uint8> bytes, uint32 index)
+{
+	assert((uint64)index * 4 + 4 <= bytes.count);
+	uint32 bits;
+	memcpy(&bits, bytes.data + (size_t)index * 4, 4);
+	return bits;
+}
+
+void WriteComponent(Slice<uint8> bytes, uint32 index, uint32 bits)
+{
+	assert((uint64)index * 4 + 4 <= bytes.count);
+	memcpy(bytes.data + (size_t)index * 4, &bits, 4);
+}
+
+float BitsToFloat(uint32 bits)
+{
+	float value;
+	memcpy(&value, &bits, 4);
+	return value;
+}
+
+uint32 FloatToBits(float value)
+{
+	uint32 bits;
+	memcpy(&bits, &value, 4);
+	return bits;
 }
 
 CompileShaderResult CompileShader(const CompileShaderOptions& options)
@@ -433,7 +525,7 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	{
 		ScriptError* error = arena->New<ScriptError>();
 		error->message = InternString(arena, StringView("no backend to compile the shader for"));
-		return { .errors = ToSlice(arena, { error }) };
+		return { .errors = ToSlice(arena, std::vector<ScriptError*>{ error }) };
 	}
 
 	Arena* intermediate_arena = CreateArena();
@@ -442,29 +534,30 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	// The shader is only converted, never run, so the context can go with the rest of the intermediate data.
 	Context context;
 	InitContext(context, intermediate_arena, ContextKind::SHADER);
+	context.error_arena = arena;
 
 	Parser parser = {
+		.context = context,
 		.source = (char*)source.CString(),
 		.head = (char*)source.CString(),
 		.arena = intermediate_arena,
-		.error_arena = arena,
 	};
 	Node* module = nullptr;
 	if (!Parse(parser, &module))
-		return { .errors = ToSlice(arena, parser.errors) };
+		return { .errors = ToSlice(arena, context.errors) };
 
-	Resolver resolver = { .context = &context, .arena = intermediate_arena, .error_arena = arena };
+	Resolver resolver = { .context = context, .arena = intermediate_arena };
 	if (!Resolve(resolver, module))
-		return { .errors = ToSlice(arena, resolver.errors) };
+		return { .errors = ToSlice(arena, context.errors) };
 
-	Typer typer = { .context = &context, .arena = intermediate_arena, .error_arena = arena };
+	Typer typer = { .context = context, .arena = intermediate_arena };
 	if (!TypeCheck(typer, module))
-		return { .errors = ToSlice(arena, typer.errors) };
+		return { .errors = ToSlice(arena, context.errors) };
 
-	ShaderInterfaceBuilder interface_builder = { .arena = intermediate_arena, .error_arena = arena };
+	ShaderInterfaceBuilder interface_builder = { .context = context, .arena = intermediate_arena };
 	ShaderInterface shader_interface;
 	if (!BuildShaderInterface(interface_builder, module, &shader_interface))
-		return { .errors = ToSlice(arena, interface_builder.errors) };
+		return { .errors = ToSlice(arena, context.errors) };
 
 	IRModule ir;
 	InitIRModule(ir, &context, intermediate_arena);
@@ -475,7 +568,6 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 	uint32 count = shader_interface.entry_points.count;
 	CompiledEntryPoint* entry_points = (CompiledEntryPoint*)arena->Allocate(count * sizeof(CompiledEntryPoint), alignof(CompiledEntryPoint));
 	uint32 index = 0;
-	std::vector<ScriptError*> errors; // limits of the target, see EmitSPIRV, EmitHLSL and EmitMSL
 	for (IRRef function = ir.first_function; function; function = ir[function].function.info->next)
 	{
 		EntryPoint* entry_point = ir[function].function.info->entry_point;
@@ -485,19 +577,18 @@ CompileShaderResult CompileShader(const CompileShaderOptions& options)
 		compiled = { .stage = entry_point->stage, .name = entry_point->function->name };
 		if (options.backend == Backend::VULKAN)
 		{
-			Slice<uint32> words = EmitSPIRV(ir, function, arena, errors);
+			Slice<uint32> words = EmitSPIRV(ir, function, arena);
 			compiled.code = Slice<uint8>((uint8*)words.data, words.count * 4);
 		}
 		else
 		{
-			ZTStringView text = options.backend == Backend::D3D11 ? EmitHLSL(ir, function, arena, errors)
-																  : EmitMSL(ir, function, arena, errors);
+			ZTStringView text = options.backend == Backend::D3D11 ? EmitHLSL(ir, function, arena) : EmitMSL(ir, function, arena);
 			compiled.code = Slice<uint8>(text.data, (uint32)text.length);
 		}
 	}
 	assert(index == count);
-	if (!errors.empty())
-		return { .errors = ToSlice(arena, errors) };
+	if (!context.errors.empty()) // limits of the target
+		return { .errors = ToSlice(arena, context.errors) };
 	return { .entry_points = Slice<CompiledEntryPoint>(entry_points, count) };
 }
 

@@ -1,19 +1,7 @@
 #include <EVA/Script/Script.hpp>
-#include <stdarg.h>
 
 namespace EVA::Script
 {
-
-ScriptError* EmitError(Resolver& resolver, const char* format, ...)
-{
-	ScriptError* error = resolver.error_arena->New<ScriptError>();
-	va_list args;
-	va_start(args, format);
-	error->message = avprintf(resolver.error_arena, format, args);
-	va_end(args);
-	resolver.errors.push_back(error);
-	return error;
-}
 
 static Scope* NewScope(Resolver& resolver, ScopeKind kind, Scope* parent)
 {
@@ -59,7 +47,7 @@ static bool Declare(Resolver& resolver, Atom name, Element* element)
 {
 	if (FindInScope(resolver.scope, name))
 	{
-		EmitError(resolver, "'%s' is already defined", GetAtomString(name, resolver.arena).CString());
+		EmitError(resolver.context, "'%s' is already defined", GetAtomNameCString(resolver.context, name));
 		return false;
 	}
 
@@ -111,7 +99,7 @@ static bool ResolveChildren(Resolver& resolver, Node* node)
 
 static bool ResolveNode(Resolver& resolver, Node* node)
 {
-	CHECK_RECURSION(resolver);
+	CHECK_RECURSION(resolver.context);
 	Scope* outer = resolver.scope;
 	DEFER(resolver.scope = outer);
 
@@ -120,7 +108,7 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 	case NodeType::MODULE:
 	{
 		// The module's names live in its own scope, under the global scope holding the built-ins.
-		node->scope = NewScope(resolver, ScopeKind::MODULE, resolver.context->global_scope);
+		node->scope = NewScope(resolver, ScopeKind::MODULE, resolver.context.global_scope);
 		resolver.scope = node->scope;
 		bool resolved = DeclareAhead(resolver, node);
 		return ResolveChildren(resolver, node) && resolved;
@@ -191,13 +179,13 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 
 		if (!definition)
 		{
-			EmitError(resolver, "unknown identifier '%s'", GetAtomString(node->name, resolver.arena).CString());
+			EmitError(resolver.context, "unknown identifier '%s'", GetAtomNameCString(resolver.context, node->name));
 			resolved = false;
 		}
 		else if (local && FindAncestorFunctionScope(found_in) != FindAncestorFunctionScope(resolver.scope))
 		{
-			EmitError(resolver, "'%s' belongs to an enclosing function, capturing isn't supported yet",
-				GetAtomString(node->name, resolver.arena).CString());
+			EmitError(resolver.context, "'%s' belongs to an enclosing function, capturing isn't supported yet",
+				GetAtomNameCString(resolver.context, node->name));
 			resolved = false;
 		}
 		else
@@ -215,8 +203,9 @@ static bool ResolveNode(Resolver& resolver, Node* node)
 
 bool Resolve(Resolver& resolver, Node* module)
 {
+	size_t errors = resolver.context.errors.size();
 	ResolveNode(resolver, module);
-	return resolver.errors.empty();
+	return resolver.context.errors.size() == errors;
 }
 
 }

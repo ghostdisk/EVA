@@ -1,5 +1,4 @@
 #include <EVA/Script/Script.hpp>
-#include <stdarg.h>
 #include <string.h>
 
 namespace EVA::Script
@@ -21,23 +20,12 @@ enum DeclarationRequire : uint32
 			return {}; \
 	} while (0)
 
-ScriptError* EmitError(Parser& parser, const char* format, ...)
-{
-	ScriptError* error = parser.error_arena->New<ScriptError>();
-	va_list args;
-	va_start(args, format);
-	error->message = avprintf(parser.error_arena, format, args);
-	va_end(args);
-	parser.errors.push_back(error);
-	return error;
-}
-
 static ScriptError* UnexpectedToken(Parser& parser)
 {
 	Token& token = parser.token;
 	if (token.token_type == TokenType::END_OF_FILE)
-		return EmitError(parser, "unexpected end of file");
-	return EmitError(parser, "unexpected token '%.*s'", (int)(token.end - token.start), token.start);
+		return EmitError(parser.context, "unexpected end of file");
+	return EmitError(parser.context, "unexpected token '%.*s'", (int)(token.end - token.start), token.start);
 }
 
 // Eats the current token if it's token_type, errors otherwise.
@@ -48,9 +36,9 @@ static bool ExpectToken(Parser& parser, TokenType token_type)
 	if (token.token_type != token_type)
 	{
 		if (token.token_type == TokenType::END_OF_FILE)
-			EmitError(parser, "unexpected end of file, expected '%s'", TokenToString(token_type).CString());
+			EmitError(parser.context, "unexpected end of file, expected '%s'", TokenToString(token_type).CString());
 		else
-			EmitError(parser, "unexpected token '%.*s', expected '%s'", (int)(token.end - token.start), token.start,
+			EmitError(parser.context, "unexpected token '%.*s', expected '%s'", (int)(token.end - token.start), token.start,
 				TokenToString(token_type).CString());
 		return false;
 	}
@@ -78,7 +66,7 @@ static const uint32 PREFIX_PRECEDENCE = 13;
 static const uint32 ASSIGNMENT_PRECEDENCE = 1;
 
 // Higher binds tighter. 0 if the token isn't a binary operator.
-static uint32 BinaryPrecedence(TokenType op)
+static uint32 GetBinaryPrecedence(TokenType op)
 {
 	switch (op)
 	{
@@ -115,13 +103,13 @@ static uint32 BinaryPrecedence(TokenType op)
 	}
 }
 
-static uint32 Precedence(const PendingOp& op)
+static uint32 GetPrecedence(const PendingOp& op)
 {
 	switch (op.kind)
 	{
 	case OpKind::PREFIX:
 	case OpKind::ARRAY: return PREFIX_PRECEDENCE;
-	case OpKind::INFIX: return BinaryPrecedence(op.op);
+	case OpKind::INFIX: return GetBinaryPrecedence(op.op);
 	}
 	return 0;
 }
@@ -200,7 +188,7 @@ static void ApplyOperatorsAbove(Parser& parser, size_t operator_base, uint32 pre
 {
 	while (parser.operators.size() > operator_base)
 	{
-		uint32 top = Precedence(parser.operators.back());
+		uint32 top = GetPrecedence(parser.operators.back());
 		if (top < precedence || (top == precedence && IsRightAssociative(precedence)))
 			break;
 		ApplyOperator(parser);
@@ -290,7 +278,7 @@ static Node* ParseBranch(Parser& parser)
 // expressions. Neither the condition nor the branches need brackets, since expressions end on their own.
 static Node* ParseIf(Parser& parser)
 {
-	CHECK_RECURSION(parser);
+	CHECK_RECURSION(parser.context);
 
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::IF);
@@ -336,7 +324,7 @@ static bool EndsWithBlock(Node* node)
 // for the caller. Leading attributes are attached to the resulting node.
 static Node* ParseExpressionAbove(Parser& parser, uint32 min_precedence)
 {
-	CHECK_RECURSION(parser);
+	CHECK_RECURSION(parser.context);
 
 	Node* attributes = nullptr;
 	TRY(ParseAttributes(parser, &attributes));
@@ -492,7 +480,7 @@ static Node* ParseExpressionAbove(Parser& parser, uint32 min_precedence)
 			continue;
 		}
 
-		uint32 precedence = BinaryPrecedence(token_type);
+		uint32 precedence = GetBinaryPrecedence(token_type);
 		if (!precedence || precedence < min_precedence)
 			break;
 
@@ -545,7 +533,7 @@ static Node* ParseReturn(Parser& parser)
 
 Node* ParseStatement(Parser& parser)
 {
-	CHECK_RECURSION(parser);
+	CHECK_RECURSION(parser.context);
 
 	TRY(LexToken(parser));
 	switch (parser.token.token_type)
@@ -630,7 +618,7 @@ static bool ParseDeclarationBody(Parser& parser, Node* node, uint32 required)
 	}
 	else if (required & REQUIRE_TYPE)
 	{
-		EmitError(parser, "'%s' needs a type", name);
+		EmitError(parser.context, "'%s' needs a type", name);
 		return false;
 	}
 
@@ -646,12 +634,12 @@ static bool ParseDeclarationBody(Parser& parser, Node* node, uint32 required)
 	}
 	else if (required & REQUIRE_VALUE)
 	{
-		EmitError(parser, "'%s' needs a value", name);
+		EmitError(parser.context, "'%s' needs a value", name);
 		return false;
 	}
 	if ((required & REQUIRE_TYPE_OR_VALUE) && !has_type && !has_value)
 	{
-		EmitError(parser, "'%s' needs a type or a value", name);
+		EmitError(parser.context, "'%s' needs a type or a value", name);
 		return false;
 	}
 	return true;
@@ -682,7 +670,7 @@ static Node* ParseTypedDeclaration(Parser& parser, NodeType type)
 // function name(parameters) [: return_type] { body }
 static Node* ParseFunction(Parser& parser)
 {
-	CHECK_RECURSION(parser); // functions can be declared in function bodies
+	CHECK_RECURSION(parser.context); // functions can be declared in function bodies
 
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::FUNCTION);
@@ -757,7 +745,7 @@ static Node* ParseLet(Parser& parser)
 // struct name { [attributes] name: type [= value]; ... }
 static Node* ParseStruct(Parser& parser)
 {
-	CHECK_RECURSION(parser); // structs don't nest yet, but may
+	CHECK_RECURSION(parser.context); // structs don't nest yet, but may
 
 	EatToken(parser);
 	Node* node = NewNode(parser, NodeType::STRUCT);

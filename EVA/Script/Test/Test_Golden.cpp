@@ -170,32 +170,32 @@ Node* FrontEnd(Test::Context& test, const GoldenCase& golden, Context& context, 
 	ShaderInterface* out_interface)
 {
 	const char* file = golden.source.c_str();
-	Parser parser = { .source = (char*)source, .head = (char*)source, .arena = test.arena, .error_arena = test.arena };
+	Parser parser = { .context = context, .source = (char*)source, .head = (char*)source, .arena = test.arena };
 	Node* module = nullptr;
 	if (!Parse(parser, &module))
 	{
-		Test::ReportFailure(test, file, 1, "failed to parse:\n    %s", JoinErrors(test.arena, parser.errors).CString());
+		Test::ReportFailure(test, file, 1, "failed to parse:\n    %s", JoinErrors(test.arena, context.errors).CString());
 		return nullptr;
 	}
-	Resolver resolver = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	Resolver resolver = { .context = context, .arena = test.arena };
 	if (!Resolve(resolver, module))
 	{
-		Test::ReportFailure(test, file, 1, "failed to resolve:\n    %s", JoinErrors(test.arena, resolver.errors).CString());
+		Test::ReportFailure(test, file, 1, "failed to resolve:\n    %s", JoinErrors(test.arena, context.errors).CString());
 		return nullptr;
 	}
-	Typer typer = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	Typer typer = { .context = context, .arena = test.arena };
 	if (!TypeCheck(typer, module))
 	{
-		Test::ReportFailure(test, file, 1, "failed to type:\n    %s", JoinErrors(test.arena, typer.errors).CString());
+		Test::ReportFailure(test, file, 1, "failed to type:\n    %s", JoinErrors(test.arena, context.errors).CString());
 		return nullptr;
 	}
 	if (out_interface)
 	{
-		ShaderInterfaceBuilder builder = { .arena = test.arena, .error_arena = test.arena };
+		ShaderInterfaceBuilder builder = { .context = context, .arena = test.arena };
 		if (!BuildShaderInterface(builder, module, out_interface))
 		{
 			Test::ReportFailure(test, file, 1, "failed in the interface pass:\n    %s",
-				JoinErrors(test.arena, builder.errors).CString());
+				JoinErrors(test.arena, context.errors).CString());
 			return nullptr;
 		}
 	}

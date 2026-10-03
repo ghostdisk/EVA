@@ -29,26 +29,6 @@ namespace EVA::Script
 namespace
 {
 
-PrimitiveKind ScalarKind(Type* type)
-{
-	if (type->type_kind == TypeKind::MATRIX)
-		return ((MatrixType*)type)->element->primitive_kind;
-	return ComponentType(type)->primitive_kind;
-}
-
-const char* ScalarName(PrimitiveKind kind)
-{
-	switch (kind)
-	{
-	case PrimitiveKind::VOID: return "void";
-	case PrimitiveKind::BOOL: return "bool";
-	case PrimitiveKind::SIGNED: return "int";
-	case PrimitiveKind::UNSIGNED: return "uint";
-	case PrimitiveKind::FLOAT: return "float";
-	}
-	return "?";
-}
-
 struct Emitter
 {
 	IRModule& module;
@@ -89,18 +69,18 @@ struct Emitter
 		ZTStringView name;
 		switch (type->type_kind)
 		{
-		case TypeKind::PRIMITIVE: name = ScalarName(((PrimitiveType*)type)->primitive_kind); break;
+		case TypeKind::PRIMITIVE: name = GetScalarName(((PrimitiveType*)type)->primitive_kind); break;
 		case TypeKind::VECTOR:
 		{
 			VectorType* vector = (VectorType*)type;
-			name = Print("%s%u", ScalarName(vector->element->primitive_kind), vector->count);
+			name = Print("%s%u", GetScalarName(vector->element->primitive_kind), vector->count);
 			break;
 		}
 		case TypeKind::MATRIX:
 		{
 			// MSL's matrices are column-major like the IR's, floatCxR.
 			MatrixType* matrix = (MatrixType*)type;
-			name = Print("%s%ux%u", ScalarName(matrix->element->primitive_kind), matrix->columns, matrix->rows);
+			name = Print("%s%ux%u", GetScalarName(matrix->element->primitive_kind), matrix->columns, matrix->rows);
 			break;
 		}
 		case TypeKind::STRUCT:
@@ -161,8 +141,7 @@ struct Emitter
 	// zero and denormals are written as their bits, which Metal keeps exactly.
 	void AppendFloat(StringBuilder& text, uint32 bits)
 	{
-		float value;
-		memcpy(&value, &bits, 4);
+		float value = BitsToFloat(bits);
 		bool denormal = (bits & 0x7F800000) == 0 && (bits & 0x007FFFFF) != 0;
 		if (!isfinite(value) || denormal || bits == 0x80000000)
 		{
@@ -372,7 +351,7 @@ struct Emitter
 		IRValue& value = module[ref];
 		Slice<IRRef> o = GetIROperands(module, ref);
 		Type* type = value.type;
-		bool logical = type && type->type_kind != TypeKind::POINTER && ScalarKind(type) == PrimitiveKind::BOOL;
+		bool logical = type && type->type_kind != TypeKind::POINTER && GetScalarKind(type) == PrimitiveKind::BOOL;
 		switch (value.op)
 		{
 		case IROp::LOAD: Define(ref, Operand(o[0])); break;
@@ -422,7 +401,7 @@ struct Emitter
 		case IROp::SHUFFLE:
 		{
 			static const char COMPONENTS[] = "xyzw";
-			uint32 first_count = ComponentCount(module[o[0]].type);
+			uint32 first_count = GetComponentCount(module[o[0]].type);
 			StringBuilder text(arena);
 			text.AppendFormat("%s(", TypeName(type));
 			for (uint32 i = 2; i < o.count; ++i)
@@ -442,7 +421,7 @@ struct Emitter
 		case IROp::DIV: Define(ref, ComponentWise(type, o, "%s / %s")); break;
 		case IROp::REM:
 			// fmod truncates like C's integer %, the same as HLSL's % and SPIR-V's OpFRem.
-			Define(ref, ComponentWise(type, o, ScalarKind(type) == PrimitiveKind::FLOAT ? "fmod(%s, %s)" : "%s %% %s"));
+			Define(ref, ComponentWise(type, o, GetScalarKind(type) == PrimitiveKind::FLOAT ? "fmod(%s, %s)" : "%s %% %s"));
 			break;
 		case IROp::NEG: Define(ref, Print("-%s", Operand(o[0]))); break;
 		case IROp::AND: Define(ref, Binary(o, logical ? "&&" : "&")); break;
@@ -653,7 +632,7 @@ struct Emitter
 		if (!vertex && !input)
 			return Print("[[color(%u)]]", io->location);
 		// Integers between stages can't be interpolated.
-		bool flat = !vertex && ScalarKind(io->type) != PrimitiveKind::FLOAT;
+		bool flat = !vertex && GetScalarKind(io->type) != PrimitiveKind::FLOAT;
 		return Print("[[user(locn%u)%s]]", io->location, flat ? ", flat" : "");
 	}
 
@@ -768,9 +747,8 @@ struct Emitter
 
 }
 
-ZTStringView EmitMSL(IRModule& module, IRRef wrapper, Arena* arena, std::vector<ScriptError*>& errors)
+ZTStringView EmitMSL(IRModule& module, IRRef wrapper, Arena* arena)
 {
-	(void)errors; // no limits of Metal's are checked yet
 	Emitter emitter = { .module = module, .context = *module.context, .arena = module.arena };
 	return emitter.Module(wrapper, arena);
 }

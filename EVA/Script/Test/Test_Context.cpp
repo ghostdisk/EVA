@@ -87,7 +87,7 @@ TEST(Context, RejectedInstancesAreNotCached)
 {
 	Context context;
 	InitContext(context, test.arena, ContextKind::SCRIPT);
-	Typer typer = { .context = &context, .arena = test.arena, .error_arena = test.arena };
+	Typer typer = { .context = context, .arena = test.arena };
 
 	uint32 length = 0;
 	Constant constant;
@@ -97,8 +97,8 @@ TEST(Context, RejectedInstancesAreNotCached)
 	size_t cached = context.instances.size(); // the named vectors and matrices
 	CHECK(!Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), &typer));
 	CHECK(!Instantiate(context, context.array_generic, Slice<GenericArg>(args, 2), &typer));
-	REQUIRE(typer.errors.size() == 2);
-	CHECK(typer.errors[0]->message == "array size must be at least 1, got 0");
+	REQUIRE(context.errors.size() == 2);
+	CHECK(context.errors[0]->message == "array size must be at least 1, got 0");
 	CHECK_EQ(context.instances.size(), cached);
 }
 
